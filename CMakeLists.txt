@@ -18,7 +18,11 @@ catkin_simple()
 cs_add_library(${PROJECT_NAME}
 #
 )
-# target_link_libraries(${PROJECT_NAME} kimera_vio)
+target_link_libraries(${PROJECT_NAME} 
+  ${catkin_LIBRARIES}
+  ${Boost_LIBRARIES}
+  gtsam
+)
 
 # cs_add_executable(${PROJECT_NAME}_node
   # src/KimeraVioRosNode.cpp
