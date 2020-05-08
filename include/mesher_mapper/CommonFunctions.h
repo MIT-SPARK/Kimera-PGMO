@@ -10,10 +10,8 @@
 
 #include <pcl/PolygonMesh.h>
 
-using pcl::PolygonMesh;
-
 namespace mesher_mapper {
 
-void ReadMeshFromPly(const std::string& filename, PolygonMesh* mesh);
+void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh);
 
 }  // namespace mesher_mapper

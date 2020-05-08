@@ -10,7 +10,8 @@
 
 namespace mesher_mapper {
 
-void ReadMeshFromPly(const std::string& filename, PolygonMesh* mesh) {
+void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh) {
+  std::cout << "filename: " << filename << std::endl;
   pcl::PLYReader ply_reader;
   ply_reader.read(filename, *mesh);
 }

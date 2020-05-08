@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package format="2">
   <name>mesher_mapper</name>
-  <version>0.1</version>
+  <version>0.0.1</version>
   <description>Mesh Mapping Library</description>
 
   <maintainer email="yunchang@mit.edu">Yun Chang</maintainer>
@@ -12,7 +12,8 @@
   <buildtool_depend>catkin_simple</buildtool_depend>
 
   <depend>gtsam</depend>
-  
+  <depend>Eigen</depend>
+
   <depend>roscpp</depend>
   <depend>std_msgs</depend>
   <depend>sensor_msgs</depend>

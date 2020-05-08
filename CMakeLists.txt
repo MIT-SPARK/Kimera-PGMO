@@ -1,22 +1,27 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.5)
 project(mesher_mapper)
+
+SET(CMAKE_BUILD_TYPE Release)
 
 find_package(catkin_simple REQUIRED)
 
-### System Dependencies
-find_package(Boost REQUIRED COMPONENTS
-  serialization system filesystem thread date_time regex timer chrono)
-if(NOT TARGET Boost::boost)
-  add_library(Boost::boost INTERFACE IMPORTED)
-  set_target_properties(Boost::boost PROPERTIES
-  INTERFACE_LINK_LIBRARIES "${Boost_LIBRARIES}"
-  INTERFACE_INCLUDE_DIRECTORIES "${Boost_INCLUDE_DIRS}")
-endif()
+find_package(Boost REQUIRED
+  date_time
+  serialization
+  thread
+  filesystem
+  system
+  regex
+  timer
+  chrono
+)
 
 catkin_simple()
 
 cs_add_library(${PROJECT_NAME}
-#
+src/CommonFunctions.cpp
+src/DeformationGraph.cpp
+src/CommonStructs.cpp
 )
 target_link_libraries(${PROJECT_NAME} 
   ${catkin_LIBRARIES}
@@ -24,15 +29,10 @@ target_link_libraries(${PROJECT_NAME}
   gtsam
 )
 
-# cs_add_executable(${PROJECT_NAME}_node
-  # src/KimeraVioRosNode.cpp
-# )
-# target_link_libraries(${PROJECT_NAME}_node ${PROJECT_NAME})
-
-# catkin_add_gtest(testKimeraVioRos
-  # test/testKimeraVioRos.cpp
-# )
-# target_link_libraries(testKimeraVioRos ${PROJECT_NAME})
+cs_add_executable(example_from_ply
+  src/example_from_ply.cpp
+)
+target_link_libraries(example_from_ply ${PROJECT_NAME})
 
 cs_install()
 
