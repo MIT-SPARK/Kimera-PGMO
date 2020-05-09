@@ -22,6 +22,7 @@ cs_add_library(${PROJECT_NAME}
 src/CommonFunctions.cpp
 src/DeformationGraph.cpp
 src/CommonStructs.cpp
+src/AlliezDesbrunCompression.cpp
 )
 target_link_libraries(${PROJECT_NAME} 
   ${catkin_LIBRARIES}

@@ -56,7 +56,7 @@ void Graph::addBidirectionEdge(const Edge& e) {
 
 bool Graph::createFromPclMesh(const pcl::PolygonMesh& mesh) {
   size_t n = mesh.cloud.data.size();
-  vertices_ = std::vector<size_t>(n);
+  vertices_ = std::vector<Vertex>(n);
   std::iota(std::begin(vertices_), std::end(vertices_), 0);
   for (pcl::Vertices polygon : mesh.polygons) {
     for (size_t i; i < polygon.vertices.size(); i++) {
@@ -66,20 +66,5 @@ bool Graph::createFromPclMesh(const pcl::PolygonMesh& mesh) {
     }
   }
 }
-
-bool Polygon::equal(const Polygon& p) const {
-	vertices_equl = false; 
-	p_starting_idx = 0; 
-	while p_starting_idx < p.num_vertices(); 
-	// If vertex labels populated check that also 
-	vertex_labels_equal = false; 
-	if (vertex)
-	//
-}
-  Polygon combine(const Polygon& p) const;
-  void triangulate(std::shared_ptr<std::vector<Polygon>> trianlges_ptr);
-  void triangulateWithRefidx(
-      const Vertices& ref_indices,
-      std::shared_ptr<std::vector<Polygon>> triangles_ptr);
 
 }  // namespace mesher_mapper

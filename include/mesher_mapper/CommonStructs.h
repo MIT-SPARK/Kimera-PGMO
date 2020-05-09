@@ -14,7 +14,7 @@
 
 namespace mesher_mapper {
 
-typedef size_t Vertex;
+typedef unsigned int Vertex;
 typedef std::vector<Vertex> Vertices;
 typedef std::map<Vertex, Vertices> Edges;
 typedef std::pair<Vertex, Vertex> Edge;

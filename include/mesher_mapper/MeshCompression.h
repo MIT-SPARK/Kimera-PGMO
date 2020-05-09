@@ -5,12 +5,14 @@
  */
 #include <map>
 
-#include <gtsam/geometry/Pose3.h>
 #include <pcl/PolygonMesh.h>
+#include <Eigen/Dense>
 
 #include "mesher_mapper/CommonStructs.h"
 
 namespace mesher_mapper {
+
+typedef Eigen::Vector3d Pointxyz; 
 
 class MeshCompression {
  public:
@@ -25,8 +27,8 @@ class MeshCompression {
 
  protected:
   Graph mesh_graph_;
-  PolygonMesh original_mesh_;
-  PolygonMesh base_mesh_;
-  std::map<Vertex, gtsam::Pose3> vertex_positions_;
+  pcl::PolygonMesh original_mesh_;
+  pcl::PolygonMesh base_mesh_;
+  std::map<Vertex, Pointxyz> vertex_positions_;
 };
 }  // namespace mesher_mapper

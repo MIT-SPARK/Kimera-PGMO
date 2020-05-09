@@ -7,8 +7,10 @@
 
 #include <algorithm>
 #include <memory>
+#include <string>
 #include <vector>
 
+namespace mesher_mapper {
 template <class T>
 class Polygon {
  public:
@@ -19,8 +21,8 @@ class Polygon {
   std::vector<T> vertices_;  // vertices such that polygon
                              // always on left
  public:
-  Polygon::Polygon(std::vector<T> vertices) { vertices_ = vertices; }
-  Polygon::~Polygon() {}
+  Polygon(std::vector<T> vertices) { vertices_ = vertices; }
+  ~Polygon() {}
 
   bool equal(const Polygon& p) const {
     if (getNumVertices() != p.getNumVertices()) return false;
@@ -36,7 +38,8 @@ class Polygon {
     // First find the common vertices
     // Asuming that the polygon has no holes
     std::vector<T> p_vertices = p.getVertices();
-    std::vector<std::pain<size_t, size_t>> common_vertices_indx;
+    // Get the indices of the common vertices
+    std::vector<std::pair<size_t, size_t>> common_vertices;
     for (size_t i = 0; i < vertices_.size(); i++) {
       for (size_t j = 0; j < p_vertices.size(); j++) {
         if (vertices_[i] == p_vertices[j]) {
@@ -49,8 +52,9 @@ class Polygon {
     size_t new_polygon_size =
         vertices_.size() + p_vertices.size() - common_vertices.size();
     new_vertices.reserve(new_polygon_size);
-    for (size_t i = 0; i < common_vertices[i].first; i++) {
-      new_vertices[i] = vertices_[i];
+    for (size_t i = 0; i < common_vertices[0].first; i++) {
+      std::cout << i << " " << vertices_[i] << std::endl;
+      new_vertices.push_back(vertices_[i]);
     }
     std::rotate(p_vertices.begin(),
                 p_vertices.begin() + common_vertices[0].second,
@@ -62,10 +66,10 @@ class Polygon {
     size_t last_vertex_to_add =
         common_vertices[k].second - common_vertices[0].second;
     for (size_t i = 0; i < last_vertex_to_add; i++) {
-      new_vertices[common_vertices[0].first + i] = p_vertices[i];
+      new_vertices.push_back(p_vertices[i]);
     }
     for (size_t i = common_vertices[k].first; i < vertices_.size(); i++) {
-      new_vertices[last_vertex_to_add + i] = vertices_[i];
+      new_vertices.push_back(vertices_[i]);
     }
 
     Polygon new_polygon(new_vertices);
@@ -98,23 +102,39 @@ class Polygon {
 
     // Push back last triangle
     std::vector<T> last_triangle;
-    for (size_t idx : ref_idx) {
+    for (size_t idx : ref_indices) {
       last_triangle.push_back(vertices_copy[idx]);
     }
-    trianlges_ptr->push_back(Polygon(last_triangle));
+    triangles_ptr->push_back(Polygon(last_triangle));
 
     std::vector<T> new_triangle{vertices_copy[0]};
-    for (size_t i = 1; i < vertices_copy.size(); i++) {
+    ref_indices.erase(ref_indices.begin());
+    for (size_t i = 1; i < vertices_copy.size() + 1; i++) {
       // Push new vertex to new triangle
       new_triangle.push_back(vertices_copy[i]);
-      if (i == ref_idx[0]) {
+      if (i == ref_indices[0]) {
         // Push and reset triangle
-        if (new_polygon.getNumVertices() == 3) {
+        if (new_triangle.size() == 3) {
           triangles_ptr->push_back(Polygon(new_triangle));
-          new_triangle = std::vector<T> { vertices_[i] }
+          new_triangle = std::vector<T>{vertices_[i]};
         }
-        ref_indices.erase(ref_indices.begin())
+        ref_indices.erase(ref_indices.begin());
+      }
+      // For very last idx need to cycle back to first 
+      if (i == vertices_copy.size() - 1) {
+        new_triangle.push_back(vertices_copy[0]);
+        triangles_ptr->push_back(Polygon(new_triangle));
       }
     }
   }
+
+  void print(std::string heading = "") const {
+    // Print polygon
+    std::cout << heading << " : ";
+    for (T i : vertices_) {
+      std::cout << i << " ";
+    }
+    std::cout << std::endl;
+  }
 };
+}  // namespace mesher_mapper
