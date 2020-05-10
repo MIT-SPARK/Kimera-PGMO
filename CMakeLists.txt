@@ -16,6 +16,11 @@ find_package(Boost REQUIRED
   chrono
 )
 
+find_package(PCL REQUIRED COMPONENTS common visualization)
+include_directories(${PCL_INCLUDE_DIRS})
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
+
 catkin_simple()
 
 cs_add_library(${PROJECT_NAME}
@@ -27,6 +32,7 @@ src/AlliezDesbrunCompression.cpp
 target_link_libraries(${PROJECT_NAME} 
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}
+  ${PCL_LIBRARIES}
   gtsam
 )
 

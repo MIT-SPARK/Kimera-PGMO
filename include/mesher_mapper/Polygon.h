@@ -38,40 +38,85 @@ class Polygon {
     // First find the common vertices
     // Asuming that the polygon has no holes
     std::vector<T> p_vertices = p.getVertices();
-    // Get the indices of the common vertices
-    std::vector<std::pair<size_t, size_t>> common_vertices;
+    // Get the common edges
+    std::vector<std::pair<size_t, size_t>> common_edges_in_self;
+    std::vector<std::pair<size_t, size_t>> common_edges_in_p;
     for (size_t i = 0; i < vertices_.size(); i++) {
+      std::pair<T, T> edge(vertices_[i], vertices_[(i + 1) % vertices_.size()]);
       for (size_t j = 0; j < p_vertices.size(); j++) {
-        if (vertices_[i] == p_vertices[j]) {
-          common_vertices.push_back(std::pair<size_t, size_t>(i, j));
+        // Note with correct orientation, the common edge would be flipped in
+        // direction
+        if (edge.second == p_vertices[j] and
+            edge.first == p_vertices[(j + 1) % p_vertices.size()]) {
+          common_edges_in_self.push_back(
+              std::pair<size_t, size_t>(i, (i + 1) % vertices_.size()));
+          common_edges_in_p.push_back(
+              std::pair<size_t, size_t>(j, (j + 1) % p_vertices.size()));
+          break;
         }
       }
     }
-    // First remove the common vertices (if no hole should be consecutive
+    // First add from self polygon until reaching a common edge
     std::vector<T> new_vertices;
-    size_t new_polygon_size =
-        vertices_.size() + p_vertices.size() - common_vertices.size();
-    new_vertices.reserve(new_polygon_size);
-    for (size_t i = 0; i < common_vertices[0].first; i++) {
-      std::cout << i << " " << vertices_[i] << std::endl;
-      new_vertices.push_back(vertices_[i]);
-    }
-    std::rotate(p_vertices.begin(),
-                p_vertices.begin() + common_vertices[0].second,
-                p_vertices.end());
-    // here bascially we are doing (a + b)
-    // new vertices: a1 a2 a3 b2 b3 b4 b5 a5 a6
-    // if a4 == b2 and a5 == b6
-    size_t k = common_vertices.size() - 1;
-    size_t last_vertex_to_add =
-        common_vertices[k].second - common_vertices[0].second;
-    for (size_t i = 0; i < last_vertex_to_add; i++) {
-      new_vertices.push_back(p_vertices[i]);
-    }
-    for (size_t i = common_vertices[k].first; i < vertices_.size(); i++) {
-      new_vertices.push_back(vertices_[i]);
+    T first_intersection;
+    size_t pushed_idx = 0;
+    for (size_t i = 0; i < vertices_.size(); i++) {
+      // check if in common edges
+      std::pair<size_t, size_t> e(i, (i + 1) % vertices_.size());
+      std::vector<std::pair<size_t, size_t>>::iterator it;
+      it = std::find(
+          common_edges_in_self.begin(), common_edges_in_self.end(), e);
+      if (it != common_edges_in_self.end()) {
+        first_intersection = vertices_[i];
+        break;
+      } else {
+        new_vertices.push_back(vertices_[i]);
+        pushed_idx = i;
+      }
     }
 
+    // Find position of first vertex in common edge reached
+    typename std::vector<T>::iterator it_p;
+    it_p = std::find(p_vertices.begin(), p_vertices.end(), first_intersection);
+    std::rotate(p_vertices.begin(), it_p, p_vertices.end());
+    size_t shift = it_p - p_vertices.begin();
+
+    T second_intersection;
+    // Add from p until reach common edge
+    for (size_t i = 0; i < p_vertices.size(); i++) {
+      // check if in common edges
+      std::pair<size_t, size_t> e((i + shift) % p_vertices.size(),
+                                  (i + shift + 1) % p_vertices.size());
+      std::vector<std::pair<size_t, size_t>>::iterator it;
+      it = std::find(common_edges_in_p.begin(), common_edges_in_p.end(), e);
+      if (it != common_edges_in_p.end()) {
+        second_intersection = p_vertices[i];
+        break;
+      } else {
+        new_vertices.push_back(p_vertices[i]);
+      }
+    }
+
+    // Back to self and add till end
+    // Find position of first vertex in common edge reached
+    typename std::vector<T>::const_iterator it_s;
+    it_s = std::find(vertices_.begin(), vertices_.end(), second_intersection);
+    size_t intersection_idx = it_s - vertices_.begin();
+    // Add from p until reach common edge
+    if (intersection_idx > pushed_idx) {
+      for (size_t i = intersection_idx; i < vertices_.size(); i++) {
+        // check if in common edges
+        std::pair<size_t, size_t> e(i, (i + 1) % vertices_.size());
+        std::vector<std::pair<size_t, size_t>>::iterator it;
+        it = std::find(
+            common_edges_in_self.begin(), common_edges_in_self.end(), e);
+        if (it != common_edges_in_self.end()) {
+          break;
+        } else {
+          new_vertices.push_back(vertices_[i]);
+        }
+      }
+    }
     Polygon new_polygon(new_vertices);
     return new_polygon;
   }
@@ -101,11 +146,13 @@ class Polygon {
     }
 
     // Push back last triangle
-    std::vector<T> last_triangle;
-    for (size_t idx : ref_indices) {
-      last_triangle.push_back(vertices_copy[idx]);
+    if (ref_indices.size() == 3) {
+      std::vector<T> last_triangle;
+      for (size_t idx : ref_indices) {
+        last_triangle.push_back(vertices_copy[idx]);
+      }
+      triangles_ptr->push_back(Polygon(last_triangle));
     }
-    triangles_ptr->push_back(Polygon(last_triangle));
 
     std::vector<T> new_triangle{vertices_copy[0]};
     ref_indices.erase(ref_indices.begin());
@@ -120,8 +167,8 @@ class Polygon {
         }
         ref_indices.erase(ref_indices.begin());
       }
-      // For very last idx need to cycle back to first 
-      if (i == vertices_copy.size() - 1) {
+      // For very last idx need to cycle back to first
+      if (vertices_.size() % 2 == 0 and i == vertices_copy.size() - 1) {
         new_triangle.push_back(vertices_copy[0]);
         triangles_ptr->push_back(Polygon(new_triangle));
       }

@@ -7,6 +7,7 @@
 #pragma once
 
 #include <map>
+#include <string>
 #include <utility>
 #include <vector>
 
@@ -22,14 +23,16 @@ typedef std::pair<Vertex, Vertex> Edge;
 class Graph {
  public:
   inline Vertices getValence(const Vertex& v) const { return edges_.at(v); }
+  inline Vertices getVertices() const { return vertices_; }
 
-  void addBidirectionEdge(const Edge& e);
-  void addBidirectionEdgeAndVertices(const Edge& e);
+  void addEdge(const Edge& e);
+  void addEdgeAndVertices(const Edge& e);
 
   bool createFromPclMesh(const pcl::PolygonMesh& mesh);
+  void print(std::string header) const;
 
  private:
-  std::vector<Vertex> vertices_;
+  Vertices vertices_;
   Edges edges_;
 };
 

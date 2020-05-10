@@ -23,16 +23,20 @@ class AlliezDesbrunCompression : public MeshCompression {
   bool process();
 
  private:
-  size_t level_of_detail_;
+  bool reset(const pcl::PolygonMesh& mesh);
 
   std::map<Vertex, VertexStatus> vertex_status_;
   std::map<Vertex, std::vector<Polygon<Vertex>>> vertex_to_triangle_;
+  std::vector<Polygon<Vertex>> mesh_surfaces_;
 
-  void decimatingConquest(pcl::PolygonMeshPtr output_mesh,
-                          GraphPtr ouput_graph);
+  void decimatingConquest(size_t max_valence,
+                          size_t min_valence,
+                          pcl::PolygonMeshPtr output_mesh);
 
   bool getFrontVertex(const Edge& e, Vertex* v) const;
 
   std::vector<size_t> findTriangulationIndex(Polygon<Vertex> p) const;
+
+  size_t level_of_detail_;
 };
 }  // namespace mesher_mapper
