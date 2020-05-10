@@ -1,6 +1,6 @@
 /**
- * @file   example_from_ply.cpp
- * @brief  Demo for mesh distortion by importing from ply file
+ * @file   alliez_desbrun.cpp
+ * @brief  Demo for mesh compression
  * @author Yun Chang
  */
 #include <iostream>

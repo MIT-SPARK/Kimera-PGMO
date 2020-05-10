@@ -28,6 +28,7 @@ src/CommonFunctions.cpp
 src/DeformationGraph.cpp
 src/CommonStructs.cpp
 src/AlliezDesbrunCompression.cpp
+src/OctreeCompression.cpp
 )
 target_link_libraries(${PROJECT_NAME} 
   ${catkin_LIBRARIES}
@@ -36,10 +37,10 @@ target_link_libraries(${PROJECT_NAME}
   gtsam
 )
 
-cs_add_executable(example_from_ply
-  src/example_from_ply.cpp
+cs_add_executable(alliez_desbrun
+  src/alliez_desbrun.cpp
 )
-target_link_libraries(example_from_ply ${PROJECT_NAME})
+target_link_libraries(alliez_desbrun ${PROJECT_NAME})
 
 cs_install()
 

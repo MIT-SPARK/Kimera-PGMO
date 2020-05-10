@@ -3,9 +3,6 @@
  * @brief  Simplify and reconstruct meshes Alliez Desbrun 2001
  * @author Yun Chang
  */
-
-#include <random>
-
 #include <pcl/PCLPointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <ros/ros.h>
@@ -13,16 +10,6 @@
 #include "mesher_mapper/AlliezDesbrunCompression.h"
 
 namespace mesher_mapper {
-
-//// For debugging and printing VertexStatus
-const char* status_string(VertexStatus s) {
-  const std::map<VertexStatus, const char*> status_strings{
-      {VertexStatus::UNCONQUERED, "UNCONQUERED"},
-      {VertexStatus::CONQUERED, "CONQUERED"},
-      {VertexStatus::REMOVED, "REMOVED"}};
-  auto it = status_strings.find(s);
-  return it == status_strings.end() ? "Out of range" : it->second;
-}
 
 // AlliezDesbrunCompression class definitions
 
