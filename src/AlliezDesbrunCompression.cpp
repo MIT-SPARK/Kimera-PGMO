@@ -37,7 +37,7 @@ bool AlliezDesbrunCompression::process() {
   reset(base_mesh_);
   // cleaning conquest
   pcl::PolygonMeshPtr cleaned_mesh(new pcl::PolygonMesh());
-  decimatingConquest(3, 3, cleaned_mesh);
+  decimatingConquest(3, 0, cleaned_mesh);
   base_mesh_ = *cleaned_mesh;
   reset(base_mesh_);
 }

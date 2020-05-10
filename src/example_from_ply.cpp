@@ -32,8 +32,8 @@ int main(int argc, char* argv[]) {
   boost::shared_ptr<pcl::visualization::PCLVisualizer> viewer(
       new pcl::visualization::PCLVisualizer("3D Viewer"));
   viewer->setBackgroundColor(0, 0, 0);
-  // viewer->addPolygonMesh(*input_mesh, "input mesh");
-  // viewer->spin();
+  viewer->addPolygonMesh(*input_mesh, "input mesh");
+  viewer->spin();
   AlliezDesbrunCompression ad_compress;
   ad_compress.setInputMesh(input_mesh);
   ad_compress.process();
@@ -43,8 +43,9 @@ int main(int argc, char* argv[]) {
             << input_mesh->polygons.size() << std::endl;
   std::cout << "number of triangles of simplifed mesh: "
             << simplified_mesh->polygons.size() << std::endl;
-  // viewer->removePolygonMesh("input_mesh");
   viewer->addPolygonMesh(*simplified_mesh, "simplified mesh");
+  viewer->removePolygonMesh("input mesh");
+
   viewer->spin();
 
   return 1;
