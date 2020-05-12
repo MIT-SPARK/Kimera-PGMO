@@ -34,7 +34,7 @@ class Polygon {
     return false;
   }
 
-  Polygon combine(const Polygon& p) const {
+  bool combine(const Polygon& p, Polygon* result) const {
     // First find the common vertices
     // Asuming that the polygon has no holes
     std::vector<T> p_vertices = p.getVertices();
@@ -56,6 +56,10 @@ class Polygon {
         }
       }
     }
+    if (common_edges_in_self.size() == 0) {
+      return false;
+    }
+    std::cout << "common edes size: " << common_edges_in_self.size() << std::endl;
     // First add from self polygon until reaching a common edge
     std::vector<T> new_vertices;
     T first_intersection;
@@ -117,21 +121,32 @@ class Polygon {
         }
       }
     }
+    if (new_vertices.size() == 0) {
+      *result = Polygon(vertices_);
+      return true;
+    }
     Polygon new_polygon(new_vertices);
-    return new_polygon;
+    *result = new_polygon;
+    return true;
   }
 
-  void triangulate(std::shared_ptr<std::vector<Polygon>> trianlges_ptr) {
-    // TODO
+  std::vector<size_t> findTriangulationIndex(size_t num_vertices) const {
+    // For now choose basic one (ie 0, 2, 4, ...)
+    std::vector<size_t> indices;
+    for (size_t i = 0; i < num_vertices; i++) {
+      if (i % 2 == 0) {
+        indices.push_back(i);
+      }
+    }
+    return indices;
   }
 
   void triangulateWithRefidx(
       std::vector<size_t> ref_indices,
       std::shared_ptr<std::vector<Polygon>> triangles_ptr) {
-    if (ref_indices.size() > 3) {
-      std::cout << "triangulateWithRefidx: For now only supports polygons with "
-                   "less than 7 vertices"
-                << std::endl;
+    if (vertices_.size() == 3) {
+      triangles_ptr->push_back(Polygon(vertices_));
+      return;
     }
     // sort vector from low to high indices
     std::sort(ref_indices.begin(), ref_indices.end());
@@ -145,13 +160,17 @@ class Polygon {
       ref_indices[i] = ref_indices[i] - first_index;
     }
 
-    // Push back last triangle
-    if (ref_indices.size() == 3) {
-      std::vector<T> last_triangle;
+    // Get the middle patch as defined by the ref indices
+    if (ref_indices.size() > 2) {
+      std::vector<T> middle_patch_vertices;
       for (size_t idx : ref_indices) {
-        last_triangle.push_back(vertices_copy[idx]);
+        middle_patch_vertices.push_back(vertices_copy[idx]);
       }
-      triangles_ptr->push_back(Polygon(last_triangle));
+      Polygon<T> middle_patch(middle_patch_vertices);
+      // Triangulate middle patch
+      std::vector<size_t> middle_ref_indices =
+          findTriangulationIndex(middle_patch.getNumVertices());
+      middle_patch.triangulateWithRefidx(middle_ref_indices, triangles_ptr);
     }
 
     std::vector<T> new_triangle{vertices_copy[0]};

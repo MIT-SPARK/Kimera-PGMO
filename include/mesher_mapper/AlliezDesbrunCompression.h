@@ -35,6 +35,8 @@ class AlliezDesbrunCompression : public MeshCompression {
 
   bool getFrontVertex(const Edge& e, Vertex* v) const;
 
+  Edge findGate() const;
+
   std::vector<size_t> findTriangulationIndex(Polygon<Vertex> p) const;
 
   size_t level_of_detail_;

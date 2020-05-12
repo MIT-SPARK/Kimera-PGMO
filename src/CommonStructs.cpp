@@ -46,6 +46,9 @@ bool Graph::createFromPclMesh(const pcl::PolygonMesh& mesh) {
   size_t n = mesh.cloud.data.size();
   vertices_ = std::vector<Vertex>(n);
   std::iota(std::begin(vertices_), std::end(vertices_), 0);
+  for (Vertex v : vertices_) {
+    edges_[v] = Vertices();
+  }
   for (pcl::Vertices polygon : mesh.polygons) {
     for (size_t i = 0; i < polygon.vertices.size(); i++) {
       size_t i_next = (i + 1) % polygon.vertices.size();

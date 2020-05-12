@@ -8,6 +8,7 @@
 
 #include <string>
 
+#include <pcl/io/ply_io.h>
 #include <pcl/PolygonMesh.h>
 
 namespace mesher_mapper {

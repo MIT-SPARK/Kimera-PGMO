@@ -4,8 +4,6 @@
  * @author Yun Chang
  */
 
-#include <pcl/io/ply_io.h>
-
 #include "mesher_mapper/CommonFunctions.h"
 
 namespace mesher_mapper {

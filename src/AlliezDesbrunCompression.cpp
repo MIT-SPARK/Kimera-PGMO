@@ -3,6 +3,8 @@
  * @brief  Simplify and reconstruct meshes Alliez Desbrun 2001
  * @author Yun Chang
  */
+#include <random>
+
 #include <pcl/PCLPointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <ros/ros.h>
@@ -18,11 +20,13 @@ AlliezDesbrunCompression::~AlliezDesbrunCompression() {}
 
 bool AlliezDesbrunCompression::process() {
   // decimating conquest
+  ROS_INFO("decimating conquest");
   pcl::PolygonMeshPtr decimated_mesh(new pcl::PolygonMesh());
   decimatingConquest(6, 0, decimated_mesh);
   base_mesh_ = *decimated_mesh;
   reset(base_mesh_);
   // cleaning conquest
+  ROS_INFO("cleaning conquest");
   pcl::PolygonMeshPtr cleaned_mesh(new pcl::PolygonMesh());
   decimatingConquest(3, 0, cleaned_mesh);
   base_mesh_ = *cleaned_mesh;
@@ -45,7 +49,6 @@ bool AlliezDesbrunCompression::reset(const pcl::PolygonMesh& mesh) {
 
   // Generate mesh graph
   mesh_graph_.createFromPclMesh(mesh);
-
   pcl::PointCloud<pcl::PointXYZ> cloud;
   pcl::fromPCLPointCloud2(mesh.cloud, cloud);
   // Populate vertex positions
@@ -55,7 +58,6 @@ bool AlliezDesbrunCompression::reset(const pcl::PolygonMesh& mesh) {
     vertex_status_[i] = VertexStatus::UNCONQUERED;
     vertex_to_triangle_[i] = std::vector<Polygon<Vertex>>();
   }
-
   // Then convert polygons to our polygon type
   for (pcl::Vertices polygon : mesh.polygons) {
     // Polygons here oriented already using right hand rule
@@ -67,6 +69,15 @@ bool AlliezDesbrunCompression::reset(const pcl::PolygonMesh& mesh) {
   }
 }
 
+Edge AlliezDesbrunCompression::findGate() const {
+  Vertex v1 = rand() % vertex_status_.size();
+  while (mesh_graph_.getValence(v1).size() == 0) {
+    v1 = rand() % vertex_status_.size();
+  }
+  Vertex v12 = mesh_graph_.getValence(v1).at(0);
+  return Edge(v1, v12);
+}
+
 void AlliezDesbrunCompression::decimatingConquest(
     size_t max_valence,
     size_t min_valence,
@@ -74,10 +85,8 @@ void AlliezDesbrunCompression::decimatingConquest(
   // Start queue for gates
   std::vector<Edge> queue;
   // Start with some edge
-  Vertex v1 = vertex_status_.begin()->first;
-  Vertex v2 = mesh_graph_.getValence(v1)[0];
-  Edge e(v1, v2);
-  queue.push_back(e);
+  Edge e1 = findGate();
+  queue.push_back(e1);
   std::vector<Polygon<Vertex>> new_mesh_surfaces;
   // Conquest start
   while (queue.size() > 0) {
@@ -104,17 +113,34 @@ void AlliezDesbrunCompression::decimatingConquest(
             vertex_status_[valence] = VertexStatus::CONQUERED;
         }
         // Decimate and retriangulate
+        std::shared_ptr<std::vector<Polygon<Vertex>>> new_triangles =
+            std::make_shared<std::vector<Polygon<Vertex>>>();
         //// Get neighboring polygons
         std::vector<Polygon<Vertex>> v1_polygons =
             vertex_to_triangle_[front_vertex];
         //// Combine and triangulate
         Polygon<Vertex> new_poly = v1_polygons[0];
-        for (size_t i = 1; i < v1_polygons.size(); i++) {
-          new_poly = new_poly.combine(v1_polygons[i]);
+        v1_polygons.erase(v1_polygons.begin());
+        size_t count = 0;
+        new_poly.print("add");
+        while (v1_polygons.size() > 0) {
+          Polygon<Vertex> to_be_added = v1_polygons[0];
+          to_be_added.print("add");
+          v1_polygons.erase(v1_polygons.begin());
+          if (!new_poly.combine(to_be_added, &new_poly)) {
+            if (v1_polygons.size() > 0 and count < valences.size()) {
+              v1_polygons.push_back(to_be_added);
+            } else {
+              new_triangles->push_back(to_be_added);
+            }
+            count++;
+          } else {
+            std::cout << "add successful" << std::endl;
+          }
+          new_poly.print("new poly");
         }
+        new_poly.print("new poly");
         //// Find index for triangulation
-        std::shared_ptr<std::vector<Polygon<Vertex>>> new_triangles =
-            std::make_shared<std::vector<Polygon<Vertex>>>();
         if (new_poly.getNumVertices() > 3) {
           std::vector<size_t> tri_ind = findTriangulationIndex(new_poly);
           new_poly.triangulateWithRefidx(tri_ind, new_triangles);
@@ -124,6 +150,7 @@ void AlliezDesbrunCompression::decimatingConquest(
         // Track these new mesh surfaces
         for (Polygon<Vertex> t : *new_triangles) {
           new_mesh_surfaces.push_back(t);
+          t.print("triangulation");
         }
         // Generate and push new gates
         Vertices new_poly_vertices = new_poly.getVertices();
@@ -162,11 +189,25 @@ void AlliezDesbrunCompression::decimatingConquest(
   pcl::toPCLPointCloud2(cloud, output_mesh->cloud);
   // Add the new mesh surfaces
   for (Polygon<Vertex> p : new_mesh_surfaces) {
-    pcl::Vertices new_polygon;
-    for (Vertex p_v : p.getVertices()) {
-      new_polygon.vertices.push_back(old_to_new[p_v]);
+    bool null_patch = false;
+    for (Vertex v : p.getVertices()) {
+      if (vertex_status_.at(v) == VertexStatus::REMOVED) {
+        null_patch = true;
+        break;
+      }
     }
-    output_mesh->polygons.push_back(new_polygon);
+    if (!null_patch) {
+      pcl::Vertices new_polygon;
+      for (Vertex p_v : p.getVertices()) {
+        new_polygon.vertices.push_back(old_to_new[p_v]);
+      }
+      if (new_polygon.vertices.size() != 3) {
+        std::cout << "attempting to push non-triangle surface: ";
+        p.print("");
+      } else {
+        output_mesh->polygons.push_back(new_polygon);
+      }
+    }
   }
   std::cout << "new surfaces: " << output_mesh->polygons.size() << std::endl;
   // Look through old surfaces add if still relavant
