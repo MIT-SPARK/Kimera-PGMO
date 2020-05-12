@@ -38,14 +38,15 @@ int main(int argc, char* argv[]) {
   OctreeCompression ot_compress;
   ot_compress.setInputMesh(input_mesh);
   ot_compress.process();
+  std::cout << "finished process" << std::endl;
   pcl::PolygonMeshPtr simplified_mesh(new pcl::PolygonMesh());
+  std::cout << "before get base mesh" << std::endl;
   ot_compress.getBaseMesh(simplified_mesh);
   std::cout << "number of triangles of input mesh: "
             << input_mesh->polygons.size() << std::endl;
   std::cout << "number of triangles of simplifed mesh: "
             << simplified_mesh->polygons.size() << std::endl;
   viewer->addPolygonMesh(*simplified_mesh, "simplified mesh");
-  viewer->removePolygonMesh("input mesh");
 
   viewer->spin();
 

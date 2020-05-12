@@ -40,9 +40,11 @@ bool OctreeCompression::process() {
             << std::endl;
 
   // Create mesh
-  pcl::PolygonMeshPtr new_mesh;
+  pcl::PolygonMeshPtr new_mesh(new pcl::PolygonMesh());
   ConstructMeshFromCloud(downsampled_cloud, 0.1, new_mesh);
+
   base_mesh_ = *new_mesh;
+  std::cout << "got new mesh: " << base_mesh_.polygons.size() << std::endl;
   return true;
 }
 
@@ -78,11 +80,7 @@ bool OctreeCompression::ConstructMeshFromCloud(
   // Create search tree*
   pcl::search::KdTree<pcl::PointNormal>::Ptr tree2(
       new pcl::search::KdTree<pcl::PointNormal>);
-  std::cout << "test" << std::endl;
-  for (size_t i = 0; i < cloud_with_normals->points.size(); i++) {
-    std::cout << cloud_with_normals->points[i];
-  }
-  std::cout << std::endl;
+
   tree2->setInputCloud(cloud_with_normals);
   std::cout << "Initialized kdtree" << std::endl;
 
@@ -100,12 +98,10 @@ bool OctreeCompression::ConstructMeshFromCloud(
   // gp3.setMinimumAngle(M_PI / 18);        // 10 degrees
   // gp3.setMaximumAngle(2 * M_PI / 3);     // 120 degrees
   // gp3.setNormalConsistency(false);
-
   // Get result
   gp3.setInputCloud(cloud_with_normals);
   gp3.setSearchMethod(tree2);
   gp3.reconstruct(triangles);
-
   *mesh = triangles;
   return true;
 }
