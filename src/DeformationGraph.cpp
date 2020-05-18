@@ -3,59 +3,77 @@
  * @brief  Deforms mesh based on lates optimized trajectory
  * @author Yun Chang
  */
-
-#include <pcl/surface/vtk_smoothing/vtk_mesh_quadric_decimation.h>
-
 #include "mesher_mapper/DeformationGraph.h"
+
+#include <pcl/PCLPointCloud2.h>
+#include <pcl_conversions/pcl_conversions.h>
+
+#define SLOW_BUT_CORRECT_BETWEENFACTOR
+
+#include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
+#include <gtsam/slam/BetweenFactor.h>
 
 using pcl::PolygonMesh;
 
 namespace mesher_mapper {
 
-DeformationGraph::DeformationGraph() {}
 DeformationGraph::DeformationGraph(const pcl::PolygonMeshConstPtr& mesh) {
-  // Simplify mesh
-  PolygonMesh simplified_mesh;
-  std::vector<int> simplified_indices;
-  pcl::MeshQuadricDecimationVTK mesh_decimation;
-  mesh_decimation.setInputMesh(mesh);
-  // mesh_decimation.setTargetReductionFactor(1000.0);
-  mesh_decimation.process(simplified_mesh);
-  std::cout << "simplified mesh size: " << simplified_mesh.cloud.data.size()
-            << "with reduction factor: "
-            << mesh_decimation.getTargetReductionFactor() << std::endl;
-  for (pcl::Vertices polygon : mesh->polygons) {
-    std::cout << "polygon ";
-    for (int idx : polygon.vertices) {
-      std::cout << idx << " ";
-    }
-    std::cout << "\n";
-  }
-  // Add to object
-  // for (int idx : simplified_indices) {
-  //   keyed_transforms_.insert(
-  //       std::map<size_t, gtsam::Pose3>::value_type(idx, gtsam::Pose3()));
-  //   connections_[idx] = std::vector<size_t>();
-  // }
-  // // Add to connections by reaading the polygon message
-  // // Here we assume that we are dealing with a triangular mesh (TODO: double
-  // // check this)
-  // for (pcl::Vertices polygon : simplified_mesh.polygons) {
-  //   for (int idx : polygon.vertices) {
-  //     for (int idx_to : polygon.vertices) {
-  //       if (idx != idx_to) {
-  //         std::vector<size_t>::iterator it =
-  //             find(connections_[idx].begin(), connections_[idx].end(),
-  //             idx_to);
-  //         if (it == connections_[idx].end()) {
-  //           connections_[idx].push_back(idx_to);
-  //         }
-  //       }
-  //     }
-  //   }
-  // }
-}
+  // store mesh
+  graph_.createFromPclMesh(*mesh);
+  // store points position
+  pcl::fromPCLPointCloud2(mesh->cloud, vertices_);
 
+  // build the connections factors
+  // This consist of all the factors used
+  // in optimization without the factors
+  // related to user input
+  Vertices vertices = graph_.getVertices();
+  for (Vertex v : vertices) {
+    values_.insert(v, gtsam::Pose3());
+    pcl::PointXYZ p = vertices_.points[v];
+    gtsam::Point3 v_pos(p.x, p.y, p.z);
+    for (Vertex valence : graph_.getValence(v)) {
+      pcl::PointXYZ pv = vertices_.points[valence];
+      gtsam::Point3 valence_pos(pv.x, pv.y, pv.z);
+      // Define noise. Hardcoded for now
+      static const gtsam::SharedNoiseModel& noise =
+          gtsam::noiseModel::Isotropic::Variance(3, 1e-3);
+      // Create deformation edge factor
+      DeformationEdgeFactor new_edge(v, valence, v_pos, valence_pos, noise);
+      consistency_factors_.add(new_edge);
+    }
+  }
+}
 DeformationGraph::~DeformationGraph() {}
+
+void DeformationGraph::loopClose(
+    Vertex v1,
+    Vertex v2,
+    pcl::PointCloud<pcl::PointXYZ>::Ptr new_vertex_positions) {
+  gtsam::NonlinearFactorGraph factors_to_optimize;
+  factors_to_optimize.add(consistency_factors_);
+  // noise for loop closure
+  static const gtsam::SharedNoiseModel& noise =
+      gtsam::noiseModel::Isotropic::Variance(3, 1e-3);
+  gtsam::BetweenFactor<gtsam::Pose3> loop_factor(v1, v2, gtsam::Pose3(), noise);
+  factors_to_optimize.add(loop_factor);
+
+  // optimize
+  gtsam::LevenbergMarquardtParams params;
+  params.diagonalDamping = true;
+  gtsam::Values new_values =
+      gtsam::LevenbergMarquardtOptimizer(factors_to_optimize, values_, params)
+          .optimize();
+
+  new_vertex_positions.reset(new pcl::PointCloud<pcl::PointXYZ>);
+  for (Vertex v : graph_.getVertices()) {
+    pcl::PointXYZ p = vertices_.points[v];
+    gtsam::Point3 t = new_values.at<gtsam::Pose3>(v).translation();
+    p.x = p.x + t.x();
+    p.y = p.y + t.y();
+    p.z = p.z + t.z();
+    new_vertex_positions->points.push_back(p);
+  }
+}
 
 }  // namespace mesher_mapper

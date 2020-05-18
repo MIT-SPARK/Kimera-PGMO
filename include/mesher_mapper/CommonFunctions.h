@@ -8,11 +8,15 @@
 
 #include <string>
 
-#include <pcl/io/ply_io.h>
 #include <pcl/PolygonMesh.h>
+#include <pcl/io/ply_io.h>
+#include <pcl_msgs/PolygonMesh.h>
 
 namespace mesher_mapper {
 
 void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh);
+
+pcl_msgs::PolygonMesh ConstructPolygonMeshMsg(const pcl::PolygonMesh& mesh,
+                                              const std_msgs::Header& header);
 
 }  // namespace mesher_mapper
