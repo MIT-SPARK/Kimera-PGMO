@@ -4,7 +4,7 @@
  * @author Yun Chang
  */
 #include <pcl/PCLPointCloud2.h>
-#include <pcl/conversions.h>
+#include <pcl_conversions/pcl_conversions.h>
 #include <sensor_msgs/PointCloud2.h>
 
 #include "mesher_mapper/CommonFunctions.h"
@@ -20,7 +20,7 @@ void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh) {
 pcl_msgs::PolygonMesh ConstructPolygonMeshMsg(const pcl::PolygonMesh& mesh,
                                               const std_msgs::Header& header) {
   pcl_msgs::PolygonMesh new_msg;
-  pcl::toROSMsg(mesh.cloud, new_msg.cloud);
+  pcl_conversions::fromPCL(mesh.cloud, new_msg.cloud);
   for (pcl::Vertices polygon : mesh.polygons) {
     pcl_msgs::Vertices polygon_msg;
     for (size_t i : polygon.vertices) {
