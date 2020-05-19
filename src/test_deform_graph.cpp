@@ -70,7 +70,7 @@ class test_deformation_graph {
 
 int main(int argc, char** argv) {
   ros::init(argc, argv, "test_deform_graph");
-  ros::NodeHandle n;
+  // ros::NodeHandle n;
 
   // Load input mesh
   pcl::PolygonMeshPtr input_mesh(new pcl::PolygonMesh());

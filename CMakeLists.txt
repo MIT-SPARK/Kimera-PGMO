@@ -29,6 +29,7 @@ src/DeformationGraph.cpp
 src/CommonStructs.cpp
 src/AlliezDesbrunCompression.cpp
 src/OctreeCompression.cpp
+src/tinyply.cpp
 )
 target_link_libraries(${PROJECT_NAME} 
   ${catkin_LIBRARIES}
