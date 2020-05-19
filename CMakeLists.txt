@@ -48,6 +48,15 @@ cs_add_executable(test_deform_graph
 )
 target_link_libraries(test_deform_graph ${PROJECT_NAME})
 
+# Unit tests 
+set(TEST_DATA_PATH "${CMAKE_CURRENT_SOURCE_DIR}/test/data")
+configure_file(test/test_config.h.in test/test_config.h)
+include_directories(${CMAKE_CURRENT_BINARY_DIR}/test)
+catkin_add_gtest(common_functions_test test/testCommonFunctions.cpp)
+target_link_libraries(common_functions_test ${PROJECT_NAME})
+
 cs_install()
 
 cs_export()
+
+
