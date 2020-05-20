@@ -46,14 +46,27 @@ class DeformationEdgeFactor
       const gtsam::Pose3& p2,
       boost::optional<gtsam::Matrix&> H1 = boost::none,
       boost::optional<gtsam::Matrix&> H2 = boost::none) const {
+    gtsam::Matrix H_R1, H_t1, H_t2;
     gtsam::Rot3 R1 = p1.rotation();
-    gtsam::Point3 t1 = p1.translation();
-    gtsam::Point3 t2_1 = t1.compose(node1_position.compose(
-        R1.rotate(node1_position.between(node2_position))));
-    gtsam::Point3 t2 = p2.translation();
-    gtsam::Point3 t2_2 = node2_position.compose(t2);
+    gtsam::Point3 t1 = p1.translation(H_t1);
+    // New position of node 2 according to deformation p1 of node 1
+    gtsam::Point3 t2_1 =
+        t1 + node1_position + R1.rotate(node2_position - node1_position, H_R1);
+    gtsam::Point3 t2 = p2.translation(H_t2);
+    // New position of node 2 according to deformation p2 of node 2
+    gtsam::Point3 t2_2 = t2 + node2_position;
 
-    return t2_2.between(t2_1).vector();
+    // Calculate Jacobians
+    Eigen::MatrixXd Jacobian_1 = Eigen::MatrixXd::Zero(3, 6);
+    Jacobian_1.block<3, 3>(0, 0) = H_R1;
+    Jacobian_1 = Jacobian_1 + H_t1;
+    Eigen::MatrixXd Jacobian_2 = Eigen::MatrixXd::Zero(3, 6);
+    Jacobian_2 = Jacobian_2 - H_t2;
+
+    if (H1) *H1 = Jacobian_1;
+    if (H2) *H2 = Jacobian_2;
+
+    return t2_1 - t2_2;
   }
 };
 

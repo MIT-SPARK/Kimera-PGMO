@@ -22,12 +22,12 @@ class test_deformation_graph {
     input_sub_ = nl.subscribe<std_msgs::String>(
         "loop_closures", 1, &test_deformation_graph::InputCallback, this);
 
-    // Do a beginning publish
-    std_msgs::Header header;
-    header.stamp = ros::Time::now();
-    pcl_msgs::PolygonMesh new_msg =
-        mesher_mapper::ConstructPolygonMeshMsg(*new_mesh, header);
-    mesh_pub_.publish(new_msg);
+    // // Do a beginning publish
+    // std_msgs::Header header;
+    // header.stamp = ros::Time::now();
+    // pcl_msgs::PolygonMesh new_msg =
+    //     mesher_mapper::ConstructPolygonMeshMsg(*new_mesh, header);
+    // mesh_pub_.publish(new_msg);
   }
 
  private:
@@ -60,25 +60,25 @@ class test_deformation_graph {
     new_mesh.polygons = original_mesh_.polygons;
     pcl::toPCLPointCloud2(*new_point_positions, new_mesh.cloud);
 
-    std_msgs::Header header;
-    header.stamp = ros::Time::now();
-    pcl_msgs::PolygonMesh new_msg =
-        mesher_mapper::ConstructPolygonMeshMsg(new_mesh, header);
-    mesh_pub_.publish(new_msg);
+    // std_msgs::Header header;
+    // header.stamp = ros::Time::now();
+    // pcl_msgs::PolygonMesh new_msg =
+    //     mesher_mapper::ConstructPolygonMeshMsg(new_mesh, header);
+    // mesh_pub_.publish(new_msg);
   }
 };
 
 int main(int argc, char** argv) {
   ros::init(argc, argv, "test_deform_graph");
-  // ros::NodeHandle n;
+  ros::NodeHandle n;
 
   // Load input mesh
   pcl::PolygonMeshPtr input_mesh(new pcl::PolygonMesh());
   mesher_mapper::ReadMeshFromPly(argv[1], input_mesh);
 
-  // test_deformation_graph test(n, input_mesh);
+  test_deformation_graph test(n, input_mesh);
 
-  // ros::spin();
+  ros::spin();
 
   return 0;
 }

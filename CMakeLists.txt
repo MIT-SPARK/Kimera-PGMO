@@ -52,8 +52,11 @@ target_link_libraries(test_deform_graph ${PROJECT_NAME})
 set(TEST_DATA_PATH "${CMAKE_CURRENT_SOURCE_DIR}/test/data")
 configure_file(test/test_config.h.in test/test_config.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/test)
-catkin_add_gtest(common_functions_test test/testCommonFunctions.cpp)
-target_link_libraries(common_functions_test ${PROJECT_NAME})
+catkin_add_gtest(test_mesher_mapper 
+  test/testCommonFunctions.cpp
+  test/testDeformationEdgeFactor.cpp
+  test/test_mesher_mapper.cpp)
+target_link_libraries(test_mesher_mapper ${PROJECT_NAME} -ltbb)
 
 cs_install()
 
