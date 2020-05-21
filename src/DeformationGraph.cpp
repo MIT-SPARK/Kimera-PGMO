@@ -17,7 +17,10 @@ using pcl::PolygonMesh;
 
 namespace mesher_mapper {
 
-DeformationGraph::DeformationGraph(const pcl::PolygonMeshConstPtr& mesh) {
+DeformationGraph::DeformationGraph() {}
+DeformationGraph::~DeformationGraph() {}
+
+void DeformationGraph::createFromMesh(const pcl::PolygonMeshConstPtr& mesh) {
   // store mesh
   graph_.createFromPclMesh(*mesh);
   // store points position
@@ -44,7 +47,6 @@ DeformationGraph::DeformationGraph(const pcl::PolygonMeshConstPtr& mesh) {
     }
   }
 }
-DeformationGraph::~DeformationGraph() {}
 
 void DeformationGraph::loopClose(
     Vertex v1,

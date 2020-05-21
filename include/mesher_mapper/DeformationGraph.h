@@ -72,8 +72,12 @@ class DeformationEdgeFactor
 
 class DeformationGraph {
  public:
-  DeformationGraph(const pcl::PolygonMeshConstPtr& mesh);
+  DeformationGraph();
   ~DeformationGraph();
+
+  void createFromMesh(const pcl::PolygonMeshConstPtr& mesh);
+
+  void addToGraph(const Vertices& new_vertices, const Edges& new_edges);
 
   void loopClose(Vertex v1,
                  Vertex v2,

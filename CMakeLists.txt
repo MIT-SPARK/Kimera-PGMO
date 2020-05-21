@@ -30,6 +30,7 @@ src/CommonStructs.cpp
 src/AlliezDesbrunCompression.cpp
 src/OctreeCompression.cpp
 src/tinyply.cpp
+src/MesherMapper.cpp
 )
 target_link_libraries(${PROJECT_NAME} 
   ${catkin_LIBRARIES}
@@ -42,11 +43,6 @@ cs_add_executable(alliez_desbrun
   src/alliez_desbrun.cpp
 )
 target_link_libraries(alliez_desbrun ${PROJECT_NAME})
-
-cs_add_executable(test_deform_graph
-  src/test_deform_graph.cpp
-)
-target_link_libraries(test_deform_graph ${PROJECT_NAME})
 
 # Unit tests 
 set(TEST_DATA_PATH "${CMAKE_CURRENT_SOURCE_DIR}/test/data")
