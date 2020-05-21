@@ -5,14 +5,15 @@
  */
 #pragma once
 
-#include <pcl/octree/octree_search.h>
+#include <ros/ros.h>
 
-#include "mesher_mapper/MeshCompression.h"
-#include "mesher_mapper/Polygon.h"
+#include <pcl/octree/octree_search.h>
+#include <pcl_msgs/PolygonMesh.h>
+#include <pcl_ros/point_cloud.h>
 
 namespace mesher_mapper {
 
-class OctreeCompression : public MeshCompression {
+class OctreeCompression {
  public:
   typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
   typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
@@ -20,21 +21,26 @@ class OctreeCompression : public MeshCompression {
   OctreeCompression();
   ~OctreeCompression();
 
-  bool setInputMesh(pcl::PolygonMeshPtr input_mesh);
-  bool process();
+  bool Initialize(const ros::NodeHandle& n);
 
-  inline void setResolution(double resolution) { resolution_ = resolution; }
+  bool PublishMap();
 
  private:
-  bool reset(const pcl::PolygonMesh& mesh);
-  bool ConstructMeshFromCloud(
-      const pcl::PointCloud<pcl::PointXYZ>::ConstPtr& cloud,
-      double search_radius,
-      pcl::PolygonMeshPtr mesh);
+  bool LoadParameters(const ros::NodeHandle& n);
+  bool RegisterCallbacks(const ros::NodeHandle& n);
 
-  Octree::Ptr octree_;
-  PointCloud::Ptr octree_points_; 
+  // Callback for input mesh
+  void InsertMesh(const pcl_msgs::PolygonMesh::ConstPtr& mesh_msg);
 
-  double resolution_;
+  std::string frame_id_;
+  PointCloud::Ptr map_data_;
+  Octree::Ptr map_octree_;
+
+  double octree_resolution_;
+
+  // Publishers
+  ros::Publisher map_pub_;
+
+  ros::Subscriber mesh_sub_;
 };
 }  // namespace mesher_mapper
