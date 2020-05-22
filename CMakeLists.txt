@@ -44,6 +44,11 @@ cs_add_executable(alliez_desbrun
 )
 target_link_libraries(alliez_desbrun ${PROJECT_NAME})
 
+cs_add_executable(load_mesh
+  src/load_mesh.cpp
+)
+target_link_libraries(load_mesh ${PROJECT_NAME})
+
 # Unit tests 
 set(TEST_DATA_PATH "${CMAKE_CURRENT_SOURCE_DIR}/test/data")
 configure_file(test/test_config.h.in test/test_config.h)
