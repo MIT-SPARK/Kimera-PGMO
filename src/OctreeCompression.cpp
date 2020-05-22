@@ -3,15 +3,9 @@
  * @brief  Simplify and reconstruct meshes Peng and Kuo 2005
  * @author Yun Chang
  */
-#pragma once
-
 #include <ros/ros.h>
 
-#include <pcl/PCLPointCloud2.h>
-#include <pcl/octree/octree_search.h>
-#include <pcl_msgs/PolygonMesh.h>
-#include <pcl_ros/point_cloud.h>
-
+#include "mesher_mapper/CommonFunctions.h"
 #include "mesher_mapper/OctreeCompression.h"
 
 namespace mesher_mapper {
@@ -56,13 +50,12 @@ bool OctreeCompression::RegisterCallbacks(const ros::NodeHandle& n) {
 }
 
 void OctreeCompression::InsertMesh(
-    const pcl_msgs::PolygonMesh::ConstPtr& mesh_msg) {
+    const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
   // Convert polygon mesh vertices to pointcloud
 
-  pcl::PCLPointCloud2 pcl_pc2;
-  pcl_conversions::toPCL(mesh_msg->cloud, pcl_pc2);
+  pcl::PolygonMesh polygon_mesh = TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
   PointCloud::Ptr new_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-  pcl::fromPCLPointCloud2(pcl_pc2, *new_cloud);
+  pcl::fromPCLPointCloud2(polygon_mesh.cloud, *new_cloud);
 
   double min_x, min_y, min_z, max_x, max_y, max_z;
 

@@ -129,4 +129,29 @@ mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
   return new_mesh;
 }
 
+pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
+    const mesh_msgs::TriangleMesh& mesh_msg) {
+  pcl::PolygonMesh mesh;
+
+  // Convert vertices
+  pcl::PointCloud<pcl::PointXYZ> vertices_cloud;
+  for (size_t i = 0; i < mesh_msg.vertices.size(); i++) {
+    geometry_msgs::Point p = mesh_msg.vertices[i];
+    pcl::PointXYZ point(p.x, p.y, p.z);
+    vertices_cloud.push_back(point);
+  }
+  pcl::toPCLPointCloud2(vertices_cloud, mesh.cloud);
+
+  // Convert polygons
+  for (mesh_msgs::TriangleIndices triangle : mesh_msg.triangles) {
+    pcl::Vertices polygon;
+    polygon.vertices[0] = triangle.vertex_indices[0];
+    polygon.vertices[1] = triangle.vertex_indices[1];
+    polygon.vertices[2] = triangle.vertex_indices[2];
+    mesh.polygons.push_back(polygon);
+  }
+
+  return mesh;
+}
+
 }  // namespace mesher_mapper

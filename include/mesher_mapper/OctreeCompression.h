@@ -7,8 +7,8 @@
 
 #include <ros/ros.h>
 
+#include <mesh_msgs/TriangleMeshStamped.h>
 #include <pcl/octree/octree_search.h>
-#include <pcl_msgs/PolygonMesh.h>
 #include <pcl_ros/point_cloud.h>
 
 namespace mesher_mapper {
@@ -30,7 +30,7 @@ class OctreeCompression {
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
   // Callback for input mesh
-  void InsertMesh(const pcl_msgs::PolygonMesh::ConstPtr& mesh_msg);
+  void InsertMesh(const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
 
   std::string frame_id_;
   PointCloud::Ptr map_data_;
