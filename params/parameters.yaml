@@ -1,0 +1,4 @@
+compression:
+  resolution: 0.001
+  frame_id: "world"
+  

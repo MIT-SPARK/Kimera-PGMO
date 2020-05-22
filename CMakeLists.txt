@@ -39,6 +39,11 @@ target_link_libraries(${PROJECT_NAME}
   gtsam
 )
 
+cs_add_executable(mesher_mapper_node
+  src/mesher_mapper_node.cpp
+)
+target_link_libraries(mesher_mapper_node ${PROJECT_NAME})
+
 cs_add_executable(alliez_desbrun
   src/alliez_desbrun.cpp
 )

@@ -25,6 +25,7 @@ bool OctreeCompression::Initialize(const ros::NodeHandle& n) {
     return false;
   }
 
+  ROS_INFO("Initialized Octree Compression module.");
   return true;
 }
 
@@ -44,15 +45,15 @@ bool OctreeCompression::RegisterCallbacks(const ros::NodeHandle& n) {
   // Create local nodehandle to manage callbacks
   ros::NodeHandle nl(n);
 
-  map_pub_ = nl.advertise<PointCloud>("octree map", 10, true);
+  map_pub_ = nl.advertise<PointCloud>("octree_map", 10, true);
   mesh_sub_ =
       nl.subscribe("input_mesh", 10, &OctreeCompression::InsertMesh, this);
+  return true;
 }
 
 void OctreeCompression::InsertMesh(
     const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
   // Convert polygon mesh vertices to pointcloud
-
   pcl::PolygonMesh polygon_mesh = TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
   PointCloud::Ptr new_cloud(new pcl::PointCloud<pcl::PointXYZ>);
   pcl::fromPCLPointCloud2(polygon_mesh.cloud, *new_cloud);

@@ -13,16 +13,36 @@ MesherMapper::MesherMapper() {}
 MesherMapper::~MesherMapper() {}
 
 // Initialize parameters, publishers, and subscribers and deformation graph
-bool MesherMapper::Initialize(const ros::NodeHandle& n) {}
+bool MesherMapper::Initialize(const ros::NodeHandle& n) {
+  if (!compression_.Initialize(n)) {
+    ROS_ERROR("MesherMapper: Failed to intialize mesh compression module.");
+  }
+
+  if (!LoadParameters(n)) {
+    ROS_ERROR("MesherMapper: Failed to load parameters.");
+  }
+
+  if (!CreatePublishers(n)) {
+    ROS_ERROR("MesherMapper: Failed to create publishers.");
+  }
+
+  if (!RegisterCallbacks(n)) {
+    ROS_ERROR("MesherMapper: Failed to register callbacks.");
+  }
+
+  ROS_INFO("Initializes Mesher Mapper.");
+
+  return true;
+}
 
 // Load deformation parameters
-bool MesherMapper::LoadParameters(const ros::NodeHandle& n) {}
+bool MesherMapper::LoadParameters(const ros::NodeHandle& n) { return true; }
 
 // Initialize publishers
-bool MesherMapper::CreatePublishers(const ros::NodeHandle& n) {}
+bool MesherMapper::CreatePublishers(const ros::NodeHandle& n) { return true; }
 
 // Initialize callbacks
-bool MesherMapper::RegisterCallbacks(const ros::NodeHandle& n) {}
+bool MesherMapper::RegisterCallbacks(const ros::NodeHandle& n) { return true; }
 
 // To publish optimized mesh
 bool MesherMapper::PublishOptimizedMesh(const pcl::PolygonMesh& mesh) {}
