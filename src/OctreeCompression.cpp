@@ -76,6 +76,9 @@ void OctreeCompression::InsertMesh(
   PublishMap();
 }
 
-bool OctreeCompression::PublishMap() { map_pub_.publish(map_data_); }
+bool OctreeCompression::PublishMap() {
+  map_data_->header.frame_id = frame_id_;
+  map_pub_.publish(map_data_);
+}
 
 }  // namespace mesher_mapper

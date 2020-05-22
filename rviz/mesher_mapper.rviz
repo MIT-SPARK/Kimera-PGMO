@@ -26,7 +26,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: ""
+    SyncSource: PointCloud2
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -39,7 +39,7 @@ Visualization Manager:
         Faces Alpha: 1
         Faces Color: 0; 255; 0
         Value: Vertex Color
-      Enabled: true
+      Enabled: false
       Mesh Buffer Size: 1
       Name: TriangleMesh
       Show Normals:
@@ -52,7 +52,7 @@ Visualization Manager:
         Wireframe Alpha: 1
         Wireframe Color: 0; 0; 0
       Topic: /mesh
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -63,7 +63,7 @@ Visualization Manager:
       Channel Name: intensity
       Class: rviz/PointCloud2
       Color: 255; 255; 255
-      Color Transformer: ""
+      Color Transformer: Intensity
       Decay Time: 0
       Enabled: true
       Invert Rainbow: false
@@ -72,12 +72,12 @@ Visualization Manager:
       Min Color: 0; 0; 0
       Min Intensity: 0
       Name: PointCloud2
-      Position Transformer: ""
+      Position Transformer: XYZ
       Queue Size: 10
       Selectable: true
-      Size (Pixels): 3
-      Size (m): 0.009999999776482582
-      Style: Flat Squares
+      Size (Pixels): 5
+      Size (m): 0.10000000149011612
+      Style: Points
       Topic: /mesher_mapper_node/octree_map
       Unreliable: false
       Use Fixed Frame: true
@@ -111,7 +111,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 481.319091796875
+      Distance: 490.01446533203125
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -126,10 +126,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.7853981852531433
+      Pitch: 0.32039836049079895
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.7853981852531433
+      Yaw: 1.0303980112075806
     Saved: ~
 Window Geometry:
   Displays:
