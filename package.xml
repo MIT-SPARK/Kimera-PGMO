@@ -20,7 +20,8 @@
   <depend>nav_msgs</depend>
   <depend>rosbag</depend>
   <depend>tf</depend>
-  <depend>colorized_mesh_display</depend>
+  <depend>mesh_msgs</depend>
+  <depend>rviz_mesh_plugin</depend>
 
   <depend>pcl_ros</depend>
   <depend>pcl_conversions</depend>

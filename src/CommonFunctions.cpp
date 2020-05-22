@@ -3,6 +3,9 @@
  * @brief  Some common functions used in library
  * @author Yun Chang
  */
+
+#include <geometry_msgs/Point.h>
+#include <mesh_msgs/TriangleIndices.h>
 #include <pcl/PCLPointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <sensor_msgs/PointCloud2.h>
@@ -14,8 +17,8 @@ namespace mesher_mapper {
 
 void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh) {
   if (NULL == mesh) {
-  	std::cout << "Mesh is NULL in ReadMeshFromPly" << std::endl;
-  	return;
+    std::cout << "Mesh is NULL in ReadMeshFromPly" << std::endl;
+    return;
   }
 
   std::cout << "filename: " << filename << std::endl;
@@ -96,6 +99,34 @@ void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh) {
     tri.vertices.push_back(t[2]);
     mesh->polygons.push_back(tri);
   }
+}
+
+mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
+    const pcl::PolygonMesh& polygon_mesh) {
+  pcl::PointCloud<pcl::PointXYZ> vertices_cloud;
+  pcl::fromPCLPointCloud2(polygon_mesh.cloud, vertices_cloud);
+
+  mesh_msgs::TriangleMesh new_mesh;
+  // Convert vertices
+  for (size_t i = 0; i < vertices_cloud.points.size(); i++) {
+    geometry_msgs::Point p;
+    p.x = vertices_cloud.points[i].x;
+    p.y = vertices_cloud.points[i].y;
+    p.z = vertices_cloud.points[i].z;
+    new_mesh.vertices.push_back(p);
+  }
+
+  // Convert polygons
+  for (pcl::Vertices polygon : polygon_mesh.polygons) {
+    mesh_msgs::TriangleIndices triangle;
+    triangle.vertex_indices[0] = polygon.vertices[0];
+    triangle.vertex_indices[1] = polygon.vertices[1];
+    triangle.vertex_indices[2] = polygon.vertices[2];
+
+    new_mesh.triangles.push_back(triangle);
+  }
+
+  return new_mesh;
 }
 
 }  // namespace mesher_mapper

@@ -3,16 +3,14 @@
  * @brief  Demo for mesh compression
  * @author Yun Chang
  */
-#include <colorized_mesh_display/ColorizedMesh.h>
-#include <colorized_mesh_display/ColorizedMeshStamped.h>
-#include <colorized_mesh_display/utils.h>
+#include <mesh_msgs/TriangleMeshStamped.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <ros/ros.h>
 
 #include "mesher_mapper/CommonFunctions.h"
 
-using mesher_mapper::ConstructPolygonMeshMsg;
+using mesher_mapper::PolygonMeshToTriangleMeshMsg;
 using mesher_mapper::ReadMeshFromPly;
 
 int main(int argc, char* argv[]) {
@@ -22,15 +20,14 @@ int main(int argc, char* argv[]) {
   ReadMeshFromPly(argv[1], input_mesh);
   ros::NodeHandle n;
   ros::Publisher mesh_pub =
-      n.advertise<colorized_mesh_display::ColorizedMeshStamped>("mesh", 10);
+      n.advertise<mesh_msgs::TriangleMeshStamped>("mesh", 10);
 
   ros::Rate loop_rate(10);
 
-  colorized_mesh_display::ColorizedMesh mesh_msg =
-      colorized_mesh_display::fromPCLPolygonMesh(*input_mesh);
+  mesh_msgs::TriangleMesh mesh_msg = PolygonMeshToTriangleMeshMsg(*input_mesh);
 
   while (ros::ok()) {
-    colorized_mesh_display::ColorizedMeshStamped new_msg;
+    mesh_msgs::TriangleMeshStamped new_msg;
     new_msg.header.stamp = ros::Time::now();
     new_msg.header.frame_id = "world";
     new_msg.mesh = mesh_msg;
