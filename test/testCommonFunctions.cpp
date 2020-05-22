@@ -6,6 +6,7 @@
 
 #include "gtest/gtest.h"
 
+#include <mesh_msgs/TriangleMesh.h>
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -37,5 +38,23 @@ TEST(CommonFunctions, testReadPLY) {
   // Check vertices parsed correctly
   EXPECT_EQ(-127, cloud.points[0].z);
   EXPECT_EQ(127, cloud.points[421].z);
+}
+
+TEST(CommonFunctions, PCLtoMeshMsg) {
+  pcl::PolygonMeshPtr mesh(new pcl::PolygonMesh());
+  ReadMeshFromPly(std::string(DATASET_PATH) + "/sphere.ply", mesh);
+
+  // Convert to triangle mesh msg
+  mesh_msgs::TriangleMesh triangle_mesh = PolygonMeshToTriangleMeshMsg(*mesh);
+
+  // Convert back
+  pcl::PolygonMesh new_mesh = TriangleMeshMsgToPolygonMesh(triangle_mesh);
+
+  EXPECT_EQ(mesh->cloud.data, new_mesh.cloud.data);
+  EXPECT_EQ(mesh->polygons[0].vertices[2], new_mesh.polygons[0].vertices[2]);
+  EXPECT_EQ(mesh->polygons[100].vertices[1],
+            new_mesh.polygons[100].vertices[1]);
+  EXPECT_EQ(mesh->polygons[839].vertices[0],
+            new_mesh.polygons[839].vertices[0]);
 }
 }  // namespace mesher_mapper

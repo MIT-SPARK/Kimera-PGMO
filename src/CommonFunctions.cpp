@@ -132,7 +132,6 @@ mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
 pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
     const mesh_msgs::TriangleMesh& mesh_msg) {
   pcl::PolygonMesh mesh;
-
   // Convert vertices
   pcl::PointCloud<pcl::PointXYZ> vertices_cloud;
   for (size_t i = 0; i < mesh_msg.vertices.size(); i++) {
@@ -141,16 +140,14 @@ pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
     vertices_cloud.push_back(point);
   }
   pcl::toPCLPointCloud2(vertices_cloud, mesh.cloud);
-
   // Convert polygons
   for (mesh_msgs::TriangleIndices triangle : mesh_msg.triangles) {
     pcl::Vertices polygon;
-    polygon.vertices[0] = triangle.vertex_indices[0];
-    polygon.vertices[1] = triangle.vertex_indices[1];
-    polygon.vertices[2] = triangle.vertex_indices[2];
+    for (size_t i = 0; i < 3; i++) {
+      polygon.vertices.push_back(triangle.vertex_indices[i]);
+    }
     mesh.polygons.push_back(polygon);
   }
-
   return mesh;
 }
 
