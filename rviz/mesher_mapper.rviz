@@ -5,7 +5,6 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Global Options1
-        - /PointCloud21/Status1
       Splitter Ratio: 0.5
     Tree Height: 549
   - Class: rviz/Selection
@@ -26,7 +25,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: PointCloud2
+    SyncSource: Vertices
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -39,7 +38,7 @@ Visualization Manager:
         Faces Alpha: 1
         Faces Color: 0; 255; 0
         Value: Vertex Color
-      Enabled: false
+      Enabled: true
       Mesh Buffer Size: 1
       Name: TriangleMesh
       Show Normals:
@@ -51,8 +50,8 @@ Visualization Manager:
         Value: true
         Wireframe Alpha: 1
         Wireframe Color: 0; 0; 0
-      Topic: /mesh
-      Value: false
+      Topic: /mesher_mapper_node/compressed_mesh
+      Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -65,24 +64,24 @@ Visualization Manager:
       Color: 255; 255; 255
       Color Transformer: Intensity
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: 4096
       Min Color: 0; 0; 0
       Min Intensity: 0
-      Name: PointCloud2
+      Name: Vertices
       Position Transformer: XYZ
       Queue Size: 10
       Selectable: true
       Size (Pixels): 5
       Size (m): 0.10000000149011612
       Style: Points
-      Topic: /mesher_mapper_node/octree_map
+      Topic: /mesher_mapper_node/vertices
       Unreliable: false
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
   Enabled: true
   Global Options:
     Background Color: 0; 0; 0

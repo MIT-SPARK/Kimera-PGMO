@@ -5,6 +5,9 @@
  */
 #pragma once
 
+#include <string>
+#include <vector>
+
 #include <ros/ros.h>
 
 #include <mesh_msgs/TriangleMeshStamped.h>
@@ -23,7 +26,9 @@ class OctreeCompression {
 
   bool Initialize(const ros::NodeHandle& n);
 
-  bool PublishMap();
+  bool PublishVertices();
+
+  bool PublishMesh();
 
  private:
   bool LoadParameters(const ros::NodeHandle& n);
@@ -33,13 +38,17 @@ class OctreeCompression {
   void InsertMesh(const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
 
   std::string frame_id_;
-  PointCloud::Ptr map_data_;
-  Octree::Ptr map_octree_;
+  PointCloud::Ptr vertices_;
+  std::vector<pcl::Vertices> polygons_;
+  Octree::Ptr octree_;
+
+  std::vector<std::vector<pcl::Vertices>> adjacent_surfaces_;
 
   double octree_resolution_;
 
   // Publishers
-  ros::Publisher map_pub_;
+  ros::Publisher vertices_pub_;
+  ros::Publisher mesh_pub_;
 
   ros::Subscriber mesh_sub_;
 };
