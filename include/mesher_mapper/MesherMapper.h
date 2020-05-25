@@ -11,9 +11,12 @@
 #include <ros/ros.h>
 #include <std_msgs/String.h>
 
+#include <gtsam/nonlinear/NonlinearFactorGraph.h>
+
 #include "mesher_mapper/CommonFunctions.h"
 #include "mesher_mapper/DeformationGraph.h"
 #include "mesher_mapper/OctreeCompression.h"
+#include "mesher_mapper/RelativePoseStamped.h"
 
 namespace mesher_mapper {
 class MesherMapper {
@@ -34,14 +37,18 @@ class MesherMapper {
   // Functions to publish
   bool PublishOptimizedMesh(const pcl::PolygonMesh& mesh);
 
-  // Use octree compression for this  (add)
-  // Think of it as incremental mesh simplification
-  bool AddDeformationGraph(const pcl::PolygonMesh& new_mesh);
+  // Callback for loopclosure
+  bool LoopClosureCallback(
+      const mesher_mapper::RelativePoseStamped::ConstPtr& msg);
+
+  // Callback for mesh input
   void MeshCallback(const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
 
-  DeformationGraph deformation_graph_;
-  pcl::PolygonMesh original_mesh_;
+  pcl::PolygonMesh input_mesh_;
+  pcl::PolygonMesh optimized_mesh_;
+
   OctreeCompression compression_;
+  DeformationGraph deformation_graph_;
 
   // Publishers
   ros::Publisher optimized_mesh_pub_;

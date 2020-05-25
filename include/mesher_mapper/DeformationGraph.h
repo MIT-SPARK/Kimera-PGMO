@@ -12,6 +12,7 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 
+#include <geometry_msgs/Pose.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/common/io.h>
 #include <pcl/point_cloud.h>
@@ -79,17 +80,24 @@ class DeformationGraph {
 
   void addMesh(const pcl::PolygonMesh& mesh);
 
-  void loopClose(Vertex v1,
-                 Vertex v2,
-                 pcl::PointCloud<pcl::PointXYZ>::Ptr new_vertex_positions);
+  void addRelativeMeasurement(Vertex v1, Vertex v2, geometry_msgs::Pose);
+
+  void optimize();
 
   inline size_t getNumVertices() const { return vertices_.points.size(); }
+  inline pcl::PointCloud<pcl::PointXYZ> getVertices() const {
+    return vertices_;
+  }
 
  private:
   Graph graph_;
   pcl::PointCloud<pcl::PointXYZ> vertices_;
 
+  // factor graph encoding the mesh structure
   gtsam::NonlinearFactorGraph consistency_factors_;
+  // factor graph storing the between factors for the loop closures
+  gtsam::NonlinearFactorGraph loop_closures_;
+  // current estimate
   gtsam::Values values_;
 };
 }  // namespace mesher_mapper

@@ -56,28 +56,51 @@ bool MesherMapper::RegisterCallbacks(const ros::NodeHandle& n) {
 
 void MesherMapper::MeshCallback(
     const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
-  pcl::PolygonMesh polygon_mesh = TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
+  pcl::PolygonMesh input_mesh_ = TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
+
+  PublishOptimizedMesh();
+}
+
+// To publish optimized mesh
+bool MesherMapper::PublishOptimizedMesh() {
+  mesh_msgs::TriangleMesh mesh_msg =
+      PolygonMeshToTriangleMeshMsg(optimized_mesh_);
+
+  // Create msg
+  mesh_msgs::TriangleMeshStamped new_msg;
+  new_msg.header.stamp = ros::Time::now();
+  new_msg.header.frame_id = frame_id_;
+  new_msg.mesh = mesh_msg;
+
+  optimized_mesh_pub_.publish(new_msg);
+  return true;
+}
+
+bool MesherMapper::LoopClosureCallback(
+    const mesher_mapper::RelativePoseStamped::ConstPtr& msg) {
+  // Enforce the set points
   // Get new simplified mesh from compressor
   pcl::PointCloud<pcl::PointXYZ>::Ptr simplified_vertices(
       new pcl::PointCloud<pcl::PointXYZ>);
   compression_.getVertices(simplified_vertices);
   std::vector<pcl::Vertices> simplified_polygons;
   compression_.getPolygons(&simplified_polygons);
-
-  // Check if new portions added
+  // Check if new portions added for deformation graph
   if (deformation_graph_.getNumVertices() <
       simplified_vertices->points.size()) {
     deformation_graph_ = DeformationGraph();
     deformation_graph_.createFromMesh(polygon_mesh);
   }
 
-  // TODO Actually should move this to callback for user input?
+  // add relative measurement
+  deformation_graph_.addRelativeMeasurement(
+      Vertex(msg->from), Vertex(msg->to), msg->transform);
+
+  // optimize with new relative mesurement
+  deformation_graph_.optimize();
+
+  // Update optimized mesh
+  UpdateOptimizedMesh();
 }
 
-// To publish optimized mesh
-bool MesherMapper::PublishOptimizedMesh(const pcl::PolygonMesh& mesh) {}
-
-// Use octree compression for this  (add)
-// Think of it as incremental mesh simplification
-bool MesherMapper::AddDeformationGraph(const pcl::PolygonMesh& new_mesh) {}
 }  // namespace mesher_mapper
