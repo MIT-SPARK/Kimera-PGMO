@@ -20,11 +20,11 @@ namespace mesher_mapper {
 DeformationGraph::DeformationGraph() {}
 DeformationGraph::~DeformationGraph() {}
 
-void DeformationGraph::createFromMesh(const pcl::PolygonMeshConstPtr& mesh) {
+void DeformationGraph::createFromMesh(const pcl::PolygonMesh& mesh) {
   // store mesh
-  graph_.createFromPclMesh(*mesh);
+  graph_.createFromPclMesh(mesh);
   // store points position
-  pcl::fromPCLPointCloud2(mesh->cloud, vertices_);
+  pcl::fromPCLPointCloud2(mesh.cloud, vertices_);
 
   // build the connections factors
   // This consist of all the factors used
@@ -45,6 +45,21 @@ void DeformationGraph::createFromMesh(const pcl::PolygonMeshConstPtr& mesh) {
       DeformationEdgeFactor new_edge(v, valence, v_pos, valence_pos, noise);
       consistency_factors_.add(new_edge);
     }
+  }
+}
+
+void DeformationGraph::addMesh(const pcl::PolygonMesh& mesh) {
+  // Add new mesh (note does not check for repeated vertices and surfaces)
+  Graph new_graph;
+  new_graph.createFromPclMesh(mesh);
+
+  pcl::PointCloud<pcl::PointXYZ> new_vertices;
+  pcl::fromPCLPointCloud2(mesh.cloud, new_vertices);
+
+  graph_.combineGraph(new_graph);
+
+  for (pcl::PointXYZ p : new_vertices.points) {
+    vertices_.points.push_back(p);
   }
 }
 

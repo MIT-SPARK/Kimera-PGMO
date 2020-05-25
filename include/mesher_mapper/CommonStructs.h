@@ -25,16 +25,18 @@ class Graph {
   inline Vertices getValence(const Vertex& v) const { return edges_.at(v); }
   inline Vertices getVertices() const { return vertices_; }
 
+  std::vector<Edge> getEdges() const;
+
   void addEdge(const Edge& e);
   void addEdgeAndVertices(const Edge& e);
-
+  bool combineGraph(const Graph& new_graph);
   bool createFromPclMesh(const pcl::PolygonMesh& mesh);
   void print(std::string header) const;
 
  private:
   Vertices vertices_;
   Edges edges_;
-};
+};  // namespace mesher_mapper
 
 typedef std::shared_ptr<Graph> GraphPtr;
 

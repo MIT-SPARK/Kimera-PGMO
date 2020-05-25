@@ -7,11 +7,25 @@
 #include <algorithm>
 #include <numeric>
 
+#include <pcl_conversions/pcl_conversions.h>
+
 #include "mesher_mapper/CommonStructs.h"
 
 namespace mesher_mapper {
 
 //// Graph Class
+std::vector<Edge> Graph::getEdges() const {
+  std::vector<Edge> edges;
+  for (auto it = edges_.begin(); it != edges_.end(); ++it) {
+    Vertex v1 = it->first;
+    for (Vertex v2 : it->second) {
+      Edge e(v1, v2);
+      edges.push_back(e);
+    }
+  }
+  return edges;
+}
+
 void Graph::addEdgeAndVertices(const Edge& e) {
   Vertex v1 = e.first;
   Vertex v2 = e.second;
@@ -38,12 +52,16 @@ void Graph::addEdge(const Edge& e) {
   if (iter == edges_.end()) {
     edges_[e.first] = Vertices{e.second};
   } else {
-    edges_[e.first].push_back(e.second);
+    std::vector<Vertex>::iterator iter2;
+    iter2 = std::find(edges_[e.first].begin(), edges_[e.first].end(), e.second);
+    if (iter2 == edges_[e.first].end()) edges_[e.first].push_back(e.second);
   }
 }
 
 bool Graph::createFromPclMesh(const pcl::PolygonMesh& mesh) {
-  size_t n = mesh.cloud.data.size();
+  pcl::PointCloud<pcl::PointXYZ> cloud;
+  pcl::fromPCLPointCloud2(mesh.cloud, cloud);
+  size_t n = cloud.points.size();
   vertices_ = std::vector<Vertex>(n);
   std::iota(std::begin(vertices_), std::end(vertices_), 0);
   for (Vertex v : vertices_) {
@@ -56,6 +74,16 @@ bool Graph::createFromPclMesh(const pcl::PolygonMesh& mesh) {
       addEdge(e);
     }
   }
+}
+
+bool Graph::combineGraph(const Graph& new_graph) {
+  std::vector<Edge> new_edges = new_graph.getEdges();
+
+  for (Edge e : new_edges) {
+    addEdgeAndVertices(e);
+  }
+
+  return true;
 }
 
 void Graph::print(std::string header) const {

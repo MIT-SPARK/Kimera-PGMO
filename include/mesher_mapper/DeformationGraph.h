@@ -75,9 +75,9 @@ class DeformationGraph {
   DeformationGraph();
   ~DeformationGraph();
 
-  void createFromMesh(const pcl::PolygonMeshConstPtr& mesh);
+  void createFromMesh(const pcl::PolygonMesh& mesh);
 
-  void addToGraph(const Vertices& new_vertices, const Edges& new_edges);
+  void addMesh(const pcl::PolygonMesh& mesh);
 
   void loopClose(Vertex v1,
                  Vertex v2,
