@@ -43,11 +43,6 @@ TEST(Graph, createFromPclMesh) {
   Graph new_graph;
   new_graph.createFromPclMesh(mesh);
 
-  Edges expected_edges;
-  expected_edges[2] = Vertices{0, 1, 4};
-  expected_edges[3] = Vertices{2};
-  expected_edges[4] = Vertices{0, 2};
-
   Vertices expected_vertices(5);
   std::iota(std::begin(expected_vertices), std::end(expected_vertices), 0);
   EXPECT_EQ(expected_vertices, new_graph.getVertices());
@@ -61,6 +56,36 @@ TEST(Graph, createFromPclMesh) {
   EXPECT_EQ(valences_3, new_graph.getValence(3));
   Vertices valences_4 = Vertices{0, 2};
   EXPECT_EQ(valences_4, new_graph.getValence(4));
+}
+
+TEST(Graph, createFromPclMeshBidirection) {
+  pcl::PolygonMesh mesh = createSimpleMesh();
+
+  Graph new_graph;
+  new_graph.createFromPclMeshBidirection(mesh);
+
+  Vertices expected_vertices(5);
+  std::iota(std::begin(expected_vertices), std::end(expected_vertices), 0);
+  EXPECT_EQ(expected_vertices, new_graph.getVertices());
+  std::vector<Edge> new_edges = new_graph.getEdges();
+  EXPECT_EQ(Edge(0, 1), new_edges[0]);
+  EXPECT_EQ(Edge(0, 2), new_edges[1]);
+  EXPECT_EQ(Edge(4, 2), new_edges[new_edges.size() - 1]);
+
+  Vertices valences_2 = Vertices{0, 1, 3, 4};
+  Vertices actual_2 = new_graph.getValence(2);
+  std::sort(actual_2.begin(), actual_2.end());
+  EXPECT_EQ(valences_2, actual_2);
+
+  Vertices valences_3 = Vertices{1, 2};
+  Vertices actual_3 = new_graph.getValence(3);
+  std::sort(actual_3.begin(), actual_3.end());
+  EXPECT_EQ(valences_3, actual_3);
+
+  Vertices valences_4 = Vertices{0, 1, 2};
+  Vertices actual_4 = new_graph.getValence(4);
+  std::sort(actual_4.begin(), actual_4.end());
+  EXPECT_EQ(valences_4, actual_4);
 }
 
 TEST(Graph, addEdgeAndVertices) {

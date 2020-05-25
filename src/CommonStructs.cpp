@@ -74,6 +74,28 @@ bool Graph::createFromPclMesh(const pcl::PolygonMesh& mesh) {
       addEdge(e);
     }
   }
+  return true;
+}
+
+bool Graph::createFromPclMeshBidirection(const pcl::PolygonMesh& mesh) {
+  pcl::PointCloud<pcl::PointXYZ> cloud;
+  pcl::fromPCLPointCloud2(mesh.cloud, cloud);
+  size_t n = cloud.points.size();
+  vertices_ = std::vector<Vertex>(n);
+  std::iota(std::begin(vertices_), std::end(vertices_), 0);
+  for (Vertex v : vertices_) {
+    edges_[v] = Vertices();
+  }
+  for (pcl::Vertices polygon : mesh.polygons) {
+    for (size_t i = 0; i < polygon.vertices.size(); i++) {
+      size_t i_next = (i + 1) % polygon.vertices.size();
+      Edge e1(polygon.vertices[i], polygon.vertices[i_next]);
+      addEdge(e1);
+      Edge e2(polygon.vertices[i_next], polygon.vertices[i]);
+      addEdge(e2);
+    }
+  }
+  return true;
 }
 
 bool Graph::combineGraph(const Graph& new_graph) {

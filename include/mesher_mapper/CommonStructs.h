@@ -31,6 +31,7 @@ class Graph {
   void addEdgeAndVertices(const Edge& e);
   bool combineGraph(const Graph& new_graph);
   bool createFromPclMesh(const pcl::PolygonMesh& mesh);
+  bool createFromPclMeshBidirection(const pcl::PolygonMesh& mesh);
   void print(std::string header) const;
 
  private:

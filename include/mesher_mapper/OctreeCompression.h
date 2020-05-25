@@ -30,6 +30,14 @@ class OctreeCompression {
 
   bool PublishMesh();
 
+  inline void getVertices(PointCloud::Ptr vertices) const {
+    *vertices = *vertices_;
+  }
+
+  inline void getPolygons(std::vector<pcl::Vertices>* polygons) {
+    *polygons = polygons_;
+  }
+
  private:
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);

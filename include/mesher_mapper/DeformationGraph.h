@@ -83,6 +83,8 @@ class DeformationGraph {
                  Vertex v2,
                  pcl::PointCloud<pcl::PointXYZ>::Ptr new_vertex_positions);
 
+  inline size_t getNumVertices() const { return vertices_.points.size(); }
+
  private:
   Graph graph_;
   pcl::PointCloud<pcl::PointXYZ> vertices_;

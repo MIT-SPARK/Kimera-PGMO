@@ -22,7 +22,7 @@ DeformationGraph::~DeformationGraph() {}
 
 void DeformationGraph::createFromMesh(const pcl::PolygonMesh& mesh) {
   // store mesh
-  graph_.createFromPclMesh(mesh);
+  graph_.createFromPclMeshBidirection(mesh);
   // store points position
   pcl::fromPCLPointCloud2(mesh.cloud, vertices_);
 

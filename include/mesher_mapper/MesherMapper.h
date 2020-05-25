@@ -37,6 +37,7 @@ class MesherMapper {
   // Use octree compression for this  (add)
   // Think of it as incremental mesh simplification
   bool AddDeformationGraph(const pcl::PolygonMesh& new_mesh);
+  void MeshCallback(const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
 
   DeformationGraph deformation_graph_;
   pcl::PolygonMesh original_mesh_;
@@ -47,6 +48,6 @@ class MesherMapper {
 
   // Subscribers
   ros::Subscriber input_mesh_sub_;
-  ros::Subscriber loop_closure_sub_;
+  ros::Subscriber trajectory_sub_;
 };
 }  // namespace mesher_mapper
