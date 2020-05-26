@@ -15,7 +15,7 @@
 #define SLOW_BUT_CORRECT_BETWEENFACTOR
 
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
-#include <gtsam/slam/BetweenFactor.h>
+#include <gtsam/slam/PriorFactor.h>
 
 using pcl::PolygonMesh;
 
@@ -67,34 +67,34 @@ void DeformationGraph::addMesh(const pcl::PolygonMesh& mesh) {
   }
 }
 
-void DeformationGraph::addRelativeMeasurement(
-    const Vertex& v1,
-    const Vertex& v2,
-    const geometry_msgs::Pose& transform) {
+void DeformationGraph::addMeasurement(const Vertex& v,
+                                      const geometry_msgs::Pose& pose) {
   // noise for loop closure
   static const gtsam::SharedNoiseModel& noise =
-      gtsam::noiseModel::Isotropic::Variance(3, 1e-3);
+      gtsam::noiseModel::Isotropic::Variance(6, 1e-3);
 
-  gtsam::Pose3 meas = RosToGtsam(transform);
-  gtsam::BetweenFactor<gtsam::Pose3> relative_meas(v1, v2, meas, noise);
-  relative_transforms_.add(relative_meas);
+  gtsam::Pose3 meas = RosToGtsam(pose);
+  gtsam::PriorFactor<gtsam::Pose3> absolute_meas(v, meas, noise);
+  prior_factors_.add(absolute_meas);
 }
 
 void DeformationGraph::optimize() {
   gtsam::NonlinearFactorGraph factors_to_optimize;
   factors_to_optimize.add(consistency_factors_);
-  factors_to_optimize.add(relative_transforms_);
+  factors_to_optimize.add(prior_factors_);
 
   // optimize
   gtsam::LevenbergMarquardtParams params;
   params.diagonalDamping = true;
+  params.setVerbosityLM("SUMMARY");
   values_ =
       gtsam::LevenbergMarquardtOptimizer(factors_to_optimize, values_, params)
           .optimize();
 }
 
 pcl::PolygonMesh DeformationGraph::deformMesh(
-    const pcl::PolygonMesh& original_mesh) const {
+    const pcl::PolygonMesh& original_mesh,
+    size_t k) const {
   // extract original vertices
   pcl::PointCloud<pcl::PointXYZ> original_vertices;
   pcl::fromPCLPointCloud2(original_mesh.cloud, original_vertices);
@@ -104,7 +104,6 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
   // TODO (Yun) make this part faster
   for (pcl::PointXYZ p : original_vertices.points) {
     // search for k + 1 nearest nodes
-    size_t k = 4;
     std::vector<std::pair<Vertex, double>> nearest_nodes;
     gtsam::Point3 vi(p.x, p.y, p.z);
     for (size_t i = 0; i < vertices_.points.size(); i++) {
@@ -131,10 +130,13 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
     // Calculate new point location from k points
     gtsam::Point3 new_point(0, 0, 0);
     double d_max = std::sqrt(nearest_nodes[nearest_nodes.size() - 1].second);
+    double weight_sum = 0;
     for (size_t j = 0; j < nearest_nodes.size() - 1; j++) {
       pcl::PointXYZ p_g = vertices_.points.at(nearest_nodes[j].first);
       gtsam::Point3 gj(p_g.x, p_g.y, p_g.z);
       double weight = (1 - std::sqrt(nearest_nodes[j].second) / d_max);
+      if (weight_sum == 0 && weight == 0) weight = 1;
+      weight_sum = weight_sum + weight;
       gtsam::Pose3 node_transform =
           values_.at<gtsam::Pose3>(nearest_nodes[j].first);
       gtsam::Point3 add = node_transform.rotation().rotate(vi - gj) + gj +
@@ -142,8 +144,9 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
       new_point = new_point + weight * add;
     }
     // Add back to new_vertices
-    new_vertices.points.push_back(
-        pcl::PointXYZ(new_point.x(), new_point.y(), new_point.z()));
+    new_vertices.points.push_back(pcl::PointXYZ(new_point.x() / weight_sum,
+                                                new_point.y() / weight_sum,
+                                                new_point.z() / weight_sum));
   }
 
   // With new vertices, construct new polygon mesh

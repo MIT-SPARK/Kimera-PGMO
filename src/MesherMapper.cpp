@@ -79,7 +79,7 @@ bool MesherMapper::PublishOptimizedMesh() {
 }
 
 bool MesherMapper::LoopClosureCallback(
-    const mesher_mapper::RelativePoseStamped::ConstPtr& msg) {
+    const mesher_mapper::AbsolutePoseStamped::ConstPtr& msg) {
   // Enforce the set points
   // Get new simplified mesh from compressor
   pcl::PolygonMesh simplified_mesh;
@@ -99,8 +99,7 @@ bool MesherMapper::LoopClosureCallback(
   }
 
   // add relative measurement
-  deformation_graph_.addRelativeMeasurement(
-      Vertex(msg->from), Vertex(msg->to), msg->transform);
+  deformation_graph_.addMeasurement(Vertex(msg->idx), msg->pose);
 
   // optimize with new relative mesurement
   deformation_graph_.optimize();

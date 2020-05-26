@@ -13,10 +13,10 @@
 
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 
+#include "mesher_mapper/AbsolutePoseStamped.h"
 #include "mesher_mapper/CommonFunctions.h"
 #include "mesher_mapper/DeformationGraph.h"
 #include "mesher_mapper/OctreeCompression.h"
-#include "mesher_mapper/RelativePoseStamped.h"
 
 namespace mesher_mapper {
 class MesherMapper {
@@ -39,7 +39,7 @@ class MesherMapper {
 
   // Callback for loopclosure
   bool LoopClosureCallback(
-      const mesher_mapper::RelativePoseStamped::ConstPtr& msg);
+      const mesher_mapper::AbsolutePoseStamped::ConstPtr& msg);
 
   // Callback for mesh input
   void MeshCallback(const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);

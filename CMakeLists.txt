@@ -61,6 +61,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/test)
 catkin_add_gtest(test_mesher_mapper 
   test/testCommonFunctions.cpp
   test/testDeformationEdgeFactor.cpp
+  test/testDeformationGraph.cpp
   test/testGraph.cpp
   test/test_mesher_mapper.cpp)
 target_link_libraries(test_mesher_mapper ${PROJECT_NAME} -ltbb)

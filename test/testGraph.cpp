@@ -1,6 +1,6 @@
 /**
- * @file   testCommonFunctions.cpp
- * @brief  Unit-tests for some common functions
+ * @file   testGraph.cpp
+ * @brief  Unit-tests for the graph structure
  * @author Yun Chang
  */
 #include <algorithm>

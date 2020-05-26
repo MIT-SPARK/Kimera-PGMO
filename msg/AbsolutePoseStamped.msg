@@ -4,10 +4,7 @@
 std_msgs/Header header
 
 # ID of first node
-uint32 from
+uint32 idx
 
-# ID of second node
-uint32 to
-
-# relative transformation
-geometry_msgs/Pose transform
+# absolute pose
+geometry_msgs/Pose pose
