@@ -3,7 +3,6 @@
  * @brief  MesherMapper class: Main class and ROS interface
  * @author Yun Chang
  */
-
 #include "mesher_mapper/MesherMapper.h"
 
 namespace mesher_mapper {
@@ -36,7 +35,10 @@ bool MesherMapper::Initialize(const ros::NodeHandle& n) {
 }
 
 // Load deformation parameters
-bool MesherMapper::LoadParameters(const ros::NodeHandle& n) { return true; }
+bool MesherMapper::LoadParameters(const ros::NodeHandle& n) {
+  if (!n.getParam("frame_id", frame_id_)) return false;
+  return true;
+}
 
 // Initialize publishers
 bool MesherMapper::CreatePublishers(const ros::NodeHandle& n) {
@@ -80,16 +82,20 @@ bool MesherMapper::LoopClosureCallback(
     const mesher_mapper::RelativePoseStamped::ConstPtr& msg) {
   // Enforce the set points
   // Get new simplified mesh from compressor
+  pcl::PolygonMesh simplified_mesh;
   pcl::PointCloud<pcl::PointXYZ>::Ptr simplified_vertices(
       new pcl::PointCloud<pcl::PointXYZ>);
   compression_.getVertices(simplified_vertices);
   std::vector<pcl::Vertices> simplified_polygons;
   compression_.getPolygons(&simplified_polygons);
+  simplified_mesh.polygons = simplified_polygons;
+  pcl::toPCLPointCloud2(*simplified_vertices, simplified_mesh.cloud);
+
   // Check if new portions added for deformation graph
   if (deformation_graph_.getNumVertices() <
       simplified_vertices->points.size()) {
     deformation_graph_ = DeformationGraph();
-    deformation_graph_.createFromMesh(polygon_mesh);
+    deformation_graph_.createFromMesh(simplified_mesh);
   }
 
   // add relative measurement
@@ -100,7 +106,7 @@ bool MesherMapper::LoopClosureCallback(
   deformation_graph_.optimize();
 
   // Update optimized mesh
-  UpdateOptimizedMesh();
+  optimized_mesh_ = deformation_graph_.deformMesh(input_mesh_);
 }
 
 }  // namespace mesher_mapper

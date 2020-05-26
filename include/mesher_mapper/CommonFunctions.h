@@ -8,6 +8,8 @@
 
 #include <string>
 
+#include <geometry_msgs/Pose.h>
+#include <gtsam/geometry/Pose3.h>
 #include <mesh_msgs/TriangleMesh.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/io/ply_io.h>
@@ -22,4 +24,6 @@ mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
 
 pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
     const mesh_msgs::TriangleMesh& mesh_msg);
+
+gtsam::Pose3 RosToGtsam(const geometry_msgs::Pose& transform);
 }  // namespace mesher_mapper

@@ -3,6 +3,10 @@
  * @brief  Deforms mesh based on lates optimized trajectory
  * @author Yun Chang
  */
+#include <algorithm>
+#include <cmath>
+
+#include "mesher_mapper/CommonFunctions.h"
 #include "mesher_mapper/DeformationGraph.h"
 
 #include <pcl/PCLPointCloud2.h>
@@ -63,34 +67,91 @@ void DeformationGraph::addMesh(const pcl::PolygonMesh& mesh) {
   }
 }
 
-void DeformationGraph::loopClose(
-    Vertex v1,
-    Vertex v2,
-    pcl::PointCloud<pcl::PointXYZ>::Ptr new_vertex_positions) {
-  gtsam::NonlinearFactorGraph factors_to_optimize;
-  factors_to_optimize.add(consistency_factors_);
+void DeformationGraph::addRelativeMeasurement(
+    const Vertex& v1,
+    const Vertex& v2,
+    const geometry_msgs::Pose& transform) {
   // noise for loop closure
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(3, 1e-3);
-  gtsam::BetweenFactor<gtsam::Pose3> loop_factor(v1, v2, gtsam::Pose3(), noise);
-  factors_to_optimize.add(loop_factor);
+
+  gtsam::Pose3 meas = RosToGtsam(transform);
+  gtsam::BetweenFactor<gtsam::Pose3> relative_meas(v1, v2, meas, noise);
+  relative_transforms_.add(relative_meas);
+}
+
+void DeformationGraph::optimize() {
+  gtsam::NonlinearFactorGraph factors_to_optimize;
+  factors_to_optimize.add(consistency_factors_);
+  factors_to_optimize.add(relative_transforms_);
 
   // optimize
   gtsam::LevenbergMarquardtParams params;
   params.diagonalDamping = true;
-  gtsam::Values new_values =
+  values_ =
       gtsam::LevenbergMarquardtOptimizer(factors_to_optimize, values_, params)
           .optimize();
+}
 
-  new_vertex_positions.reset(new pcl::PointCloud<pcl::PointXYZ>);
-  for (Vertex v : graph_.getVertices()) {
-    pcl::PointXYZ p = vertices_.points[v];
-    gtsam::Point3 t = new_values.at<gtsam::Pose3>(v).translation();
-    p.x = p.x + t.x();
-    p.y = p.y + t.y();
-    p.z = p.z + t.z();
-    new_vertex_positions->points.push_back(p);
+pcl::PolygonMesh DeformationGraph::deformMesh(
+    const pcl::PolygonMesh& original_mesh) const {
+  // extract original vertices
+  pcl::PointCloud<pcl::PointXYZ> original_vertices;
+  pcl::fromPCLPointCloud2(original_mesh.cloud, original_vertices);
+
+  pcl::PointCloud<pcl::PointXYZ> new_vertices;
+  // iterate through original vertices to create new vertices
+  // TODO (Yun) make this part faster
+  for (pcl::PointXYZ p : original_vertices.points) {
+    // search for k + 1 nearest nodes
+    size_t k = 4;
+    std::vector<std::pair<Vertex, double>> nearest_nodes;
+    gtsam::Point3 vi(p.x, p.y, p.z);
+    for (size_t i = 0; i < vertices_.points.size(); i++) {
+      pcl::PointXYZ p_vertex = vertices_.points.at(i);
+      double distance = (p.x - p_vertex.x) * (p.x - p_vertex.x) +
+                        (p.y - p_vertex.y) * (p.y - p_vertex.y) +
+                        (p.z - p_vertex.z) * (p.z - p_vertex.z);
+      if (nearest_nodes.size() < k + 1 ||
+          nearest_nodes.at(k).second > distance) {
+        nearest_nodes.push_back(std::pair<Vertex, double>(i, distance));
+      }
+      // Sort according to distance
+      auto compareFunc = [](std::pair<Vertex, double>& a,
+                            std::pair<Vertex, double>& b) {
+        return a.second < b.second;
+      };
+      std::sort(nearest_nodes.begin(), nearest_nodes.end(), compareFunc);
+
+      // Keep length at k + 1
+      if (nearest_nodes.size() > k + 1) {
+        nearest_nodes.erase(nearest_nodes.begin() + k + 1);
+      }
+    }
+    // Calculate new point location from k points
+    gtsam::Point3 new_point(0, 0, 0);
+    double d_max = std::sqrt(nearest_nodes[nearest_nodes.size() - 1].second);
+    for (size_t j = 0; j < nearest_nodes.size() - 1; j++) {
+      pcl::PointXYZ p_g = vertices_.points.at(nearest_nodes[j].first);
+      gtsam::Point3 gj(p_g.x, p_g.y, p_g.z);
+      double weight = (1 - std::sqrt(nearest_nodes[j].second) / d_max);
+      gtsam::Pose3 node_transform =
+          values_.at<gtsam::Pose3>(nearest_nodes[j].first);
+      gtsam::Point3 add = node_transform.rotation().rotate(vi - gj) + gj +
+                          node_transform.translation();
+      new_point = new_point + weight * add;
+    }
+    // Add back to new_vertices
+    new_vertices.points.push_back(
+        pcl::PointXYZ(new_point.x(), new_point.y(), new_point.z()));
   }
+
+  // With new vertices, construct new polygon mesh
+  pcl::PolygonMesh new_mesh;
+  new_mesh.polygons = original_mesh.polygons;
+  pcl::toPCLPointCloud2(new_vertices, new_mesh.cloud);
+
+  return new_mesh;
 }
 
 }  // namespace mesher_mapper

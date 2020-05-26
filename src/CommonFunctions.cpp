@@ -151,4 +151,15 @@ pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
   return mesh;
 }
 
+gtsam::Pose3 RosToGtsam(const geometry_msgs::Pose& transform) {
+  gtsam::Pose3 pose;
+  pose = gtsam::Pose3(
+      gtsam::Rot3(transform.orientation.w,
+                  transform.orientation.x,
+                  transform.orientation.y,
+                  transform.orientation.z),
+      gtsam::Point3(
+          transform.position.x, transform.position.y, transform.position.z));
+  return pose;
+}
 }  // namespace mesher_mapper

@@ -35,7 +35,7 @@ bool OctreeCompression::Initialize(const ros::NodeHandle& n) {
 bool OctreeCompression::LoadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("compression/resolution", octree_resolution_)) return false;
 
-  if (!n.getParam("compression/frame_id", frame_id_)) return false;
+  if (!n.getParam("frame_id", frame_id_)) return false;
 
   // Initialize octree
   octree_.reset(new Octree(octree_resolution_));

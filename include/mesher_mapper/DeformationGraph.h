@@ -80,9 +80,13 @@ class DeformationGraph {
 
   void addMesh(const pcl::PolygonMesh& mesh);
 
-  void addRelativeMeasurement(Vertex v1, Vertex v2, geometry_msgs::Pose);
+  void addRelativeMeasurement(const Vertex& v1,
+                              const Vertex& v2,
+                              const geometry_msgs::Pose& transform);
 
   void optimize();
+
+  pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh) const;
 
   inline size_t getNumVertices() const { return vertices_.points.size(); }
   inline pcl::PointCloud<pcl::PointXYZ> getVertices() const {
@@ -96,7 +100,7 @@ class DeformationGraph {
   // factor graph encoding the mesh structure
   gtsam::NonlinearFactorGraph consistency_factors_;
   // factor graph storing the between factors for the loop closures
-  gtsam::NonlinearFactorGraph loop_closures_;
+  gtsam::NonlinearFactorGraph relative_transforms_;
   // current estimate
   gtsam::Values values_;
 };

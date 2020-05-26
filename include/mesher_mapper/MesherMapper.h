@@ -35,7 +35,7 @@ class MesherMapper {
   bool RegisterCallbacks(const ros::NodeHandle& n);
 
   // Functions to publish
-  bool PublishOptimizedMesh(const pcl::PolygonMesh& mesh);
+  bool PublishOptimizedMesh();
 
   // Callback for loopclosure
   bool LoopClosureCallback(
@@ -56,5 +56,7 @@ class MesherMapper {
   // Subscribers
   ros::Subscriber input_mesh_sub_;
   ros::Subscriber trajectory_sub_;
+
+  std::string frame_id_;
 };
 }  // namespace mesher_mapper
