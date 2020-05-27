@@ -94,6 +94,12 @@ void OctreeCompression::InsertMesh(
       new_polygon.vertices.push_back(remapping[idx]);
       if (remapping[idx] > largest_idx) largest_idx = remapping[idx];
     }
+    // Check if polygon has actual three diferent surfaces
+    if (new_polygon.vertices[0] == new_polygon.vertices[1] ||
+        new_polygon.vertices[1] == new_polygon.vertices[2] ||
+        new_polygon.vertices[2] == new_polygon.vertices[0])
+      continue;
+
     // Check if this polygon already inserted
     bool surface_exist = false;
     if (largest_idx < adjacent_surfaces_.size()) {

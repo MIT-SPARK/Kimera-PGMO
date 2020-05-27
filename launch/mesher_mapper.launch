@@ -1,5 +1,5 @@
 <launch>
-  <arg name="test_mesh_file" value="$(find mesher_mapper)/test/data/cube.ply" />
+  <arg name="test_mesh_file" value="$(find mesher_mapper)/test/data/sphere.ply" />
 
   <!-- Launch robot handler nodes -->
   <node type="load_mesh" name="load_mesh" pkg="mesher_mapper" args="$(arg test_mesh_file)" output="screen" />
