@@ -44,7 +44,7 @@ void DeformationGraph::createFromMesh(const pcl::PolygonMesh& mesh) {
       gtsam::Point3 valence_pos(pv.x, pv.y, pv.z);
       // Define noise. Hardcoded for now
       static const gtsam::SharedNoiseModel& noise =
-          gtsam::noiseModel::Isotropic::Variance(3, 1e-2);
+          gtsam::noiseModel::Isotropic::Variance(3, 1e-1);
       // Create deformation edge factor
       DeformationEdgeFactor new_edge(v, valence, v_pos, valence_pos, noise);
       consistency_factors_.add(new_edge);
@@ -71,7 +71,7 @@ void DeformationGraph::addMeasurement(const Vertex& v,
                                       const geometry_msgs::Pose& pose) {
   // noise for loop closure
   static const gtsam::SharedNoiseModel& noise =
-      gtsam::noiseModel::Isotropic::Variance(6, 1e-8);
+      gtsam::noiseModel::Isotropic::Variance(6, 1e-10);
 
   gtsam::Pose3 meas = RosToGtsam(pose);
   gtsam::PriorFactor<gtsam::Pose3> absolute_meas(v, meas, noise);

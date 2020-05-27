@@ -157,7 +157,7 @@ TEST(DeformationGraph, deformMesh) {
   // Try with k = 3
   new_mesh = graph.deformMesh(*cube_mesh, 2);
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
-  EXPECT_NEAR(-0.499, actual_vertices.points[0].x, 0.001);
+  EXPECT_NEAR(-0.5, actual_vertices.points[0].x, 0.001);
   EXPECT_NEAR(1.273, actual_vertices.points[1].x, 0.001);
 
   EXPECT_EQ(cube_mesh->polygons[0].vertices, new_mesh.polygons[0].vertices);
