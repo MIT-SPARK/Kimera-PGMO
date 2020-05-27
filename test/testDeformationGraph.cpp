@@ -9,6 +9,7 @@
 #include <geometry_msgs/Pose.h>
 #include <pcl/PolygonMesh.h>
 
+#include "mesher_mapper/CommonFunctions.h"
 #include "mesher_mapper/DeformationGraph.h"
 #include "test_config.h"
 
@@ -122,6 +123,45 @@ TEST(DeformationGraph, deformMeshtranslation) {
   EXPECT_TRUE(ComprePointcloud(expected_vertices, actual_vertices, 1e-6));
   EXPECT_EQ(original_mesh.polygons[0].vertices, new_mesh.polygons[0].vertices);
   EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
+}
+
+TEST(DeformationGraph, deformMesh) {
+  pcl::PolygonMeshPtr cube_mesh(new pcl::PolygonMesh());
+  ReadMeshFromPly(std::string(DATASET_PATH) + "/cube.ply", cube_mesh);
+  pcl::PolygonMesh simple_mesh = createMeshTriangle();
+  // deform mesh
+  DeformationGraph graph;
+  graph.createFromMesh(simple_mesh);
+  geometry_msgs::Pose distortion;
+  distortion.position.x = -0.5;
+  graph.addMeasurement(0, distortion);
+  graph.optimize();
+  pcl::PointCloud<pcl::PointXYZ> original_vertices, expected_vertices;
+  pcl::fromPCLPointCloud2(cube_mesh->cloud, original_vertices);
+  for (pcl::PointXYZ p : original_vertices.points) {
+    expected_vertices.push_back(pcl::PointXYZ(p.x - 0.5, p.y, p.z));
+  }
+  // Try with k = 3
+  pcl::PolygonMesh new_mesh = graph.deformMesh(*cube_mesh, 3);
+  pcl::PointCloud<pcl::PointXYZ> actual_vertices;
+  pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
+  EXPECT_TRUE(ComprePointcloud(expected_vertices, actual_vertices, 1e-6));
+  EXPECT_EQ(cube_mesh->polygons[0].vertices, new_mesh.polygons[0].vertices);
+  EXPECT_EQ(cube_mesh->polygons[3].vertices, new_mesh.polygons[3].vertices);
+
+  // deform mesh again
+  geometry_msgs::Pose distortion2;
+  distortion2.position.x = 0.5;
+  graph.addMeasurement(1, distortion2);
+  graph.optimize();
+  // Try with k = 3
+  new_mesh = graph.deformMesh(*cube_mesh, 2);
+  pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
+  EXPECT_NEAR(-0.499, actual_vertices.points[0].x, 0.001);
+  EXPECT_NEAR(1.273, actual_vertices.points[1].x, 0.001);
+
+  EXPECT_EQ(cube_mesh->polygons[0].vertices, new_mesh.polygons[0].vertices);
+  EXPECT_EQ(cube_mesh->polygons[3].vertices, new_mesh.polygons[3].vertices);
 }
 
 }  // namespace mesher_mapper

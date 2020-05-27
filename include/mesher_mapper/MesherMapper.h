@@ -38,7 +38,7 @@ class MesherMapper {
   bool PublishOptimizedMesh();
 
   // Callback for loopclosure
-  bool LoopClosureCallback(
+  void LoopClosureCallback(
       const mesher_mapper::AbsolutePoseStamped::ConstPtr& msg);
 
   // Callback for mesh input
@@ -55,7 +55,7 @@ class MesherMapper {
 
   // Subscribers
   ros::Subscriber input_mesh_sub_;
-  ros::Subscriber trajectory_sub_;
+  ros::Subscriber deform_input_sub_;
 
   std::string frame_id_;
 };

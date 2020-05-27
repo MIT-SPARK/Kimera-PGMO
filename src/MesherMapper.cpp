@@ -53,13 +53,15 @@ bool MesherMapper::RegisterCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
   input_mesh_sub_ =
       nl.subscribe("input_mesh", 10, &MesherMapper::MeshCallback, this);
+  deform_input_sub_ = nl.subscribe(
+      "distortion_pose", 10, &MesherMapper::LoopClosureCallback, this);
   return true;
 }
 
 void MesherMapper::MeshCallback(
     const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
-  pcl::PolygonMesh input_mesh_ = TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
-
+  input_mesh_ = TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
+  if (optimized_mesh_.polygons.size() == 0) optimized_mesh_ = input_mesh_;
   PublishOptimizedMesh();
 }
 
@@ -78,7 +80,7 @@ bool MesherMapper::PublishOptimizedMesh() {
   return true;
 }
 
-bool MesherMapper::LoopClosureCallback(
+void MesherMapper::LoopClosureCallback(
     const mesher_mapper::AbsolutePoseStamped::ConstPtr& msg) {
   // Enforce the set points
   // Get new simplified mesh from compressor
@@ -100,12 +102,13 @@ bool MesherMapper::LoopClosureCallback(
 
   // add relative measurement
   deformation_graph_.addMeasurement(Vertex(msg->idx), msg->pose);
-
+  ROS_INFO("MesherMapper: Added 1 distortion transform.");
   // optimize with new relative mesurement
   deformation_graph_.optimize();
 
   // Update optimized mesh
   optimized_mesh_ = deformation_graph_.deformMesh(input_mesh_);
+  ROS_INFO("MesherMapper: Updated mesh from distortion input. ");
 }
 
 }  // namespace mesher_mapper

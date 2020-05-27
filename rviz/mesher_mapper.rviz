@@ -25,7 +25,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Vertices
+    SyncSource: ""
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -50,7 +50,7 @@ Visualization Manager:
         Value: true
         Wireframe Alpha: 1
         Wireframe Color: 0; 0; 0
-      Topic: /mesher_mapper_node/compressed_mesh
+      Topic: /mesher_mapper_node/optimized_mesh
       Value: true
     - Alpha: 1
       Autocompute Intensity Bounds: true
