@@ -82,8 +82,6 @@ void DeformationGraph::optimize() {
   gtsam::NonlinearFactorGraph factors_to_optimize;
   factors_to_optimize.add(consistency_factors_);
   factors_to_optimize.add(prior_factors_);
-  consistency_factors_.print("factors before opt");
-  prior_factors_.print("prior factors before op");
   // optimize
   gtsam::LevenbergMarquardtParams params;
   params.diagonalDamping = true;
