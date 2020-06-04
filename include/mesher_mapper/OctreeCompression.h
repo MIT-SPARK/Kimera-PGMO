@@ -40,6 +40,10 @@ class OctreeCompression {
     *polygons = polygons_;
   }
 
+  inline void getVerticesTimestamps(std::vector<double>* vertices_times) {
+    *vertices_times = vertices_latest_time_;
+  }
+
  private:
   bool LoadParameters(const ros::NodeHandle& n);
   bool RegisterCallbacks(const ros::NodeHandle& n);
@@ -53,6 +57,7 @@ class OctreeCompression {
   Octree::Ptr octree_;
 
   std::vector<std::vector<pcl::Vertices>> adjacent_surfaces_;
+  std::vector<double> vertices_latest_time_;
 
   double octree_resolution_;
   std::string label_;

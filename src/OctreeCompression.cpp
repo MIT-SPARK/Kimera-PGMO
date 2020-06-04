@@ -81,12 +81,15 @@ void OctreeCompression::InsertMesh(
     if (!is_in_box || !octree_->isVoxelOccupiedAtPoint(p)) {
       octree_->addPointToCloud(p, vertices_);
       remapping[i] = vertices_->points.size() - 1;
+      // Add latest observed time
+      vertices_latest_time_.push_back(mesh_msg->header.stamp.toSec());
     } else {
       float unused = 0.f;
       int result_idx;
       octree_->approxNearestSearch(p, result_idx, unused);
       // Add remapping
       remapping[i] = result_idx;
+      vertices_latest_time_.at(result_idx) = mesh_msg->header.stamp.toSec();
     }
   }
 
