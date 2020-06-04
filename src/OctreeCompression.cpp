@@ -17,7 +17,12 @@ OctreeCompression::OctreeCompression() { vertices_.reset(new PointCloud); }
 
 OctreeCompression::~OctreeCompression() {}
 
-bool OctreeCompression::Initialize(const ros::NodeHandle& n) {
+bool OctreeCompression::Initialize(const ros::NodeHandle& n,
+                                   double resolution,
+                                   std::string label) {
+  octree_resolution_ = resolution;
+  label_ = label;
+
   if (!LoadParameters(n)) {
     ROS_ERROR("OctreeCompression: failed to load parameters.");
     return false;
@@ -28,13 +33,12 @@ bool OctreeCompression::Initialize(const ros::NodeHandle& n) {
     return false;
   }
 
-  ROS_INFO("Initialized Octree Compression module.");
+  ROS_INFO("Initialized Octree Compression module with resolution %f.",
+           octree_resolution_);
   return true;
 }
 
 bool OctreeCompression::LoadParameters(const ros::NodeHandle& n) {
-  if (!n.getParam("compression/resolution", octree_resolution_)) return false;
-
   if (!n.getParam("frame_id", frame_id_)) return false;
 
   // Initialize octree
@@ -49,8 +53,8 @@ bool OctreeCompression::RegisterCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
 
   vertices_pub_ = nl.advertise<PointCloud>("vertices", 10, true);
-  mesh_pub_ =
-      nl.advertise<mesh_msgs::TriangleMeshStamped>("compressed_mesh", 10, true);
+  std::string pub_topic = "compressed_mesh_" + label_;
+  mesh_pub_ = nl.advertise<mesh_msgs::TriangleMeshStamped>(pub_topic, 10, true);
   mesh_sub_ =
       nl.subscribe("input_mesh", 10, &OctreeCompression::InsertMesh, this);
   return true;

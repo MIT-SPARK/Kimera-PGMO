@@ -1,6 +1,3 @@
 frame_id: "world"
-
-compression:
-  resolution: 0.5
-  
-  
+map_resolution: 0.001
+d_graph_resolution: 0.5

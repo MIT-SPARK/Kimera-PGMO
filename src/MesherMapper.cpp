@@ -13,8 +13,22 @@ MesherMapper::~MesherMapper() {}
 
 // Initialize parameters, publishers, and subscribers and deformation graph
 bool MesherMapper::Initialize(const ros::NodeHandle& n) {
-  if (!compression_.Initialize(n)) {
-    ROS_ERROR("MesherMapper: Failed to intialize mesh compression module.");
+  // start the two mesh compression modules: one for deformation graph and one
+  // for the overall map mesh
+  double deformation_graph_resolution, map_resolution;
+  if (!n.getParam("d_graph_resolution", deformation_graph_resolution))
+    return false;
+  if (!n.getParam("map_resolution", map_resolution)) return false;
+
+  if (!map_compression_.Initialize(n, map_resolution, "map")) {
+    ROS_ERROR("MesherMapper: Failed to intialize map compression module.");
+  }
+
+  if (!d_graph_compression_.Initialize(
+          n, deformation_graph_resolution, "deformation")) {
+    ROS_ERROR(
+        "MesherMapper: Failed to intialize deformation graph compression "
+        "module.");
   }
 
   if (!LoadParameters(n)) {
@@ -51,8 +65,6 @@ bool MesherMapper::CreatePublishers(const ros::NodeHandle& n) {
 // Initialize callbacks
 bool MesherMapper::RegisterCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
-  input_mesh_sub_ =
-      nl.subscribe("input_mesh", 10, &MesherMapper::MeshCallback, this);
   deform_input_sub_ = nl.subscribe(
       "distortion_pose", 10, &MesherMapper::LoopClosureCallback, this);
 
@@ -60,11 +72,6 @@ bool MesherMapper::RegisterCallbacks(const ros::NodeHandle& n) {
   update_timer_ =
       nl.createTimer(1.0, &MesherMapper::ProcessTimerCallback, this);
   return true;
-}
-
-void MesherMapper::MeshCallback(
-    const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
-  input_mesh_ = TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
 }
 
 // To publish optimized mesh
@@ -89,9 +96,9 @@ void MesherMapper::LoopClosureCallback(
   pcl::PolygonMesh simplified_mesh;
   pcl::PointCloud<pcl::PointXYZ>::Ptr simplified_vertices(
       new pcl::PointCloud<pcl::PointXYZ>);
-  compression_.getVertices(simplified_vertices);
+  d_graph_compression_.getVertices(simplified_vertices);
   std::vector<pcl::Vertices> simplified_polygons;
-  compression_.getPolygons(&simplified_polygons);
+  d_graph_compression_.getPolygons(&simplified_polygons);
   simplified_mesh.polygons = simplified_polygons;
   pcl::toPCLPointCloud2(*simplified_vertices, simplified_mesh.cloud);
 
@@ -110,8 +117,18 @@ void MesherMapper::LoopClosureCallback(
 }
 
 void MesherMapper::ProcessTimerCallback(const ros::TimerEvent& ev) {
+  // Get map mesh from compressor
+  pcl::PolygonMesh map_mesh;
+  pcl::PointCloud<pcl::PointXYZ>::Ptr map_vertices(
+      new pcl::PointCloud<pcl::PointXYZ>);
+  map_compression_.getVertices(map_vertices);
+  std::vector<pcl::Vertices> map_polygons;
+  map_compression_.getPolygons(&map_polygons);
+  map_mesh.polygons = map_polygons;
+  pcl::toPCLPointCloud2(*map_vertices, map_mesh.cloud);
+
   // Update optimized mesh
-  optimized_mesh_ = deformation_graph_.deformMesh(input_mesh_);
+  optimized_mesh_ = deformation_graph_.deformMesh(map_mesh);
   PublishOptimizedMesh();
 }
 

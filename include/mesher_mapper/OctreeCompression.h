@@ -24,7 +24,9 @@ class OctreeCompression {
   OctreeCompression();
   ~OctreeCompression();
 
-  bool Initialize(const ros::NodeHandle& n);
+  bool Initialize(const ros::NodeHandle& n,
+                  double resolution,
+                  std::string label);
 
   bool PublishVertices();
 
@@ -53,6 +55,7 @@ class OctreeCompression {
   std::vector<std::vector<pcl::Vertices>> adjacent_surfaces_;
 
   double octree_resolution_;
+  std::string label_;
 
   // Publishers
   ros::Publisher vertices_pub_;
