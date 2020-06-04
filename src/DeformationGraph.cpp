@@ -11,6 +11,7 @@
 
 #include <pcl/PCLPointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <ros/console.h>
 
 #define SLOW_BUT_CORRECT_BETWEENFACTOR
 
@@ -94,6 +95,11 @@ void DeformationGraph::optimize() {
 pcl::PolygonMesh DeformationGraph::deformMesh(
     const pcl::PolygonMesh& original_mesh,
     size_t k) const {
+  // Cannot deform if no nodes in the deformation graph
+  if (vertices_.points.size() == 0) {
+    ROS_DEBUG("Deformable mesh empty. No deformation. ");
+    return original_mesh;
+  }
   // extract original vertices
   pcl::PointCloud<pcl::PointXYZ> original_vertices;
   pcl::fromPCLPointCloud2(original_mesh.cloud, original_vertices);
@@ -128,7 +134,7 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
     }
     // Calculate new point location from k points
     gtsam::Point3 new_point(0, 0, 0);
-    double d_max = std::sqrt(nearest_nodes[nearest_nodes.size() - 1].second);
+    double d_max = std::sqrt(nearest_nodes.at(nearest_nodes.size() - 1).second);
     double weight_sum = 0;
     for (size_t j = 0; j < nearest_nodes.size() - 1; j++) {
       pcl::PointXYZ p_g = vertices_.points.at(nearest_nodes[j].first);

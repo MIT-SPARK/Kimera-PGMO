@@ -21,7 +21,7 @@
     <param name="method" value="merged" />>
   </node>
 
-  <node launch-prefix="gdb -ex run --args" name="voxblox_to_mesh" pkg="mesher_mapper" type="voxblox_to_mesh" output="screen" >
+  <node name="voxblox_to_mesh" pkg="mesher_mapper" type="voxblox_to_mesh" output="screen" >
     <remap from="/voxblox_mesh" to="/voxblox_node/mesh" />
   </node> 
 </launch>

@@ -44,7 +44,7 @@ bool MesherMapper::LoadParameters(const ros::NodeHandle& n) {
 bool MesherMapper::CreatePublishers(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
   optimized_mesh_pub_ =
-      nl.advertise<mesh_msgs::TriangleMeshStamped>("optimized_mesh", 10, true);
+      nl.advertise<mesh_msgs::TriangleMeshStamped>("optimized_mesh", 1, true);
   return true;
 }
 
@@ -55,14 +55,16 @@ bool MesherMapper::RegisterCallbacks(const ros::NodeHandle& n) {
       nl.subscribe("input_mesh", 10, &MesherMapper::MeshCallback, this);
   deform_input_sub_ = nl.subscribe(
       "distortion_pose", 10, &MesherMapper::LoopClosureCallback, this);
+
+  // start timer
+  update_timer_ =
+      nl.createTimer(1.0, &MesherMapper::ProcessTimerCallback, this);
   return true;
 }
 
 void MesherMapper::MeshCallback(
     const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
   input_mesh_ = TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
-  if (optimized_mesh_.polygons.size() == 0) optimized_mesh_ = input_mesh_;
-  PublishOptimizedMesh();
 }
 
 // To publish optimized mesh
@@ -105,10 +107,12 @@ void MesherMapper::LoopClosureCallback(
   ROS_INFO("MesherMapper: Added 1 distortion transform.");
   // optimize with new relative mesurement
   deformation_graph_.optimize();
+}
 
+void MesherMapper::ProcessTimerCallback(const ros::TimerEvent& ev) {
   // Update optimized mesh
   optimized_mesh_ = deformation_graph_.deformMesh(input_mesh_);
-  ROS_INFO("MesherMapper: Updated mesh from distortion input. ");
+  PublishOptimizedMesh();
 }
 
 }  // namespace mesher_mapper

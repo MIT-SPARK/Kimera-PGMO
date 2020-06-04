@@ -44,6 +44,9 @@ class MesherMapper {
   // Callback for mesh input
   void MeshCallback(const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
 
+  // Timer callback
+  void ProcessTimerCallback(const ros::TimerEvent& ev);
+
   pcl::PolygonMesh input_mesh_;
   pcl::PolygonMesh optimized_mesh_;
 
@@ -56,6 +59,9 @@ class MesherMapper {
   // Subscribers
   ros::Subscriber input_mesh_sub_;
   ros::Subscriber deform_input_sub_;
+
+  // Timer
+  ros::Timer update_timer_;
 
   std::string frame_id_;
 };
