@@ -1,5 +1,5 @@
 <launch>
-  <arg name="test_mesh_file" value="$(find mesher_mapper)/test/data/sphere.ply" />
+  <arg name="test_mesh_file" value="/home/yunchang/Desktop/dcist2.ply" />
 
   <!-- Launch robot handler nodes -->
   <node type="load_mesh" name="load_mesh" pkg="mesher_mapper" args="$(arg test_mesh_file)" output="screen" />

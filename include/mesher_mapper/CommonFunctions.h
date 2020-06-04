@@ -14,6 +14,7 @@
 #include <pcl/PolygonMesh.h>
 #include <pcl/io/ply_io.h>
 #include <pcl_msgs/PolygonMesh.h>
+#include <voxblox_msgs/Mesh.h>
 
 namespace mesher_mapper {
 
@@ -26,4 +27,7 @@ pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
     const mesh_msgs::TriangleMesh& mesh_msg);
 
 gtsam::Pose3 RosToGtsam(const geometry_msgs::Pose& transform);
+
+pcl::PolygonMesh VoxbloxGetLastMeshBlock(
+    const voxblox_msgs::Mesh::ConstPtr& voxblox_mesh);
 }  // namespace mesher_mapper

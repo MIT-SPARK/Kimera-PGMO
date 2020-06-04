@@ -9,6 +9,7 @@
 #include <pcl/PCLPointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <voxblox_msgs/MeshBlock.h>
 
 #include "mesher_mapper/CommonFunctions.h"
 #include "mesher_mapper/tinyply.h"
@@ -162,4 +163,49 @@ gtsam::Pose3 RosToGtsam(const geometry_msgs::Pose& transform) {
           transform.position.x, transform.position.y, transform.position.z));
   return pose;
 }
+
+pcl::PolygonMesh VoxbloxGetLastMeshBlock(
+    const voxblox_msgs::Mesh::ConstPtr& voxblox_msg) {
+  pcl::PolygonMesh new_mesh;
+  pcl::PointCloud<pcl::PointXYZ> vertices_cloud;
+
+  // Extract mesh block
+  size_t vertex_index = 0u;
+  for (const voxblox_msgs::MeshBlock& mesh_block : voxblox_msg->mesh_blocks) {
+    // translate vertex data from message to voxblox mesh
+    pcl::Vertices triangle;
+    for (size_t i = 0; i < mesh_block.x.size(); ++i) {
+      // (2*block_size), see mesh_vis.h for the slightly convoluted
+      // justification of the 2.
+      constexpr float point_conv_factor =
+          2.0f / std::numeric_limits<uint16_t>::max();
+      const float mesh_x =
+          (static_cast<float>(mesh_block.x[i]) * point_conv_factor +
+           static_cast<float>(mesh_block.index[0])) *
+          voxblox_msg->block_edge_length;
+      const float mesh_y =
+          (static_cast<float>(mesh_block.y[i]) * point_conv_factor +
+           static_cast<float>(mesh_block.index[1])) *
+          voxblox_msg->block_edge_length;
+      const float mesh_z =
+          (static_cast<float>(mesh_block.z[i]) * point_conv_factor +
+           static_cast<float>(mesh_block.index[2])) *
+          voxblox_msg->block_edge_length;
+
+      pcl::PointXYZ point(mesh_x, mesh_y, mesh_z);
+      vertices_cloud.push_back(point);
+
+      triangle.vertices.push_back(vertex_index++);
+      if (i % 3 == 0) {
+        if (i != 0) {
+          new_mesh.polygons.push_back(triangle);
+          triangle = pcl::Vertices();
+        }
+      }
+    }
+  }
+  pcl::toPCLPointCloud2(vertices_cloud, new_mesh.cloud);
+  return new_mesh;
+}
+
 }  // namespace mesher_mapper

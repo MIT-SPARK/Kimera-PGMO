@@ -54,6 +54,11 @@ cs_add_executable(load_mesh
 )
 target_link_libraries(load_mesh ${PROJECT_NAME})
 
+cs_add_executable(voxblox_to_mesh
+  src/voxblox_to_mesh.cpp
+)
+target_link_libraries(voxblox_to_mesh ${PROJECT_NAME})
+
 # Unit tests 
 set(TEST_DATA_PATH "${CMAKE_CURRENT_SOURCE_DIR}/test/data")
 configure_file(test/test_config.h.in test/test_config.h)

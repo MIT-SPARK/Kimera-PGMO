@@ -1,0 +1,27 @@
+<launch>
+  <!-- launch voxblox to make mesh -->
+  <arg name="process_every_nth_frame" default="1" />
+  <arg name="voxel_size" default="0.1" />
+  <arg name="scale" default="0.1" />
+
+  <node name="voxblox_node" pkg="voxblox_ros" type="tsdf_server" args="-alsologtostderr" clear_params="true">
+    <remap from="pointcloud" to="/kimera_vio_ros/time_horizon_pointcloud" />
+    <param name="tsdf_voxel_size" value="$(arg voxel_size)" />
+    <param name="tsdf_voxels_per_side" value="16" />
+    <param name="voxel_carving_enabled" value="false" />
+    <param name="color_mode" value="lambert" />
+    <param name="use_tf_transforms" value="true" />
+    <param name="enable_icp" value="true" />
+    <param name="icp_iterations" value="5" />
+    <param name="verbose" value="true" />
+    <param name="update_mesh_every_n_sec" value="0.1" />
+    <param name="max_ray_length_m" value="150.0" />
+    <param name="min_ray_length_m" value="0.01" />
+    <param name="min_time_between_msgs_sec" value="0.02" />
+    <param name="method" value="merged" />>
+  </node>
+
+  <node launch-prefix="gdb -ex run --args" name="voxblox_to_mesh" pkg="mesher_mapper" type="voxblox_to_mesh" output="screen" >
+    <remap from="/voxblox_mesh" to="/voxblox_node/mesh" />
+  </node> 
+</launch>

@@ -1,6 +1,6 @@
 frame_id: "world"
 
 compression:
-  resolution: 0.5
+  resolution: 5
   
   
