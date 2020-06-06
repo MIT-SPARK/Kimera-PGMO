@@ -7,6 +7,7 @@
 #include <map>
 #include <vector>
 
+#include <gtsam/geometry/Point3.h>
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/nonlinear/NonlinearFactor.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
@@ -76,11 +77,13 @@ class DeformationGraph {
   DeformationGraph();
   ~DeformationGraph();
 
-  void createFromMesh(const pcl::PolygonMesh& mesh);
+  void update();
 
-  void addMesh(const pcl::PolygonMesh& mesh);
+  void updateWithMesh(const pcl::PolygonMesh& mesh);
 
   void addMeasurement(const Vertex& v, const geometry_msgs::Pose& transform);
+
+  void addNode(const pcl::PointXYZ& position, const Vertices& valences);
 
   void optimize();
 
@@ -91,10 +94,25 @@ class DeformationGraph {
   inline pcl::PointCloud<pcl::PointXYZ> getVertices() const {
     return vertices_;
   }
+  inline Graph getGraph() const { return graph_; }
+
+ private:
+  void resetConsistencyFactors();
+
+  void addNonMeshNodesToGraph();
 
  private:
   Graph graph_;
   pcl::PointCloud<pcl::PointXYZ> vertices_;
+  // Keep track of vertices not part of mesh
+  // for embedding trajectory, etc.
+  std::vector<pcl::PointXYZ> non_mesh_vertices_;
+  std::vector<Vertices> non_mesh_connections_;
+
+  std::map<Vertex, gtsam::Point3> vertex_positions_;
+
+  // track mesh if one used to create deformation graph
+  pcl::PolygonMesh mesh_structure_;
 
   // factor graph encoding the mesh structure
   gtsam::NonlinearFactorGraph consistency_factors_;

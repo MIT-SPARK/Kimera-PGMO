@@ -6,12 +6,13 @@
 
 #include <string>
 
+#include <nav_msgs/Path.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl_msgs/PolygonMesh.h>
 #include <ros/ros.h>
 #include <std_msgs/String.h>
 
-#include <gtsam/nonlinear/NonlinearFactorGraph.h>
+#include <gtsam/geometry/Pose3.h>
 
 #include "mesher_mapper/AbsolutePoseStamped.h"
 #include "mesher_mapper/CommonFunctions.h"
@@ -41,6 +42,9 @@ class MesherMapper {
   void LoopClosureCallback(
       const mesher_mapper::AbsolutePoseStamped::ConstPtr& msg);
 
+  // Callback for recieved trajectory
+  void TrajectoryCallback(const nav_msgs::Path::ConstPtr& msg);
+
   // Callback for mesh input
   void MeshCallback(const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
 
@@ -61,6 +65,9 @@ class MesherMapper {
 
   // Subscribers
   ros::Subscriber deform_input_sub_;
+
+  // Trajectory
+  std::vector<gtsam::Pose3> trajectory_;
 
   // Timer
   ros::Timer update_timer_;

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <cstdint>
 #include <map>
 #include <string>
 #include <utility>
@@ -15,7 +16,7 @@
 
 namespace mesher_mapper {
 
-typedef unsigned int Vertex;
+typedef std::uint64_t Vertex;
 typedef std::vector<Vertex> Vertices;
 typedef std::map<Vertex, Vertices> Edges;
 typedef std::pair<Vertex, Vertex> Edge;

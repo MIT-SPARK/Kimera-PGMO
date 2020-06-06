@@ -15,6 +15,7 @@
 
 #define SLOW_BUT_CORRECT_BETWEENFACTOR
 
+#include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/slam/PriorFactor.h>
 
@@ -25,12 +26,28 @@ namespace mesher_mapper {
 DeformationGraph::DeformationGraph() {}
 DeformationGraph::~DeformationGraph() {}
 
-void DeformationGraph::createFromMesh(const pcl::PolygonMesh& mesh) {
-  // store mesh
-  graph_.createFromPclMeshBidirection(mesh);
+void DeformationGraph::update() {
+  // Here we assume that the mesh since creation has grown
+  // Essentially every new mesh recieved contains the old mesh
+  graph_ = Graph();
+  graph_.createFromPclMeshBidirection(mesh_structure_);
   // store points position
-  pcl::fromPCLPointCloud2(mesh.cloud, vertices_);
+  pcl::fromPCLPointCloud2(mesh_structure_.cloud, vertices_);
+  for (size_t i = 0; i < vertices_.points.size(); i++) {
+    vertex_positions_[i] = gtsam::Point3(
+        vertices_.points[i].x, vertices_.points[i].y, vertices_.points[i].x);
+  }
 
+  // Add the non mesh nodes
+  addNonMeshNodesToGraph();
+
+  // reset consistency factors
+  resetConsistencyFactors();
+}
+
+void DeformationGraph::resetConsistencyFactors() {
+  values_ = gtsam::Values();
+  consistency_factors_ = gtsam::NonlinearFactorGraph();
   // build the connections factors
   // This consist of all the factors used
   // in optimization without the factors
@@ -38,11 +55,9 @@ void DeformationGraph::createFromMesh(const pcl::PolygonMesh& mesh) {
   Vertices vertices = graph_.getVertices();
   for (Vertex v : vertices) {
     values_.insert(v, gtsam::Pose3());
-    pcl::PointXYZ p = vertices_.points[v];
-    gtsam::Point3 v_pos(p.x, p.y, p.z);
+    gtsam::Point3 v_pos = vertex_positions_[v];
     for (Vertex valence : graph_.getValence(v)) {
-      pcl::PointXYZ pv = vertices_.points[valence];
-      gtsam::Point3 valence_pos(pv.x, pv.y, pv.z);
+      gtsam::Point3 valence_pos = vertex_positions_[valence];
       // Define noise. Hardcoded for now
       static const gtsam::SharedNoiseModel& noise =
           gtsam::noiseModel::Isotropic::Variance(3, 1e-1);
@@ -53,19 +68,48 @@ void DeformationGraph::createFromMesh(const pcl::PolygonMesh& mesh) {
   }
 }
 
-void DeformationGraph::addMesh(const pcl::PolygonMesh& mesh) {
-  // Add new mesh (note does not check for repeated vertices and surfaces)
-  Graph new_graph;
-  new_graph.createFromPclMesh(mesh);
-
-  pcl::PointCloud<pcl::PointXYZ> new_vertices;
-  pcl::fromPCLPointCloud2(mesh.cloud, new_vertices);
-
-  graph_.combineGraph(new_graph);
-
-  for (pcl::PointXYZ p : new_vertices.points) {
-    vertices_.points.push_back(p);
+void DeformationGraph::updateWithMesh(const pcl::PolygonMesh& mesh) {
+  // Here we assume that the mesh since creation has grown
+  // Essentially every new mesh recieved contains the old mesh
+  graph_ = Graph();
+  graph_.createFromPclMeshBidirection(mesh);
+  // store points position
+  pcl::fromPCLPointCloud2(mesh.cloud, vertices_);
+  for (size_t i = 0; i < vertices_.points.size(); i++) {
+    vertex_positions_[i] = gtsam::Point3(
+        vertices_.points[i].x, vertices_.points[i].y, vertices_.points[i].x);
   }
+
+  // Add the non mesh nodes
+  addNonMeshNodesToGraph();
+
+  // reset consistency factors
+  resetConsistencyFactors();
+
+  // store mesh
+  mesh_structure_ = mesh;
+}
+
+void DeformationGraph::addNonMeshNodesToGraph() {
+  for (size_t i = 0; i < non_mesh_vertices_.size(); i++) {
+    vertices_.points.push_back(non_mesh_vertices_[i]);
+    gtsam::Symbol node_symb('n', i);
+    Vertex node = node_symb.key();
+    // add vertex position to map
+    vertex_positions_[node] = gtsam::Point3(non_mesh_vertices_[i].x,
+                                            non_mesh_vertices_[i].y,
+                                            non_mesh_vertices_[i].z);
+    for (Vertex valence : non_mesh_connections_[i]) {
+      graph_.addEdge(Edge(node, valence));
+      graph_.addEdge(Edge(valence, node));
+    }
+  }
+}
+
+void DeformationGraph::addNode(const pcl::PointXYZ& position,
+                               const Vertices& valences) {
+  non_mesh_vertices_.push_back(position);
+  non_mesh_connections_.push_back(valences);
 }
 
 void DeformationGraph::addMeasurement(const Vertex& v,

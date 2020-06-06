@@ -7,6 +7,7 @@
 #include "gtest/gtest.h"
 
 #include <geometry_msgs/Pose.h>
+#include <gtsam/inference/Symbol.h>
 #include <pcl/PolygonMesh.h>
 
 #include "mesher_mapper/CommonFunctions.h"
@@ -75,7 +76,7 @@ TEST(DeformationGraph, reconstructMesh) {
   pcl::PolygonMesh original_mesh = SimpleMesh();
 
   // deform mesh
-  graph.createFromMesh(simple_mesh);
+  graph.updateWithMesh(simple_mesh);
 
   // First try deform with k = 1, should not change
   pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 1);
@@ -97,7 +98,7 @@ TEST(DeformationGraph, deformMeshtranslation) {
   pcl::PolygonMesh original_mesh = SimpleMesh();
 
   // deform mesh
-  graph.createFromMesh(simple_mesh);
+  graph.updateWithMesh(simple_mesh);
   geometry_msgs::Pose distortion;
   distortion.position.x = 0.5;
   graph.addMeasurement(1, distortion);
@@ -131,7 +132,7 @@ TEST(DeformationGraph, deformMesh) {
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
   // deform mesh
   DeformationGraph graph;
-  graph.createFromMesh(simple_mesh);
+  graph.updateWithMesh(simple_mesh);
   geometry_msgs::Pose distortion;
   distortion.position.x = -0.5;
   graph.addMeasurement(0, distortion);
@@ -163,5 +164,53 @@ TEST(DeformationGraph, deformMesh) {
   EXPECT_EQ(cube_mesh->polygons[0].vertices, new_mesh.polygons[0].vertices);
   EXPECT_EQ(cube_mesh->polygons[3].vertices, new_mesh.polygons[3].vertices);
 }
+
+TEST(DeformationGraph, updateMesh) {
+  DeformationGraph graph;
+  pcl::PolygonMesh simple_mesh = createMeshTriangle();
+
+  pcl::PolygonMesh original_mesh = SimpleMesh();
+
+  graph.updateWithMesh(simple_mesh);
+
+  EXPECT_EQ(3, graph.getNumVertices());
+  EXPECT_EQ(0, graph.getVertices().points[0].x);
+  EXPECT_EQ(1, graph.getVertices().points[2].y);
+
+  Vertices new_node_valences{0, 2};
+  graph.addNode(pcl::PointXYZ(2, 2, 2), new_node_valences);
+  graph.update();
+
+  EXPECT_EQ(4, graph.getNumVertices());
+  EXPECT_EQ(2, graph.getVertices().points[3].y);
+  Graph base_graph = graph.getGraph();
+  Vertex new_key = gtsam::Symbol('n', 0).key();
+
+  std::vector<Edge> base_edges = base_graph.getEdges();
+  EXPECT_EQ(10, base_edges.size());
+  EXPECT_EQ(Edge(0, 1), base_edges[0]);
+  EXPECT_EQ(Edge(0, new_key), base_edges[2]);
+  EXPECT_EQ(Edge(1, 2), base_edges[4]);
+  EXPECT_EQ(Edge(new_key, 2), base_edges[9]);
+
+  graph.updateWithMesh(original_mesh);
+  Vertices new_node_valences_2{2, new_key};
+  graph.addNode(pcl::PointXYZ(2, 3, 4), new_node_valences_2);
+  graph.update();
+
+  EXPECT_EQ(7, graph.getNumVertices());
+  EXPECT_EQ(2, graph.getVertices().points[5].y);
+  EXPECT_EQ(3, graph.getVertices().points[6].y);
+  EXPECT_EQ(4, graph.getVertices().points[6].z);
+  base_graph = graph.getGraph();
+  Vertex new_key_2 = gtsam::Symbol('n', 1).key();
+
+  base_edges = base_graph.getEdges();
+  EXPECT_EQ(24, base_edges.size());
+  EXPECT_EQ(Edge(0, 1), base_edges[0]);
+  EXPECT_EQ(Edge(0, new_key), base_edges[3]);
+  EXPECT_EQ(Edge(1, 0), base_edges[4]);
+  EXPECT_EQ(Edge(new_key, new_key_2), base_edges[21]);
+}  // namespace mesher_mapper
 
 }  // namespace mesher_mapper

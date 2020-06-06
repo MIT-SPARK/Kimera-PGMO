@@ -27,7 +27,7 @@ cs_add_library(${PROJECT_NAME}
 src/CommonFunctions.cpp
 src/DeformationGraph.cpp
 src/CommonStructs.cpp
-src/AlliezDesbrunCompression.cpp
+# src/AlliezDesbrunCompression.cpp
 src/OctreeCompression.cpp
 src/tinyply.cpp
 src/MesherMapper.cpp
@@ -44,10 +44,10 @@ cs_add_executable(mesher_mapper_node
 )
 target_link_libraries(mesher_mapper_node ${PROJECT_NAME})
 
-cs_add_executable(alliez_desbrun
-  src/alliez_desbrun.cpp
-)
-target_link_libraries(alliez_desbrun ${PROJECT_NAME})
+# cs_add_executable(alliez_desbrun
+#   src/alliez_desbrun.cpp
+# )
+# target_link_libraries(alliez_desbrun ${PROJECT_NAME})
 
 cs_add_executable(load_mesh
   src/load_mesh.cpp

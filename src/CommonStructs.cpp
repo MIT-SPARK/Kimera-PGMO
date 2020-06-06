@@ -109,12 +109,12 @@ bool Graph::combineGraph(const Graph& new_graph) {
 }
 
 void Graph::print(std::string header) const {
-  // std::cout << header << "\n";
-  // std::cout << "vertices: \n";
-  // for (Vertex v : vertices_) {
-  //   std::cout << v << " ";
-  // }
-  // std::cout << std::endl;
+  std::cout << header << "\n";
+  std::cout << "vertices: \n";
+  for (Vertex v : vertices_) {
+    std::cout << v << " ";
+  }
+  std::cout << std::endl;
   std::cout << "edges: \n";
   Edges::const_iterator iter;
   for (iter = edges_.begin(); iter != edges_.end(); iter++) {

@@ -89,6 +89,8 @@ bool MesherMapper::PublishOptimizedMesh() {
   return true;
 }
 
+void MesherMapper::TrajectoryCallback(const nav_msgs::Path::ConstPtr& msg) {}
+
 void MesherMapper::LoopClosureCallback(
     const mesher_mapper::AbsolutePoseStamped::ConstPtr& msg) {
   // Enforce the set points
@@ -106,7 +108,7 @@ void MesherMapper::LoopClosureCallback(
   if (deformation_graph_.getNumVertices() <
       simplified_vertices->points.size()) {
     deformation_graph_ = DeformationGraph();
-    deformation_graph_.createFromMesh(simplified_mesh);
+    deformation_graph_.updateWithMesh(simplified_mesh);
   }
 
   // add relative measurement
