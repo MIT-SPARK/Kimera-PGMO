@@ -193,10 +193,9 @@ TEST(DeformationGraph, updateMesh) {
   EXPECT_EQ(Edge(1, 2), base_edges[4]);
   EXPECT_EQ(Edge(new_key, 2), base_edges[9]);
 
-  graph.updateWithMesh(original_mesh);
-  Vertices new_node_valences_2{2, new_key};
+  Vertices new_node_valences_2{3, new_key};
   graph.addNode(pcl::PointXYZ(2, 3, 4), new_node_valences_2);
-  graph.update();
+  graph.updateWithMesh(original_mesh);
 
   EXPECT_EQ(7, graph.getNumVertices());
   EXPECT_EQ(2, graph.getVertices().points[5].y);
@@ -210,6 +209,7 @@ TEST(DeformationGraph, updateMesh) {
   EXPECT_EQ(Edge(0, 1), base_edges[0]);
   EXPECT_EQ(Edge(0, new_key), base_edges[3]);
   EXPECT_EQ(Edge(1, 0), base_edges[4]);
+  EXPECT_EQ(Edge(3, new_key_2), base_edges[15]);
   EXPECT_EQ(Edge(new_key, new_key_2), base_edges[21]);
 }  // namespace mesher_mapper
 
