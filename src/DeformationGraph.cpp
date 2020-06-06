@@ -68,28 +68,6 @@ void DeformationGraph::resetConsistencyFactors() {
   }
 }
 
-void DeformationGraph::updateWithMesh(const pcl::PolygonMesh& mesh) {
-  // Here we assume that the mesh since creation has grown
-  // Essentially every new mesh recieved contains the old mesh
-  graph_ = Graph();
-  graph_.createFromPclMeshBidirection(mesh);
-  // store points position
-  pcl::fromPCLPointCloud2(mesh.cloud, vertices_);
-  for (size_t i = 0; i < vertices_.points.size(); i++) {
-    vertex_positions_[i] = gtsam::Point3(
-        vertices_.points[i].x, vertices_.points[i].y, vertices_.points[i].x);
-  }
-
-  // Add the non mesh nodes
-  addNonMeshNodesToGraph();
-
-  // reset consistency factors
-  resetConsistencyFactors();
-
-  // store mesh
-  mesh_structure_ = mesh;
-}
-
 void DeformationGraph::addNonMeshNodesToGraph() {
   for (size_t i = 0; i < non_mesh_vertices_.size(); i++) {
     vertices_.points.push_back(non_mesh_vertices_[i]);
@@ -107,20 +85,35 @@ void DeformationGraph::addNonMeshNodesToGraph() {
 }
 
 void DeformationGraph::addNode(const pcl::PointXYZ& position,
-                               const Vertices& valences) {
+                               Vertices valences,
+                               bool connect_to_previous) {
+  // if it is a trajectory node, add connection to previous added node
+  if (connect_to_previous) {
+    size_t last_index = non_mesh_vertices_.size() - 1;
+    valences.push_back(gtsam::Symbol('n', last_index).key());
+  }
   non_mesh_vertices_.push_back(position);
   non_mesh_connections_.push_back(valences);
 }
 
 void DeformationGraph::addMeasurement(const Vertex& v,
                                       const geometry_msgs::Pose& pose) {
-  // noise for loop closure
+  // noise for measurement
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(6, 1e-10);
 
   gtsam::Pose3 meas = RosToGtsam(pose);
   gtsam::PriorFactor<gtsam::Pose3> absolute_meas(v, meas, noise);
   prior_factors_.add(absolute_meas);
+}
+
+void DeformationGraph::addNodeMeasurement(const size_t& node_number,
+                                          const gtsam::Pose3 delta_pose) {
+  gtsam::Symbol node_symb = gtsam::Symbol('n', node_number);
+  static const gtsam::SharedNoiseModel& noise =
+      gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
+  gtsam::PriorFactor<gtsam::Pose3> measurement(node_symb, delta_pose, noise);
+  prior_factors_.add(measurement);
 }
 
 void DeformationGraph::optimize() {

@@ -73,5 +73,9 @@ class MesherMapper {
   ros::Timer update_timer_;
 
   std::string frame_id_;
+
+  // Parameters for embedding
+  double embed_delta_t_;
+  double embed_delta_r_;
 };
 }  // namespace mesher_mapper

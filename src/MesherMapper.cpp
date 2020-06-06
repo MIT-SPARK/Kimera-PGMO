@@ -3,6 +3,9 @@
  * @brief  MesherMapper class: Main class and ROS interface
  * @author Yun Chang
  */
+#include <geometry_msgs/PoseStamped.h>
+#include <cmath>
+
 #include "mesher_mapper/MesherMapper.h"
 
 namespace mesher_mapper {
@@ -89,7 +92,70 @@ bool MesherMapper::PublishOptimizedMesh() {
   return true;
 }
 
-void MesherMapper::TrajectoryCallback(const nav_msgs::Path::ConstPtr& msg) {}
+void MesherMapper::TrajectoryCallback(const nav_msgs::Path::ConstPtr& msg) {
+  // Convert trajectory to gtsam
+  std::vector<gtsam::Pose3> current_trajectory;
+  for (geometry_msgs::PoseStamped ros_pose : msg->poses) {
+    gtsam::Pose3 pose = RosToGtsam(ros_pose.pose);
+    current_trajectory.push_back(pose);
+  }
+
+  // Add to current trajectory and also embed into deformation graph
+  // Get the latest observation timestamp of the vertices
+  double msg_time = msg->header.stamp.toSec();
+  std::vector<double> latest_observed_times;
+  d_graph_compression_.getVerticesTimestamps(&latest_observed_times);
+  // Get the vertices of the simplified mesh
+  pcl::PointCloud<pcl::PointXYZ>::Ptr simplified_vertices(
+      new pcl::PointCloud<pcl::PointXYZ>);
+  d_graph_compression_.getVertices(simplified_vertices);
+  for (size_t i = trajectory_.size(); i < current_trajectory.size(); i++) {
+    trajectory_.push_back(current_trajectory[i]);
+    Vertices valences;
+    gtsam::Point3 pos = current_trajectory[i].translation();
+    // connect to nodes that are proximate in spacetime
+    for (size_t j = 0; j < latest_observed_times.size(); j++) {
+      if (abs(msg_time - latest_observed_times[j]) < embed_delta_t_) {
+        pcl::PointXYZ candidate_pos = simplified_vertices->points[j];
+        double dist = std::sqrt(
+            (pos.x() - candidate_pos.x) * (pos.x() - candidate_pos.x) +
+            (pos.y() - candidate_pos.y) * (pos.y() - candidate_pos.y) +
+            (pos.z() - candidate_pos.z) * (pos.z() - candidate_pos.z));
+        if (dist < embed_delta_r_) {
+          valences.push_back(j);
+        }
+      }
+    }
+    // add node to deform graph
+    deformation_graph_.addNode(
+        pcl::PointXYZ(pos.x(), pos.y(), pos.z()), valences, true);
+  }
+
+  // Add distortions
+  deformation_graph_.clearMeasurements();  // but first clear previous input
+  for (size_t i = 0; i < trajectory_.size(); i++) {
+    gtsam::Pose3 distortion = trajectory_[i].between(current_trajectory[i]);
+    deformation_graph_.addNodeMeasurement(i, distortion);
+    // i.e. if no loop closures, distortion should be identity
+  }
+
+  pcl::PolygonMesh simplified_mesh;
+  // Fill in simplified mesh
+  std::vector<pcl::Vertices> simplified_polygons;
+  d_graph_compression_.getPolygons(&simplified_polygons);
+  simplified_mesh.polygons = simplified_polygons;
+  pcl::toPCLPointCloud2(*simplified_vertices, simplified_mesh.cloud);
+
+  // Check if new portions added for deformation graph
+  if (deformation_graph_.getNumVertices() <
+      simplified_vertices->points.size()) {
+    deformation_graph_.updateMesh(simplified_mesh);
+  }
+  deformation_graph_.update();
+  ROS_INFO("MesherMapper: Optimized with trajectory of length %d.",
+           trajectory_.size());
+  deformation_graph_.optimize();
+}
 
 void MesherMapper::LoopClosureCallback(
     const mesher_mapper::AbsolutePoseStamped::ConstPtr& msg) {
@@ -108,7 +174,8 @@ void MesherMapper::LoopClosureCallback(
   if (deformation_graph_.getNumVertices() <
       simplified_vertices->points.size()) {
     deformation_graph_ = DeformationGraph();
-    deformation_graph_.updateWithMesh(simplified_mesh);
+    deformation_graph_.updateMesh(simplified_mesh);
+    deformation_graph_.update();
   }
 
   // add relative measurement

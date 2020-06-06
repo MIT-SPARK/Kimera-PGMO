@@ -76,7 +76,8 @@ TEST(DeformationGraph, reconstructMesh) {
   pcl::PolygonMesh original_mesh = SimpleMesh();
 
   // deform mesh
-  graph.updateWithMesh(simple_mesh);
+  graph.updateMesh(simple_mesh);
+  graph.update();
 
   // First try deform with k = 1, should not change
   pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 1);
@@ -98,9 +99,10 @@ TEST(DeformationGraph, deformMeshtranslation) {
   pcl::PolygonMesh original_mesh = SimpleMesh();
 
   // deform mesh
-  graph.updateWithMesh(simple_mesh);
+  graph.updateMesh(simple_mesh);
   geometry_msgs::Pose distortion;
   distortion.position.x = 0.5;
+  graph.update();
   graph.addMeasurement(1, distortion);
   graph.optimize();
 
@@ -132,9 +134,10 @@ TEST(DeformationGraph, deformMesh) {
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
   // deform mesh
   DeformationGraph graph;
-  graph.updateWithMesh(simple_mesh);
+  graph.updateMesh(simple_mesh);
   geometry_msgs::Pose distortion;
   distortion.position.x = -0.5;
+  graph.update();
   graph.addMeasurement(0, distortion);
   graph.optimize();
   pcl::PointCloud<pcl::PointXYZ> original_vertices, expected_vertices;
@@ -171,7 +174,8 @@ TEST(DeformationGraph, updateMesh) {
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
 
-  graph.updateWithMesh(simple_mesh);
+  graph.updateMesh(simple_mesh);
+  graph.update();
 
   EXPECT_EQ(3, graph.getNumVertices());
   EXPECT_EQ(0, graph.getVertices().points[0].x);
@@ -193,9 +197,10 @@ TEST(DeformationGraph, updateMesh) {
   EXPECT_EQ(Edge(1, 2), base_edges[4]);
   EXPECT_EQ(Edge(new_key, 2), base_edges[9]);
 
-  Vertices new_node_valences_2{3, new_key};
-  graph.addNode(pcl::PointXYZ(2, 3, 4), new_node_valences_2);
-  graph.updateWithMesh(original_mesh);
+  Vertices new_node_valences_2{3};
+  graph.addNode(pcl::PointXYZ(2, 3, 4), new_node_valences_2, true);
+  graph.updateMesh(original_mesh);
+  graph.update();
 
   EXPECT_EQ(7, graph.getNumVertices());
   EXPECT_EQ(2, graph.getVertices().points[5].y);

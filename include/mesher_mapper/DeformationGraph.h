@@ -79,13 +79,24 @@ class DeformationGraph {
 
   void update();
 
-  void updateWithMesh(const pcl::PolygonMesh& mesh);
+  inline void updateMesh(const pcl::PolygonMesh& mesh) {
+    mesh_structure_ = mesh;
+  }
 
   void addMeasurement(const Vertex& v, const geometry_msgs::Pose& transform);
 
-  void addNode(const pcl::PointXYZ& position, const Vertices& valences);
+  void addNodeMeasurement(const size_t& node_number,
+                          const gtsam::Pose3 delta_pose);
+
+  void addNode(const pcl::PointXYZ& position,
+               Vertices valences,
+               bool connect_to_previous = false);
 
   void optimize();
+
+  inline void clearMeasurements() {
+    prior_factors_ = gtsam::NonlinearFactorGraph();
+  }
 
   pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
                               size_t k = 4) const;
