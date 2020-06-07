@@ -56,14 +56,18 @@ void DeformationGraph::resetConsistencyFactors() {
   for (Vertex v : vertices) {
     values_.insert(v, gtsam::Pose3());
     gtsam::Point3 v_pos = vertex_positions_[v];
-    for (Vertex valence : graph_.getValence(v)) {
-      gtsam::Point3 valence_pos = vertex_positions_[valence];
-      // Define noise. Hardcoded for now
-      static const gtsam::SharedNoiseModel& noise =
-          gtsam::noiseModel::Isotropic::Variance(3, 1e-1);
-      // Create deformation edge factor
-      DeformationEdgeFactor new_edge(v, valence, v_pos, valence_pos, noise);
-      consistency_factors_.add(new_edge);
+    try {
+      for (Vertex valence : graph_.getValence(v)) {
+        gtsam::Point3 valence_pos = vertex_positions_[valence];
+        // Define noise. Hardcoded for now
+        static const gtsam::SharedNoiseModel& noise =
+            gtsam::noiseModel::Isotropic::Variance(3, 1e-1);
+        // Create deformation edge factor
+        DeformationEdgeFactor new_edge(v, valence, v_pos, valence_pos, noise);
+        consistency_factors_.add(new_edge);
+      }
+    } catch (const std::out_of_range& e) {
+      ROS_DEBUG("No valence for node %d", v);
     }
   }
 }
@@ -73,12 +77,13 @@ void DeformationGraph::addNonMeshNodesToGraph() {
     vertices_.points.push_back(non_mesh_vertices_[i]);
     gtsam::Symbol node_symb('n', i);
     Vertex node = node_symb.key();
+    graph_.addVertex(node);
     // add vertex position to map
     vertex_positions_[node] = gtsam::Point3(non_mesh_vertices_[i].x,
                                             non_mesh_vertices_[i].y,
                                             non_mesh_vertices_[i].z);
     for (Vertex valence : non_mesh_connections_[i]) {
-      graph_.addEdgeAndVertices(Edge(node, valence));
+      graph_.addEdge(Edge(node, valence));
       graph_.addEdge(Edge(valence, node));
     }
   }
@@ -88,7 +93,7 @@ void DeformationGraph::addNode(const pcl::PointXYZ& position,
                                Vertices valences,
                                bool connect_to_previous) {
   // if it is a trajectory node, add connection to previous added node
-  if (connect_to_previous) {
+  if (connect_to_previous && non_mesh_vertices_.size() > 0) {
     size_t last_index = non_mesh_vertices_.size() - 1;
     valences.push_back(gtsam::Symbol('n', last_index).key());
   }
@@ -156,7 +161,10 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
                         (p.z - p_vertex.z) * (p.z - p_vertex.z);
       if (nearest_nodes.size() < k + 1 ||
           nearest_nodes.at(k).second > distance) {
-        nearest_nodes.push_back(std::pair<Vertex, double>(i, distance));
+        if (values_.exists(i)) {
+          // make sure that the node in question has already been optimized
+          nearest_nodes.push_back(std::pair<Vertex, double>(i, distance));
+        }
       }
       // Sort according to distance
       auto compareFunc = [](std::pair<Vertex, double>& a,

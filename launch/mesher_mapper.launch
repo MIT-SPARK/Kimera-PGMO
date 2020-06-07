@@ -10,6 +10,7 @@
     <rosparam file="$(find mesher_mapper)/params/parameters.yaml" />
 
     <remap from="~input_mesh" to="/converted_mesh" />
+    <remap from="~trajectory" to="/kimera_vio_ros/optimized_trajectory" />
   </node>
 
 </launch>

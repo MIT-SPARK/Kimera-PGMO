@@ -65,6 +65,7 @@ class MesherMapper {
 
   // Subscribers
   ros::Subscriber deform_input_sub_;
+  ros::Subscriber trajectory_sub_;
 
   // Trajectory
   std::vector<gtsam::Pose3> trajectory_;

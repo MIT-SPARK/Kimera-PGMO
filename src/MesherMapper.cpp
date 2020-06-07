@@ -71,6 +71,9 @@ bool MesherMapper::RegisterCallbacks(const ros::NodeHandle& n) {
   deform_input_sub_ = nl.subscribe(
       "distortion_pose", 10, &MesherMapper::LoopClosureCallback, this);
 
+  trajectory_sub_ =
+      nl.subscribe("trajectory", 10, &MesherMapper::TrajectoryCallback, this);
+
   // start timer
   update_timer_ =
       nl.createTimer(1.0, &MesherMapper::ProcessTimerCallback, this);
@@ -152,9 +155,10 @@ void MesherMapper::TrajectoryCallback(const nav_msgs::Path::ConstPtr& msg) {
     deformation_graph_.updateMesh(simplified_mesh);
   }
   deformation_graph_.update();
+  Graph graph = deformation_graph_.getGraph();
+  deformation_graph_.optimize();
   ROS_INFO("MesherMapper: Optimized with trajectory of length %d.",
            trajectory_.size());
-  deformation_graph_.optimize();
 }
 
 void MesherMapper::LoopClosureCallback(

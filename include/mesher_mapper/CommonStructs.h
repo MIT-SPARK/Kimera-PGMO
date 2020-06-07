@@ -29,6 +29,7 @@ class Graph {
   std::vector<Edge> getEdges() const;
 
   void addEdge(const Edge& e);
+  void addVertex(const Vertex& v);
   void addEdgeAndVertices(const Edge& e);
   bool combineGraph(const Graph& new_graph);
   bool createFromPclMesh(const pcl::PolygonMesh& mesh);

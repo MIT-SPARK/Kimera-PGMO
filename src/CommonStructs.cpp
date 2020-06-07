@@ -26,6 +26,13 @@ std::vector<Edge> Graph::getEdges() const {
   return edges;
 }
 
+void Graph::addVertex(const Vertex& v) {
+  for (Vertex vertex : vertices_) {
+    if (v == vertex) return;
+  }
+  vertices_.push_back(v);
+}
+
 void Graph::addEdgeAndVertices(const Edge& e) {
   Vertex v1 = e.first;
   Vertex v2 = e.second;
