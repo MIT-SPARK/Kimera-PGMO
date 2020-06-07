@@ -78,7 +78,7 @@ void DeformationGraph::addNonMeshNodesToGraph() {
                                             non_mesh_vertices_[i].y,
                                             non_mesh_vertices_[i].z);
     for (Vertex valence : non_mesh_connections_[i]) {
-      graph_.addEdge(Edge(node, valence));
+      graph_.addEdgeAndVertices(Edge(node, valence));
       graph_.addEdge(Edge(valence, node));
     }
   }
@@ -110,9 +110,10 @@ void DeformationGraph::addMeasurement(const Vertex& v,
 void DeformationGraph::addNodeMeasurement(const size_t& node_number,
                                           const gtsam::Pose3 delta_pose) {
   gtsam::Symbol node_symb = gtsam::Symbol('n', node_number);
+  Vertex node = node_symb.key();
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
-  gtsam::PriorFactor<gtsam::Pose3> measurement(node_symb, delta_pose, noise);
+  gtsam::PriorFactor<gtsam::Pose3> measurement(node, delta_pose, noise);
   prior_factors_.add(measurement);
 }
 

@@ -216,6 +216,50 @@ TEST(DeformationGraph, updateMesh) {
   EXPECT_EQ(Edge(1, 0), base_edges[4]);
   EXPECT_EQ(Edge(3, new_key_2), base_edges[15]);
   EXPECT_EQ(Edge(new_key, new_key_2), base_edges[21]);
-}  // namespace mesher_mapper
+}
+
+TEST(DeformationGraph, addNodeMeasurement) {
+  DeformationGraph graph;
+  pcl::PolygonMesh simple_mesh = createMeshTriangle();
+
+  pcl::PolygonMesh original_mesh = SimpleMesh();
+
+  graph.updateMesh(simple_mesh);
+  Vertices new_node_valences{0, 2};
+  graph.addNode(pcl::PointXYZ(2, 2, 2), new_node_valences);
+  graph.update();
+
+  EXPECT_EQ(4, graph.getNumVertices());
+  EXPECT_EQ(2, graph.getVertices().points[3].y);
+  EXPECT_EQ(0, graph.getVertices().points[0].x);
+
+  // Add node measurement
+  graph.addNodeMeasurement(0,
+                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)));
+  graph.optimize();
+  pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 1);
+  pcl::PointCloud<pcl::PointXYZ> actual_vertices;
+  pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
+
+  EXPECT_EQ(1.0, actual_vertices.points[0].x);
+  EXPECT_EQ(1.0, actual_vertices.points[4].x);
+  EXPECT_EQ(1.0, actual_vertices.points[4].z);
+
+  // clear measurmenet
+  graph.clearMeasurements();
+  graph.addNodeMeasurement(
+      0, gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3()));
+  graph.optimize();
+  new_mesh = graph.deformMesh(simple_mesh, 1);
+  pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
+
+  EXPECT_NEAR(4, actual_vertices.points[0].x, 0.001);
+  EXPECT_NEAR(4, actual_vertices.points[0].y, 0.001);
+  EXPECT_NEAR(0, actual_vertices.points[0].z, 0.001);
+  EXPECT_NEAR(3, actual_vertices.points[1].x, 0.001);
+  EXPECT_NEAR(3, actual_vertices.points[2].y, 0.001);
+  EXPECT_NEAR(0, actual_vertices.points[1].z, 0.001);
+  EXPECT_NEAR(4, actual_vertices.points[2].x, 0.001);
+}
 
 }  // namespace mesher_mapper
