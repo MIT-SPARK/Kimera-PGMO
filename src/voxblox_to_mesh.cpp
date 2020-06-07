@@ -34,7 +34,7 @@ class VoxbloxToMeshMsg {
 
     // publish
     mesh_msgs::TriangleMeshStamped new_msg;
-    new_msg.header.stamp = ros::Time::now();
+    new_msg.header.stamp = msg->header.stamp;
     new_msg.header.frame_id = "world";
     new_msg.mesh = mesh_msg;
     mesh_pub_.publish(new_msg);

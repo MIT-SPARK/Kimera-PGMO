@@ -54,6 +54,8 @@ bool MesherMapper::Initialize(const ros::NodeHandle& n) {
 // Load deformation parameters
 bool MesherMapper::LoadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("frame_id", frame_id_)) return false;
+  if (!n.getParam("embed_trajectory/max_delta_t", embed_delta_t_)) return false;
+  if (!n.getParam("embed_trajectory/max_delta_r", embed_delta_r_)) return false;
   return true;
 }
 
@@ -129,6 +131,7 @@ void MesherMapper::TrajectoryCallback(const nav_msgs::Path::ConstPtr& msg) {
         }
       }
     }
+    std::cout << "number of valences: " << valences.size() << " out of " << latest_observed_times.size() << std::endl;
     // add node to deform graph
     deformation_graph_.addNode(
         pcl::PointXYZ(pos.x(), pos.y(), pos.z()), valences, true);
@@ -150,10 +153,7 @@ void MesherMapper::TrajectoryCallback(const nav_msgs::Path::ConstPtr& msg) {
   pcl::toPCLPointCloud2(*simplified_vertices, simplified_mesh.cloud);
 
   // Check if new portions added for deformation graph
-  if (deformation_graph_.getNumVertices() <
-      simplified_vertices->points.size()) {
-    deformation_graph_.updateMesh(simplified_mesh);
-  }
+  deformation_graph_.updateMesh(simplified_mesh);
   deformation_graph_.update();
   Graph graph = deformation_graph_.getGraph();
   deformation_graph_.optimize();
