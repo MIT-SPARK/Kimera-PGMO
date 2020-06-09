@@ -210,7 +210,7 @@ gtsam::Pose3 RosToGtsam(const geometry_msgs::Pose& transform) {
   return pose;
 }
 
-pcl::PolygonMesh VoxbloxGetLastMeshBlock(
+pcl::PolygonMesh VoxbloxToPolygonMesh(
     const voxblox_msgs::Mesh::ConstPtr& voxblox_msg) {
   pcl::PolygonMesh new_mesh;
   pcl::PointCloud<pcl::PointXYZ> vertices_cloud;
@@ -238,15 +238,28 @@ pcl::PolygonMesh VoxbloxGetLastMeshBlock(
            static_cast<float>(mesh_block.index[2])) *
           voxblox_msg->block_edge_length;
 
-      pcl::PointXYZ point(mesh_x, mesh_y, mesh_z);
-      vertices_cloud.push_back(point);
-
-      triangle.vertices.push_back(vertex_index++);
-      if (i % 3 == 0) {
-        if (i != 0) {
-          new_mesh.polygons.push_back(triangle);
-          triangle = pcl::Vertices();
+      // Search if vertex inserted
+      size_t vidx;
+      bool point_exists = false;
+      for (size_t k = 0; k < vertices_cloud.points.size(); k++) {
+        if (mesh_x == vertices_cloud.points[k].x &&
+            mesh_y == vertices_cloud.points[k].y &&
+            mesh_z == vertices_cloud.points[k].z) {
+          vidx = k;
+          point_exists = true;
+          break;
         }
+      }
+      if (!point_exists) {
+        vidx = vertex_index++;
+        pcl::PointXYZ point(mesh_x, mesh_y, mesh_z);
+        vertices_cloud.push_back(point);
+      }
+
+      triangle.vertices.push_back(vidx);
+      if (triangle.vertices.size() == 3) {
+        new_mesh.polygons.push_back(triangle);
+        triangle = pcl::Vertices();
       }
     }
   }

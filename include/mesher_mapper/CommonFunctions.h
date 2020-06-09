@@ -30,6 +30,6 @@ pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
 
 gtsam::Pose3 RosToGtsam(const geometry_msgs::Pose& transform);
 
-pcl::PolygonMesh VoxbloxGetLastMeshBlock(
+pcl::PolygonMesh VoxbloxToPolygonMesh(
     const voxblox_msgs::Mesh::ConstPtr& voxblox_mesh);
 }  // namespace mesher_mapper

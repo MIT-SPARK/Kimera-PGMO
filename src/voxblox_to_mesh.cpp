@@ -28,7 +28,7 @@ class VoxbloxToMeshMsg {
 
  private:
   void voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg) {
-    pcl::PolygonMesh mesh = mesher_mapper::VoxbloxGetLastMeshBlock(msg);
+    pcl::PolygonMesh mesh = mesher_mapper::VoxbloxToPolygonMesh(msg);
     mesh_msgs::TriangleMesh mesh_msg =
         mesher_mapper::PolygonMeshToTriangleMeshMsg(mesh);
 
