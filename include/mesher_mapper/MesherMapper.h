@@ -78,5 +78,9 @@ class MesherMapper {
   // Parameters for embedding
   double embed_delta_t_;
   double embed_delta_r_;
+
+  // Save output
+  bool save_optimized_mesh_;
+  std::string output_file_;
 };
 }  // namespace mesher_mapper

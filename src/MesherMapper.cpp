@@ -11,7 +11,7 @@
 namespace mesher_mapper {
 
 // Constructor
-MesherMapper::MesherMapper() {}
+MesherMapper::MesherMapper() : save_optimized_mesh_(false) {}
 MesherMapper::~MesherMapper() {}
 
 // Initialize parameters, publishers, and subscribers and deformation graph
@@ -56,6 +56,10 @@ bool MesherMapper::LoadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("frame_id", frame_id_)) return false;
   if (!n.getParam("embed_trajectory/max_delta_t", embed_delta_t_)) return false;
   if (!n.getParam("embed_trajectory/max_delta_r", embed_delta_r_)) return false;
+  if (n.getParam("output_ply_file", output_file_)) {
+    save_optimized_mesh_ = true;
+    ROS_INFO("Saving optimized mesh to: %s", output_file_.c_str());
+  }
   return true;
 }
 
@@ -131,7 +135,8 @@ void MesherMapper::TrajectoryCallback(const nav_msgs::Path::ConstPtr& msg) {
         }
       }
     }
-    std::cout << "number of valences: " << valences.size() << " out of " << latest_observed_times.size() << std::endl;
+    std::cout << "number of valences: " << valences.size() << " out of "
+              << latest_observed_times.size() << std::endl;
     // add node to deform graph
     deformation_graph_.addNode(
         pcl::PointXYZ(pos.x(), pos.y(), pos.z()), valences, true);
@@ -203,6 +208,11 @@ void MesherMapper::ProcessTimerCallback(const ros::TimerEvent& ev) {
   // Update optimized mesh
   optimized_mesh_ = deformation_graph_.deformMesh(map_mesh);
   PublishOptimizedMesh();
+
+  // Save mesh
+  if (save_optimized_mesh_) {
+    WriteMeshToPly(output_file_, optimized_mesh_);
+  }
 }
 
 }  // namespace mesher_mapper

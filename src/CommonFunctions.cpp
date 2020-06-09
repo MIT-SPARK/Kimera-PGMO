@@ -102,6 +102,52 @@ void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh) {
   }
 }
 
+void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh) {
+  // Recast data
+  // Extract surface data
+  struct uint3 {
+    uint32_t x, y, z;
+  };
+  std::vector<uint3> triangles;
+  // Convert to polygon mesh type
+  for (pcl::Vertices tri : mesh.polygons) {
+    uint3 triangle;
+    triangles.push_back({tri.vertices[0], tri.vertices[1], tri.vertices[2]});
+  }
+  // Get point cloud
+  pcl::PointCloud<pcl::PointXYZ> vertices_cloud;
+  pcl::fromPCLPointCloud2(mesh.cloud, vertices_cloud);
+
+  std::filebuf fb_ascii;
+  fb_ascii.open(filename, std::ios::out);
+  std::ostream outstream_ascii(&fb_ascii);
+  if (outstream_ascii.fail())
+    throw std::runtime_error("failed to open " + filename);
+
+  tinyply::PlyFile output_file;
+
+  output_file.add_properties_to_element(
+      "vertex",
+      {"x", "y", "z"},
+      tinyply::Type::FLOAT32,
+      vertices_cloud.points.size(),
+      reinterpret_cast<uint8_t*>(vertices_cloud.points.data()),
+      tinyply::Type::INVALID,
+      0);
+
+  output_file.add_properties_to_element(
+      "face",
+      {"vertex_indices"},
+      tinyply::Type::UINT32,
+      triangles.size(),
+      reinterpret_cast<uint8_t*>(triangles.data()),
+      tinyply::Type::UINT8,
+      3);
+
+  // Write an ASCII file
+  output_file.write(outstream_ascii, false);
+}
+
 mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
     const pcl::PolygonMesh& polygon_mesh) {
   pcl::PointCloud<pcl::PointXYZ> vertices_cloud;

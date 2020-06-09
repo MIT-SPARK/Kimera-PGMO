@@ -20,6 +20,8 @@ namespace mesher_mapper {
 
 void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh);
 
+void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh);
+
 mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
     const pcl::PolygonMesh& polygon_mesh);
 
