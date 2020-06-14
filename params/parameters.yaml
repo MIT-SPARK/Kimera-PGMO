@@ -1,5 +1,5 @@
 frame_id: "world"
-map_resolution: 0.001
+map_resolution: 0.1
 d_graph_resolution: 2.0
 embed_trajectory:
   max_delta_t: 0.5

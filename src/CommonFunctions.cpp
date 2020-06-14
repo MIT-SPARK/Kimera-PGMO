@@ -3,6 +3,7 @@
  * @brief  Some common functions used in library
  * @author Yun Chang
  */
+#include <algorithm>
 
 #include <geometry_msgs/Point.h>
 #include <mesh_msgs/TriangleIndices.h>
@@ -274,6 +275,17 @@ pcl::PolygonMesh VoxbloxToPolygonMesh(
   }
   pcl::toPCLPointCloud2(vertices_cloud, new_mesh.cloud);
   return new_mesh;
+}
+
+bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2) {
+  std::vector<uint32_t> p1_v = p1.vertices;
+  std::vector<uint32_t> p2_v = p2.vertices;
+  if (p1_v.size() != p2_v.size()) return false;
+  for (size_t i = 0; i < p1_v.size(); i++) {
+    std::rotate(p1_v.begin(), p1_v.begin() + 1, p1_v.end());
+    if (p1_v == p2_v) return true;
+  }
+  return false;
 }
 
 }  // namespace mesher_mapper

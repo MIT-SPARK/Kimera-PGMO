@@ -57,4 +57,30 @@ TEST(CommonFunctions, PCLtoMeshMsg) {
   EXPECT_EQ(mesh->polygons[839].vertices[0],
             new_mesh.polygons[839].vertices[0]);
 }
+
+TEST(CommonFunctions, PolygonsEqual) {
+  pcl::Vertices p0, p1, p2, p3;
+
+  p0.vertices.push_back(0);
+  p0.vertices.push_back(1);
+  p0.vertices.push_back(2);
+
+  p1.vertices.push_back(2);
+  p1.vertices.push_back(0);
+  p1.vertices.push_back(1);
+
+  p2.vertices.push_back(0);
+  p2.vertices.push_back(1);
+  p2.vertices.push_back(3);
+
+  p3.vertices.push_back(0);
+  p3.vertices.push_back(1);
+  p3.vertices.push_back(2);
+  p3.vertices.push_back(4);
+
+  EXPECT_TRUE(PolygonsEqual(p0, p0));
+  EXPECT_TRUE(PolygonsEqual(p0, p1));
+  EXPECT_FALSE(PolygonsEqual(p0, p2));
+  EXPECT_FALSE(PolygonsEqual(p0, p3));
+}
 }  // namespace mesher_mapper

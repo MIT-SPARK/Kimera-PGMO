@@ -114,20 +114,9 @@ void OctreeCompression::InsertMesh(
       // Iterate through adjacent surfaces of first vertex
       for (pcl::Vertices existed_p :
            adjacent_surfaces_[new_polygon.vertices[0]]) {
-        if (surface_exist) break;
-        // Sort before checking if vertices identical
-        std::vector<uint> vertices = existed_p.vertices;
-        std::sort(vertices.begin(), vertices.end());
-        std::vector<uint> new_vertices = new_polygon.vertices;
-        std::sort(new_vertices.begin(), new_vertices.end());
-        // Check if have same number of vertices
-        if (vertices.size() == new_vertices.size()) {
-          for (size_t i = 0; i < vertices.size(); i++) {
-            if (vertices[i] == new_vertices[i]) {
-              surface_exist = false;
-              break;
-            }
-          }
+        if (PolygonsEqual(existed_p, new_polygon)) {
+          surface_exist = true;
+          break;
         }
       }
     }

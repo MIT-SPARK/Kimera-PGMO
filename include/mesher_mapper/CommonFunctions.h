@@ -32,4 +32,6 @@ gtsam::Pose3 RosToGtsam(const geometry_msgs::Pose& transform);
 
 pcl::PolygonMesh VoxbloxToPolygonMesh(
     const voxblox_msgs::Mesh::ConstPtr& voxblox_mesh);
+
+bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2);
 }  // namespace mesher_mapper
