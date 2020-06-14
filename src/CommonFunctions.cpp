@@ -108,6 +108,10 @@ void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh) {
   struct uint3 {
     uint32_t x, y, z;
   };
+  struct double3 {
+    double x, y, z;
+  };
+
   std::vector<uint3> triangles;
   // Convert to polygon mesh type
   for (pcl::Vertices tri : mesh.polygons) {
@@ -117,6 +121,11 @@ void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh) {
   // Get point cloud
   pcl::PointCloud<pcl::PointXYZ> vertices_cloud;
   pcl::fromPCLPointCloud2(mesh.cloud, vertices_cloud);
+
+  std::vector<double3> vertices;
+  for (pcl::PointXYZ p : vertices_cloud) {
+    vertices.push_back({p.x, p.y, p.z});
+  }
 
   std::filebuf fb_ascii;
   fb_ascii.open(filename, std::ios::out);
@@ -129,9 +138,9 @@ void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh) {
   output_file.add_properties_to_element(
       "vertex",
       {"x", "y", "z"},
-      tinyply::Type::FLOAT32,
-      vertices_cloud.points.size(),
-      reinterpret_cast<uint8_t*>(vertices_cloud.points.data()),
+      tinyply::Type::FLOAT64,
+      vertices.size(),
+      reinterpret_cast<uint8_t*>(vertices.data()),
       tinyply::Type::INVALID,
       0);
 
