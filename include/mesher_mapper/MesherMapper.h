@@ -51,10 +51,9 @@ class MesherMapper {
   // Timer callback
   void ProcessTimerCallback(const ros::TimerEvent& ev);
 
+  pcl::PolygonMesh input_mesh_;
   pcl::PolygonMesh optimized_mesh_;
 
-  // To compress the map (environment) mesh
-  OctreeCompression map_compression_;
   // To get the simplified mesh for deformation graph
   OctreeCompression d_graph_compression_;
 
@@ -66,6 +65,7 @@ class MesherMapper {
   // Subscribers
   ros::Subscriber deform_input_sub_;
   ros::Subscriber trajectory_sub_;
+  ros::Subscriber input_mesh_sub_;
 
   // Trajectory
   std::vector<gtsam::Pose3> trajectory_;
