@@ -4,6 +4,7 @@
  * @author Yun Chang
  */
 
+#include <map>
 #include "ros/ros.h"
 
 #include <mesh_msgs/TriangleMeshStamped.h>
@@ -11,6 +12,18 @@
 #include <voxblox_msgs/Mesh.h>
 
 #include "mesher_mapper/CommonFunctions.h"
+
+// Define BlockIndex as used in voxblox
+typedef Eigen::Matrix<int, 3, 1> BlockIndex;
+namespace std {
+template <>
+struct less<BlockIndex> {
+  bool operator()(const BlockIndex& a, const BlockIndex& b) const {
+    return std::lexicographical_compare(
+        a.data(), a.data() + a.size(), b.data(), b.data() + b.size());
+  }
+};
+}  // namespace std
 
 class VoxbloxToMeshMsg {
  public:
@@ -28,7 +41,19 @@ class VoxbloxToMeshMsg {
 
  private:
   void voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg) {
-    pcl::PolygonMesh mesh = mesher_mapper::VoxbloxToPolygonMesh(msg);
+    for (const voxblox_msgs::MeshBlock& mesh_block : msg->mesh_blocks) {
+      BlockIndex idx(
+          mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
+      pcl::PolygonMesh partial_mesh =
+          mesher_mapper::VoxbloxMeshBlockToPolygonMesh(mesh_block,
+                                                       msg->block_edge_length);
+      mesh_blocks_[idx] = partial_mesh;
+    }
+    // Combine the partial meshes stored in the mesh blocks to get the full mesh
+    pcl::PolygonMesh mesh;
+    for (auto meshblock : mesh_blocks_) {
+      mesh = mesher_mapper::CombineMeshes(mesh, meshblock.second);
+    }
     mesh_msgs::TriangleMesh mesh_msg =
         mesher_mapper::PolygonMeshToTriangleMeshMsg(mesh);
 
@@ -42,6 +67,8 @@ class VoxbloxToMeshMsg {
 
   ros::Subscriber voxblox_sub_;
   ros::Publisher mesh_pub_;
+
+  std::map<BlockIndex, pcl::PolygonMesh> mesh_blocks_;
 };
 
 int main(int argc, char** argv) {

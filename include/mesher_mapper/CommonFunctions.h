@@ -30,6 +30,13 @@ pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
 
 gtsam::Pose3 RosToGtsam(const geometry_msgs::Pose& transform);
 
+pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
+                               const pcl::PolygonMesh& mesh2);
+
+pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
+    const voxblox_msgs::MeshBlock& mesh_block,
+    float block_edge_length);
+
 pcl::PolygonMesh VoxbloxToPolygonMesh(
     const voxblox_msgs::Mesh::ConstPtr& voxblox_mesh);
 
