@@ -59,13 +59,20 @@ void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh) {
     }
   }
 
-  std::shared_ptr<tinyply::PlyData> vertices, faces;
+  std::shared_ptr<tinyply::PlyData> vertices, colors, faces;
 
   // The header information can be used to programmatically extract properties
   // on elements known to exist in the header prior to reading the data. For
   // brevity of this sample, properties like vertex position are hard-coded:
   try {
     vertices = file.request_properties_from_element("vertex", {"x", "y", "z"});
+  } catch (const std::exception& e) {
+    std::cerr << "tinyply exception: " << e.what() << std::endl;
+  }
+
+  try {
+    colors =
+        file.request_properties_from_element("vertex", {"r", "g", "b", "a"});
   } catch (const std::exception& e) {
     std::cerr << "tinyply exception: " << e.what() << std::endl;
   }
@@ -80,17 +87,31 @@ void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh) {
 
   file.read(*file_stream);
 
-  // Extract read data
+  // Extract vertices data
   const size_t numVerticesBytes = vertices->buffer.size_bytes();
   std::vector<float[3]> verts(vertices->count);
   std::memcpy(verts.data(), vertices->buffer.get(), numVerticesBytes);
+
+  std::vector<float[4]> colrs;
+  if (colors) {
+    colrs = std::vector<float[4]>(colors->count);
+    const size_t numColorBytes = colors->buffer.size_bytes();
+    std::memcpy(colrs.data(), colors->buffer.get(), numColorBytes);
+  }
+
   // Convert to pointcloud
   pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
-  for (auto v : verts) {
+  for (size_t i = 0; i < verts.size(); i++) {
     pcl::PointXYZRGBA pcl_pt;
-    pcl_pt.x = v[0];
-    pcl_pt.y = v[1];
-    pcl_pt.z = v[2];
+    pcl_pt.x = verts[i][0];
+    pcl_pt.y = verts[i][1];
+    pcl_pt.z = verts[i][2];
+    if (colors) {
+      pcl_pt.r = colrs[i][0];
+      pcl_pt.g = colrs[i][1];
+      pcl_pt.b = colrs[i][2];
+      pcl_pt.a = colrs[i][3];
+    }
     vertices_cloud.points.push_back(pcl_pt);
   }
   pcl::toPCLPointCloud2(vertices_cloud, mesh->cloud);
@@ -118,6 +139,9 @@ void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh) {
   struct double3 {
     double x, y, z;
   };
+  struct rgba {
+    uint8_t r, g, b, a;
+  };
 
   std::vector<uint3> triangles;
   // Convert to polygon mesh type
@@ -126,12 +150,14 @@ void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh) {
     triangles.push_back({tri.vertices[0], tri.vertices[1], tri.vertices[2]});
   }
   // Get point cloud
-  pcl::PointCloud<pcl::PointXYZ> vertices_cloud;
+  pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
   pcl::fromPCLPointCloud2(mesh.cloud, vertices_cloud);
 
   std::vector<double3> vertices;
-  for (pcl::PointXYZ p : vertices_cloud) {
+  std::vector<rgba> colors;
+  for (pcl::PointXYZRGBA p : vertices_cloud) {
     vertices.push_back({p.x, p.y, p.z});
+    colors.push_back({p.r, p.g, p.b, p.a});
   }
 
   std::filebuf fb_ascii;
@@ -148,6 +174,15 @@ void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh) {
       tinyply::Type::FLOAT64,
       vertices.size(),
       reinterpret_cast<uint8_t*>(vertices.data()),
+      tinyply::Type::INVALID,
+      0);
+
+  output_file.add_properties_to_element(
+      "vertex",
+      {"r", "g", "b", "a"},
+      tinyply::Type::UINT8,
+      colors.size(),
+      reinterpret_cast<uint8_t*>(colors.data()),
       tinyply::Type::INVALID,
       0);
 
