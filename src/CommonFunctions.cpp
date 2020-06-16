@@ -10,7 +10,9 @@
 #include <pcl/PCLPointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <sensor_msgs/PointCloud2.h>
+#include <std_msgs/ColorRGBA.h>
 #include <voxblox_msgs/MeshBlock.h>
+#include <pcl/impl/point_types.hpp>
 
 #include "mesher_mapper/CommonFunctions.h"
 #include "mesher_mapper/tinyply.h"
@@ -83,9 +85,13 @@ void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh) {
   std::vector<float[3]> verts(vertices->count);
   std::memcpy(verts.data(), vertices->buffer.get(), numVerticesBytes);
   // Convert to pointcloud
-  pcl::PointCloud<pcl::PointXYZ> vertices_cloud;
+  pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
   for (auto v : verts) {
-    vertices_cloud.points.push_back(pcl::PointXYZ(v[0], v[1], v[2]));
+    pcl::PointXYZRGBA pcl_pt;
+    pcl_pt.x = v[0];
+    pcl_pt.y = v[1];
+    pcl_pt.z = v[2];
+    vertices_cloud.points.push_back(pcl_pt);
   }
   pcl::toPCLPointCloud2(vertices_cloud, mesh->cloud);
 
@@ -160,7 +166,7 @@ void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh) {
 
 mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
     const pcl::PolygonMesh& polygon_mesh) {
-  pcl::PointCloud<pcl::PointXYZ> vertices_cloud;
+  pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
   pcl::fromPCLPointCloud2(polygon_mesh.cloud, vertices_cloud);
 
   mesh_msgs::TriangleMesh new_mesh;
@@ -171,6 +177,14 @@ mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
     p.y = vertices_cloud.points[i].y;
     p.z = vertices_cloud.points[i].z;
     new_mesh.vertices.push_back(p);
+    if (vertices_cloud.points[i].r) {
+      std_msgs::ColorRGBA color;
+      color.r = vertices_cloud.points[i].r;
+      color.g = vertices_cloud.points[i].g;
+      color.b = vertices_cloud.points[i].b;
+      color.a = vertices_cloud.points[i].a;
+      new_mesh.vertex_colors.push_back(color);
+    }
   }
 
   // Convert polygons
@@ -190,11 +204,22 @@ pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
     const mesh_msgs::TriangleMesh& mesh_msg) {
   pcl::PolygonMesh mesh;
   // Convert vertices
-  pcl::PointCloud<pcl::PointXYZ> vertices_cloud;
+  pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
+  bool color = (mesh_msg.vertex_colors.size() == mesh_msg.vertices.size());
   for (size_t i = 0; i < mesh_msg.vertices.size(); i++) {
     geometry_msgs::Point p = mesh_msg.vertices[i];
-    pcl::PointXYZ point(p.x, p.y, p.z);
-    vertices_cloud.push_back(point);
+    pcl::PointXYZRGBA point;
+    point.x = p.x;
+    point.y = p.y;
+    point.z = p.z;
+    if (color) {
+      std_msgs::ColorRGBA c = mesh_msg.vertex_colors[i];
+      point.r = c.r;
+      point.g = c.g;
+      point.b = c.b;
+      point.a = c.a;
+    }
+    vertices_cloud.points.push_back(point);
   }
   pcl::toPCLPointCloud2(vertices_cloud, mesh.cloud);
   // Convert polygons
@@ -222,7 +247,7 @@ gtsam::Pose3 RosToGtsam(const geometry_msgs::Pose& transform) {
 
 pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
                                const pcl::PolygonMesh& mesh2) {
-  pcl::PointCloud<pcl::PointXYZ> vertices1, vertices2;
+  pcl::PointCloud<pcl::PointXYZRGBA> vertices1, vertices2;
   pcl::fromPCLPointCloud2(mesh1.cloud, vertices1);
   pcl::fromPCLPointCloud2(mesh2.cloud, vertices2);
 
@@ -268,7 +293,7 @@ pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
     const voxblox_msgs::MeshBlock& mesh_block,
     float block_edge_length) {
   pcl::PolygonMesh new_mesh;
-  pcl::PointCloud<pcl::PointXYZ> vertices_cloud;
+  pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
 
   // Extract mesh block
   size_t vertex_index = 0u;
@@ -291,6 +316,9 @@ pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
         (static_cast<float>(mesh_block.z[i]) * point_conv_factor +
          static_cast<float>(mesh_block.index[2])) *
         block_edge_length;
+    const float mesh_r = static_cast<float>(mesh_block.r[i]);
+    const float mesh_g = static_cast<float>(mesh_block.g[i]);
+    const float mesh_b = static_cast<float>(mesh_block.b[i]);
 
     // Search if vertex inserted
     size_t vidx;
@@ -306,7 +334,14 @@ pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
     }
     if (!point_exists) {
       vidx = vertex_index++;
-      pcl::PointXYZ point(mesh_x, mesh_y, mesh_z);
+      pcl::PointXYZRGBA point;
+      point.x = mesh_x;
+      point.y = mesh_y;
+      point.z = mesh_z;
+      point.r = mesh_r;
+      point.g = mesh_g;
+      point.b = mesh_b;
+      point.a = 1.0;
       vertices_cloud.push_back(point);
     }
 
@@ -323,7 +358,6 @@ pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
 pcl::PolygonMesh VoxbloxToPolygonMesh(
     const voxblox_msgs::Mesh::ConstPtr& voxblox_msg) {
   pcl::PolygonMesh new_mesh;
-  pcl::PointCloud<pcl::PointXYZ> vertices_cloud;
 
   // Extract mesh block
   size_t vertex_index = 0u;

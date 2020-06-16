@@ -49,8 +49,14 @@ TEST(CommonFunctions, PCLtoMeshMsg) {
 
   // Convert back
   pcl::PolygonMesh new_mesh = TriangleMeshMsgToPolygonMesh(triangle_mesh);
+  pcl::PointCloud<pcl::PointXYZRGBA> converted_vertices;
+  pcl::fromPCLPointCloud2(new_mesh.cloud, converted_vertices);
 
-  EXPECT_EQ(mesh->cloud.data, new_mesh.cloud.data);
+  EXPECT_EQ(422, converted_vertices.points.size());
+  EXPECT_EQ(-127, converted_vertices.points[0].z);
+  EXPECT_EQ(5, converted_vertices.points[1].x);
+  EXPECT_EQ(-1, converted_vertices.points[420].x);
+  EXPECT_EQ(127, converted_vertices.points[421].z);
   EXPECT_EQ(mesh->polygons[0].vertices[2], new_mesh.polygons[0].vertices[2]);
   EXPECT_EQ(mesh->polygons[100].vertices[1],
             new_mesh.polygons[100].vertices[1]);

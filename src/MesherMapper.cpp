@@ -113,8 +113,8 @@ void MesherMapper::TrajectoryCallback(const nav_msgs::Path::ConstPtr& msg) {
   std::vector<double> latest_observed_times;
   d_graph_compression_.getVerticesTimestamps(&latest_observed_times);
   // Get the vertices of the simplified mesh
-  pcl::PointCloud<pcl::PointXYZ>::Ptr simplified_vertices(
-      new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr simplified_vertices(
+      new pcl::PointCloud<pcl::PointXYZRGBA>);
   d_graph_compression_.getVertices(simplified_vertices);
   for (size_t i = trajectory_.size(); i < current_trajectory.size(); i++) {
     trajectory_.push_back(current_trajectory[i]);
@@ -123,7 +123,7 @@ void MesherMapper::TrajectoryCallback(const nav_msgs::Path::ConstPtr& msg) {
     // connect to nodes that are proximate in spacetime
     for (size_t j = 0; j < latest_observed_times.size(); j++) {
       if (abs(msg_time - latest_observed_times[j]) < embed_delta_t_) {
-        pcl::PointXYZ candidate_pos = simplified_vertices->points[j];
+        pcl::PointXYZRGBA candidate_pos = simplified_vertices->points[j];
         double dist = std::sqrt(
             (pos.x() - candidate_pos.x) * (pos.x() - candidate_pos.x) +
             (pos.y() - candidate_pos.y) * (pos.y() - candidate_pos.y) +
@@ -133,8 +133,9 @@ void MesherMapper::TrajectoryCallback(const nav_msgs::Path::ConstPtr& msg) {
         }
       }
     }
-    std::cout << "number of valences: " << valences.size() << " out of "
-              << latest_observed_times.size() << std::endl;
+    ROS_INFO_STREAM("New trajectory node connected to "
+                    << valences.size() << " points out of "
+                    << latest_observed_times.size() << "in simplified mesh");
     // add node to deform graph
     deformation_graph_.addNode(
         pcl::PointXYZ(pos.x(), pos.y(), pos.z()), valences, true);
@@ -169,8 +170,8 @@ void MesherMapper::LoopClosureCallback(
   // Enforce the set points
   // Get new simplified mesh from compressor
   pcl::PolygonMesh simplified_mesh;
-  pcl::PointCloud<pcl::PointXYZ>::Ptr simplified_vertices(
-      new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr simplified_vertices(
+      new pcl::PointCloud<pcl::PointXYZRGBA>);
   d_graph_compression_.getVertices(simplified_vertices);
   std::vector<pcl::Vertices> simplified_polygons;
   d_graph_compression_.getPolygons(&simplified_polygons);

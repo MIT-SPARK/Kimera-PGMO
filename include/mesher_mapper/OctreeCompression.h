@@ -18,8 +18,9 @@ namespace mesher_mapper {
 
 class OctreeCompression {
  public:
-  typedef pcl::PointCloud<pcl::PointXYZ> PointCloud;
-  typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
+  typedef pcl::PointCloud<pcl::PointXYZRGBA> PointCloud;
+  typedef pcl::PointCloud<pcl::PointXYZ> PointCloudXYZ;
+  typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBA> Octree;
 
   OctreeCompression();
   ~OctreeCompression();

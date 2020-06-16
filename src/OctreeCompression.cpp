@@ -64,7 +64,7 @@ void OctreeCompression::InsertMesh(
     const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
   // Convert polygon mesh vertices to pointcloud
   pcl::PolygonMesh polygon_mesh = TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
-  PointCloud::Ptr new_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+  PointCloud::Ptr new_cloud(new PointCloud);
   pcl::fromPCLPointCloud2(polygon_mesh.cloud, *new_cloud);
 
   double min_x, min_y, min_z, max_x, max_y, max_z;
@@ -73,7 +73,7 @@ void OctreeCompression::InsertMesh(
   std::map<size_t, size_t> remapping;
 
   for (size_t i = 0; i < new_cloud->points.size(); ++i) {
-    const pcl::PointXYZ p = new_cloud->points[i];
+    const pcl::PointXYZRGBA p = new_cloud->points[i];
     octree_->getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
     is_in_box = (p.x >= min_x && p.x <= max_x) &&
                 (p.y >= min_y && p.y <= max_y) &&

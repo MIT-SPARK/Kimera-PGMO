@@ -144,13 +144,13 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
     return original_mesh;
   }
   // extract original vertices
-  pcl::PointCloud<pcl::PointXYZ> original_vertices;
+  pcl::PointCloud<pcl::PointXYZRGBA> original_vertices;
   pcl::fromPCLPointCloud2(original_mesh.cloud, original_vertices);
 
-  pcl::PointCloud<pcl::PointXYZ> new_vertices;
+  pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
   // iterate through original vertices to create new vertices
   // TODO (Yun) make this part faster
-  for (pcl::PointXYZ p : original_vertices.points) {
+  for (pcl::PointXYZRGBA p : original_vertices.points) {
     // search for k + 1 nearest nodes
     std::vector<std::pair<Vertex, double>> nearest_nodes;
     gtsam::Point3 vi(p.x, p.y, p.z);
@@ -195,9 +195,15 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
       new_point = new_point + weight * add;
     }
     // Add back to new_vertices
-    new_vertices.points.push_back(pcl::PointXYZ(new_point.x() / weight_sum,
-                                                new_point.y() / weight_sum,
-                                                new_point.z() / weight_sum));
+    pcl::PointXYZRGBA new_pcl_point;
+    new_pcl_point.x = new_point.x() / weight_sum;
+    new_pcl_point.y = new_point.y() / weight_sum;
+    new_pcl_point.z = new_point.z() / weight_sum;
+    new_pcl_point.r = p.r;
+    new_pcl_point.g = p.g;
+    new_pcl_point.b = p.b;
+    new_pcl_point.a = p.a;
+    new_vertices.points.push_back(new_pcl_point);
   }
 
   // With new vertices, construct new polygon mesh

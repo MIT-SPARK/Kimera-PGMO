@@ -47,7 +47,7 @@ Visualization Manager:
         Normals Scaling Factor: 0.10000000149011612
         Value: false
       Show Wireframe:
-        Value: true
+        Value: false
         Wireframe Alpha: 1
         Wireframe Color: 0; 0; 0
       Topic: /mesher_mapper_node/optimized_mesh
@@ -83,11 +83,11 @@ Visualization Manager:
       Use rainbow: true
       Value: false
     - Class: voxblox_rviz_plugin/VoxbloxMesh
-      Enabled: true
+      Enabled: false
       Name: VoxbloxMesh
       Topic: /voxblox_node/mesh
       Unreliable: false
-      Value: true
+      Value: false
     - Angle Tolerance: 0.10000000149011612
       Class: rviz/Odometry
       Covariance:

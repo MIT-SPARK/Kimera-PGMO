@@ -81,13 +81,22 @@ TEST(DeformationGraph, reconstructMesh) {
 
   // First try deform with k = 1, should not change
   pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 1);
-  EXPECT_EQ(original_mesh.cloud.data, new_mesh.cloud.data);
+  pcl::PointCloud<pcl::PointXYZRGBA> deformed_vertices;
+  pcl::fromPCLPointCloud2(new_mesh.cloud, deformed_vertices);
+  EXPECT_EQ(5, deformed_vertices.points.size());
+  EXPECT_EQ(1, deformed_vertices.points[1].x);
+  EXPECT_EQ(1, deformed_vertices.points[2].y);
+  EXPECT_EQ(1, deformed_vertices.points[4].z);
   EXPECT_EQ(original_mesh.polygons[0].vertices, new_mesh.polygons[0].vertices);
   EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
 
   // Try with k = 2
   new_mesh = graph.deformMesh(original_mesh, 2);
-  EXPECT_EQ(original_mesh.cloud.data, new_mesh.cloud.data);
+  pcl::fromPCLPointCloud2(new_mesh.cloud, deformed_vertices);
+  EXPECT_EQ(5, deformed_vertices.points.size());
+  EXPECT_EQ(1, deformed_vertices.points[1].x);
+  EXPECT_EQ(1, deformed_vertices.points[2].y);
+  EXPECT_EQ(1, deformed_vertices.points[4].z);
   EXPECT_EQ(original_mesh.polygons[0].vertices, new_mesh.polygons[0].vertices);
   EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
 }
