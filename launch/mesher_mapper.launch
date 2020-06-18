@@ -1,10 +1,7 @@
 <launch>
-  <!-- <arg name="test_mesh_file" value="/home/yunchang/Desktop/dcist2.ply" /> -->
+  <arg name="launch_voxblox" default="true" />
 
-  <!-- Launch robot handler nodes -->
-  <!-- <node type="load_mesh" name="load_mesh" pkg="mesher_mapper" args="$(arg test_mesh_file)" output="screen" /> -->
-
-  <include file="$(find mesher_mapper)/launch/generate_mesh.launch"/>
+  <include file="$(find mesher_mapper)/launch/generate_mesh.launch" pass_all_args="true"/>
 
   <node type="mesher_mapper_node" name="mesher_mapper_node" pkg="mesher_mapper" output="screen" >
     <rosparam file="$(find mesher_mapper)/params/parameters.yaml" />
