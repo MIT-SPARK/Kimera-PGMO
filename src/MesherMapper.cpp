@@ -76,7 +76,7 @@ bool MesherMapper::RegisterCallbacks(const ros::NodeHandle& n) {
       nl.subscribe("trajectory", 10, &MesherMapper::TrajectoryCallback, this);
 
   input_mesh_sub_ =
-      nl.subscribe("input_mesh", 10, &MesherMapper::MeshCallback, this);
+      nl.subscribe("input_mesh", 1, &MesherMapper::MeshCallback, this);
 
   // start timer
   update_timer_ =
@@ -116,8 +116,8 @@ void MesherMapper::TrajectoryCallback(const nav_msgs::Path::ConstPtr& msg) {
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr simplified_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
   d_graph_compression_.getVertices(simplified_vertices);
-  for (size_t i = trajectory_.size(); i < current_trajectory.size(); i++) {
-    trajectory_.push_back(current_trajectory[i]);
+  size_t trajectory_len = trajectory_.size();
+  for (size_t i = 0; i < current_trajectory.size(); i++) {
     Vertices valences;
     gtsam::Point3 pos = current_trajectory[i].translation();
     // connect to nodes that are proximate in spacetime
@@ -133,12 +133,18 @@ void MesherMapper::TrajectoryCallback(const nav_msgs::Path::ConstPtr& msg) {
         }
       }
     }
-    ROS_INFO_STREAM("New trajectory node connected to "
-                    << valences.size() << " points out of "
-                    << latest_observed_times.size() << "in simplified mesh");
-    // add node to deform graph
-    deformation_graph_.addNode(
-        pcl::PointXYZ(pos.x(), pos.y(), pos.z()), valences, true);
+    ROS_INFO_STREAM("Trajectory node " << i << " connected to "
+                                       << valences.size() << " points out of "
+                                       << latest_observed_times.size()
+                                       << " in simplified mesh");
+    if (i >= trajectory_len) {
+      trajectory_.push_back(current_trajectory[i]);
+      // add node to deform graph
+      deformation_graph_.addNode(
+          pcl::PointXYZ(pos.x(), pos.y(), pos.z()), valences, true);
+    } else {
+      deformation_graph_.updateNodeValence(i, valences, true);
+    }
   }
 
   // Add distortions

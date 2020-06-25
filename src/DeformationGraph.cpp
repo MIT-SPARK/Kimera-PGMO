@@ -61,7 +61,7 @@ void DeformationGraph::resetConsistencyFactors() {
         gtsam::Point3 valence_pos = vertex_positions_[valence];
         // Define noise. Hardcoded for now
         static const gtsam::SharedNoiseModel& noise =
-            gtsam::noiseModel::Isotropic::Variance(3, 1e-1);
+            gtsam::noiseModel::Isotropic::Variance(3, 1e-3);
         // Create deformation edge factor
         DeformationEdgeFactor new_edge(v, valence, v_pos, valence_pos, noise);
         consistency_factors_.add(new_edge);
@@ -99,6 +99,17 @@ void DeformationGraph::addNode(const pcl::PointXYZ& position,
   }
   non_mesh_vertices_.push_back(position);
   non_mesh_connections_.push_back(valences);
+}
+
+void DeformationGraph::updateNodeValence(size_t i,
+                                         Vertices valences,
+                                         bool connect_to_previous) {
+  // if it is a trajectory node, add connection to previous added node
+  if (connect_to_previous && i > 0) {
+    size_t last_index = i - 1;
+    valences.push_back(gtsam::Symbol('n', last_index).key());
+  }
+  non_mesh_connections_.at(i) = valences;
 }
 
 void DeformationGraph::addMeasurement(const Vertex& v,

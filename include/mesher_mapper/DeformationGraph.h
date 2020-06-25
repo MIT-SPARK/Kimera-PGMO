@@ -92,6 +92,10 @@ class DeformationGraph {
                Vertices valences,
                bool connect_to_previous = false);
 
+  void updateNodeValence(size_t i,
+                         Vertices valences,
+                         bool connect_to_previous = false);
+
   void optimize();
 
   inline void clearMeasurements() {

@@ -82,14 +82,15 @@ void OctreeCompression::InsertMesh(
       octree_->addPointToCloud(p, vertices_);
       remapping[i] = vertices_->points.size() - 1;
       // Add latest observed time
-      vertices_latest_time_.push_back(mesh_msg->header.stamp.toSec());
+      vertices_latest_time_.push_back(ros::Time::now().toSec());
     } else {
       float unused = 0.f;
       int result_idx;
       octree_->approxNearestSearch(p, result_idx, unused);
       // Add remapping
       remapping[i] = result_idx;
-      vertices_latest_time_.at(result_idx) = mesh_msg->header.stamp.toSec();
+      if (result_idx < vertices_latest_time_.size())
+        vertices_latest_time_.at(result_idx) = ros::Time::now().toSec();
     }
   }
 
