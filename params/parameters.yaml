@@ -1,5 +1,5 @@
 frame_id: "world"
-d_graph_resolution: 2.0
+d_graph_resolution: 1.5
 embed_trajectory:
-  max_delta_t: 0.5
-  max_delta_r: 2.0
+  max_delta_t: 40.0
+  max_delta_r: 3.0
