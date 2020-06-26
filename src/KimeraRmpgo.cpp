@@ -100,6 +100,41 @@ bool KimeraRmpgo::PublishOptimizedMesh() {
   return true;
 }
 
+// To publish optimized trajectory
+bool KimeraRmpgo::PublishOptimizedPath() const {
+  std::vector<gtsam::Pose3> gtsam_path =
+      deformation_graph_.getOptimizedTrajectory();
+
+  // Create message type
+  nav_msgs::Path path;
+
+  // Fill path poses
+  path.poses.reserve(gtsam_path.size());
+  for (size_t i = 0; i < gtsam_path.size(); i++) {
+    gtsam::Pose3 pose = gtsam_path.at(i);
+    gtsam::Point3 trans = pose.translation();
+    gtsam::Quaternion quat = pose.rotation().toQuaternion();
+
+    geometry_msgs::PoseStamped ps_msg;
+    ps_msg.header.frame_id = frame_id_;
+    ps_msg.pose.position.x = trans.x();
+    ps_msg.pose.position.y = trans.y();
+    ps_msg.pose.position.z = trans.z();
+    ps_msg.pose.orientation.x = quat.x();
+    ps_msg.pose.orientation.y = quat.y();
+    ps_msg.pose.orientation.z = quat.z();
+    ps_msg.pose.orientation.w = quat.w();
+
+    path.poses.push_back(ps_msg);
+  }
+
+  // Publish path message
+  path.header.stamp = ros::Time::now();
+  path.header.frame_id = frame_id_;
+  optimized_path_pub_.publish(path);
+  return true;
+}
+
 void KimeraRmpgo::IncrementalPoseGraphCallback(
     const pose_graph_tools::PoseGraph::ConstPtr& msg) {
   if (msg->edges.size() == 0) {
@@ -111,7 +146,7 @@ void KimeraRmpgo::IncrementalPoseGraphCallback(
   bool loop_closure = (msg->edges.size() > 1);
 
   // Extract latest odom edge and add to factor graph
-  pose_graph_tools::Edge odom_edge = msg->edges[0];
+  pose_graph_tools::PoseGraphEdge odom_edge = msg->edges[0];
   if (odom_edge.type != pose_graph_tools::PoseGraphEdge::ODOM) {
     ROS_WARN("Expects the odom edge to be first in message.");
     return;
@@ -121,10 +156,10 @@ void KimeraRmpgo::IncrementalPoseGraphCallback(
   const Vertex current_node = odom_edge.key_to;
   // Initialize if first node
   if (prev_node == 0 && trajectory_.size() == 0) {
-    if (pose_graph_tools.nodes[0].key != 0) {
+    if (msg->nodes[0].key != 0) {
       ROS_WARN("KimeraRmpgo: is the first node not of key 0? ");
     }
-    gtsam::Pose3 init_pose = pose_graph_tools.nodes[0].pose;
+    gtsam::Pose3 init_pose = RosToGtsam(msg->nodes[0].pose);
     deformation_graph_.initFirstNode(init_pose);
     trajectory_.push_back(init_pose);
     ROS_INFO("Initialized first node in pose graph. ");
@@ -190,7 +225,7 @@ void KimeraRmpgo::IncrementalPoseGraphCallback(
   // Check if new portions added for deformation graph
   deformation_graph_.updateMesh(simplified_mesh);
   if (loop_closure) {
-    pose_graph_tools::Edge lc_edge = msg->edges[1];
+    pose_graph_tools::PoseGraphEdge lc_edge = msg->edges[1];
     const gtsam::Pose3 meas = RosToGtsam(odom_edge.pose);
     const Vertex from_node = odom_edge.key_from;
     const Vertex to_node = odom_edge.key_to;
@@ -201,6 +236,8 @@ void KimeraRmpgo::IncrementalPoseGraphCallback(
         "KimeraRmpgo: Loop closure detected, optimized with trajectory of "
         "length %d.",
         trajectory_.size());
+  } else {
+    deformation_graph_.update();
   }
 }
 
@@ -214,6 +251,7 @@ void KimeraRmpgo::ProcessTimerCallback(const ros::TimerEvent& ev) {
   // Update optimized mesh
   optimized_mesh_ = deformation_graph_.deformMesh(input_mesh_);
   PublishOptimizedMesh();
+  PublishOptimizedPath();
 
   // Save mesh
   if (save_optimized_mesh_) {

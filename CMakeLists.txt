@@ -31,6 +31,7 @@ src/CommonStructs.cpp
 src/OctreeCompression.cpp
 src/tinyply.cpp
 src/MesherMapper.cpp
+src/KimeraRmpgo.cpp
 )
 target_link_libraries(${PROJECT_NAME} 
   ${catkin_LIBRARIES}
@@ -43,6 +44,11 @@ cs_add_executable(mesher_mapper_node
   src/mesher_mapper_node.cpp
 )
 target_link_libraries(mesher_mapper_node ${PROJECT_NAME})
+
+cs_add_executable(kimera_rmpgo_node
+  src/kimera_rmpgo_node.cpp
+)
+target_link_libraries(kimera_rmpgo_node ${PROJECT_NAME})
 
 # cs_add_executable(alliez_desbrun
 #   src/alliez_desbrun.cpp

@@ -38,6 +38,7 @@ class KimeraRmpgo {
 
   // Functions to publish
   bool PublishOptimizedMesh();
+  bool PublishOptimizedPath() const;
 
   // Callback for loopclosure
   void IncrementalPoseGraphCallback(
@@ -73,6 +74,10 @@ class KimeraRmpgo {
   ros::Timer update_timer_;
 
   std::string frame_id_;
+
+  // Parameters for embedding
+  double embed_delta_t_;
+  double embed_delta_r_;
 
   // Save output
   bool save_optimized_mesh_;
