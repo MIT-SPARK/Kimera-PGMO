@@ -17,6 +17,7 @@
 
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
+#include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
 
 using pcl::PolygonMesh;
@@ -35,7 +36,7 @@ void DeformationGraph::update() {
   pcl::fromPCLPointCloud2(mesh_structure_.cloud, vertices_);
   for (size_t i = 0; i < vertices_.points.size(); i++) {
     vertex_positions_[i] = gtsam::Point3(
-        vertices_.points[i].x, vertices_.points[i].y, vertices_.points[i].x);
+        vertices_.points[i].x, vertices_.points[i].y, vertices_.points[i].z);
   }
 
   // Add the non mesh nodes
@@ -54,8 +55,17 @@ void DeformationGraph::resetConsistencyFactors() {
   // related to user input
   Vertices vertices = graph_.getVertices();
   for (Vertex v : vertices) {
-    values_.insert(v, gtsam::Pose3());
-    gtsam::Point3 v_pos = vertex_positions_[v];
+    // Check if vertex has a prefix (ie if is a pose graph node)
+    gtsam::Pose3 v_pose;
+    gtsam::Symbol v_symb(v);
+    if (v_symb.chr() == 'n') {
+      size_t node_number = v_symb.index();
+      v_pose = pg_initial_poses_.at(node_number);
+    } else {
+      v_pose = gtsam::Pose3(gtsam::Rot3(), vertex_positions_.at(v));
+    }
+    values_.insert(v, v_pose);
+
     try {
       for (Vertex valence : graph_.getValence(v)) {
         gtsam::Point3 valence_pos = vertex_positions_[valence];
@@ -63,7 +73,7 @@ void DeformationGraph::resetConsistencyFactors() {
         static const gtsam::SharedNoiseModel& noise =
             gtsam::noiseModel::Isotropic::Variance(3, 1e-3);
         // Create deformation edge factor
-        DeformationEdgeFactor new_edge(v, valence, v_pos, valence_pos, noise);
+        DeformationEdgeFactor new_edge(v, valence, v_pose, valence_pos, noise);
         consistency_factors_.add(new_edge);
       }
     } catch (const std::out_of_range& e) {
@@ -73,16 +83,15 @@ void DeformationGraph::resetConsistencyFactors() {
 }
 
 void DeformationGraph::addNonMeshNodesToGraph() {
-  for (size_t i = 0; i < non_mesh_vertices_.size(); i++) {
-    vertices_.points.push_back(non_mesh_vertices_[i]);
+  for (size_t i = 0; i < pg_vertices_.size(); i++) {
+    vertices_.points.push_back(pg_vertices_[i]);
     gtsam::Symbol node_symb('n', i);
     Vertex node = node_symb.key();
     graph_.addVertex(node);
     // add vertex position to map
-    vertex_positions_[node] = gtsam::Point3(non_mesh_vertices_[i].x,
-                                            non_mesh_vertices_[i].y,
-                                            non_mesh_vertices_[i].z);
-    for (Vertex valence : non_mesh_connections_[i]) {
+    vertex_positions_[node] =
+        gtsam::Point3(pg_vertices_[i].x, pg_vertices_[i].y, pg_vertices_[i].z);
+    for (Vertex valence : pg_connections_[i]) {
       graph_.addEdge(Edge(node, valence));
       graph_.addEdge(Edge(valence, node));
     }
@@ -93,12 +102,15 @@ void DeformationGraph::addNode(const pcl::PointXYZ& position,
                                Vertices valences,
                                bool connect_to_previous) {
   // if it is a trajectory node, add connection to previous added node
-  if (connect_to_previous && non_mesh_vertices_.size() > 0) {
-    size_t last_index = non_mesh_vertices_.size() - 1;
+  if (connect_to_previous && pg_vertices_.size() > 0) {
+    size_t last_index = pg_vertices_.size() - 1;
     valences.push_back(gtsam::Symbol('n', last_index).key());
   }
-  non_mesh_vertices_.push_back(position);
-  non_mesh_connections_.push_back(valences);
+  gtsam::Pose3 init_pose(gtsam::Rot3(),
+                         gtsam::Point3(position.x, position.y, position.z));
+  pg_initial_poses_.push_back(init_pose);
+  pg_vertices_.push_back(position);
+  pg_connections_.push_back(valences);
 }
 
 void DeformationGraph::updateNodeValence(size_t i,
@@ -109,7 +121,7 @@ void DeformationGraph::updateNodeValence(size_t i,
     size_t last_index = i - 1;
     valences.push_back(gtsam::Symbol('n', last_index).key());
   }
-  non_mesh_connections_.at(i) = valences;
+  pg_connections_.at(i) = valences;
 }
 
 void DeformationGraph::addMeasurement(const Vertex& v,
@@ -201,7 +213,7 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
       weight_sum = weight_sum + weight;
       gtsam::Pose3 node_transform =
           values_.at<gtsam::Pose3>(nearest_nodes[j].first);
-      gtsam::Point3 add = node_transform.rotation().rotate(vi - gj) + gj +
+      gtsam::Point3 add = node_transform.rotation().rotate(vi - gj) +
                           node_transform.translation();
       new_point = new_point + weight * add;
     }
@@ -223,6 +235,54 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
   pcl::toPCLPointCloud2(new_vertices, new_mesh.cloud);
 
   return new_mesh;
+}
+
+void DeformationGraph::addNewBetween(const size_t& from,
+                                     const size_t& to,
+                                     const gtsam::Pose3& meas,
+                                     const gtsam::Pose3& initial_pose) {
+  if (from >= pg_vertices_.size()) {
+    ROS_ERROR(
+        "DeformationGraph: when adding new between from key should already "
+        "exist.");
+    return;
+  }
+  if (to > pg_vertices_.size()) {
+    ROS_ERROR("DeformationGraph: skipping keys in addNewBetween.");
+    return;
+  } else if (to == pg_vertices_.size()) {
+    // new node
+    // For now push empty valence, valences will be populated when updated
+    Vertices valences;
+    pg_vertices_.push_back(
+        pcl::PointXYZ(initial_pose.x(), initial_pose.y(), initial_pose.z()));
+    pg_initial_poses_.push_back(initial_pose);
+    pg_connections_.push_back(valences);
+  }
+
+  gtsam::Symbol from_symb('n', from);
+  gtsam::Symbol to_symb('n', to);
+  static const gtsam::SharedNoiseModel& noise =
+      gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
+  pg_factors_.add(
+      gtsam::BetweenFactor<gtsam::Pose3>(from_symb, to_symb, meas, noise));
+  return;
+}
+
+void DeformationGraph::initFirstNode(const gtsam::Pose3& initial_pose) {
+  // new node
+  // For now push empty valence, valences will be populated when updated
+  Vertices valences;
+  pg_vertices_.push_back(
+      pcl::PointXYZ(initial_pose.x(), initial_pose.y(), initial_pose.z()));
+  pg_initial_poses_.push_back(initial_pose);
+  pg_connections_.push_back(valences);
+
+  gtsam::Symbol symb('n', 0);
+  static const gtsam::SharedNoiseModel& noise =
+      gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
+  pg_factors_.add(gtsam::PriorFactor<gtsam::Pose3>(symb, initial_pose, noise));
+  return;
 }
 
 }  // namespace mesher_mapper

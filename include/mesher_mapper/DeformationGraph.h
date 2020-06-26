@@ -27,19 +27,19 @@ namespace mesher_mapper {
 class DeformationEdgeFactor
     : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3> {
  private:
-  gtsam::Point3 node1_position;
+  gtsam::Pose3 node1_pose;
   gtsam::Point3 node2_position;
 
  public:
   DeformationEdgeFactor(gtsam::Key node1_key,
                         gtsam::Key node2_key,
-                        const gtsam::Point3& node1_point,
+                        const gtsam::Pose3& node1_pose,
                         const gtsam::Point3& node2_point,
                         gtsam::SharedNoiseModel model)
       : gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>(model,
                                                              node1_key,
                                                              node2_key),
-        node1_position(node1_point),
+        node1_pose(node1_pose),
         node2_position(node2_point) {}
   ~DeformationEdgeFactor() {}
 
@@ -48,15 +48,16 @@ class DeformationEdgeFactor
       const gtsam::Pose3& p2,
       boost::optional<gtsam::Matrix&> H1 = boost::none,
       boost::optional<gtsam::Matrix&> H2 = boost::none) const {
+    // position of node 2 in frame of node 1
+    gtsam::Point3 t_12 = node1_pose.rotation().inverse().rotate(
+        node2_position - node1_pose.translation());
+
     gtsam::Matrix H_R1, H_t1, H_t2;
     gtsam::Rot3 R1 = p1.rotation();
     gtsam::Point3 t1 = p1.translation(H_t1);
     // New position of node 2 according to deformation p1 of node 1
-    gtsam::Point3 t2_1 =
-        t1 + node1_position + R1.rotate(node2_position - node1_position, H_R1);
-    gtsam::Point3 t2 = p2.translation(H_t2);
-    // New position of node 2 according to deformation p2 of node 2
-    gtsam::Point3 t2_2 = t2 + node2_position;
+    gtsam::Point3 t2_1 = t1 + R1.rotate(t_12, H_R1);
+    gtsam::Point3 t2_2 = p2.translation(H_t2);
 
     // Calculate Jacobians
     Eigen::MatrixXd Jacobian_1 = Eigen::MatrixXd::Zero(3, 6);
@@ -87,6 +88,13 @@ class DeformationGraph {
 
   void addNodeMeasurement(const size_t& node_number,
                           const gtsam::Pose3 delta_pose);
+
+  void initFirstNode(const gtsam::Pose3& initial_pose);
+
+  void addNewBetween(const size_t& from,
+                     const size_t& to,
+                     const gtsam::Pose3& meas,
+                     const gtsam::Pose3& initial_pose = gtsam::Pose3());
 
   void addNode(const pcl::PointXYZ& position,
                Vertices valences,
@@ -121,8 +129,9 @@ class DeformationGraph {
   pcl::PointCloud<pcl::PointXYZ> vertices_;
   // Keep track of vertices not part of mesh
   // for embedding trajectory, etc.
-  std::vector<pcl::PointXYZ> non_mesh_vertices_;
-  std::vector<Vertices> non_mesh_connections_;
+  std::vector<pcl::PointXYZ> pg_vertices_;
+  std::vector<gtsam::Pose3> pg_initial_poses_;
+  std::vector<Vertices> pg_connections_;
 
   std::map<Vertex, gtsam::Point3> vertex_positions_;
 
@@ -131,8 +140,10 @@ class DeformationGraph {
 
   // factor graph encoding the mesh structure
   gtsam::NonlinearFactorGraph consistency_factors_;
-  // factor graph storing the between factors for the loop closures
+  // factor graph storing the prior factors for distortions
   gtsam::NonlinearFactorGraph prior_factors_;
+  // factor graph for pose graph related factors
+  gtsam::NonlinearFactorGraph pg_factors_;
   // current estimate
   gtsam::Values values_;
 };

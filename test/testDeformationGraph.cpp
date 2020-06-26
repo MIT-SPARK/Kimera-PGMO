@@ -55,9 +55,9 @@ pcl::PolygonMesh SimpleMesh() {
   return mesh;
 }
 
-bool ComprePointcloud(const pcl::PointCloud<pcl::PointXYZ>& cloud1,
-                      const pcl::PointCloud<pcl::PointXYZ>& cloud2,
-                      double precision = 0.0) {
+bool ComparePointcloud(const pcl::PointCloud<pcl::PointXYZ>& cloud1,
+                       const pcl::PointCloud<pcl::PointXYZ>& cloud2,
+                       double precision = 0.0) {
   if (cloud1.points.size() != cloud2.points.size()) return false;
   for (size_t i = 0; i < cloud1.points.size(); i++) {
     pcl::PointXYZ p1 = cloud1.points[i];
@@ -110,7 +110,7 @@ TEST(DeformationGraph, deformMeshtranslation) {
   // deform mesh
   graph.updateMesh(simple_mesh);
   geometry_msgs::Pose distortion;
-  distortion.position.x = 0.5;
+  distortion.position.x = 1.5;
   graph.update();
   graph.addMeasurement(1, distortion);
   graph.optimize();
@@ -125,14 +125,14 @@ TEST(DeformationGraph, deformMeshtranslation) {
   pcl::PointCloud<pcl::PointXYZ> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
 
-  EXPECT_TRUE(ComprePointcloud(expected_vertices, actual_vertices, 1e-6));
+  EXPECT_TRUE(ComparePointcloud(expected_vertices, actual_vertices, 1e-6));
   EXPECT_EQ(original_mesh.polygons[0].vertices, new_mesh.polygons[0].vertices);
   EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
 
   // Try with k = 2
   new_mesh = graph.deformMesh(original_mesh, 2);
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
-  EXPECT_TRUE(ComprePointcloud(expected_vertices, actual_vertices, 1e-6));
+  EXPECT_TRUE(ComparePointcloud(expected_vertices, actual_vertices, 1e-6));
   EXPECT_EQ(original_mesh.polygons[0].vertices, new_mesh.polygons[0].vertices);
   EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
 }
@@ -158,13 +158,13 @@ TEST(DeformationGraph, deformMesh) {
   pcl::PolygonMesh new_mesh = graph.deformMesh(*cube_mesh, 3);
   pcl::PointCloud<pcl::PointXYZ> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
-  EXPECT_TRUE(ComprePointcloud(expected_vertices, actual_vertices, 1e-6));
+  EXPECT_TRUE(ComparePointcloud(expected_vertices, actual_vertices, 1e-6));
   EXPECT_EQ(cube_mesh->polygons[0].vertices, new_mesh.polygons[0].vertices);
   EXPECT_EQ(cube_mesh->polygons[3].vertices, new_mesh.polygons[3].vertices);
 
   // deform mesh again
   geometry_msgs::Pose distortion2;
-  distortion2.position.x = 0.5;
+  distortion2.position.x = 1.5;
   graph.addMeasurement(1, distortion2);
   graph.optimize();
   // Try with k = 3
@@ -244,7 +244,7 @@ TEST(DeformationGraph, addNodeMeasurement) {
 
   // Add node measurement
   graph.addNodeMeasurement(0,
-                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)));
+                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2, 2)));
   graph.optimize();
   pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 1);
   pcl::PointCloud<pcl::PointXYZ> actual_vertices;
@@ -257,7 +257,7 @@ TEST(DeformationGraph, addNodeMeasurement) {
   // clear measurmenet
   graph.clearMeasurements();
   graph.addNodeMeasurement(
-      0, gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3()));
+      0, gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)));
   graph.optimize();
   new_mesh = graph.deformMesh(simple_mesh, 1);
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
