@@ -271,4 +271,74 @@ TEST(DeformationGraph, addNodeMeasurement) {
   EXPECT_NEAR(4, actual_vertices.points[2].x, 0.001);
 }
 
+TEST(DeformationGraph, addNewBetween) {
+  DeformationGraph graph;
+  pcl::PolygonMesh simple_mesh = createMeshTriangle();
+
+  pcl::PolygonMesh original_mesh = SimpleMesh();
+
+  graph.updateMesh(simple_mesh);
+  graph.update();
+
+  EXPECT_EQ(3, graph.getNumVertices());
+  EXPECT_EQ(0, graph.getVertices().points[0].x);
+  EXPECT_EQ(1, graph.getVertices().points[2].y);
+
+  Vertices new_node_valences{0, 2};
+  graph.initFirstNode(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)));
+  graph.updateNodeValence(0, new_node_valences);
+  graph.update();
+
+  EXPECT_EQ(4, graph.getNumVertices());
+  EXPECT_EQ(2, graph.getVertices().points[3].y);
+  Graph base_graph = graph.getGraph();
+  Vertex new_key = gtsam::Symbol('n', 0).key();
+
+  std::vector<Edge> base_edges = base_graph.getEdges();
+  EXPECT_EQ(10, base_edges.size());
+  EXPECT_EQ(Edge(0, 1), base_edges[0]);
+  EXPECT_EQ(Edge(0, new_key), base_edges[2]);
+  EXPECT_EQ(Edge(1, 2), base_edges[4]);
+  EXPECT_EQ(Edge(new_key, 2), base_edges[9]);
+
+  graph.addNewBetween(0,
+                      1,
+                      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)),
+                      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)));
+  graph.updateMesh(original_mesh);
+  graph.update();
+  graph.optimize();
+
+  // Expect no change
+  pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 1);
+  pcl::PointCloud<pcl::PointXYZ> actual_vertices;
+  pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
+
+  EXPECT_EQ(0.0, actual_vertices.points[0].x);
+  EXPECT_EQ(1.0, actual_vertices.points[3].y);
+  EXPECT_EQ(1.0, actual_vertices.points[4].z);
+
+  std::vector<gtsam::Pose3> traj = graph.getOptimizedTrajectory();
+  EXPECT_EQ(2, traj.size());
+  EXPECT_TRUE(gtsam::assert_equal(
+      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), traj[0]));
+  EXPECT_TRUE(gtsam::assert_equal(
+      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)), traj[1]));
+
+  graph.addNewBetween(1,
+                      2,
+                      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)),
+                      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)));
+  graph.addNewBetween(
+      0, 2, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)));
+  graph.updateMesh(original_mesh);
+  graph.update();
+  graph.optimize();
+
+  traj = graph.getOptimizedTrajectory();
+  EXPECT_EQ(3, traj.size());
+  EXPECT_TRUE(gtsam::assert_equal(
+      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2, 2)), traj[2], 0.05));
+}
+
 }  // namespace mesher_mapper

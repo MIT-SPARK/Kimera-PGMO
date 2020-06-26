@@ -149,6 +149,7 @@ void DeformationGraph::optimize() {
   gtsam::NonlinearFactorGraph factors_to_optimize;
   factors_to_optimize.add(consistency_factors_);
   factors_to_optimize.add(prior_factors_);
+  factors_to_optimize.add(pg_factors_);
   // optimize
   gtsam::LevenbergMarquardtParams params;
   params.diagonalDamping = true;
@@ -283,6 +284,17 @@ void DeformationGraph::initFirstNode(const gtsam::Pose3& initial_pose) {
       gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
   pg_factors_.add(gtsam::PriorFactor<gtsam::Pose3>(symb, initial_pose, noise));
   return;
+}
+
+std::vector<gtsam::Pose3> DeformationGraph::getOptimizedTrajectory() const {
+  // return the optimized trajectory (pose graph)
+  std::vector<gtsam::Pose3> optimized_traj;
+
+  for (size_t i = 0; i < pg_initial_poses_.size(); i++) {
+    gtsam::Symbol node('n', i);
+    optimized_traj.push_back(values_.at<gtsam::Pose3>(node));
+  }
+  return optimized_traj;
 }
 
 }  // namespace mesher_mapper

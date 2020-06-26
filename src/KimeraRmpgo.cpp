@@ -125,7 +125,7 @@ void KimeraRmpgo::IncrementalPoseGraphCallback(
       ROS_WARN("KimeraRmpgo: is the first node not of key 0? ");
     }
     gtsam::Pose3 init_pose = pose_graph_tools.nodes[0].pose;
-    deformation_graph_.init_first_node(init_pose);
+    deformation_graph_.initFirstNode(init_pose);
     trajectory_.push_back(init_pose);
     ROS_INFO("Initialized first node in pose graph. ");
   }

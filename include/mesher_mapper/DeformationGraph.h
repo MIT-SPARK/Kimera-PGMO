@@ -106,6 +106,8 @@ class DeformationGraph {
 
   void optimize();
 
+  std::vector<gtsam::Pose3> getOptimizedTrajectory() const;
+
   inline void clearMeasurements() {
     prior_factors_ = gtsam::NonlinearFactorGraph();
   }
