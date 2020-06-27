@@ -80,6 +80,8 @@ class DeformationGraph {
   DeformationGraph();
   ~DeformationGraph();
 
+  bool Initialize(double pgo_trans_threshold, double pgo_rot_threshold);
+
   void update();
 
   inline void updateMesh(const pcl::PolygonMesh& mesh) {
@@ -105,8 +107,6 @@ class DeformationGraph {
   void updateNodeValence(size_t i,
                          Vertices valences,
                          bool connect_to_previous = false);
-
-  void optimize();
 
   std::vector<gtsam::Pose3> getOptimizedTrajectory() const;
 
@@ -137,6 +137,8 @@ class DeformationGraph {
 
   // track mesh if one used to create deformation graph
   pcl::PolygonMesh mesh_structure_;
+
+  std::unique_ptr<KimeraRPGO::RobustSolver> pgo_;
 
   // factors
   gtsam::NonlinearFactorGraph nfg_;

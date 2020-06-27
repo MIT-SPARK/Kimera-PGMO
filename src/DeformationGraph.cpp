@@ -24,8 +24,19 @@ using pcl::PolygonMesh;
 
 namespace mesher_mapper {
 
-DeformationGraph::DeformationGraph() {}
+DeformationGraph::DeformationGraph() : pgo_(nullptr) {}
 DeformationGraph::~DeformationGraph() {}
+
+bool DeformationGraph::Initialize(double pgo_trans_threshold,
+                                  double pgo_rot_threshold) {
+  // Initialize pgo_:
+  KimeraRPGO::RobustSolverParams pgo_params;
+  pgo_params.setPcmSimple3DParams(
+      pgo_trans_threshold, pgo_rot_threshold, KimeraRPGO::Verbosity::QUIET);
+  pgo_ = std::unique_ptr<KimeraRPGO::RobustSolver>(
+      new KimeraRPGO::RobustSolver(pgo_params));
+  return true;
+}
 
 void DeformationGraph::update() {
   // Here we assume that the mesh since creation has grown
@@ -48,6 +59,9 @@ void DeformationGraph::update() {
 }
 
 void DeformationGraph::updateConsistencyFactors(const Graph& new_graph) {
+  gtsam::NonlinearFactorGraph new_factors;
+  gtsam::Values new_values;
+
   // first get the new vertices
   Vertices new_vertices = new_graph.getVertices();
   // remove the old vertives
@@ -65,7 +79,7 @@ void DeformationGraph::updateConsistencyFactors(const Graph& new_graph) {
     } else {
       v_pose = gtsam::Pose3(gtsam::Rot3(), vertex_positions_.at(v));
     }
-    values_.insert(v, v_pose);
+    new_values.insert(v, v_pose);
   }
 
   // then get the new edges
@@ -103,8 +117,11 @@ void DeformationGraph::updateConsistencyFactors(const Graph& new_graph) {
     // Create deformation edge factor
     DeformationEdgeFactor new_edge(from, to, from_pose, to_point, noise);
     consistency_factors_.add(new_edge);
-    nfg_.add(new_edge);
+    new_factors.add(new_edge);
   }
+  pgo_->update(new_factors, new_values);
+  values_ = pgo_->calculateEstimate();
+  nfg_ = pgo_->getFactorsUnsafe();
 }
 
 void DeformationGraph::addNonMeshNodesToGraph(Graph* graph) {
@@ -151,6 +168,9 @@ void DeformationGraph::updateNodeValence(size_t i,
 
 void DeformationGraph::addMeasurement(const Vertex& v,
                                       const geometry_msgs::Pose& pose) {
+  gtsam::Values new_values;
+  gtsam::NonlinearFactorGraph new_factors;
+
   // noise for measurement
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(6, 1e-10);
@@ -158,27 +178,29 @@ void DeformationGraph::addMeasurement(const Vertex& v,
   gtsam::Pose3 meas = RosToGtsam(pose);
   gtsam::PriorFactor<gtsam::Pose3> absolute_meas(v, meas, noise);
   prior_factors_.add(absolute_meas);
-  nfg_.add(absolute_meas);
+  new_factors.add(absolute_meas);
+
+  pgo_->update(new_factors, new_values);
+  values_ = pgo_->calculateEstimate();
+  nfg_ = pgo_->getFactorsUnsafe();
 }
 
 void DeformationGraph::addNodeMeasurement(const size_t& node_number,
                                           const gtsam::Pose3 delta_pose) {
+  gtsam::Values new_values;
+  gtsam::NonlinearFactorGraph new_factors;
+
   gtsam::Symbol node_symb = gtsam::Symbol('n', node_number);
   Vertex node = node_symb.key();
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
   gtsam::PriorFactor<gtsam::Pose3> measurement(node, delta_pose, noise);
   prior_factors_.add(measurement);
-  nfg_.add(measurement);
-}
+  new_factors.add(measurement);
 
-void DeformationGraph::optimize() {
-  // optimize
-  gtsam::LevenbergMarquardtParams params;
-  params.diagonalDamping = true;
-  params.setVerbosityLM("SUMMARY");
-  values_ =
-      gtsam::LevenbergMarquardtOptimizer(nfg_, values_, params).optimize();
+  pgo_->update(new_factors, new_values);
+  values_ = pgo_->calculateEstimate();
+  nfg_ = pgo_->getFactorsUnsafe();
 }
 
 pcl::PolygonMesh DeformationGraph::deformMesh(
@@ -264,12 +286,19 @@ void DeformationGraph::addNewBetween(const size_t& from,
                                      const size_t& to,
                                      const gtsam::Pose3& meas,
                                      const gtsam::Pose3& initial_pose) {
+  gtsam::Values new_values;
+  gtsam::NonlinearFactorGraph new_factors;
+
   if (from >= pg_vertices_.size()) {
     ROS_ERROR(
         "DeformationGraph: when adding new between from key should already "
         "exist.");
     return;
   }
+
+  gtsam::Symbol from_symb('n', from);
+  gtsam::Symbol to_symb('n', to);
+
   if (to > pg_vertices_.size()) {
     ROS_ERROR("DeformationGraph: skipping keys in addNewBetween.");
     return;
@@ -281,21 +310,30 @@ void DeformationGraph::addNewBetween(const size_t& from,
         pcl::PointXYZ(initial_pose.x(), initial_pose.y(), initial_pose.z()));
     pg_initial_poses_.push_back(initial_pose);
     pg_connections_.push_back(valences);
+
+    new_values.insert(to_symb, initial_pose);
+    graph_.addVertex(to_symb.key());
   }
 
-  gtsam::Symbol from_symb('n', from);
-  gtsam::Symbol to_symb('n', to);
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
   pg_factors_.add(
       gtsam::BetweenFactor<gtsam::Pose3>(from_symb, to_symb, meas, noise));
-  nfg_.add(gtsam::BetweenFactor<gtsam::Pose3>(from_symb, to_symb, meas, noise));
+  new_factors.add(
+      gtsam::BetweenFactor<gtsam::Pose3>(from_symb, to_symb, meas, noise));
+
+  pgo_->update(new_factors, new_values);
+  values_ = pgo_->calculateEstimate();
+  nfg_ = pgo_->getFactorsUnsafe();
   return;
 }
 
 void DeformationGraph::initFirstNode(const gtsam::Pose3& initial_pose) {
   // new node
   // For now push empty valence, valences will be populated when updated
+  gtsam::Values new_values;
+  gtsam::NonlinearFactorGraph new_factors;
+
   Vertices valences;
   pg_vertices_.push_back(
       pcl::PointXYZ(initial_pose.x(), initial_pose.y(), initial_pose.z()));
@@ -305,8 +343,15 @@ void DeformationGraph::initFirstNode(const gtsam::Pose3& initial_pose) {
   gtsam::Symbol symb('n', 0);
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
+  new_values.insert(symb, initial_pose);
+  // TODO(Yun) addVertex here is redundant
+  graph_.addVertex(symb.key());
   pg_factors_.add(gtsam::PriorFactor<gtsam::Pose3>(symb, initial_pose, noise));
-  nfg_.add(gtsam::PriorFactor<gtsam::Pose3>(symb, initial_pose, noise));
+  new_factors.add(gtsam::PriorFactor<gtsam::Pose3>(symb, initial_pose, noise));
+
+  pgo_->update(new_factors, new_values);
+  values_ = pgo_->calculateEstimate();
+  nfg_ = pgo_->getFactorsUnsafe();
   return;
 }
 

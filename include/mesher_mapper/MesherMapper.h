@@ -38,10 +38,6 @@ class MesherMapper {
   // Functions to publish
   bool PublishOptimizedMesh();
 
-  // Callback for loopclosure
-  void LoopClosureCallback(
-      const mesher_mapper::AbsolutePoseStamped::ConstPtr& msg);
-
   // Callback for recieved trajectory
   void TrajectoryCallback(const nav_msgs::Path::ConstPtr& msg);
 

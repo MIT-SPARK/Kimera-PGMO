@@ -16,19 +16,6 @@ KimeraRmpgo::~KimeraRmpgo() {}
 
 // Initialize parameters, publishers, and subscribers and deformation graph
 bool KimeraRmpgo::Initialize(const ros::NodeHandle& n) {
-  // start the two mesh compression modules: one for deformation graph and one
-  // for the overall map mesh
-  double deformation_graph_resolution;
-  if (!n.getParam("d_graph_resolution", deformation_graph_resolution))
-    return false;
-
-  if (!d_graph_compression_.Initialize(
-          n, deformation_graph_resolution, "deformation")) {
-    ROS_ERROR(
-        "KimeraRmpgo: Failed to intialize deformation graph compression "
-        "module.");
-  }
-
   if (!LoadParameters(n)) {
     ROS_ERROR("KimeraRmpgo: Failed to load parameters.");
   }
@@ -54,6 +41,30 @@ bool KimeraRmpgo::LoadParameters(const ros::NodeHandle& n) {
   if (n.getParam("output_ply_file", output_file_)) {
     save_optimized_mesh_ = true;
     ROS_INFO("Saving optimized mesh to: %s", output_file_.c_str());
+  }
+
+  // start the mesh compression module for deformation graph
+  double deformation_graph_resolution;
+  if (!n.getParam("d_graph_resolution", deformation_graph_resolution))
+    return false;
+
+  if (!d_graph_compression_.Initialize(
+          n, deformation_graph_resolution, "deformation")) {
+    ROS_ERROR(
+        "KimeraRmpgo: Failed to intialize deformation graph compression "
+        "module.");
+    return false;
+  }
+
+  // start deformation graph module
+  double pgo_trans_threshold, pgo_rot_threshold;
+  if (!n.getParam("rpgo/translation_threshold", pgo_trans_threshold))
+    return false;
+  if (!n.getParam("rpgo/rotation_threshold", pgo_rot_threshold)) return false;
+
+  if (!deformation_graph_.Initialize(pgo_trans_threshold, pgo_rot_threshold)) {
+    ROS_ERROR("KimeraRmpgo: Failed to initialze deformation graph.");
+    return false;
   }
   return true;
 }
@@ -258,7 +269,6 @@ void KimeraRmpgo::IncrementalPoseGraphCallback(
     const Vertex to_node = odom_edge.key_to;
     deformation_graph_.addNewBetween(from_node, to_node, meas);
     deformation_graph_.update();
-    deformation_graph_.optimize();
     ROS_INFO(
         "KimeraRmpgo: Loop closure detected, optimized with trajectory of "
         "length %d.",

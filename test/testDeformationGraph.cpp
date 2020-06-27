@@ -71,6 +71,7 @@ bool ComparePointcloud(const pcl::PointCloud<pcl::PointXYZ>& cloud1,
 
 TEST(DeformationGraph, reconstructMesh) {
   DeformationGraph graph;
+  graph.Initialize(100, 100);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
@@ -103,6 +104,7 @@ TEST(DeformationGraph, reconstructMesh) {
 
 TEST(DeformationGraph, deformMeshtranslation) {
   DeformationGraph graph;
+  graph.Initialize(100, 100);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
@@ -113,7 +115,6 @@ TEST(DeformationGraph, deformMeshtranslation) {
   distortion.position.x = 1.5;
   graph.update();
   graph.addMeasurement(1, distortion);
-  graph.optimize();
 
   pcl::PointCloud<pcl::PointXYZ> original_vertices, expected_vertices;
   pcl::fromPCLPointCloud2(original_mesh.cloud, original_vertices);
@@ -143,12 +144,12 @@ TEST(DeformationGraph, deformMesh) {
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
   // deform mesh
   DeformationGraph graph;
+  graph.Initialize(100, 100);
   graph.updateMesh(simple_mesh);
   geometry_msgs::Pose distortion;
   distortion.position.x = -0.5;
   graph.update();
   graph.addMeasurement(0, distortion);
-  graph.optimize();
   pcl::PointCloud<pcl::PointXYZ> original_vertices, expected_vertices;
   pcl::fromPCLPointCloud2(cube_mesh->cloud, original_vertices);
   for (pcl::PointXYZ p : original_vertices.points) {
@@ -166,7 +167,6 @@ TEST(DeformationGraph, deformMesh) {
   geometry_msgs::Pose distortion2;
   distortion2.position.x = 1.5;
   graph.addMeasurement(1, distortion2);
-  graph.optimize();
   // Try with k = 3
   new_mesh = graph.deformMesh(*cube_mesh, 2);
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
@@ -179,6 +179,7 @@ TEST(DeformationGraph, deformMesh) {
 
 TEST(DeformationGraph, updateMesh) {
   DeformationGraph graph;
+  graph.Initialize(100, 100);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
@@ -229,6 +230,7 @@ TEST(DeformationGraph, updateMesh) {
 
 TEST(DeformationGraph, addNodeMeasurement) {
   DeformationGraph graph;
+  graph.Initialize(100, 100);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
@@ -245,7 +247,6 @@ TEST(DeformationGraph, addNodeMeasurement) {
   // Add node measurement
   graph.addNodeMeasurement(
       0, gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)));
-  graph.optimize();
   pcl::PolygonMesh new_mesh = graph.deformMesh(simple_mesh, 1);
   pcl::PointCloud<pcl::PointXYZ> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
@@ -261,6 +262,7 @@ TEST(DeformationGraph, addNodeMeasurement) {
 
 TEST(DeformationGraph, addNewBetween) {
   DeformationGraph graph;
+  graph.Initialize(100, 100);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
@@ -295,7 +297,6 @@ TEST(DeformationGraph, addNewBetween) {
                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)));
   graph.updateMesh(original_mesh);
   graph.update();
-  graph.optimize();
 
   // Expect no change
   pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 1);
@@ -321,7 +322,6 @@ TEST(DeformationGraph, addNewBetween) {
       0, 2, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)));
   graph.updateMesh(original_mesh);
   graph.update();
-  graph.optimize();
 
   traj = graph.getOptimizedTrajectory();
   EXPECT_EQ(3, traj.size());

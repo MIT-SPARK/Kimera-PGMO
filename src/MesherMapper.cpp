@@ -69,9 +69,6 @@ bool MesherMapper::CreatePublishers(const ros::NodeHandle& n) {
 // Initialize callbacks
 bool MesherMapper::RegisterCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
-  deform_input_sub_ = nl.subscribe(
-      "distortion_pose", 10, &MesherMapper::LoopClosureCallback, this);
-
   trajectory_sub_ =
       nl.subscribe("trajectory", 10, &MesherMapper::TrajectoryCallback, this);
 
@@ -170,34 +167,6 @@ void MesherMapper::TrajectoryCallback(const nav_msgs::Path::ConstPtr& msg) {
   deformation_graph_.optimize();
   ROS_INFO("MesherMapper: Optimized with trajectory of length %d.",
            trajectory_.size());
-}
-
-void MesherMapper::LoopClosureCallback(
-    const mesher_mapper::AbsolutePoseStamped::ConstPtr& msg) {
-  // Enforce the set points
-  // Get new simplified mesh from compressor
-  pcl::PolygonMesh simplified_mesh;
-  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr simplified_vertices(
-      new pcl::PointCloud<pcl::PointXYZRGBA>);
-  d_graph_compression_.getVertices(simplified_vertices);
-  std::vector<pcl::Vertices> simplified_polygons;
-  d_graph_compression_.getPolygons(&simplified_polygons);
-  simplified_mesh.polygons = simplified_polygons;
-  pcl::toPCLPointCloud2(*simplified_vertices, simplified_mesh.cloud);
-
-  // Check if new portions added for deformation graph
-  if (deformation_graph_.getNumVertices() <
-      simplified_vertices->points.size()) {
-    deformation_graph_ = DeformationGraph();
-    deformation_graph_.updateMesh(simplified_mesh);
-    deformation_graph_.update();
-  }
-
-  // add relative measurement
-  deformation_graph_.addMeasurement(Vertex(msg->idx), msg->pose);
-  ROS_INFO("MesherMapper: Added 1 distortion transform.");
-  // optimize with new relative mesurement
-  deformation_graph_.optimize();
 }
 
 void MesherMapper::MeshCallback(
