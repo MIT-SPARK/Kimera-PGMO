@@ -119,7 +119,7 @@ Visualization Manager:
         Shaft Length: 1
         Shaft Radius: 0.05000000074505806
         Value: Axes
-      Topic: /kimera_vio_ros/optimized_odometry
+      Topic: /kimera_rmpgo_node/optimized_odom
       Unreliable: false
       Value: true
     - Alpha: 1

@@ -64,6 +64,8 @@ bool KimeraRmpgo::CreatePublishers(const ros::NodeHandle& n) {
   optimized_mesh_pub_ =
       nl.advertise<mesh_msgs::TriangleMeshStamped>("optimized_mesh", 1, true);
   optimized_path_pub_ = nl.advertise<nav_msgs::Path>("optimized_path", 1, true);
+  optimized_odom_pub_ =
+      nl.advertise<nav_msgs::Odometry>("optimized_odom", 1, false);
   return true;
 }
 
@@ -72,11 +74,11 @@ bool KimeraRmpgo::RegisterCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
 
   input_mesh_sub_ =
-      nl.subscribe("input_mesh", 1, &KimeraRmpgo::MeshCallback, this);
+      nl.subscribe("input_mesh", 10, &KimeraRmpgo::MeshCallback, this);
 
   pose_graph_incremental_sub_ =
       nl.subscribe("pose_graph_incremental",
-                   1,
+                   10,
                    &KimeraRmpgo::IncrementalPoseGraphCallback,
                    this);
 
@@ -105,6 +107,8 @@ bool KimeraRmpgo::PublishOptimizedPath() const {
   std::vector<gtsam::Pose3> gtsam_path =
       deformation_graph_.getOptimizedTrajectory();
 
+  if (gtsam_path.size() == 0) return false;
+
   // Create message type
   nav_msgs::Path path;
 
@@ -132,6 +136,29 @@ bool KimeraRmpgo::PublishOptimizedPath() const {
   path.header.stamp = ros::Time::now();
   path.header.frame_id = frame_id_;
   optimized_path_pub_.publish(path);
+
+  // Publish also the optimized odometry
+  nav_msgs::Odometry odometry_msg;
+  const gtsam::Pose3 last_pose = gtsam_path[gtsam_path.size() - 1];
+  const gtsam::Rot3& rotation = last_pose.rotation();
+  const gtsam::Quaternion& quaternion = rotation.toQuaternion();
+
+  // Create header.
+  odometry_msg.header.stamp = ros::Time::now();
+  odometry_msg.header.frame_id = frame_id_;
+
+  // Position
+  odometry_msg.pose.pose.position.x = last_pose.x();
+  odometry_msg.pose.pose.position.y = last_pose.y();
+  odometry_msg.pose.pose.position.z = last_pose.z();
+
+  // Orientation
+  odometry_msg.pose.pose.orientation.w = quaternion.w();
+  odometry_msg.pose.pose.orientation.x = quaternion.x();
+  odometry_msg.pose.pose.orientation.y = quaternion.y();
+  odometry_msg.pose.pose.orientation.z = quaternion.z();
+
+  optimized_odom_pub_.publish(odometry_msg);
   return true;
 }
 
@@ -208,10 +235,10 @@ void KimeraRmpgo::IncrementalPoseGraphCallback(
         }
       }
     }
-    ROS_INFO_STREAM("Trajectory node " << i << " connected to "
-                                       << valences.size() << " points out of "
-                                       << latest_observed_times.size()
-                                       << " in simplified mesh");
+    ROS_DEBUG_STREAM("Trajectory node " << i << " connected to "
+                                        << valences.size() << " points out of "
+                                        << latest_observed_times.size()
+                                        << " in simplified mesh");
     deformation_graph_.updateNodeValence(i, valences, true);
   }
 

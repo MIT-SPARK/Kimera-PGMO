@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl_msgs/PolygonMesh.h>
@@ -61,6 +62,7 @@ class KimeraRmpgo {
   // Publishers
   ros::Publisher optimized_mesh_pub_;
   ros::Publisher optimized_path_pub_;
+  ros::Publisher optimized_odom_pub_;
 
   // Subscribers
   ros::Subscriber pose_graph_incremental_sub_;
