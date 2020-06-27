@@ -25,7 +25,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Image
+    SyncSource: ""
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -126,7 +126,7 @@ Visualization Manager:
       Buffer Length: 1
       Class: rviz/Path
       Color: 239; 41; 41
-      Enabled: true
+      Enabled: false
       Head Diameter: 0.30000001192092896
       Head Length: 0.20000000298023224
       Length: 0.30000001192092896
@@ -144,7 +144,7 @@ Visualization Manager:
       Shaft Length: 0.10000000149011612
       Topic: /kimera_rmpgo_node/optimized_path
       Unreliable: false
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -223,7 +223,7 @@ Visualization Manager:
       Value: true
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /kimera_vio_ros/posegraph_viewer/loop_edges
+      Marker Topic: /kimera_rmpgo_node/posegraph_viewer/loop_edges
       Name: Loopclosures
       Namespaces:
         {}
@@ -231,8 +231,16 @@ Visualization Manager:
       Value: true
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /kimera_vio_ros/posegraph_viewer/rejected_loop_edges
+      Marker Topic: /kimera_rmpgo_node/posegraph_viewer/rejected_loop_edges
       Name: Rejected Loopclosures
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /kimera_rmpgo_node/posegraph_viewer/odometry_edges
+      Name: Odometry
       Namespaces:
         {}
       Queue Size: 100

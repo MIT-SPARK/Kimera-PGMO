@@ -6,9 +6,12 @@
 #include <algorithm>
 
 #include <geometry_msgs/Point.h>
+#include <gtsam/slam/BetweenFactor.h>
 #include <mesh_msgs/TriangleIndices.h>
 #include <pcl/PCLPointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <pose_graph_tools/PoseGraphEdge.h>
+#include <pose_graph_tools/PoseGraphNode.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <std_msgs/ColorRGBA.h>
 #include <voxblox_msgs/MeshBlock.h>
@@ -414,6 +417,85 @@ bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2) {
     if (p1_v == p2_v) return true;
   }
   return false;
+}
+
+// Convert gtsam posegaph to PoseGraph msg
+GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
+                            const gtsam::Values& values) {
+  std::vector<pose_graph_tools::PoseGraphEdge> edges;
+
+  // first store the factors as edges
+  for (size_t i = 0; i < factors.size(); i++) {
+    // check if between factor
+    if (boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(
+            factors[i])) {
+      // convert to between factor
+      const gtsam::BetweenFactor<gtsam::Pose3>& factor =
+          *boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(
+              factors[i]);
+      // convert between factor to PoseGraphEdge type
+      pose_graph_tools::PoseGraphEdge edge;
+      edge.key_from = factor.front();
+      edge.key_to = factor.back();
+      if (edge.key_to == edge.key_from + 1) {  // check if odom
+        edge.type = pose_graph_tools::PoseGraphEdge::ODOM;
+      } else {
+        edge.type = pose_graph_tools::PoseGraphEdge::LOOPCLOSE;
+      }
+      // transforms - translation
+      const gtsam::Point3& translation = factor.measured().translation();
+      edge.pose.position.x = translation.x();
+      edge.pose.position.y = translation.y();
+      edge.pose.position.z = translation.z();
+      // transforms - rotation (to quaternion)
+      const gtsam::Quaternion& quaternion =
+          factor.measured().rotation().toQuaternion();
+      edge.pose.orientation.x = quaternion.x();
+      edge.pose.orientation.y = quaternion.y();
+      edge.pose.orientation.z = quaternion.z();
+      edge.pose.orientation.w = quaternion.w();
+
+      // transfer covariance
+      gtsam::Matrix66 covariance =
+          boost::dynamic_pointer_cast<gtsam::noiseModel::Gaussian>(
+              factor.get_noiseModel())
+              ->covariance();
+      for (size_t i = 0; i < edge.covariance.size(); i++) {
+        size_t row = static_cast<size_t>(i / 6);
+        size_t col = i % 6;
+        edge.covariance[i] = covariance(row, col);
+      }
+      edges.push_back(edge);
+    }
+  }
+
+  std::vector<pose_graph_tools::PoseGraphNode> nodes;
+  // Then store the values as nodes
+  gtsam::KeyVector key_list = values.keys();
+  for (size_t i = 0; i < key_list.size(); i++) {
+    pose_graph_tools::PoseGraphNode node;
+    node.key = key_list[i];
+    const gtsam::Pose3& value = values.at<gtsam::Pose3>(key_list[i]);
+    const gtsam::Point3& translation = value.translation();
+    const gtsam::Quaternion& quaternion = value.rotation().toQuaternion();
+
+    // pose - translation
+    node.pose.position.x = translation.x();
+    node.pose.position.y = translation.y();
+    node.pose.position.z = translation.z();
+    // pose - rotation (to quaternion)
+    node.pose.orientation.x = quaternion.x();
+    node.pose.orientation.y = quaternion.y();
+    node.pose.orientation.z = quaternion.z();
+    node.pose.orientation.w = quaternion.w();
+
+    nodes.push_back(node);
+  }
+
+  pose_graph_tools::PoseGraph posegraph;
+  posegraph.nodes = nodes;
+  posegraph.edges = edges;
+  return boost::make_shared<pose_graph_tools::PoseGraph>(posegraph);
 }
 
 }  // namespace mesher_mapper

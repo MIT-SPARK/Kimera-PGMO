@@ -73,10 +73,13 @@ bool KimeraRmpgo::LoadParameters(const ros::NodeHandle& n) {
 bool KimeraRmpgo::CreatePublishers(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
   optimized_mesh_pub_ =
-      nl.advertise<mesh_msgs::TriangleMeshStamped>("optimized_mesh", 1, true);
-  optimized_path_pub_ = nl.advertise<nav_msgs::Path>("optimized_path", 1, true);
+      nl.advertise<mesh_msgs::TriangleMeshStamped>("optimized_mesh", 1, false);
+  optimized_path_pub_ =
+      nl.advertise<nav_msgs::Path>("optimized_path", 1, false);
   optimized_odom_pub_ =
       nl.advertise<nav_msgs::Odometry>("optimized_odom", 1, false);
+  pose_graph_pub_ =
+      nl.advertise<pose_graph_tools::PoseGraph>("pose_graph", 1, false);
   return true;
 }
 
@@ -85,11 +88,11 @@ bool KimeraRmpgo::RegisterCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
 
   input_mesh_sub_ =
-      nl.subscribe("input_mesh", 10, &KimeraRmpgo::MeshCallback, this);
+      nl.subscribe("input_mesh", 50, &KimeraRmpgo::MeshCallback, this);
 
   pose_graph_incremental_sub_ =
       nl.subscribe("pose_graph_incremental",
-                   10,
+                   50,
                    &KimeraRmpgo::IncrementalPoseGraphCallback,
                    this);
 
@@ -120,56 +123,60 @@ bool KimeraRmpgo::PublishOptimizedPath() const {
 
   if (gtsam_path.size() == 0) return false;
 
-  // Create message type
-  nav_msgs::Path path;
+  if (optimized_path_pub_.getNumSubscribers() > 0) {
+    // Create message type
+    nav_msgs::Path path;
 
-  // Fill path poses
-  path.poses.reserve(gtsam_path.size());
-  for (size_t i = 0; i < gtsam_path.size(); i++) {
-    gtsam::Pose3 pose = gtsam_path.at(i);
-    gtsam::Point3 trans = pose.translation();
-    gtsam::Quaternion quat = pose.rotation().toQuaternion();
+    // Fill path poses
+    path.poses.reserve(gtsam_path.size());
+    for (size_t i = 0; i < gtsam_path.size(); i++) {
+      gtsam::Pose3 pose = gtsam_path.at(i);
+      gtsam::Point3 trans = pose.translation();
+      gtsam::Quaternion quat = pose.rotation().toQuaternion();
 
-    geometry_msgs::PoseStamped ps_msg;
-    ps_msg.header.frame_id = frame_id_;
-    ps_msg.pose.position.x = trans.x();
-    ps_msg.pose.position.y = trans.y();
-    ps_msg.pose.position.z = trans.z();
-    ps_msg.pose.orientation.x = quat.x();
-    ps_msg.pose.orientation.y = quat.y();
-    ps_msg.pose.orientation.z = quat.z();
-    ps_msg.pose.orientation.w = quat.w();
+      geometry_msgs::PoseStamped ps_msg;
+      ps_msg.header.frame_id = frame_id_;
+      ps_msg.pose.position.x = trans.x();
+      ps_msg.pose.position.y = trans.y();
+      ps_msg.pose.position.z = trans.z();
+      ps_msg.pose.orientation.x = quat.x();
+      ps_msg.pose.orientation.y = quat.y();
+      ps_msg.pose.orientation.z = quat.z();
+      ps_msg.pose.orientation.w = quat.w();
 
-    path.poses.push_back(ps_msg);
+      path.poses.push_back(ps_msg);
+    }
+
+    // Publish path message
+    path.header.stamp = ros::Time::now();
+    path.header.frame_id = frame_id_;
+    optimized_path_pub_.publish(path);
   }
 
-  // Publish path message
-  path.header.stamp = ros::Time::now();
-  path.header.frame_id = frame_id_;
-  optimized_path_pub_.publish(path);
+  if (optimized_odom_pub_.getNumSubscribers() > 0) {
+    // Publish also the optimized odometry
+    nav_msgs::Odometry odometry_msg;
+    const gtsam::Pose3 last_pose = gtsam_path[gtsam_path.size() - 1];
+    const gtsam::Rot3& rotation = last_pose.rotation();
+    const gtsam::Quaternion& quaternion = rotation.toQuaternion();
 
-  // Publish also the optimized odometry
-  nav_msgs::Odometry odometry_msg;
-  const gtsam::Pose3 last_pose = gtsam_path[gtsam_path.size() - 1];
-  const gtsam::Rot3& rotation = last_pose.rotation();
-  const gtsam::Quaternion& quaternion = rotation.toQuaternion();
+    // Create header.
+    odometry_msg.header.stamp = ros::Time::now();
+    odometry_msg.header.frame_id = frame_id_;
 
-  // Create header.
-  odometry_msg.header.stamp = ros::Time::now();
-  odometry_msg.header.frame_id = frame_id_;
+    // Position
+    odometry_msg.pose.pose.position.x = last_pose.x();
+    odometry_msg.pose.pose.position.y = last_pose.y();
+    odometry_msg.pose.pose.position.z = last_pose.z();
 
-  // Position
-  odometry_msg.pose.pose.position.x = last_pose.x();
-  odometry_msg.pose.pose.position.y = last_pose.y();
-  odometry_msg.pose.pose.position.z = last_pose.z();
+    // Orientation
+    odometry_msg.pose.pose.orientation.w = quaternion.w();
+    odometry_msg.pose.pose.orientation.x = quaternion.x();
+    odometry_msg.pose.pose.orientation.y = quaternion.y();
+    odometry_msg.pose.pose.orientation.z = quaternion.z();
 
-  // Orientation
-  odometry_msg.pose.pose.orientation.w = quaternion.w();
-  odometry_msg.pose.pose.orientation.x = quaternion.x();
-  odometry_msg.pose.pose.orientation.y = quaternion.y();
-  odometry_msg.pose.pose.orientation.z = quaternion.z();
-
-  optimized_odom_pub_.publish(odometry_msg);
+    optimized_odom_pub_.publish(odometry_msg);
+  }
   return true;
 }
 
@@ -265,13 +272,16 @@ void KimeraRmpgo::IncrementalPoseGraphCallback(
   if (loop_closure) {
     pose_graph_tools::PoseGraphEdge lc_edge = msg->edges[1];
     const gtsam::Pose3 meas = RosToGtsam(odom_edge.pose);
-    const Vertex from_node = odom_edge.key_from;
-    const Vertex to_node = odom_edge.key_to;
+    const Vertex from_node = lc_edge.key_from;
+    const Vertex to_node = lc_edge.key_to;
     deformation_graph_.addNewBetween(from_node, to_node, meas);
     deformation_graph_.update();
     ROS_INFO(
-        "KimeraRmpgo: Loop closure detected, optimized with trajectory of "
+        "KimeraRmpgo: Loop closure detected between node %d and %d, optimized "
+        "with trajectory of "
         "length %d.",
+        from_node,
+        to_node,
         trajectory_.size());
   } else {
     deformation_graph_.update();
@@ -287,8 +297,19 @@ void KimeraRmpgo::MeshCallback(
 void KimeraRmpgo::ProcessTimerCallback(const ros::TimerEvent& ev) {
   // Update optimized mesh
   optimized_mesh_ = deformation_graph_.deformMesh(input_mesh_);
-  PublishOptimizedMesh();
-  PublishOptimizedPath();
+  if (optimized_mesh_pub_.getNumSubscribers() > 0) {
+    PublishOptimizedMesh();
+  }
+  if (optimized_path_pub_.getNumSubscribers() > 0 ||
+      optimized_odom_pub_.getNumSubscribers() > 0) {
+    PublishOptimizedPath();
+  }
+
+  if (pose_graph_pub_.getNumSubscribers() > 0) {
+    // Publish pose graph
+    GraphMsgPtr pose_graph_ptr = deformation_graph_.getPoseGraph();
+    pose_graph_pub_.publish(*pose_graph_ptr);
+  }
 
   // Save mesh
   if (save_optimized_mesh_) {

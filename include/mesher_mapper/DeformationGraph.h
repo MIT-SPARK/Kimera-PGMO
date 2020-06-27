@@ -21,6 +21,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
+#include "mesher_mapper/CommonFunctions.h"
 #include "mesher_mapper/CommonStructs.h"
 
 namespace mesher_mapper {
@@ -118,6 +119,8 @@ class DeformationGraph {
     return vertices_;
   }
   inline Graph getGraph() const { return graph_; }
+
+  inline GraphMsgPtr getPoseGraph() { return GtsamGraphToRos(nfg_, values_); }
 
  private:
   void updateConsistencyFactors(const Graph& new_graph);

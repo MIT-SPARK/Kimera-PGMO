@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <cmath>
 
-#include "mesher_mapper/CommonFunctions.h"
 #include "mesher_mapper/DeformationGraph.h"
 
 #include <pcl/PCLPointCloud2.h>
@@ -31,8 +30,7 @@ bool DeformationGraph::Initialize(double pgo_trans_threshold,
                                   double pgo_rot_threshold) {
   // Initialize pgo_:
   KimeraRPGO::RobustSolverParams pgo_params;
-  pgo_params.setPcmSimple3DParams(
-      pgo_trans_threshold, pgo_rot_threshold, KimeraRPGO::Verbosity::QUIET);
+  pgo_params.setPcmSimple3DParams(pgo_trans_threshold, pgo_rot_threshold);
   pgo_ = std::unique_ptr<KimeraRPGO::RobustSolver>(
       new KimeraRPGO::RobustSolver(pgo_params));
   return true;
