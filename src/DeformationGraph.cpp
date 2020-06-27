@@ -30,8 +30,8 @@ DeformationGraph::~DeformationGraph() {}
 void DeformationGraph::update() {
   // Here we assume that the mesh since creation has grown
   // Essentially every new mesh recieved contains the old mesh
-  graph_ = Graph();
-  graph_.createFromPclMeshBidirection(mesh_structure_);
+  Graph new_graph;
+  new_graph.createFromPclMeshBidirection(mesh_structure_);
   // store points position
   pcl::fromPCLPointCloud2(mesh_structure_.cloud, vertices_);
   for (size_t i = 0; i < vertices_.points.size(); i++) {
@@ -40,22 +40,23 @@ void DeformationGraph::update() {
   }
 
   // Add the non mesh nodes
-  addNonMeshNodesToGraph();
+  addNonMeshNodesToGraph(&new_graph);
 
   // reset consistency factors
-  resetConsistencyFactors();
+  updateConsistencyFactors(new_graph);
+  graph_ = new_graph;
 }
 
-void DeformationGraph::resetConsistencyFactors() {
-  values_ = gtsam::Values();
-  consistency_factors_ = gtsam::NonlinearFactorGraph();
-  // build the connections factors
-  // This consist of all the factors used
-  // in optimization without the factors
-  // related to user input
-  Vertices vertices = graph_.getVertices();
-  for (Vertex v : vertices) {
-    // Check if vertex has a prefix (ie if is a pose graph node)
+void DeformationGraph::updateConsistencyFactors(const Graph& new_graph) {
+  // first get the new vertices
+  Vertices new_vertices = new_graph.getVertices();
+  // remove the old vertives
+  for (Vertex v : graph_.getVertices()) {
+    new_vertices.erase(std::remove(new_vertices.begin(), new_vertices.end(), v),
+                       new_vertices.end());
+  }
+  // add new vertices to values
+  for (Vertex v : new_vertices) {
     gtsam::Pose3 v_pose;
     gtsam::Symbol v_symb(v);
     if (v_symb.chr() == 'n') {
@@ -65,35 +66,59 @@ void DeformationGraph::resetConsistencyFactors() {
       v_pose = gtsam::Pose3(gtsam::Rot3(), vertex_positions_.at(v));
     }
     values_.insert(v, v_pose);
+  }
 
-    try {
-      for (Vertex valence : graph_.getValence(v)) {
-        gtsam::Point3 valence_pos = vertex_positions_[valence];
-        // Define noise. Hardcoded for now
-        static const gtsam::SharedNoiseModel& noise =
-            gtsam::noiseModel::Isotropic::Variance(3, 1e-3);
-        // Create deformation edge factor
-        DeformationEdgeFactor new_edge(v, valence, v_pose, valence_pos, noise);
-        consistency_factors_.add(new_edge);
-      }
-    } catch (const std::out_of_range& e) {
-      ROS_DEBUG("No valence for node %d", v);
+  // then get the new edges
+  std::vector<Edge> new_edges = new_graph.getEdges();
+  // remove the old edges
+  for (Edge e : graph_.getEdges()) {
+    new_edges.erase(std::remove(new_edges.begin(), new_edges.end(), e),
+                    new_edges.end());
+  }
+  // build the connections factors
+  for (Edge e : new_edges) {
+    Vertex from = e.first;
+    Vertex to = e.second;
+    gtsam::Pose3 from_pose;
+    gtsam::Point3 to_point;
+    gtsam::Symbol from_symb(from);
+    gtsam::Symbol to_symb(to);
+    if (from_symb.chr() == 'n') {
+      size_t node_number = from_symb.index();
+      from_pose = pg_initial_poses_.at(node_number);
+    } else {
+      from_pose = gtsam::Pose3(gtsam::Rot3(), vertex_positions_.at(from));
     }
+
+    if (to_symb.chr() == 'n') {
+      size_t node_number = to_symb.index();
+      to_point = pg_initial_poses_.at(node_number).translation();
+    } else {
+      to_point = vertex_positions_.at(to);
+    }
+
+    // Define noise. Hardcoded for now
+    static const gtsam::SharedNoiseModel& noise =
+        gtsam::noiseModel::Isotropic::Variance(3, 1e-3);
+    // Create deformation edge factor
+    DeformationEdgeFactor new_edge(from, to, from_pose, to_point, noise);
+    consistency_factors_.add(new_edge);
+    nfg_.add(new_edge);
   }
 }
 
-void DeformationGraph::addNonMeshNodesToGraph() {
+void DeformationGraph::addNonMeshNodesToGraph(Graph* graph) {
   for (size_t i = 0; i < pg_vertices_.size(); i++) {
     vertices_.points.push_back(pg_vertices_[i]);
     gtsam::Symbol node_symb('n', i);
     Vertex node = node_symb.key();
-    graph_.addVertex(node);
+    graph->addVertex(node);
     // add vertex position to map
     vertex_positions_[node] =
         gtsam::Point3(pg_vertices_[i].x, pg_vertices_[i].y, pg_vertices_[i].z);
     for (Vertex valence : pg_connections_[i]) {
-      graph_.addEdge(Edge(node, valence));
-      graph_.addEdge(Edge(valence, node));
+      graph->addEdge(Edge(node, valence));
+      graph->addEdge(Edge(valence, node));
     }
   }
 }
@@ -133,6 +158,7 @@ void DeformationGraph::addMeasurement(const Vertex& v,
   gtsam::Pose3 meas = RosToGtsam(pose);
   gtsam::PriorFactor<gtsam::Pose3> absolute_meas(v, meas, noise);
   prior_factors_.add(absolute_meas);
+  nfg_.add(absolute_meas);
 }
 
 void DeformationGraph::addNodeMeasurement(const size_t& node_number,
@@ -143,20 +169,16 @@ void DeformationGraph::addNodeMeasurement(const size_t& node_number,
       gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
   gtsam::PriorFactor<gtsam::Pose3> measurement(node, delta_pose, noise);
   prior_factors_.add(measurement);
+  nfg_.add(measurement);
 }
 
 void DeformationGraph::optimize() {
-  gtsam::NonlinearFactorGraph factors_to_optimize;
-  factors_to_optimize.add(consistency_factors_);
-  factors_to_optimize.add(prior_factors_);
-  factors_to_optimize.add(pg_factors_);
   // optimize
   gtsam::LevenbergMarquardtParams params;
   params.diagonalDamping = true;
   params.setVerbosityLM("SUMMARY");
   values_ =
-      gtsam::LevenbergMarquardtOptimizer(factors_to_optimize, values_, params)
-          .optimize();
+      gtsam::LevenbergMarquardtOptimizer(nfg_, values_, params).optimize();
 }
 
 pcl::PolygonMesh DeformationGraph::deformMesh(
@@ -267,6 +289,7 @@ void DeformationGraph::addNewBetween(const size_t& from,
       gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
   pg_factors_.add(
       gtsam::BetweenFactor<gtsam::Pose3>(from_symb, to_symb, meas, noise));
+  nfg_.add(gtsam::BetweenFactor<gtsam::Pose3>(from_symb, to_symb, meas, noise));
   return;
 }
 
@@ -283,6 +306,7 @@ void DeformationGraph::initFirstNode(const gtsam::Pose3& initial_pose) {
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
   pg_factors_.add(gtsam::PriorFactor<gtsam::Pose3>(symb, initial_pose, noise));
+  nfg_.add(gtsam::PriorFactor<gtsam::Pose3>(symb, initial_pose, noise));
   return;
 }
 

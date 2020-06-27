@@ -148,7 +148,8 @@ void MesherMapper::TrajectoryCallback(const nav_msgs::Path::ConstPtr& msg) {
   }
 
   // Add distortions
-  deformation_graph_.clearMeasurements();  // but first clear previous input
+  ROS_ERROR("SINCE CLEAR MEASUREMENTS NO LONGER WORK THIS IS DEPRECATED.");
+  // deformation_graph_.clearMeasurements();  // but first clear previous input
   for (size_t i = 0; i < trajectory_.size(); i++) {
     gtsam::Pose3 distortion = trajectory_[i].between(current_trajectory[i]);
     deformation_graph_.addNodeMeasurement(i, distortion);

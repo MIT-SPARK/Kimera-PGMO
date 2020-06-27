@@ -243,23 +243,11 @@ TEST(DeformationGraph, addNodeMeasurement) {
   EXPECT_EQ(0, graph.getVertices().points[0].x);
 
   // Add node measurement
-  graph.addNodeMeasurement(0,
-                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2, 2)));
-  graph.optimize();
-  pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 1);
-  pcl::PointCloud<pcl::PointXYZ> actual_vertices;
-  pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
-
-  EXPECT_EQ(1.0, actual_vertices.points[0].x);
-  EXPECT_EQ(1.0, actual_vertices.points[4].x);
-  EXPECT_EQ(1.0, actual_vertices.points[4].z);
-
-  // clear measurmenet
-  graph.clearMeasurements();
   graph.addNodeMeasurement(
       0, gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)));
   graph.optimize();
-  new_mesh = graph.deformMesh(simple_mesh, 1);
+  pcl::PolygonMesh new_mesh = graph.deformMesh(simple_mesh, 1);
+  pcl::PointCloud<pcl::PointXYZ> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
 
   EXPECT_NEAR(4, actual_vertices.points[0].x, 0.001);

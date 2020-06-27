@@ -13,6 +13,8 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 
+#include <KimeraRPGO/RobustSolver.h>
+
 #include <geometry_msgs/Pose.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/common/io.h>
@@ -108,10 +110,6 @@ class DeformationGraph {
 
   std::vector<gtsam::Pose3> getOptimizedTrajectory() const;
 
-  inline void clearMeasurements() {
-    prior_factors_ = gtsam::NonlinearFactorGraph();
-  }
-
   pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
                               size_t k = 4) const;
 
@@ -122,9 +120,9 @@ class DeformationGraph {
   inline Graph getGraph() const { return graph_; }
 
  private:
-  void resetConsistencyFactors();
+  void updateConsistencyFactors(const Graph& new_graph);
 
-  void addNonMeshNodesToGraph();
+  void addNonMeshNodesToGraph(Graph* graph);
 
  private:
   Graph graph_;
@@ -140,13 +138,17 @@ class DeformationGraph {
   // track mesh if one used to create deformation graph
   pcl::PolygonMesh mesh_structure_;
 
+  // factors
+  gtsam::NonlinearFactorGraph nfg_;
+  // current estimate
+  gtsam::Values values_;
+
+  //// Below separated factor types for debugging
   // factor graph encoding the mesh structure
   gtsam::NonlinearFactorGraph consistency_factors_;
   // factor graph storing the prior factors for distortions
   gtsam::NonlinearFactorGraph prior_factors_;
   // factor graph for pose graph related factors
   gtsam::NonlinearFactorGraph pg_factors_;
-  // current estimate
-  gtsam::Values values_;
 };
 }  // namespace mesher_mapper

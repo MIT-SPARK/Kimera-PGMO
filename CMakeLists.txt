@@ -21,6 +21,8 @@ include_directories(${PCL_INCLUDE_DIRS})
 link_directories(${PCL_LIBRARY_DIRS})
 add_definitions(${PCL_DEFINITIONS})
 
+find_package(KimeraRPGO REQUIRED)
+
 catkin_simple()
 
 cs_add_library(${PROJECT_NAME}
@@ -37,6 +39,7 @@ target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   ${Boost_LIBRARIES}
   ${PCL_LIBRARIES}
+  KimeraRPGO
   gtsam
 )
 
