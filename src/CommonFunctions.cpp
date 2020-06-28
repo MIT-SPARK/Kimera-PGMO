@@ -75,7 +75,7 @@ void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh) {
 
   try {
     colors =
-        file.request_properties_from_element("vertex", {"r", "g", "b", "a"});
+        file.request_properties_from_element("vertex", {"red", "green", "blue", "alpha"});
   } catch (const std::exception& e) {
     std::cerr << "tinyply exception: " << e.what() << std::endl;
   }
@@ -182,7 +182,7 @@ void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh) {
 
   output_file.add_properties_to_element(
       "vertex",
-      {"r", "g", "b", "a"},
+      {"red", "green", "blue", "alpha"},
       tinyply::Type::UINT8,
       colors.size(),
       reinterpret_cast<uint8_t*>(colors.data()),
@@ -385,7 +385,7 @@ pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
       point.r = mesh_r;
       point.g = mesh_g;
       point.b = mesh_b;
-      point.a = 1.0;
+      point.a = 255;
       vertices_cloud.push_back(point);
     }
 
