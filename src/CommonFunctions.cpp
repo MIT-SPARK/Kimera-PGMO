@@ -285,6 +285,12 @@ gtsam::Pose3 RosToGtsam(const geometry_msgs::Pose& transform) {
 
 pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
                                const pcl::PolygonMesh& mesh2) {
+  if (mesh1.polygons.size() == 0) {
+    return mesh2;
+  } else if (mesh2.polygons.size() == 0) {
+    return mesh1;
+  }
+
   pcl::PointCloud<pcl::PointXYZRGBA> vertices1, vertices2;
   pcl::fromPCLPointCloud2(mesh1.cloud, vertices1);
   pcl::fromPCLPointCloud2(mesh2.cloud, vertices2);
