@@ -1,10 +1,11 @@
 <launch>
+  <arg name="dataset" default="uhumans1" />
   <arg name="launch_voxblox" default="true" />
 
   <include file="$(find kimera_pgmo)/launch/generate_mesh.launch" pass_all_args="true"/>
 
-  <node type="kimera_rmpgo_node" name="kimera_rmpgo_node" pkg="kimera_pgmo" output="screen" >
-    <rosparam file="$(find kimera_pgmo)/params/parameters.yaml" />
+  <node type="kimera_pgmo_node" name="kimera_pgmo_node" pkg="kimera_pgmo" output="screen" >
+    <rosparam file="$(find kimera_pgmo)/params/$(arg dataset)/parameters.yaml" />
 
     <param name="output_ply_file" value="/home/yunchang/Downloads/optimized.ply" />
 
@@ -15,7 +16,7 @@
   <include file="$(find pose_graph_tools)/launch/posegraph_view.launch" >
     <arg name="frame_id"      value="world" />
     <arg name="graph_topic"   value="pose_graph" />
-    <arg name="ns"            value="kimera_rmpgo_node"/>
+    <arg name="ns"            value="kimera_pgmo_node"/>
   </include>
 
 </launch>

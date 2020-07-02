@@ -1,0 +1,8 @@
+frame_id: "world"
+d_graph_resolution: 1.0
+embed_trajectory:
+  max_delta_t: 0.5
+  max_delta_r: 2.0
+rpgo:
+  translation_threshold: 0.01
+  rotation_threshold: 0.01

@@ -1,5 +1,6 @@
 <launch>
   <arg name="launch_voxblox" default="true" />
+  <arg name="dataset" default="uhumans1" />
 
   <group if="$(arg launch_voxblox)">
       <arg name="voxel_size" default="0.1" />
