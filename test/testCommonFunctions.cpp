@@ -11,7 +11,7 @@
 #include <pcl/PolygonMesh.h>
 #include <pcl_conversions/pcl_conversions.h>
 
-#include "kimera_pgmo/CommonFunctions.h"
+#include "kimera_pgmo/utils/CommonFunctions.h"
 #include "test_config.h"
 
 namespace kimera_pgmo {

@@ -11,7 +11,7 @@
 #include <pcl/PolygonMesh.h>
 #include <voxblox_msgs/Mesh.h>
 
-#include "kimera_pgmo/CommonFunctions.h"
+#include "kimera_pgmo/utils/CommonFunctions.h"
 
 // Define BlockIndex as used in voxblox
 typedef Eigen::Matrix<int, 3, 1> BlockIndex;

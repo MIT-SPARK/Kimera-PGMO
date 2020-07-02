@@ -10,8 +10,8 @@
 #include <gtsam/inference/Symbol.h>
 #include <pcl/PolygonMesh.h>
 
-#include "kimera_pgmo/CommonFunctions.h"
 #include "kimera_pgmo/DeformationGraph.h"
+#include "kimera_pgmo/utils/CommonFunctions.h"
 #include "test_config.h"
 
 namespace kimera_pgmo {

@@ -17,9 +17,9 @@
 #include <gtsam/geometry/Pose3.h>
 
 #include "kimera_pgmo/AbsolutePoseStamped.h"
-#include "kimera_pgmo/CommonFunctions.h"
 #include "kimera_pgmo/DeformationGraph.h"
-#include "kimera_pgmo/OctreeCompression.h"
+#include "kimera_pgmo/compression/OctreeCompression.h"
+#include "kimera_pgmo/utils/CommonFunctions.h"
 
 namespace kimera_pgmo {
 class KimeraPgmo {

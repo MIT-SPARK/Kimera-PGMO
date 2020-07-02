@@ -10,7 +10,7 @@
 #include <pcl/PolygonMesh.h>
 #include <pcl_conversions/pcl_conversions.h>
 
-#include "kimera_pgmo/CommonStructs.h"
+#include "kimera_pgmo/utils/CommonStructs.h"
 #include "test_config.h"
 
 namespace kimera_pgmo {

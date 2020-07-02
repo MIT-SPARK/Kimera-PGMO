@@ -9,7 +9,7 @@
 
 #include <pcl_conversions/pcl_conversions.h>
 
-#include "kimera_pgmo/CommonStructs.h"
+#include "kimera_pgmo/utils/CommonStructs.h"
 
 namespace kimera_pgmo {
 

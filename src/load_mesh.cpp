@@ -8,7 +8,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <ros/ros.h>
 
-#include "kimera_pgmo/CommonFunctions.h"
+#include "kimera_pgmo/utils/CommonFunctions.h"
 
 using kimera_pgmo::PolygonMeshToTriangleMeshMsg;
 using kimera_pgmo::ReadMeshFromPly;

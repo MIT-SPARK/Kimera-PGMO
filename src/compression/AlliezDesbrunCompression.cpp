@@ -9,7 +9,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <ros/ros.h>
 
-#include "kimera_pgmo/AlliezDesbrunCompression.h"
+#include "kimera_pgmo/compression/AlliezDesbrunCompression.h"
 
 namespace kimera_pgmo {
 

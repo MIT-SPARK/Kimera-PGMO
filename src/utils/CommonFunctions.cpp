@@ -17,8 +17,8 @@
 #include <voxblox_msgs/MeshBlock.h>
 #include <pcl/impl/point_types.hpp>
 
-#include "kimera_pgmo/CommonFunctions.h"
-#include "kimera_pgmo/tinyply.h"
+#include "kimera_pgmo/utils/CommonFunctions.h"
+#include "kimera_pgmo/utils/tinyply.h"
 
 namespace kimera_pgmo {
 

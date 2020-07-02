@@ -26,13 +26,11 @@ find_package(KimeraRPGO REQUIRED)
 catkin_simple()
 
 cs_add_library(${PROJECT_NAME}
-src/CommonFunctions.cpp
+src/compression/OctreeCompression.cpp
+src/utils/CommonFunctions.cpp
+src/utils/CommonStructs.cpp
+src/utils/tinyply.cpp
 src/DeformationGraph.cpp
-src/CommonStructs.cpp
-# src/AlliezDesbrunCompression.cpp
-src/OctreeCompression.cpp
-src/tinyply.cpp
-# src/MesherMapper.cpp
 src/KimeraPgmo.cpp
 )
 target_link_libraries(${PROJECT_NAME} 
@@ -42,11 +40,6 @@ target_link_libraries(${PROJECT_NAME}
   KimeraRPGO
   gtsam
 )
-
-# cs_add_executable(mesher_mapper_node
-#   src/mesher_mapper_node.cpp
-# )
-# target_link_libraries(mesher_mapper_node ${PROJECT_NAME})
 
 cs_add_executable(kimera_pgmo_node
   src/kimera_pgmo_node.cpp

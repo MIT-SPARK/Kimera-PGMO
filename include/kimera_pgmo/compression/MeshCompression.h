@@ -8,11 +8,11 @@
 #include <pcl/PolygonMesh.h>
 #include <Eigen/Dense>
 
-#include "kimera_pgmo/CommonStructs.h"
+#include "kimera_pgmo/utils/CommonStructs.h"
 
 namespace kimera_pgmo {
 
-typedef Eigen::Vector3d Pointxyz; 
+typedef Eigen::Vector3d Pointxyz;
 
 class MeshCompression {
  public:

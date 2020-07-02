@@ -3,8 +3,8 @@
  * @brief  Simplify and reconstruct meshes Alliez Desbrun 2001
  * @author Yun Chang
  */
-#include "kimera_pgmo/MeshCompression.h"
-#include "kimera_pgmo/Polygon.h"
+#include "kimera_pgmo/compression/MeshCompression.h"
+#include "kimera_pgmo/utils/Polygon.h"
 
 namespace kimera_pgmo {
 

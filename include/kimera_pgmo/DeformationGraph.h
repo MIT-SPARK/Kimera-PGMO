@@ -21,8 +21,8 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
-#include "kimera_pgmo/CommonFunctions.h"
-#include "kimera_pgmo/CommonStructs.h"
+#include "kimera_pgmo/utils/CommonFunctions.h"
+#include "kimera_pgmo/utils/CommonStructs.h"
 
 namespace kimera_pgmo {
 
