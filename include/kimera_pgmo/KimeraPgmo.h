@@ -1,29 +1,31 @@
 /**
- * @file   MesherMapper.h
- * @brief  MesherMapper class: Main class and ROS interface
+ * @file   KimeraPgmo.h
+ * @brief  KimeraPgmo class: Main class and ROS interface
  * @author Yun Chang
  */
 
 #include <string>
 
+#include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl_msgs/PolygonMesh.h>
+#include <pose_graph_tools/PoseGraph.h>
 #include <ros/ros.h>
 #include <std_msgs/String.h>
 
 #include <gtsam/geometry/Pose3.h>
 
-#include "mesher_mapper/AbsolutePoseStamped.h"
-#include "mesher_mapper/CommonFunctions.h"
-#include "mesher_mapper/DeformationGraph.h"
-#include "mesher_mapper/OctreeCompression.h"
+#include "kimera_pgmo/AbsolutePoseStamped.h"
+#include "kimera_pgmo/CommonFunctions.h"
+#include "kimera_pgmo/DeformationGraph.h"
+#include "kimera_pgmo/OctreeCompression.h"
 
-namespace mesher_mapper {
-class MesherMapper {
+namespace kimera_pgmo {
+class KimeraPgmo {
  public:
-  MesherMapper();
-  ~MesherMapper();
+  KimeraPgmo();
+  ~KimeraPgmo();
 
   // Initialize parameters, publishers, and subscribers
   bool Initialize(const ros::NodeHandle& n);
@@ -37,9 +39,11 @@ class MesherMapper {
 
   // Functions to publish
   bool PublishOptimizedMesh();
+  bool PublishOptimizedPath() const;
 
-  // Callback for recieved trajectory
-  void TrajectoryCallback(const nav_msgs::Path::ConstPtr& msg);
+  // Callback for loopclosure
+  void IncrementalPoseGraphCallback(
+      const pose_graph_tools::PoseGraph::ConstPtr& msg);
 
   // Callback for mesh input
   void MeshCallback(const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
@@ -57,14 +61,17 @@ class MesherMapper {
 
   // Publishers
   ros::Publisher optimized_mesh_pub_;
+  ros::Publisher optimized_path_pub_;
+  ros::Publisher optimized_odom_pub_;
+  ros::Publisher pose_graph_pub_;
 
   // Subscribers
-  ros::Subscriber deform_input_sub_;
-  ros::Subscriber trajectory_sub_;
+  ros::Subscriber pose_graph_incremental_sub_;
   ros::Subscriber input_mesh_sub_;
 
   // Trajectory
   std::vector<gtsam::Pose3> trajectory_;
+  std::vector<ros::Time> timestamps_;
 
   // Timer
   ros::Timer update_timer_;
@@ -79,4 +86,4 @@ class MesherMapper {
   bool save_optimized_mesh_;
   std::string output_file_;
 };
-}  // namespace mesher_mapper
+}  // namespace kimera_pgmo

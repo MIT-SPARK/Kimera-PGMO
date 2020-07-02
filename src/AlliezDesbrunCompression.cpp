@@ -9,9 +9,9 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <ros/ros.h>
 
-#include "mesher_mapper/AlliezDesbrunCompression.h"
+#include "kimera_pgmo/AlliezDesbrunCompression.h"
 
-namespace mesher_mapper {
+namespace kimera_pgmo {
 
 // AlliezDesbrunCompression class definitions
 
@@ -261,4 +261,4 @@ bool AlliezDesbrunCompression::getFrontVertex(const Edge& e, Vertex* v) const {
   return false;
 }
 
-}  // namespace mesher_mapper
+}  // namespace kimera_pgmo

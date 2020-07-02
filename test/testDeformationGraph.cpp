@@ -10,11 +10,11 @@
 #include <gtsam/inference/Symbol.h>
 #include <pcl/PolygonMesh.h>
 
-#include "mesher_mapper/CommonFunctions.h"
-#include "mesher_mapper/DeformationGraph.h"
+#include "kimera_pgmo/CommonFunctions.h"
+#include "kimera_pgmo/DeformationGraph.h"
 #include "test_config.h"
 
-namespace mesher_mapper {
+namespace kimera_pgmo {
 
 pcl::PolygonMesh createMeshTriangle() {
   // Create simple pcl mesh with one triangle
@@ -329,4 +329,4 @@ TEST(DeformationGraph, addNewBetween) {
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2, 2)), traj[2], 0.05));
 }
 
-}  // namespace mesher_mapper
+}  // namespace kimera_pgmo

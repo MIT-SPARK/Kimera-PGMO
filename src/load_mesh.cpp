@@ -8,10 +8,10 @@
 #include <pcl_conversions/pcl_conversions.h>
 #include <ros/ros.h>
 
-#include "mesher_mapper/CommonFunctions.h"
+#include "kimera_pgmo/CommonFunctions.h"
 
-using mesher_mapper::PolygonMeshToTriangleMeshMsg;
-using mesher_mapper::ReadMeshFromPly;
+using kimera_pgmo::PolygonMeshToTriangleMeshMsg;
+using kimera_pgmo::ReadMeshFromPly;
 
 int main(int argc, char* argv[]) {
   // Initialize ROS node.

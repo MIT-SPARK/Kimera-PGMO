@@ -2,4 +2,4 @@
 // but can otherwise be omitted if you prefer to compile tinyply
 // directly into your own project.
 #define TINYPLY_IMPLEMENTATION
-#include "mesher_mapper/tinyply.h"
+#include "kimera_pgmo/tinyply.h"

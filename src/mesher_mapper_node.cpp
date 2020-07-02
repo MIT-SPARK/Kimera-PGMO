@@ -5,15 +5,15 @@
  */
 #include <ros/ros.h>
 
-#include "mesher_mapper/MesherMapper.h"
+#include "kimera_pgmo/MesherMapper.h"
 
 int main(int argc, char* argv[]) {
   // Initialize ROS node.
-  ros::init(argc, argv, "mesher_mapper");
+  ros::init(argc, argv, "kimera_pgmo");
   ros::NodeHandle n("~");
 
-  mesher_mapper::MesherMapper mesher_mapper;
-  if (!mesher_mapper.Initialize(n)) {
+  kimera_pgmo::MesherMapper kimera_pgmo;
+  if (!kimera_pgmo.Initialize(n)) {
     ROS_ERROR("Failed to initialize Mesher Mapper.");
     return EXIT_FAILURE;
   }

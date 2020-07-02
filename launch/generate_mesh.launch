@@ -31,7 +31,7 @@
       </node>
   </group>
 
-  <node name="voxblox_to_mesh" pkg="mesher_mapper" type="voxblox_to_mesh" output="screen" >
+  <node name="voxblox_to_mesh" pkg="kimera_pgmo" type="voxblox_to_mesh" output="screen" >
     <remap from="/voxblox_mesh" to="/voxblox_node/mesh" if="$(arg launch_voxblox)" />
     <remap from="/voxblox_mesh" to="/kimera_semantics_node/mesh" unless="$(arg launch_voxblox)" />
   </node> 

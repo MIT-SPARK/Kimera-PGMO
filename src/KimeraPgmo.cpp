@@ -1,31 +1,31 @@
 /**
- * @file   KimeraRmpgo.cpp
- * @brief  KimeraRmpgo class: Main class and ROS interface
+ * @file   KimeraPgmo.cpp
+ * @brief  KimeraPgmo class: Main class and ROS interface
  * @author Yun Chang
  */
 #include <geometry_msgs/PoseStamped.h>
 #include <cmath>
 
-#include "mesher_mapper/KimeraRmpgo.h"
+#include "kimera_pgmo/KimeraPgmo.h"
 
-namespace mesher_mapper {
+namespace kimera_pgmo {
 
 // Constructor
-KimeraRmpgo::KimeraRmpgo() : save_optimized_mesh_(false) {}
-KimeraRmpgo::~KimeraRmpgo() {}
+KimeraPgmo::KimeraPgmo() : save_optimized_mesh_(false) {}
+KimeraPgmo::~KimeraPgmo() {}
 
 // Initialize parameters, publishers, and subscribers and deformation graph
-bool KimeraRmpgo::Initialize(const ros::NodeHandle& n) {
+bool KimeraPgmo::Initialize(const ros::NodeHandle& n) {
   if (!LoadParameters(n)) {
-    ROS_ERROR("KimeraRmpgo: Failed to load parameters.");
+    ROS_ERROR("KimeraPgmo: Failed to load parameters.");
   }
 
   if (!CreatePublishers(n)) {
-    ROS_ERROR("KimeraRmpgo: Failed to create publishers.");
+    ROS_ERROR("KimeraPgmo: Failed to create publishers.");
   }
 
   if (!RegisterCallbacks(n)) {
-    ROS_ERROR("KimeraRmpgo: Failed to register callbacks.");
+    ROS_ERROR("KimeraPgmo: Failed to register callbacks.");
   }
 
   ROS_INFO("Initializes Mesher Mapper.");
@@ -34,7 +34,7 @@ bool KimeraRmpgo::Initialize(const ros::NodeHandle& n) {
 }
 
 // Load deformation parameters
-bool KimeraRmpgo::LoadParameters(const ros::NodeHandle& n) {
+bool KimeraPgmo::LoadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("frame_id", frame_id_)) return false;
   if (!n.getParam("embed_trajectory/max_delta_t", embed_delta_t_)) return false;
   if (!n.getParam("embed_trajectory/max_delta_r", embed_delta_r_)) return false;
@@ -51,7 +51,7 @@ bool KimeraRmpgo::LoadParameters(const ros::NodeHandle& n) {
   if (!d_graph_compression_.Initialize(
           n, deformation_graph_resolution, "deformation")) {
     ROS_ERROR(
-        "KimeraRmpgo: Failed to intialize deformation graph compression "
+        "KimeraPgmo: Failed to intialize deformation graph compression "
         "module.");
     return false;
   }
@@ -63,14 +63,14 @@ bool KimeraRmpgo::LoadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("rpgo/rotation_threshold", pgo_rot_threshold)) return false;
 
   if (!deformation_graph_.Initialize(pgo_trans_threshold, pgo_rot_threshold)) {
-    ROS_ERROR("KimeraRmpgo: Failed to initialze deformation graph.");
+    ROS_ERROR("KimeraPgmo: Failed to initialze deformation graph.");
     return false;
   }
   return true;
 }
 
 // Initialize publishers
-bool KimeraRmpgo::CreatePublishers(const ros::NodeHandle& n) {
+bool KimeraPgmo::CreatePublishers(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
   optimized_mesh_pub_ =
       nl.advertise<mesh_msgs::TriangleMeshStamped>("optimized_mesh", 1, false);
@@ -84,25 +84,25 @@ bool KimeraRmpgo::CreatePublishers(const ros::NodeHandle& n) {
 }
 
 // Initialize callbacks
-bool KimeraRmpgo::RegisterCallbacks(const ros::NodeHandle& n) {
+bool KimeraPgmo::RegisterCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
 
   input_mesh_sub_ =
-      nl.subscribe("input_mesh", 50, &KimeraRmpgo::MeshCallback, this);
+      nl.subscribe("input_mesh", 50, &KimeraPgmo::MeshCallback, this);
 
   pose_graph_incremental_sub_ =
       nl.subscribe("pose_graph_incremental",
                    50,
-                   &KimeraRmpgo::IncrementalPoseGraphCallback,
+                   &KimeraPgmo::IncrementalPoseGraphCallback,
                    this);
 
   // start timer
-  update_timer_ = nl.createTimer(1.0, &KimeraRmpgo::ProcessTimerCallback, this);
+  update_timer_ = nl.createTimer(1.0, &KimeraPgmo::ProcessTimerCallback, this);
   return true;
 }
 
 // To publish optimized mesh
-bool KimeraRmpgo::PublishOptimizedMesh() {
+bool KimeraPgmo::PublishOptimizedMesh() {
   mesh_msgs::TriangleMesh mesh_msg =
       PolygonMeshToTriangleMeshMsg(optimized_mesh_);
 
@@ -117,7 +117,7 @@ bool KimeraRmpgo::PublishOptimizedMesh() {
 }
 
 // To publish optimized trajectory
-bool KimeraRmpgo::PublishOptimizedPath() const {
+bool KimeraPgmo::PublishOptimizedPath() const {
   std::vector<gtsam::Pose3> gtsam_path =
       deformation_graph_.getOptimizedTrajectory();
 
@@ -180,7 +180,7 @@ bool KimeraRmpgo::PublishOptimizedPath() const {
   return true;
 }
 
-void KimeraRmpgo::IncrementalPoseGraphCallback(
+void KimeraPgmo::IncrementalPoseGraphCallback(
     const pose_graph_tools::PoseGraph::ConstPtr& msg) {
   if (msg->edges.size() == 0) {
     ROS_WARN("No edges in incremental pose graph msg. ");
@@ -202,7 +202,7 @@ void KimeraRmpgo::IncrementalPoseGraphCallback(
   // Initialize if first node
   if (prev_node == 0 && trajectory_.size() == 0) {
     if (msg->nodes[0].key != 0) {
-      ROS_WARN("KimeraRmpgo: is the first node not of key 0? ");
+      ROS_WARN("KimeraPgmo: is the first node not of key 0? ");
     }
     gtsam::Pose3 init_pose = RosToGtsam(msg->nodes[0].pose);
     deformation_graph_.initFirstNode(init_pose);
@@ -277,7 +277,7 @@ void KimeraRmpgo::IncrementalPoseGraphCallback(
     deformation_graph_.addNewBetween(from_node, to_node, meas);
     deformation_graph_.update();
     ROS_INFO(
-        "KimeraRmpgo: Loop closure detected between node %d and %d, optimized "
+        "KimeraPgmo: Loop closure detected between node %d and %d, optimized "
         "with trajectory of "
         "length %d.",
         from_node,
@@ -288,13 +288,13 @@ void KimeraRmpgo::IncrementalPoseGraphCallback(
   }
 }
 
-void KimeraRmpgo::MeshCallback(
+void KimeraPgmo::MeshCallback(
     const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
   input_mesh_ = TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
   return;
 }
 
-void KimeraRmpgo::ProcessTimerCallback(const ros::TimerEvent& ev) {
+void KimeraPgmo::ProcessTimerCallback(const ros::TimerEvent& ev) {
   // Update optimized mesh
   optimized_mesh_ = deformation_graph_.deformMesh(input_mesh_);
   if (optimized_mesh_pub_.getNumSubscribers() > 0) {
@@ -317,4 +317,4 @@ void KimeraRmpgo::ProcessTimerCallback(const ros::TimerEvent& ev) {
   }
 }
 
-}  // namespace mesher_mapper
+}  // namespace kimera_pgmo

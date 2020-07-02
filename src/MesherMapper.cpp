@@ -6,9 +6,9 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <cmath>
 
-#include "mesher_mapper/MesherMapper.h"
+#include "kimera_pgmo/MesherMapper.h"
 
-namespace mesher_mapper {
+namespace kimera_pgmo {
 
 // Constructor
 MesherMapper::MesherMapper() : save_optimized_mesh_(false) {}
@@ -186,4 +186,4 @@ void MesherMapper::ProcessTimerCallback(const ros::TimerEvent& ev) {
   }
 }
 
-}  // namespace mesher_mapper
+}  // namespace kimera_pgmo

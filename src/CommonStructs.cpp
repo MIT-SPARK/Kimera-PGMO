@@ -9,9 +9,9 @@
 
 #include <pcl_conversions/pcl_conversions.h>
 
-#include "mesher_mapper/CommonStructs.h"
+#include "kimera_pgmo/CommonStructs.h"
 
-namespace mesher_mapper {
+namespace kimera_pgmo {
 
 //// Graph Class
 std::vector<Edge> Graph::getEdges() const {
@@ -132,4 +132,4 @@ void Graph::print(std::string header) const {
   std::cout << std::endl;
 }
 
-}  // namespace mesher_mapper
+}  // namespace kimera_pgmo

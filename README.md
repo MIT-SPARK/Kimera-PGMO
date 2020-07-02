@@ -1,8 +1,8 @@
-# Mesher-Mapper
+# Kimera-PGMO
 
 ## Release News
 
-## Running Mesher-Mapper 
+## Running Kimera-PGMO
 
 ### Running With Kimera 
 In one terminal, launch Kimera-VIO-ROS with stereo dense:

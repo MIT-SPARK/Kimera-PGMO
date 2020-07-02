@@ -6,7 +6,7 @@
 #include <algorithm>
 #include <cmath>
 
-#include "mesher_mapper/DeformationGraph.h"
+#include "kimera_pgmo/DeformationGraph.h"
 
 #include <pcl/PCLPointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
@@ -21,7 +21,7 @@
 
 using pcl::PolygonMesh;
 
-namespace mesher_mapper {
+namespace kimera_pgmo {
 
 DeformationGraph::DeformationGraph() : pgo_(nullptr) {}
 DeformationGraph::~DeformationGraph() {}
@@ -365,4 +365,4 @@ std::vector<gtsam::Pose3> DeformationGraph::getOptimizedTrajectory() const {
   return optimized_traj;
 }
 
-}  // namespace mesher_mapper
+}  // namespace kimera_pgmo

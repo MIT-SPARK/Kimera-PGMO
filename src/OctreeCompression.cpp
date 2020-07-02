@@ -8,10 +8,10 @@
 
 #include <ros/ros.h>
 
-#include "mesher_mapper/CommonFunctions.h"
-#include "mesher_mapper/OctreeCompression.h"
+#include "kimera_pgmo/CommonFunctions.h"
+#include "kimera_pgmo/OctreeCompression.h"
 
-namespace mesher_mapper {
+namespace kimera_pgmo {
 
 OctreeCompression::OctreeCompression() { vertices_.reset(new PointCloud); }
 
@@ -163,4 +163,4 @@ bool OctreeCompression::PublishMesh() {
   return true;
 }
 
-}  // namespace mesher_mapper
+}  // namespace kimera_pgmo

@@ -3,10 +3,10 @@
  * @brief  Simplify and reconstruct meshes Alliez Desbrun 2001
  * @author Yun Chang
  */
-#include "mesher_mapper/MeshCompression.h"
-#include "mesher_mapper/Polygon.h"
+#include "kimera_pgmo/MeshCompression.h"
+#include "kimera_pgmo/Polygon.h"
 
-namespace mesher_mapper {
+namespace kimera_pgmo {
 
 enum class VertexStatus {
   UNCONQUERED = 0,
@@ -41,4 +41,4 @@ class AlliezDesbrunCompression : public MeshCompression {
 
   size_t level_of_detail_;
 };
-}  // namespace mesher_mapper
+}  // namespace kimera_pgmo

@@ -11,10 +11,10 @@
 #include <pcl/PolygonMesh.h>
 #include <pcl_conversions/pcl_conversions.h>
 
-#include "mesher_mapper/CommonFunctions.h"
+#include "kimera_pgmo/CommonFunctions.h"
 #include "test_config.h"
 
-namespace mesher_mapper {
+namespace kimera_pgmo {
 TEST(CommonFunctions, testReadPLY) {
   pcl::PolygonMeshPtr mesh(new pcl::PolygonMesh());
   ReadMeshFromPly(std::string(DATASET_PATH) + "/sphere.ply", mesh);
@@ -89,4 +89,4 @@ TEST(CommonFunctions, PolygonsEqual) {
   EXPECT_FALSE(PolygonsEqual(p0, p2));
   EXPECT_FALSE(PolygonsEqual(p0, p3));
 }
-}  // namespace mesher_mapper
+}  // namespace kimera_pgmo

@@ -7,14 +7,14 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 
-#include "mesher_mapper/DeformationGraph.h"
+#include "kimera_pgmo/DeformationGraph.h"
 #include "test_config.h"
 
 using gtsam::Point3;
 using gtsam::Pose3;
 using gtsam::Rot3;
 
-namespace mesher_mapper {
+namespace kimera_pgmo {
 TEST(DeformationEdgeFactor, ZeroRotation) {
   Pose3 node_1 = Pose3(Rot3(), Point3(0, 0, 0));
   Point3 node_2 = Point3(1, 1, 1);
@@ -298,4 +298,4 @@ TEST(DeformationEdgeFactor, Relative2) {
           1e-5);
   EXPECT_TRUE(gtsam::assert_equal(numericalH2, actualH2, 1E-5));
 }
-}  // namespace mesher_mapper
+}  // namespace kimera_pgmo

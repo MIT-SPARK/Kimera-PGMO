@@ -14,7 +14,7 @@
 #include <pcl/octree/octree_search.h>
 #include <pcl_ros/point_cloud.h>
 
-namespace mesher_mapper {
+namespace kimera_pgmo {
 
 class OctreeCompression {
  public:
@@ -69,4 +69,4 @@ class OctreeCompression {
 
   ros::Subscriber mesh_sub_;
 };
-}  // namespace mesher_mapper
+}  // namespace kimera_pgmo

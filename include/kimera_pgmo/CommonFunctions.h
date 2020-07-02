@@ -19,7 +19,7 @@
 #include <pose_graph_tools/PoseGraph.h>
 #include <voxblox_msgs/Mesh.h>
 
-namespace mesher_mapper {
+namespace kimera_pgmo {
 
 typedef pose_graph_tools::PoseGraph::ConstPtr GraphMsgPtr;
 
@@ -50,4 +50,4 @@ bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2);
 // Convert gtsam posegaph to PoseGraph msg
 GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
                             const gtsam::Values& values);
-}  // namespace mesher_mapper
+}  // namespace kimera_pgmo

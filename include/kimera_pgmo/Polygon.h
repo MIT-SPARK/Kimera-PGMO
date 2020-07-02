@@ -10,7 +10,7 @@
 #include <string>
 #include <vector>
 
-namespace mesher_mapper {
+namespace kimera_pgmo {
 template <class T>
 class Polygon {
  public:
@@ -203,4 +203,4 @@ class Polygon {
     std::cout << std::endl;
   }
 };
-}  // namespace mesher_mapper
+}  // namespace kimera_pgmo

@@ -21,10 +21,10 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
-#include "mesher_mapper/CommonFunctions.h"
-#include "mesher_mapper/CommonStructs.h"
+#include "kimera_pgmo/CommonFunctions.h"
+#include "kimera_pgmo/CommonStructs.h"
 
-namespace mesher_mapper {
+namespace kimera_pgmo {
 
 // Define a factor type for edges of deformation graph
 class DeformationEdgeFactor
@@ -156,4 +156,4 @@ class DeformationGraph {
   // factor graph for pose graph related factors
   gtsam::NonlinearFactorGraph pg_factors_;
 };
-}  // namespace mesher_mapper
+}  // namespace kimera_pgmo

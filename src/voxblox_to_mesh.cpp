@@ -11,7 +11,7 @@
 #include <pcl/PolygonMesh.h>
 #include <voxblox_msgs/Mesh.h>
 
-#include "mesher_mapper/CommonFunctions.h"
+#include "kimera_pgmo/CommonFunctions.h"
 
 // Define BlockIndex as used in voxblox
 typedef Eigen::Matrix<int, 3, 1> BlockIndex;
@@ -45,17 +45,17 @@ class VoxbloxToMeshMsg {
       BlockIndex idx(
           mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
       pcl::PolygonMesh partial_mesh =
-          mesher_mapper::VoxbloxMeshBlockToPolygonMesh(mesh_block,
-                                                       msg->block_edge_length);
+          kimera_pgmo ::VoxbloxMeshBlockToPolygonMesh(mesh_block,
+                                                      msg->block_edge_length);
       mesh_blocks_[idx] = partial_mesh;
     }
     // Combine the partial meshes stored in the mesh blocks to get the full mesh
     pcl::PolygonMesh mesh;
     for (auto meshblock : mesh_blocks_) {
-      mesh = mesher_mapper::CombineMeshes(mesh, meshblock.second);
+      mesh = kimera_pgmo ::CombineMeshes(mesh, meshblock.second);
     }
     mesh_msgs::TriangleMesh mesh_msg =
-        mesher_mapper::PolygonMeshToTriangleMeshMsg(mesh);
+        kimera_pgmo ::PolygonMeshToTriangleMeshMsg(mesh);
 
     // publish
     mesh_msgs::TriangleMeshStamped new_msg;

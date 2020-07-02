@@ -8,9 +8,9 @@
 #include <pcl/PolygonMesh.h>
 #include <Eigen/Dense>
 
-#include "mesher_mapper/CommonStructs.h"
+#include "kimera_pgmo/CommonStructs.h"
 
-namespace mesher_mapper {
+namespace kimera_pgmo {
 
 typedef Eigen::Vector3d Pointxyz; 
 
@@ -31,4 +31,4 @@ class MeshCompression {
   pcl::PolygonMesh base_mesh_;
   std::map<Vertex, Pointxyz> vertex_positions_;
 };
-}  // namespace mesher_mapper
+}  // namespace kimera_pgmo

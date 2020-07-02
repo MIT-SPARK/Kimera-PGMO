@@ -1,19 +1,19 @@
 /**
- * @file   kimera_rmpgo_node.cpp
- * @brief  Main load for mesher mapper
+ * @file   kimera_pgmo_node.cpp
+ * @brief  Main load for kimera pgmo
  * @author Yun Chang
  */
 #include <ros/ros.h>
 
-#include "mesher_mapper/KimeraRmpgo.h"
+#include "kimera_pgmo/KimeraPgmo.h"
 
 int main(int argc, char* argv[]) {
   // Initialize ROS node.
-  ros::init(argc, argv, "kimera_rmpgo");
+  ros::init(argc, argv, "kimera_pgmo");
   ros::NodeHandle n("~");
 
-  mesher_mapper::KimeraRmpgo mesher_mapper;
-  if (!mesher_mapper.Initialize(n)) {
+  kimera_pgmo::KimeraPgmo kimera_pgmo;
+  if (!kimera_pgmo.Initialize(n)) {
     ROS_ERROR("Failed to initialize Mesher Mapper.");
     return EXIT_FAILURE;
   }

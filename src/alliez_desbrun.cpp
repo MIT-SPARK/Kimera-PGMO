@@ -11,16 +11,16 @@
 #include <pcl/io/ply_io.h>
 #include <pcl/visualization/pcl_visualizer.h>
 
-#include "mesher_mapper/AlliezDesbrunCompression.h"
-#include "mesher_mapper/CommonFunctions.h"
-#include "mesher_mapper/CommonStructs.h"
-#include "mesher_mapper/Polygon.h"
+#include "kimera_pgmo/AlliezDesbrunCompression.h"
+#include "kimera_pgmo/CommonFunctions.h"
+#include "kimera_pgmo/CommonStructs.h"
+#include "kimera_pgmo/Polygon.h"
 
-using mesher_mapper::AlliezDesbrunCompression;
-using mesher_mapper::Polygon;
-using mesher_mapper::ReadMeshFromPly;
-using mesher_mapper::Vertex;
-using mesher_mapper::Vertices;
+using kimera_pgmo::AlliezDesbrunCompression;
+using kimera_pgmo::Polygon;
+using kimera_pgmo::ReadMeshFromPly;
+using kimera_pgmo::Vertex;
+using kimera_pgmo::Vertices;
 
 int main(int argc, char* argv[]) {
   // Initialize ROS node.

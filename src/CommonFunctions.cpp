@@ -17,10 +17,10 @@
 #include <voxblox_msgs/MeshBlock.h>
 #include <pcl/impl/point_types.hpp>
 
-#include "mesher_mapper/CommonFunctions.h"
-#include "mesher_mapper/tinyply.h"
+#include "kimera_pgmo/CommonFunctions.h"
+#include "kimera_pgmo/tinyply.h"
 
-namespace mesher_mapper {
+namespace kimera_pgmo {
 
 void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh) {
   if (NULL == mesh) {
@@ -74,8 +74,8 @@ void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh) {
   }
 
   try {
-    colors =
-        file.request_properties_from_element("vertex", {"red", "green", "blue", "alpha"});
+    colors = file.request_properties_from_element(
+        "vertex", {"red", "green", "blue", "alpha"});
   } catch (const std::exception& e) {
     std::cerr << "tinyply exception: " << e.what() << std::endl;
   }
@@ -504,4 +504,4 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
   return boost::make_shared<pose_graph_tools::PoseGraph>(posegraph);
 }
 
-}  // namespace mesher_mapper
+}  // namespace kimera_pgmo

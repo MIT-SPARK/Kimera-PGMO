@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(mesher_mapper)
+project(kimera_pgmo)
 
 SET(CMAKE_BUILD_TYPE Release)
 
@@ -33,7 +33,7 @@ src/CommonStructs.cpp
 src/OctreeCompression.cpp
 src/tinyply.cpp
 # src/MesherMapper.cpp
-src/KimeraRmpgo.cpp
+src/KimeraPgmo.cpp
 )
 target_link_libraries(${PROJECT_NAME} 
   ${catkin_LIBRARIES}
@@ -48,15 +48,10 @@ target_link_libraries(${PROJECT_NAME}
 # )
 # target_link_libraries(mesher_mapper_node ${PROJECT_NAME})
 
-cs_add_executable(kimera_rmpgo_node
-  src/kimera_rmpgo_node.cpp
+cs_add_executable(kimera_pgmo_node
+  src/kimera_pgmo_node.cpp
 )
-target_link_libraries(kimera_rmpgo_node ${PROJECT_NAME})
-
-# cs_add_executable(alliez_desbrun
-#   src/alliez_desbrun.cpp
-# )
-# target_link_libraries(alliez_desbrun ${PROJECT_NAME})
+target_link_libraries(kimera_pgmo_node ${PROJECT_NAME})
 
 cs_add_executable(load_mesh
   src/load_mesh.cpp
@@ -72,13 +67,13 @@ target_link_libraries(voxblox_to_mesh ${PROJECT_NAME})
 set(TEST_DATA_PATH "${CMAKE_CURRENT_SOURCE_DIR}/test/data")
 configure_file(test/test_config.h.in test/test_config.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/test)
-catkin_add_gtest(test_mesher_mapper 
+catkin_add_gtest(test_kimera_pgmo 
   test/testCommonFunctions.cpp
   test/testDeformationEdgeFactor.cpp
   test/testDeformationGraph.cpp
   test/testGraph.cpp
-  test/test_mesher_mapper.cpp)
-target_link_libraries(test_mesher_mapper ${PROJECT_NAME} -ltbb)
+  test/test_kimera_pgmo.cpp)
+target_link_libraries(test_kimera_pgmo ${PROJECT_NAME} -ltbb)
 
 cs_install()
 

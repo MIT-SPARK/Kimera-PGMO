@@ -1,10 +1,10 @@
 <launch>
   <arg name="launch_voxblox" default="true" />
 
-  <include file="$(find mesher_mapper)/launch/generate_mesh.launch" pass_all_args="true"/>
+  <include file="$(find kimera_pgmo)/launch/generate_mesh.launch" pass_all_args="true"/>
 
-  <node type="mesher_mapper_node" name="mesher_mapper_node" pkg="mesher_mapper" output="screen" >
-    <rosparam file="$(find mesher_mapper)/params/parameters.yaml" />
+  <node type="mesher_mapper_node" name="mesher_mapper_node" pkg="kimera_pgmo" output="screen" >
+    <rosparam file="$(find kimera_pgmo)/params/parameters.yaml" />
 
     <param name="output_ply_file" value="/home/yunchang/Downloads/optimized.ply" />
 

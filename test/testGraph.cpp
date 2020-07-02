@@ -10,10 +10,10 @@
 #include <pcl/PolygonMesh.h>
 #include <pcl_conversions/pcl_conversions.h>
 
-#include "mesher_mapper/CommonStructs.h"
+#include "kimera_pgmo/CommonStructs.h"
 #include "test_config.h"
 
-namespace mesher_mapper {
+namespace kimera_pgmo {
 
 pcl::PolygonMesh createSimpleMesh() {
   // Create simple pcl mesh
@@ -151,4 +151,4 @@ TEST(Graph, combineGraph) {
   EXPECT_EQ(Edge(3, 2), graph_1.getEdges()[5]);
 }
 
-}  // namespace mesher_mapper
+}  // namespace kimera_pgmo

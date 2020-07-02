@@ -14,7 +14,7 @@
 
 #include <pcl/PolygonMesh.h>
 
-namespace mesher_mapper {
+namespace kimera_pgmo {
 
 typedef std::uint64_t Vertex;
 typedef std::vector<Vertex> Vertices;
@@ -39,8 +39,8 @@ class Graph {
  private:
   Vertices vertices_;
   Edges edges_;
-};  // namespace mesher_mapper
+};
 
 typedef std::shared_ptr<Graph> GraphPtr;
 
-}  // namespace mesher_mapper
+}  // namespace kimera_pgmo
