@@ -31,7 +31,7 @@ class VoxbloxToMeshMsg {
     ROS_INFO("Started Voxblox to Mesh msg converter.");
     ros::NodeHandle nl(n);
     voxblox_sub_ = nl.subscribe(
-        "voxblox_mesh", 10, &VoxbloxToMeshMsg::voxbloxCallback, this);
+        "voxblox_mesh", 100, &VoxbloxToMeshMsg::voxbloxCallback, this);
 
     mesh_pub_ = nl.advertise<mesh_msgs::TriangleMeshStamped>(
         "converted_mesh", 10, true);

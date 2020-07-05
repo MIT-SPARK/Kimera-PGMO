@@ -139,7 +139,7 @@ void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh) {
   struct uint3 {
     uint32_t x, y, z;
   };
-  struct double3 {
+  struct float3 {
     double x, y, z;
   };
   struct rgba {
@@ -156,7 +156,7 @@ void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh) {
   pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
   pcl::fromPCLPointCloud2(mesh.cloud, vertices_cloud);
 
-  std::vector<double3> vertices;
+  std::vector<float3> vertices;
   std::vector<rgba> colors;
   for (pcl::PointXYZRGBA p : vertices_cloud) {
     vertices.push_back({p.x, p.y, p.z});
@@ -174,7 +174,7 @@ void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh) {
   output_file.add_properties_to_element(
       "vertex",
       {"x", "y", "z"},
-      tinyply::Type::FLOAT64,
+      tinyply::Type::FLOAT32,
       vertices.size(),
       reinterpret_cast<uint8_t*>(vertices.data()),
       tinyply::Type::INVALID,

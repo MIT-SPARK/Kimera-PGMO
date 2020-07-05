@@ -81,6 +81,7 @@ class KimeraPgmo {
   // Parameters for embedding
   double embed_delta_t_;
   double embed_delta_r_;
+  double timer_rate_;
 
   // Save output
   bool save_optimized_mesh_;

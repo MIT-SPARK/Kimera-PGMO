@@ -38,6 +38,7 @@ bool KimeraPgmo::LoadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("frame_id", frame_id_)) return false;
   if (!n.getParam("embed_trajectory/max_delta_t", embed_delta_t_)) return false;
   if (!n.getParam("embed_trajectory/max_delta_r", embed_delta_r_)) return false;
+  if (!n.getParam("rate", timer_rate_)) return false;
   if (n.getParam("output_ply_file", output_file_)) {
     save_optimized_mesh_ = true;
     ROS_INFO("Saving optimized mesh to: %s", output_file_.c_str());
@@ -63,7 +64,7 @@ bool KimeraPgmo::LoadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("rpgo/rotation_threshold", pgo_rot_threshold)) return false;
 
   if (!deformation_graph_.Initialize(pgo_trans_threshold, pgo_rot_threshold)) {
-    ROS_ERROR("KimeraPgmo: Failed to initialze deformation graph.");
+    ROS_ERROR("KimeraPgmo: Failed to initialize deformation graph.");
     return false;
   }
   return true;
@@ -97,7 +98,8 @@ bool KimeraPgmo::RegisterCallbacks(const ros::NodeHandle& n) {
                    this);
 
   // start timer
-  update_timer_ = nl.createTimer(1.0, &KimeraPgmo::ProcessTimerCallback, this);
+  update_timer_ =
+      nl.createTimer(timer_rate_, &KimeraPgmo::ProcessTimerCallback, this);
   return true;
 }
 
@@ -227,9 +229,13 @@ void KimeraPgmo::IncrementalPoseGraphCallback(
 
   // Associate the node to the simplified mesh and add to trajectory
   // Get the latest observation timestamp of the vertices
-  double msg_time = msg->header.stamp.toSec();
   std::vector<double> latest_observed_times;
   d_graph_compression_.getVerticesTimestamps(&latest_observed_times);
+  // check the latest progress of mesh received
+  double latest_observed_t = 0;
+  if (latest_observed_times.size() > 0)
+    latest_observed_t = latest_observed_times[latest_observed_times.size() - 1];
+
   // Get the vertices of the simplified mesh
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr simplified_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -237,27 +243,29 @@ void KimeraPgmo::IncrementalPoseGraphCallback(
   // TODO might not be best but for now need to do this
   // since meshes is running slow, fix later to synch properly
   for (size_t i = 0; i < trajectory_.size(); i++) {
-    Vertices valences;
-    gtsam::Point3 pos = trajectory_[i].translation();
-    // connect to nodes that are proximate in spacetime
-    for (size_t j = 0; j < latest_observed_times.size(); j++) {
-      if (abs(timestamps_[i].toSec() - latest_observed_times[j]) <
-          embed_delta_t_) {
-        pcl::PointXYZRGBA candidate_pos = simplified_vertices->points[j];
-        double dist = std::sqrt(
-            (pos.x() - candidate_pos.x) * (pos.x() - candidate_pos.x) +
-            (pos.y() - candidate_pos.y) * (pos.y() - candidate_pos.y) +
-            (pos.z() - candidate_pos.z) * (pos.z() - candidate_pos.z));
-        if (dist < embed_delta_r_) {
-          valences.push_back(j);
+    if (latest_observed_t - timestamps_[i].toSec() < embed_delta_t_) {
+      Vertices valences;
+      gtsam::Point3 pos = trajectory_[i].translation();
+      // connect to nodes that are proximate in spacetime
+      for (size_t j = 0; j < latest_observed_times.size(); j++) {
+        if (abs(timestamps_[i].toSec() - latest_observed_times[j]) <
+            embed_delta_t_) {
+          pcl::PointXYZRGBA candidate_pos = simplified_vertices->points[j];
+          double dist = std::sqrt(
+              (pos.x() - candidate_pos.x) * (pos.x() - candidate_pos.x) +
+              (pos.y() - candidate_pos.y) * (pos.y() - candidate_pos.y) +
+              (pos.z() - candidate_pos.z) * (pos.z() - candidate_pos.z));
+          if (dist < embed_delta_r_) {
+            valences.push_back(j);
+          }
         }
       }
+      ROS_DEBUG_STREAM("Trajectory node "
+                       << i << " connected to " << valences.size()
+                       << " points out of " << latest_observed_times.size()
+                       << " in simplified mesh");
+      deformation_graph_.updateNodeValence(i, valences, true);
     }
-    ROS_DEBUG_STREAM("Trajectory node " << i << " connected to "
-                                        << valences.size() << " points out of "
-                                        << latest_observed_times.size()
-                                        << " in simplified mesh");
-    deformation_graph_.updateNodeValence(i, valences, true);
   }
 
   pcl::PolygonMesh simplified_mesh;
@@ -296,7 +304,12 @@ void KimeraPgmo::MeshCallback(
 
 void KimeraPgmo::ProcessTimerCallback(const ros::TimerEvent& ev) {
   // Update optimized mesh
-  optimized_mesh_ = deformation_graph_.deformMesh(input_mesh_);
+  try {
+    optimized_mesh_ = deformation_graph_.deformMesh(input_mesh_);
+  } catch (const std::out_of_range& e) {
+    ROS_ERROR("Failed to deform mesh. Out of range error. ");
+    optimized_mesh_ = input_mesh_;
+  }
   if (optimized_mesh_pub_.getNumSubscribers() > 0) {
     PublishOptimizedMesh();
   }
