@@ -4,6 +4,6 @@ embed_trajectory:
   max_delta_t: 10.0
   max_delta_r: 3.0
 rpgo:
-  translation_threshold: 0.01
-  rotation_threshold: 0.01
+  translation_threshold: 0.005
+  rotation_threshold: 0.001
 rate: 5

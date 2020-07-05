@@ -120,7 +120,9 @@ class DeformationGraph {
   }
   inline Graph getGraph() const { return graph_; }
 
-  inline GraphMsgPtr getPoseGraph() { return GtsamGraphToRos(nfg_, values_); }
+  inline GraphMsgPtr getPoseGraph(const std::vector<ros::Time>& timestamps) {
+    return GtsamGraphToRos(nfg_, values_, timestamps);
+  }
 
  private:
   void updateConsistencyFactors(const Graph& new_graph);

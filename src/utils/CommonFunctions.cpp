@@ -6,6 +6,7 @@
 #include <algorithm>
 
 #include <geometry_msgs/Point.h>
+#include <gtsam/inference/Symbol.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <mesh_msgs/TriangleIndices.h>
 #include <pcl/PCLPointCloud2.h>
@@ -427,7 +428,8 @@ bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2) {
 
 // Convert gtsam posegaph to PoseGraph msg
 GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
-                            const gtsam::Values& values) {
+                            const gtsam::Values& values,
+                            const std::vector<ros::Time>& timestamps) {
   std::vector<pose_graph_tools::PoseGraphEdge> edges;
 
   // first store the factors as edges
@@ -445,6 +447,12 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
       edge.key_to = factor.back();
       if (edge.key_to == edge.key_from + 1) {  // check if odom
         edge.type = pose_graph_tools::PoseGraphEdge::ODOM;
+        try {
+          edge.header.stamp = timestamps.at(edge.key_to);
+        } catch (...) {
+          // ignore
+        }
+
       } else {
         edge.type = pose_graph_tools::PoseGraphEdge::LOOPCLOSE;
       }
@@ -494,6 +502,16 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
     node.pose.orientation.y = quaternion.y();
     node.pose.orientation.z = quaternion.z();
     node.pose.orientation.w = quaternion.w();
+
+    // TODO(Yun) make this part general
+    gtsam::Symbol node_symb(key_list[i]);
+    if (node_symb.chr() == 'n') {
+      try {
+        node.header.stamp = timestamps.at(node_symb.index());
+      } catch (...) {
+        // ignore
+      }
+    }
 
     nodes.push_back(node);
   }

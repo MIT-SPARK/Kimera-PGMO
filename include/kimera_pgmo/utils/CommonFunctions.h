@@ -48,6 +48,8 @@ pcl::PolygonMesh VoxbloxToPolygonMesh(
 bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2);
 
 // Convert gtsam posegaph to PoseGraph msg
-GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
-                            const gtsam::Values& values);
+GraphMsgPtr GtsamGraphToRos(
+    const gtsam::NonlinearFactorGraph& factors,
+    const gtsam::Values& values,
+    const std::vector<ros::Time>& timestamps = std::vector<ros::Time>());
 }  // namespace kimera_pgmo

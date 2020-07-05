@@ -224,7 +224,7 @@ void KimeraPgmo::IncrementalPoseGraphCallback(
   }
   gtsam::Pose3 new_pose = trajectory_[prev_node].compose(new_odom);
   trajectory_.push_back(new_pose);
-  timestamps_.push_back(msg->header.stamp);
+  timestamps_.push_back(odom_edge.header.stamp);
   deformation_graph_.addNewBetween(prev_node, current_node, new_odom, new_pose);
 
   // Associate the node to the simplified mesh and add to trajectory
@@ -320,7 +320,7 @@ void KimeraPgmo::ProcessTimerCallback(const ros::TimerEvent& ev) {
 
   if (pose_graph_pub_.getNumSubscribers() > 0) {
     // Publish pose graph
-    GraphMsgPtr pose_graph_ptr = deformation_graph_.getPoseGraph();
+    GraphMsgPtr pose_graph_ptr = deformation_graph_.getPoseGraph(timestamps_);
     pose_graph_pub_.publish(*pose_graph_ptr);
   }
 
