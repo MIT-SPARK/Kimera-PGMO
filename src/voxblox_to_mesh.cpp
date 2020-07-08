@@ -31,10 +31,10 @@ class VoxbloxToMeshMsg {
     ROS_INFO("Started Voxblox to Mesh msg converter.");
     ros::NodeHandle nl(n);
     voxblox_sub_ = nl.subscribe(
-        "voxblox_mesh", 100, &VoxbloxToMeshMsg::voxbloxCallback, this);
+        "voxblox_mesh", 10, &VoxbloxToMeshMsg::voxbloxCallback, this);
 
-    mesh_pub_ = nl.advertise<mesh_msgs::TriangleMeshStamped>(
-        "converted_mesh", 10, true);
+    mesh_pub_ =
+        nl.advertise<mesh_msgs::TriangleMeshStamped>("converted_mesh", 1, true);
   }
 
   ~VoxbloxToMeshMsg() {}
@@ -45,18 +45,13 @@ class VoxbloxToMeshMsg {
       BlockIndex idx(
           mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
       pcl::PolygonMesh partial_mesh =
-          kimera_pgmo ::VoxbloxMeshBlockToPolygonMesh(mesh_block,
-                                                      msg->block_edge_length);
+          kimera_pgmo::VoxbloxMeshBlockToPolygonMesh(mesh_block,
+                                                     msg->block_edge_length);
+      mesh_ = kimera_pgmo::CombineMeshes(mesh_, partial_mesh, false);
       mesh_blocks_[idx] = partial_mesh;
     }
-    // Combine the partial meshes stored in the mesh blocks to get the full mesh
-    pcl::PolygonMesh mesh;
-    for (auto meshblock : mesh_blocks_) {
-      mesh = kimera_pgmo ::CombineMeshes(mesh, meshblock.second);
-    }
     mesh_msgs::TriangleMesh mesh_msg =
-        kimera_pgmo ::PolygonMeshToTriangleMeshMsg(mesh);
-
+        kimera_pgmo::PolygonMeshToTriangleMeshMsg(mesh_);
     // publish
     mesh_msgs::TriangleMeshStamped new_msg;
     new_msg.header.stamp = msg->header.stamp;
@@ -69,6 +64,7 @@ class VoxbloxToMeshMsg {
   ros::Publisher mesh_pub_;
 
   std::map<BlockIndex, pcl::PolygonMesh> mesh_blocks_;
+  pcl::PolygonMesh mesh_;
 };
 
 int main(int argc, char** argv) {

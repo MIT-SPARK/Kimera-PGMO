@@ -89,11 +89,11 @@ bool KimeraPgmo::RegisterCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
 
   input_mesh_sub_ =
-      nl.subscribe("input_mesh", 50, &KimeraPgmo::MeshCallback, this);
+      nl.subscribe("input_mesh", 1, &KimeraPgmo::MeshCallback, this);
 
   pose_graph_incremental_sub_ =
       nl.subscribe("pose_graph_incremental",
-                   50,
+                   100,
                    &KimeraPgmo::IncrementalPoseGraphCallback,
                    this);
 

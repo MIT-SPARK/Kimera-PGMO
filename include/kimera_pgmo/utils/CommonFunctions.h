@@ -36,7 +36,8 @@ pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
 gtsam::Pose3 RosToGtsam(const geometry_msgs::Pose& transform);
 
 pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
-                               const pcl::PolygonMesh& mesh2);
+                               const pcl::PolygonMesh& mesh2,
+                               bool check_duplicate_vertices = true);
 
 pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
     const voxblox_msgs::MeshBlock& mesh_block,

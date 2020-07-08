@@ -56,7 +56,7 @@ bool OctreeCompression::RegisterCallbacks(const ros::NodeHandle& n) {
   std::string pub_topic = "compressed_mesh_" + label_;
   mesh_pub_ = nl.advertise<mesh_msgs::TriangleMeshStamped>(pub_topic, 10, true);
   mesh_sub_ =
-      nl.subscribe("input_mesh", 10, &OctreeCompression::InsertMesh, this);
+      nl.subscribe("input_mesh", 1, &OctreeCompression::InsertMesh, this);
   return true;
 }
 

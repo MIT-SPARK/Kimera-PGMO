@@ -141,7 +141,7 @@ void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh) {
     uint32_t x, y, z;
   };
   struct float3 {
-    double x, y, z;
+    float x, y, z;
   };
   struct rgba {
     uint8_t r, g, b, a;
@@ -285,10 +285,15 @@ gtsam::Pose3 RosToGtsam(const geometry_msgs::Pose& transform) {
 }
 
 pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
-                               const pcl::PolygonMesh& mesh2) {
+                               const pcl::PolygonMesh& mesh2,
+                               bool check_duplicate_vertices) {
   if (mesh1.polygons.size() == 0) {
     return mesh2;
   } else if (mesh2.polygons.size() == 0) {
+    return mesh1;
+  }
+
+  if (mesh1.cloud.data == mesh2.cloud.data) {
     return mesh1;
   }
 
@@ -306,13 +311,15 @@ pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
     // check if point duplicated
     bool new_point = true;
     size_t idx = new_index;
-    for (size_t j = 0; j < vertices1.points.size(); j++) {
-      if (vertices1.points[j].x == vertices2.points[i].x &&
-          vertices1.points[j].y == vertices2.points[i].y &&
-          vertices1.points[j].z == vertices2.points[i].z) {
-        idx = j;
-        new_point = false;
-        break;
+    if (check_duplicate_vertices) {
+      for (size_t j = 0; j < vertices1.points.size(); j++) {
+        if (vertices1.points[j].x == vertices2.points[i].x &&
+            vertices1.points[j].y == vertices2.points[i].y &&
+            vertices1.points[j].z == vertices2.points[i].z) {
+          idx = j;
+          new_point = false;
+          break;
+        }
       }
     }
     new_indices.push_back(idx);
