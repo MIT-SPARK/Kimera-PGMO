@@ -4,6 +4,7 @@
  * @author Yun Chang
  */
 #include <algorithm>
+#include <limits>
 
 #include <geometry_msgs/Point.h>
 #include <gtsam/inference/Symbol.h>
@@ -16,7 +17,6 @@
 #include <sensor_msgs/PointCloud2.h>
 #include <std_msgs/ColorRGBA.h>
 #include <voxblox_msgs/MeshBlock.h>
-#include <pcl/impl/point_types.hpp>
 
 #include "kimera_pgmo/utils/CommonFunctions.h"
 #include "kimera_pgmo/utils/tinyply.h"
@@ -393,7 +393,7 @@ pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
       point.r = mesh_r;
       point.g = mesh_g;
       point.b = mesh_b;
-      point.a = 255;
+      point.a = std::numeric_limits<uint8_t>::max();
       vertices_cloud.push_back(point);
     }
 

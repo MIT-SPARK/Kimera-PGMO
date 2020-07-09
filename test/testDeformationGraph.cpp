@@ -37,12 +37,53 @@ pcl::PolygonMesh SimpleMesh() {
   // Create simple pcl mesh
   pcl::PolygonMesh mesh;
 
-  pcl::PointCloud<pcl::PointXYZ> ptcld;
-  ptcld.points.push_back(pcl::PointXYZ(0, 0, 0));
-  ptcld.points.push_back(pcl::PointXYZ(1, 0, 0));
-  ptcld.points.push_back(pcl::PointXYZ(0, 1, 0));
-  ptcld.points.push_back(pcl::PointXYZ(1, 1, 0));
-  ptcld.points.push_back(pcl::PointXYZ(0, 0, 1));
+  pcl::PointCloud<pcl::PointXYZRGBA> ptcld;
+  pcl::PointXYZRGBA v0, v1, v2, v3, v4;
+  v0.x = 0;
+  v0.y = 0;
+  v0.z = 0;
+  v0.r = 23;
+  v0.g = 24;
+  v0.b = 122;
+  v0.a = 255;
+
+  v1.x = 1;
+  v1.y = 0;
+  v1.z = 0;
+  v1.r = 33;
+  v1.g = 34;
+  v1.b = 52;
+  v1.a = 255;
+
+  v2.x = 0;
+  v2.y = 1;
+  v2.z = 0;
+  v2.r = 12;
+  v2.g = 144;
+  v2.b = 22;
+  v2.a = 255;
+
+  v3.x = 1;
+  v3.y = 1;
+  v3.z = 0;
+  v3.r = 0;
+  v3.g = 14;
+  v3.b = 0;
+  v3.a = 255;
+
+  v4.x = 0;
+  v4.y = 0;
+  v4.z = 1;
+  v4.r = 144;
+  v4.g = 0;
+  v4.b = 12;
+  v4.a = 255;
+
+  ptcld.points.push_back(v0);
+  ptcld.points.push_back(v1);
+  ptcld.points.push_back(v2);
+  ptcld.points.push_back(v3);
+  ptcld.points.push_back(v4);
   pcl::toPCLPointCloud2(ptcld, mesh.cloud);
 
   pcl::Vertices tri_1, tri_2, tri_3, tri_4;
@@ -55,16 +96,20 @@ pcl::PolygonMesh SimpleMesh() {
   return mesh;
 }
 
-bool ComparePointcloud(const pcl::PointCloud<pcl::PointXYZ>& cloud1,
-                       const pcl::PointCloud<pcl::PointXYZ>& cloud2,
+bool ComparePointcloud(const pcl::PointCloud<pcl::PointXYZRGBA>& cloud1,
+                       const pcl::PointCloud<pcl::PointXYZRGBA>& cloud2,
                        double precision = 0.0) {
   if (cloud1.points.size() != cloud2.points.size()) return false;
   for (size_t i = 0; i < cloud1.points.size(); i++) {
-    pcl::PointXYZ p1 = cloud1.points[i];
-    pcl::PointXYZ p2 = cloud2.points[i];
+    pcl::PointXYZRGBA p1 = cloud1.points[i];
+    pcl::PointXYZRGBA p2 = cloud2.points[i];
     if (abs(p1.x - p2.x) > precision) return false;
     if (abs(p1.y - p2.y) > precision) return false;
     if (abs(p1.z - p2.z) > precision) return false;
+    if (p1.r != p2.r) return false;
+    if (p1.g != p2.g) return false;
+    if (p1.b != p2.b) return false;
+    if (p1.a != p2.a) return false;
   }
   return true;
 }
@@ -88,6 +133,10 @@ TEST(DeformationGraph, reconstructMesh) {
   EXPECT_EQ(1, deformed_vertices.points[1].x);
   EXPECT_EQ(1, deformed_vertices.points[2].y);
   EXPECT_EQ(1, deformed_vertices.points[4].z);
+  EXPECT_EQ(33, deformed_vertices.points[1].r);
+  EXPECT_EQ(144, deformed_vertices.points[2].g);
+  EXPECT_EQ(255, deformed_vertices.points[3].a);
+  EXPECT_EQ(144, deformed_vertices.points[4].r);
   EXPECT_EQ(original_mesh.polygons[0].vertices, new_mesh.polygons[0].vertices);
   EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
 
@@ -98,6 +147,10 @@ TEST(DeformationGraph, reconstructMesh) {
   EXPECT_EQ(1, deformed_vertices.points[1].x);
   EXPECT_EQ(1, deformed_vertices.points[2].y);
   EXPECT_EQ(1, deformed_vertices.points[4].z);
+  EXPECT_EQ(33, deformed_vertices.points[1].r);
+  EXPECT_EQ(144, deformed_vertices.points[2].g);
+  EXPECT_EQ(255, deformed_vertices.points[3].a);
+  EXPECT_EQ(144, deformed_vertices.points[4].r);
   EXPECT_EQ(original_mesh.polygons[0].vertices, new_mesh.polygons[0].vertices);
   EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
 }
@@ -116,14 +169,22 @@ TEST(DeformationGraph, deformMeshtranslation) {
   graph.update();
   graph.addMeasurement(1, distortion);
 
-  pcl::PointCloud<pcl::PointXYZ> original_vertices, expected_vertices;
+  pcl::PointCloud<pcl::PointXYZRGBA> original_vertices, expected_vertices;
   pcl::fromPCLPointCloud2(original_mesh.cloud, original_vertices);
-  for (pcl::PointXYZ p : original_vertices.points) {
-    expected_vertices.push_back(pcl::PointXYZ(p.x + 0.5, p.y, p.z));
+  for (pcl::PointXYZRGBA p : original_vertices.points) {
+    pcl::PointXYZRGBA new_point;
+    new_point.x = p.x + 0.5;
+    new_point.y = p.y;
+    new_point.z = p.z;
+    new_point.r = p.r;
+    new_point.g = p.g;
+    new_point.b = p.b;
+    new_point.a = p.a;
+    expected_vertices.push_back(new_point);
   }
   // First try deform with k = 1, should not change
   pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 1);
-  pcl::PointCloud<pcl::PointXYZ> actual_vertices;
+  pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
 
   EXPECT_TRUE(ComparePointcloud(expected_vertices, actual_vertices, 1e-6));
@@ -150,14 +211,22 @@ TEST(DeformationGraph, deformMesh) {
   distortion.position.x = -0.5;
   graph.update();
   graph.addMeasurement(0, distortion);
-  pcl::PointCloud<pcl::PointXYZ> original_vertices, expected_vertices;
+  pcl::PointCloud<pcl::PointXYZRGBA> original_vertices, expected_vertices;
   pcl::fromPCLPointCloud2(cube_mesh->cloud, original_vertices);
-  for (pcl::PointXYZ p : original_vertices.points) {
-    expected_vertices.push_back(pcl::PointXYZ(p.x - 0.5, p.y, p.z));
+  for (pcl::PointXYZRGBA p : original_vertices.points) {
+    pcl::PointXYZRGBA new_point;
+    new_point.x = p.x - 0.5;
+    new_point.y = p.y;
+    new_point.z = p.z;
+    new_point.r = p.r;
+    new_point.g = p.g;
+    new_point.b = p.b;
+    new_point.a = p.a;
+    expected_vertices.push_back(new_point);
   }
   // Try with k = 3
   pcl::PolygonMesh new_mesh = graph.deformMesh(*cube_mesh, 3);
-  pcl::PointCloud<pcl::PointXYZ> actual_vertices;
+  pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
   EXPECT_TRUE(ComparePointcloud(expected_vertices, actual_vertices, 1e-6));
   EXPECT_EQ(cube_mesh->polygons[0].vertices, new_mesh.polygons[0].vertices);
@@ -248,7 +317,7 @@ TEST(DeformationGraph, addNodeMeasurement) {
   graph.addNodeMeasurement(
       0, gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)));
   pcl::PolygonMesh new_mesh = graph.deformMesh(simple_mesh, 1);
-  pcl::PointCloud<pcl::PointXYZ> actual_vertices;
+  pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
 
   EXPECT_NEAR(4, actual_vertices.points[0].x, 0.001);
