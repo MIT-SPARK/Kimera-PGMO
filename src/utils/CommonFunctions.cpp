@@ -218,10 +218,16 @@ mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
     new_mesh.vertices.push_back(p);
     if (vertices_cloud.points[i].r) {
       std_msgs::ColorRGBA color;
-      color.r = vertices_cloud.points[i].r;
-      color.g = vertices_cloud.points[i].g;
-      color.b = vertices_cloud.points[i].b;
-      color.a = vertices_cloud.points[i].a;
+      constexpr float color_conv_factor =
+          1.0f / std::numeric_limits<uint8_t>::max();
+      color.r =
+          color_conv_factor * static_cast<float>(vertices_cloud.points[i].r);
+      color.g =
+          color_conv_factor * static_cast<float>(vertices_cloud.points[i].g);
+      color.b =
+          color_conv_factor * static_cast<float>(vertices_cloud.points[i].b);
+      color.a =
+          color_conv_factor * static_cast<float>(vertices_cloud.points[i].a);
       new_mesh.vertex_colors.push_back(color);
     }
   }
@@ -253,10 +259,12 @@ pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
     point.z = p.z;
     if (color) {
       std_msgs::ColorRGBA c = mesh_msg.vertex_colors[i];
-      point.r = c.r;
-      point.g = c.g;
-      point.b = c.b;
-      point.a = c.a;
+      constexpr float color_conv_factor =
+          1.0f * std::numeric_limits<uint8_t>::max();
+      point.r = static_cast<uint8_t>(color_conv_factor * c.r);
+      point.g = static_cast<uint8_t>(color_conv_factor * c.g);
+      point.b = static_cast<uint8_t>(color_conv_factor * c.b);
+      point.a = static_cast<uint8_t>(color_conv_factor * c.a);
     }
     vertices_cloud.points.push_back(point);
   }
@@ -318,6 +326,7 @@ pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
             vertices1.points[j].z == vertices2.points[i].z) {
           idx = j;
           new_point = false;
+          vertices1.points[j] = vertices2.points[i];
           break;
         }
       }
@@ -368,9 +377,16 @@ pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
         (static_cast<float>(mesh_block.z[i]) * point_conv_factor +
          static_cast<float>(mesh_block.index[2])) *
         block_edge_length;
-    const float mesh_r = static_cast<float>(mesh_block.r[i]);
-    const float mesh_g = static_cast<float>(mesh_block.g[i]);
-    const float mesh_b = static_cast<float>(mesh_block.b[i]);
+
+    // Create point
+    pcl::PointXYZRGBA point;
+    point.x = mesh_x;
+    point.y = mesh_y;
+    point.z = mesh_z;
+    point.r = mesh_block.r[i];
+    point.g = mesh_block.g[i];
+    point.b = mesh_block.b[i];
+    point.a = std::numeric_limits<uint8_t>::max();
 
     // Search if vertex inserted
     size_t vidx;
@@ -381,19 +397,13 @@ pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
           mesh_z == vertices_cloud.points[k].z) {
         vidx = k;
         point_exists = true;
+        vertices_cloud.points[k] = point;
         break;
       }
     }
+
     if (!point_exists) {
       vidx = vertex_index++;
-      pcl::PointXYZRGBA point;
-      point.x = mesh_x;
-      point.y = mesh_y;
-      point.z = mesh_z;
-      point.r = mesh_r;
-      point.g = mesh_g;
-      point.b = mesh_b;
-      point.a = std::numeric_limits<uint8_t>::max();
       vertices_cloud.push_back(point);
     }
 

@@ -47,7 +47,13 @@ class VoxbloxToMeshMsg {
       pcl::PolygonMesh partial_mesh =
           kimera_pgmo::VoxbloxMeshBlockToPolygonMesh(mesh_block,
                                                      msg->block_edge_length);
-      mesh_ = kimera_pgmo::CombineMeshes(mesh_, partial_mesh, false);
+      std::map<BlockIndex, pcl::PolygonMesh>::iterator it =
+          mesh_blocks_.find(idx);
+      if (it == mesh_blocks_.end() || mesh_blocks_[idx].polygons.size() == 0) {
+        mesh_ = kimera_pgmo::CombineMeshes(mesh_, partial_mesh, false);
+      } else {
+        mesh_ = kimera_pgmo::CombineMeshes(mesh_, partial_mesh);
+      }
       mesh_blocks_[idx] = partial_mesh;
     }
     mesh_msgs::TriangleMesh mesh_msg =
