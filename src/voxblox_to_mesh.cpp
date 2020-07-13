@@ -31,7 +31,7 @@ class VoxbloxToMeshMsg {
     ROS_INFO("Started Voxblox to Mesh msg converter.");
     ros::NodeHandle nl(n);
     voxblox_sub_ = nl.subscribe(
-        "voxblox_mesh", 10, &VoxbloxToMeshMsg::voxbloxCallback, this);
+        "voxblox_mesh", 30, &VoxbloxToMeshMsg::voxbloxCallback, this);
 
     mesh_pub_ =
         nl.advertise<mesh_msgs::TriangleMeshStamped>("converted_mesh", 1, true);
@@ -41,21 +41,35 @@ class VoxbloxToMeshMsg {
 
  private:
   void voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg) {
+    ros::Time time_beg = ros::Time::now();
     for (const voxblox_msgs::MeshBlock& mesh_block : msg->mesh_blocks) {
       BlockIndex idx(
           mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
+      // convert voxblox mesh block to polygon mesh
       pcl::PolygonMesh partial_mesh =
           kimera_pgmo::VoxbloxMeshBlockToPolygonMesh(mesh_block,
                                                      msg->block_edge_length);
-      std::map<BlockIndex, pcl::PolygonMesh>::iterator it =
-          mesh_blocks_.find(idx);
-      if (it == mesh_blocks_.end() || mesh_blocks_[idx].polygons.size() == 0) {
-        mesh_ = kimera_pgmo::CombineMeshes(mesh_, partial_mesh, false);
+      std::vector<size_t> block_indices;
+      // Check if block previously populated
+      std::map<BlockIndex, std::vector<size_t>>::iterator it =
+          blocks_.find(idx);
+      if (it == blocks_.end()) {
+        // new block
+        std::vector<size_t> orig_mesh_block;  // empty vector to make do
+        mesh_ = kimera_pgmo::CombineMeshes(
+            mesh_, partial_mesh, orig_mesh_block, &block_indices);
       } else {
-        mesh_ = kimera_pgmo::CombineMeshes(mesh_, partial_mesh);
+        // previously seen block
+        mesh_ = kimera_pgmo::CombineMeshes(
+            mesh_, partial_mesh, blocks_[idx], &block_indices);
       }
-      mesh_blocks_[idx] = partial_mesh;
+      // track vertex indices of full mesh associated with block
+      blocks_[idx] = block_indices;
     }
+    ros::Time time_end = ros::Time::now();
+    ros::Duration duration = time_end - time_beg;
+    ROS_DEBUG("Voxblox to mesh conversion took %lf secs", duration.toSec());
+    // convert to triangle mesh msg
     mesh_msgs::TriangleMesh mesh_msg =
         kimera_pgmo::PolygonMeshToTriangleMeshMsg(mesh_);
     // publish
@@ -69,7 +83,9 @@ class VoxbloxToMeshMsg {
   ros::Subscriber voxblox_sub_;
   ros::Publisher mesh_pub_;
 
-  std::map<BlockIndex, pcl::PolygonMesh> mesh_blocks_;
+  // keep track of the indices in the cloud
+  // representing the vertices of the mesh its corresponding block
+  std::map<BlockIndex, std::vector<size_t>> blocks_;
   pcl::PolygonMesh mesh_;
 };
 

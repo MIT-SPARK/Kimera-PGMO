@@ -40,6 +40,11 @@ pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
                                const pcl::PolygonMesh& mesh2,
                                bool check_duplicate_vertices = true);
 
+pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
+                               const pcl::PolygonMesh& mesh2,
+                               const std::vector<size_t>& indices_to_check,
+                               std::vector<size_t>* vertex_indices);
+
 pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
     const voxblox_msgs::MeshBlock& mesh_block,
     float block_edge_length);
