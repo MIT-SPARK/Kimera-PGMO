@@ -11,7 +11,7 @@
 namespace kimera_pgmo {
 
 // Constructor
-KimeraPgmo::KimeraPgmo() : save_optimized_mesh_(false) {}
+KimeraPgmo::KimeraPgmo() {}
 KimeraPgmo::~KimeraPgmo() {}
 
 // Initialize parameters, publishers, and subscribers and deformation graph
@@ -38,9 +38,8 @@ bool KimeraPgmo::LoadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("frame_id", frame_id_)) return false;
   if (!n.getParam("embed_trajectory/max_delta_t", embed_delta_t_)) return false;
   if (!n.getParam("embed_trajectory/max_delta_r", embed_delta_r_)) return false;
-  if (!n.getParam("rate", timer_rate_)) return false;
+  if (!n.getParam("update_period", timer_period_)) return false;
   if (n.getParam("output_ply_file", output_file_)) {
-    save_optimized_mesh_ = true;
     ROS_INFO("Saving optimized mesh to: %s", output_file_.c_str());
   }
 
@@ -89,7 +88,7 @@ bool KimeraPgmo::RegisterCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
 
   input_mesh_sub_ =
-      nl.subscribe("input_mesh", 1, &KimeraPgmo::MeshCallback, this);
+      nl.subscribe("input_mesh", 5, &KimeraPgmo::MeshCallback, this);
 
   pose_graph_incremental_sub_ =
       nl.subscribe("pose_graph_incremental",
@@ -98,8 +97,12 @@ bool KimeraPgmo::RegisterCallbacks(const ros::NodeHandle& n) {
                    this);
 
   // start timer
-  update_timer_ =
-      nl.createTimer(timer_rate_, &KimeraPgmo::ProcessTimerCallback, this);
+  update_timer_ = nl.createTimer(
+      ros::Duration(timer_period_), &KimeraPgmo::ProcessTimerCallback, this);
+
+  // Initialize save mesh service
+  save_mesh_srv_ =
+      nl.advertiseService("save_mesh", &KimeraPgmo::SaveMeshCallback, this);
   return true;
 }
 
@@ -323,11 +326,14 @@ void KimeraPgmo::ProcessTimerCallback(const ros::TimerEvent& ev) {
     GraphMsgPtr pose_graph_ptr = deformation_graph_.getPoseGraph(timestamps_);
     pose_graph_pub_.publish(*pose_graph_ptr);
   }
+}
 
+bool KimeraPgmo::SaveMeshCallback(std_srvs::Empty::Request&,
+                                  std_srvs::Empty::Response&) {
   // Save mesh
-  if (save_optimized_mesh_) {
-    WriteMeshToPly(output_file_, optimized_mesh_);
-  }
+  WriteMeshToPly(output_file_, optimized_mesh_);
+  ROS_INFO("KimeraPgmo: Saved mesh to file.");
+  return true;
 }
 
 }  // namespace kimera_pgmo

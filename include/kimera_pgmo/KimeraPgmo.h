@@ -13,6 +13,7 @@
 #include <pose_graph_tools/PoseGraph.h>
 #include <ros/ros.h>
 #include <std_msgs/String.h>
+#include <std_srvs/Empty.h>
 
 #include <gtsam/geometry/Pose3.h>
 
@@ -51,6 +52,9 @@ class KimeraPgmo {
   // Timer callback
   void ProcessTimerCallback(const ros::TimerEvent& ev);
 
+  // Save mesh service callback
+  bool SaveMeshCallback(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
+
   pcl::PolygonMesh input_mesh_;
   pcl::PolygonMesh optimized_mesh_;
 
@@ -69,6 +73,9 @@ class KimeraPgmo {
   ros::Subscriber pose_graph_incremental_sub_;
   ros::Subscriber input_mesh_sub_;
 
+  // Service
+  ros::ServiceServer save_mesh_srv_;
+
   // Trajectory
   std::vector<gtsam::Pose3> trajectory_;
   std::vector<ros::Time> timestamps_;
@@ -81,10 +88,9 @@ class KimeraPgmo {
   // Parameters for embedding
   double embed_delta_t_;
   double embed_delta_r_;
-  double timer_rate_;
+  double timer_period_;
 
   // Save output
-  bool save_optimized_mesh_;
   std::string output_file_;
 };
 }  // namespace kimera_pgmo

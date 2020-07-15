@@ -23,7 +23,8 @@ using pcl::PolygonMesh;
 
 namespace kimera_pgmo {
 
-DeformationGraph::DeformationGraph() : pgo_(nullptr) {}
+DeformationGraph::DeformationGraph()
+    : pgo_(nullptr), recalculate_vertices_(false) {}
 DeformationGraph::~DeformationGraph() {}
 
 bool DeformationGraph::Initialize(double pgo_trans_threshold,
@@ -182,6 +183,7 @@ void DeformationGraph::addMeasurement(const Vertex& v,
   pgo_->update(new_factors, new_values);
   values_ = pgo_->calculateEstimate();
   nfg_ = pgo_->getFactorsUnsafe();
+  recalculate_vertices_ = true;
 }
 
 void DeformationGraph::addNodeMeasurement(const size_t& node_number,
@@ -200,11 +202,12 @@ void DeformationGraph::addNodeMeasurement(const size_t& node_number,
   pgo_->update(new_factors, new_values);
   values_ = pgo_->calculateEstimate();
   nfg_ = pgo_->getFactorsUnsafe();
+  recalculate_vertices_ = true;
 }
 
 pcl::PolygonMesh DeformationGraph::deformMesh(
     const pcl::PolygonMesh& original_mesh,
-    size_t k) const {
+    size_t k) {
   // Cannot deform if no nodes in the deformation graph
   if (vertices_.points.size() == 0) {
     ROS_DEBUG("Deformable mesh empty. No deformation. ");
@@ -216,8 +219,14 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
 
   pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
   // iterate through original vertices to create new vertices
-  // TODO (Yun) make this part faster
-  for (pcl::PointXYZRGBA p : original_vertices.points) {
+  size_t start_idx = 0;
+  if (!recalculate_vertices_) {
+    start_idx = last_calculated_vertices_.points.size();
+    new_vertices = last_calculated_vertices_;
+  }
+
+  for (size_t ii = start_idx; ii < original_vertices.points.size(); ii++) {
+    pcl::PointXYZRGBA p = original_vertices.points[ii];
     // search for k + 1 nearest nodes
     std::vector<std::pair<Vertex, double>> nearest_nodes;
     gtsam::Point3 vi(p.x, p.y, p.z);
@@ -277,7 +286,8 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
   pcl::PolygonMesh new_mesh;
   new_mesh.polygons = original_mesh.polygons;
   pcl::toPCLPointCloud2(new_vertices, new_mesh.cloud);
-
+  last_calculated_vertices_ = new_vertices;
+  recalculate_vertices_ = false;
   return new_mesh;
 }
 
@@ -324,6 +334,14 @@ void DeformationGraph::addNewBetween(const size_t& from,
   pgo_->update(new_factors, new_values);
   values_ = pgo_->calculateEstimate();
   nfg_ = pgo_->getFactorsUnsafe();
+
+  // if it's a loop closure factor
+  if (to_symb != from_symb + 1) {
+    ROS_INFO(
+        "DeformationGraph: Added loop closure. Recalculating vertex "
+        "positions.");
+    recalculate_vertices_ = true;
+  }
   return;
 }
 

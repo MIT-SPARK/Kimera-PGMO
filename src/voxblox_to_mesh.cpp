@@ -34,14 +34,14 @@ class VoxbloxToMeshMsg {
         "voxblox_mesh", 30, &VoxbloxToMeshMsg::voxbloxCallback, this);
 
     mesh_pub_ =
-        nl.advertise<mesh_msgs::TriangleMeshStamped>("converted_mesh", 1, true);
+        nl.advertise<mesh_msgs::TriangleMeshStamped>("converted_mesh", 5, true);
   }
 
   ~VoxbloxToMeshMsg() {}
 
  private:
   void voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg) {
-    ros::Time time_beg = ros::Time::now();
+
     for (const voxblox_msgs::MeshBlock& mesh_block : msg->mesh_blocks) {
       BlockIndex idx(
           mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
@@ -66,9 +66,7 @@ class VoxbloxToMeshMsg {
       // track vertex indices of full mesh associated with block
       blocks_[idx] = block_indices;
     }
-    ros::Time time_end = ros::Time::now();
-    ros::Duration duration = time_end - time_beg;
-    ROS_DEBUG("Voxblox to mesh conversion took %lf secs", duration.toSec());
+
     // convert to triangle mesh msg
     mesh_msgs::TriangleMesh mesh_msg =
         kimera_pgmo::PolygonMeshToTriangleMeshMsg(mesh_);

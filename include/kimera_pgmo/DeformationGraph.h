@@ -112,7 +112,7 @@ class DeformationGraph {
   std::vector<gtsam::Pose3> getOptimizedTrajectory() const;
 
   pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
-                              size_t k = 4) const;
+                              size_t k = 4);
 
   inline size_t getNumVertices() const { return vertices_.points.size(); }
   inline pcl::PointCloud<pcl::PointXYZ> getVertices() const {
@@ -157,5 +157,9 @@ class DeformationGraph {
   gtsam::NonlinearFactorGraph prior_factors_;
   // factor graph for pose graph related factors
   gtsam::NonlinearFactorGraph pg_factors_;
+
+  // Recalculate only if new measurements added
+  bool recalculate_vertices_;
+  pcl::PointCloud<pcl::PointXYZRGBA> last_calculated_vertices_;
 };
 }  // namespace kimera_pgmo
