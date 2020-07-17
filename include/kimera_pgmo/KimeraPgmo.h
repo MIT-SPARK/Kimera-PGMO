@@ -55,6 +55,10 @@ class KimeraPgmo {
   // Save mesh service callback
   bool SaveMeshCallback(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
 
+  // Save optimized trajectory callback
+  bool SaveTrajectoryCallback(std_srvs::Empty::Request&,
+                              std_srvs::Empty::Response&);
+
   pcl::PolygonMesh input_mesh_;
   pcl::PolygonMesh optimized_mesh_;
 
@@ -75,6 +79,7 @@ class KimeraPgmo {
 
   // Service
   ros::ServiceServer save_mesh_srv_;
+  ros::ServiceServer save_traj_srv_;
 
   // Trajectory
   std::vector<gtsam::Pose3> trajectory_;
@@ -91,6 +96,6 @@ class KimeraPgmo {
   double timer_period_;
 
   // Save output
-  std::string output_file_;
+  std::string output_prefix_;
 };
 }  // namespace kimera_pgmo

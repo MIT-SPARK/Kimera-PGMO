@@ -39,8 +39,9 @@ bool KimeraPgmo::LoadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("embed_trajectory/max_delta_t", embed_delta_t_)) return false;
   if (!n.getParam("embed_trajectory/max_delta_r", embed_delta_r_)) return false;
   if (!n.getParam("update_period", timer_period_)) return false;
-  if (n.getParam("output_ply_file", output_file_)) {
-    ROS_INFO("Saving optimized mesh to: %s", output_file_.c_str());
+  if (n.getParam("output_prefix", output_prefix_)) {
+    ROS_INFO("Saving optimized data to: %s .ply and .csv",
+             output_prefix_.c_str());
   }
 
   // start the mesh compression module for deformation graph
@@ -103,6 +104,10 @@ bool KimeraPgmo::RegisterCallbacks(const ros::NodeHandle& n) {
   // Initialize save mesh service
   save_mesh_srv_ =
       nl.advertiseService("save_mesh", &KimeraPgmo::SaveMeshCallback, this);
+
+  // Initialize save trajectory service
+  save_traj_srv_ = nl.advertiseService(
+      "save_trajectory", &KimeraPgmo::SaveTrajectoryCallback, this);
   return true;
 }
 
@@ -331,8 +336,31 @@ void KimeraPgmo::ProcessTimerCallback(const ros::TimerEvent& ev) {
 bool KimeraPgmo::SaveMeshCallback(std_srvs::Empty::Request&,
                                   std_srvs::Empty::Response&) {
   // Save mesh
-  WriteMeshToPly(output_file_, optimized_mesh_);
+  std::string ply_name = output_prefix_ + std::string(".ply");
+  WriteMeshToPly(ply_name, optimized_mesh_);
   ROS_INFO("KimeraPgmo: Saved mesh to file.");
+  return true;
+}
+
+bool KimeraPgmo::SaveTrajectoryCallback(std_srvs::Empty::Request&,
+                                        std_srvs::Empty::Response&) {
+  // Save trajectory
+  std::vector<gtsam::Pose3> optimized_path =
+      deformation_graph_.getOptimizedTrajectory();
+  std::ofstream csvfile;
+  std::string csv_name = output_prefix_ + std::string(".csv");
+  csvfile.open(csv_name);
+  csvfile << "timestamp[ns],x,y,z,qw,qx,qy,qz\n";
+  for (size_t i = 0; i < optimized_path.size(); i++) {
+    gtsam::Point3 pos = trajectory_[i].translation();
+    gtsam::Quaternion quat = trajectory_[i].rotation().toQuaternion();
+    ros::Time stamp = timestamps_[i];
+    csvfile << stamp.toNSec() << "," << pos.x() << "," << pos.y() << ","
+            << pos.z() << "," << quat.w() << "," << quat.x() << "," << quat.y()
+            << "," << quat.z() << "\n";
+  }
+  csvfile.close();
+  ROS_INFO("KimeraPgmo: Saved trajectory to file.");
   return true;
 }
 

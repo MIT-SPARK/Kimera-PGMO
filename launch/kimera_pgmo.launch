@@ -7,7 +7,7 @@
   <node type="kimera_pgmo_node" name="kimera_pgmo_node" pkg="kimera_pgmo" output="screen" >
     <rosparam file="$(find kimera_pgmo)/params/$(arg dataset)/parameters.yaml" />
 
-    <param name="output_ply_file" value="/home/yunchang/Downloads/optimized.ply" />
+    <param name="output_prefix" value="/home/yunchang/Downloads/optimized" />
 
     <remap from="~input_mesh" to="/converted_mesh" />
     <remap from="~pose_graph_incremental" to="/kimera_vio_ros/pose_graph_incremental" />
