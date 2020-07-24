@@ -59,7 +59,6 @@ class Polygon {
     if (common_edges_in_self.size() == 0) {
       return false;
     }
-    std::cout << "common edes size: " << common_edges_in_self.size() << std::endl;
     // First add from self polygon until reaching a common edge
     std::vector<T> new_vertices;
     T first_intersection;
@@ -192,15 +191,6 @@ class Polygon {
         triangles_ptr->push_back(Polygon(new_triangle));
       }
     }
-  }
-
-  void print(std::string heading = "") const {
-    // Print polygon
-    std::cout << heading << " : ";
-    for (T i : vertices_) {
-      std::cout << i << " ";
-    }
-    std::cout << std::endl;
   }
 };
 }  // namespace kimera_pgmo
