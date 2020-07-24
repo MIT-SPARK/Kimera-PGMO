@@ -358,12 +358,6 @@ pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
   pcl::fromPCLPointCloud2(mesh1.cloud, vertices1);
   pcl::fromPCLPointCloud2(mesh2.cloud, vertices2);
 
-  if (mesh1.polygons.size() == 0) {
-    *vertex_indices = std::vector<size_t>(vertices2.points.size());
-    std::iota(std::begin(*vertex_indices), std::end(*vertex_indices), 0);
-    return mesh2;
-  }
-
   pcl::PolygonMesh out_mesh;
   out_mesh.polygons = mesh1.polygons;
 
@@ -413,6 +407,76 @@ pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
   return out_mesh;
 }
 
+pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
+                               const voxblox_msgs::MeshBlock& mesh_block,
+                               const float& block_edge_length,
+                               const std::vector<size_t>& indices_to_check,
+                               std::vector<size_t>* vertex_indices) {
+  pcl::PointCloud<pcl::PointXYZRGBA> vertices1;
+  pcl::fromPCLPointCloud2(mesh1.cloud, vertices1);
+
+  pcl::PolygonMesh out_mesh;
+  out_mesh.polygons = mesh1.polygons;
+
+  // Extract mesh block
+  size_t vertex_index = vertices1.points.size();
+  // translate vertex data from message to voxblox mesh
+  pcl::Vertices triangle;
+  for (size_t i = 0; i < mesh_block.x.size(); ++i) {
+    // (2*block_size), see mesh_vis.h for the slightly convoluted
+    // justification of the 2.
+    constexpr float point_conv_factor =
+        2.0f / std::numeric_limits<uint16_t>::max();
+    const float mesh_x =
+        (static_cast<float>(mesh_block.x[i]) * point_conv_factor +
+         static_cast<float>(mesh_block.index[0])) *
+        block_edge_length;
+    const float mesh_y =
+        (static_cast<float>(mesh_block.y[i]) * point_conv_factor +
+         static_cast<float>(mesh_block.index[1])) *
+        block_edge_length;
+    const float mesh_z =
+        (static_cast<float>(mesh_block.z[i]) * point_conv_factor +
+         static_cast<float>(mesh_block.index[2])) *
+        block_edge_length;
+
+    // Create point
+    pcl::PointXYZRGBA point;
+    point.x = mesh_x;
+    point.y = mesh_y;
+    point.z = mesh_z;
+    point.r = mesh_block.r[i];
+    point.g = mesh_block.g[i];
+    point.b = mesh_block.b[i];
+    point.a = std::numeric_limits<uint8_t>::max();
+
+    // Search if vertex inserted
+    size_t vidx;
+    bool point_exists = false;
+    for (size_t j : indices_to_check) {
+      if (mesh_x == vertices1.points[j].x && mesh_y == vertices1.points[j].y &&
+          mesh_z == vertices1.points[j].z) {
+        vidx = j;
+        point_exists = true;
+        break;
+      }
+    }
+
+    if (!point_exists) {
+      vidx = vertex_index++;
+      vertices1.push_back(point);
+    }
+
+    triangle.vertices.push_back(vidx);
+    if (triangle.vertices.size() == 3) {
+      out_mesh.polygons.push_back(triangle);
+      triangle = pcl::Vertices();
+    }
+  }
+  pcl::toPCLPointCloud2(vertices1, out_mesh.cloud);
+  return out_mesh;
+}
+
 pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
     const voxblox_msgs::MeshBlock& mesh_block,
     float block_edge_length) {
@@ -454,6 +518,7 @@ pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
     // Search if vertex inserted
     size_t vidx;
     bool point_exists = false;
+    // TODO(Yun) check if this needed. discard to save time
     for (size_t k = 0; k < vertices_cloud.points.size(); k++) {
       if (mesh_x == vertices_cloud.points[k].x &&
           mesh_y == vertices_cloud.points[k].y &&

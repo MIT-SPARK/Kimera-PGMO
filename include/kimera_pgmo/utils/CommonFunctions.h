@@ -45,6 +45,12 @@ pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
                                const std::vector<size_t>& indices_to_check,
                                std::vector<size_t>* vertex_indices);
 
+pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
+                               const voxblox_msgs::MeshBlock& mesh_block,
+                               const float& block_edge_length,
+                               const std::vector<size_t>& indices_to_check,
+                               std::vector<size_t>* vertex_indices);
+
 pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
     const voxblox_msgs::MeshBlock& mesh_block,
     float block_edge_length);
