@@ -38,7 +38,7 @@ class VoxbloxToMeshMsg {
 
     // start timer
     update_timer_ = nl.createTimer(
-        ros::Duration(1), &VoxbloxToMeshMsg::ProcessTimerCallback, this);
+        ros::Duration(3.0), &VoxbloxToMeshMsg::ProcessTimerCallback, this);
   }
 
   ~VoxbloxToMeshMsg() {}
@@ -48,10 +48,12 @@ class VoxbloxToMeshMsg {
     block_edge_length_ = msg->block_edge_length;
     last_stamp_ = msg->header.stamp;
     for (const voxblox_msgs::MeshBlock& mesh_block : msg->mesh_blocks) {
-      BlockIndex idx(
-          mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
+      if (mesh_block.x.size() > 0) {
+        BlockIndex idx(
+            mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
 
-      mesh_blocks_[idx] = mesh_block;
+        mesh_blocks_[idx] = mesh_block;
+      }
     }
   }
 
@@ -64,7 +66,6 @@ class VoxbloxToMeshMsg {
     for (auto idx_mesh_block : new_mesh_blocks) {
       BlockIndex idx = idx_mesh_block.first;
       voxblox_msgs::MeshBlock mesh_block = idx_mesh_block.second;
-
       std::vector<size_t> block_indices;
       // Check if block previously populated
       std::map<BlockIndex, std::vector<size_t>>::iterator it =
@@ -72,18 +73,18 @@ class VoxbloxToMeshMsg {
       if (it == blocks_.end()) {
         // new block
         std::vector<size_t> orig_mesh_block;  // empty vector to make do
-        mesh_ = kimera_pgmo::CombineMeshes(mesh_,
-                                           mesh_block,
-                                           block_edge_length_,
-                                           orig_mesh_block,
-                                           &block_indices);
+        mesh_ = kimera_pgmo::UpdateMesh(mesh_,
+                                        mesh_block,
+                                        block_edge_length_,
+                                        orig_mesh_block,
+                                        &block_indices);
       } else {
         // previously seen block
-        mesh_ = kimera_pgmo::CombineMeshes(mesh_,
-                                           mesh_block,
-                                           block_edge_length_,
-                                           blocks_[idx],
-                                           &block_indices);
+        mesh_ = kimera_pgmo::UpdateMesh(mesh_,
+                                        mesh_block,
+                                        block_edge_length_,
+                                        blocks_[idx],
+                                        &block_indices);
       }
       // track vertex indices of full mesh associated with block
       blocks_[idx] = block_indices;

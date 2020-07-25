@@ -5,6 +5,7 @@
  */
 #include <algorithm>
 #include <limits>
+#include <chrono>
 
 #include <geometry_msgs/Point.h>
 #include <gtsam/inference/Symbol.h>
@@ -407,11 +408,17 @@ pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
   return out_mesh;
 }
 
-pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
-                               const voxblox_msgs::MeshBlock& mesh_block,
-                               const float& block_edge_length,
-                               const std::vector<size_t>& indices_to_check,
-                               std::vector<size_t>* vertex_indices) {
+pcl::PolygonMesh UpdateMesh(const pcl::PolygonMesh& mesh1,
+                            const voxblox_msgs::MeshBlock& mesh_block,
+                            const float& block_edge_length,
+                            const std::vector<size_t>& original_indices,
+                            std::vector<size_t>* updated_indices) {
+  // For speed, assume mesh is incrementally increasing
+  if (mesh_block.x.size() <= original_indices.size()) {
+    *updated_indices = original_indices;
+    return mesh1;
+  }
+
   pcl::PointCloud<pcl::PointXYZRGBA> vertices1;
   pcl::fromPCLPointCloud2(mesh1.cloud, vertices1);
 
@@ -422,6 +429,7 @@ pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
   size_t vertex_index = vertices1.points.size();
   // translate vertex data from message to voxblox mesh
   pcl::Vertices triangle;
+  bool new_triangle = false;
   for (size_t i = 0; i < mesh_block.x.size(); ++i) {
     // (2*block_size), see mesh_vis.h for the slightly convoluted
     // justification of the 2.
@@ -453,7 +461,7 @@ pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
     // Search if vertex inserted
     size_t vidx;
     bool point_exists = false;
-    for (size_t j : indices_to_check) {
+    for (size_t j : original_indices) {
       if (mesh_x == vertices1.points[j].x && mesh_y == vertices1.points[j].y &&
           mesh_z == vertices1.points[j].z) {
         vidx = j;
@@ -465,12 +473,18 @@ pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
     if (!point_exists) {
       vidx = vertex_index++;
       vertices1.push_back(point);
+      new_triangle = true;
     }
+
+    updated_indices->push_back(vidx);
 
     triangle.vertices.push_back(vidx);
     if (triangle.vertices.size() == 3) {
-      out_mesh.polygons.push_back(triangle);
+      if (new_triangle) {
+        out_mesh.polygons.push_back(triangle);
+      }
       triangle = pcl::Vertices();
+      new_triangle = false;
     }
   }
   pcl::toPCLPointCloud2(vertices1, out_mesh.cloud);
