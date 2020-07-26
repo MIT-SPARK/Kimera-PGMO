@@ -31,14 +31,14 @@ class VoxbloxToMeshMsg {
     ROS_INFO("Started Voxblox to Mesh msg converter.");
     ros::NodeHandle nl(n);
     voxblox_sub_ = nl.subscribe(
-        "voxblox_mesh", 5, &VoxbloxToMeshMsg::voxbloxCallback, this);
+        "voxblox_mesh", 20, &VoxbloxToMeshMsg::voxbloxCallback, this);
 
     mesh_pub_ = nl.advertise<mesh_msgs::TriangleMeshStamped>(
         "converted_mesh", 1, false);
 
     // start timer
     update_timer_ = nl.createTimer(
-        ros::Duration(3.0), &VoxbloxToMeshMsg::ProcessTimerCallback, this);
+        ros::Duration(0.5), &VoxbloxToMeshMsg::ProcessTimerCallback, this);
   }
 
   ~VoxbloxToMeshMsg() {}
@@ -105,8 +105,10 @@ class VoxbloxToMeshMsg {
 
   // Timer callback
   void ProcessTimerCallback(const ros::TimerEvent& ev) {
-    updateMesh();
-    publishMesh();
+    if (mesh_blocks_.size() > 0) {
+      updateMesh();
+      publishMesh();
+    }
   }
 
   // Class arguments
