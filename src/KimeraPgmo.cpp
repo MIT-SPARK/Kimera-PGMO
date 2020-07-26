@@ -38,7 +38,6 @@ bool KimeraPgmo::LoadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("frame_id", frame_id_)) return false;
   if (!n.getParam("embed_trajectory/max_delta_t", embed_delta_t_)) return false;
   if (!n.getParam("embed_trajectory/max_delta_r", embed_delta_r_)) return false;
-  if (!n.getParam("update_period", timer_period_)) return false;
   if (n.getParam("output_prefix", output_prefix_)) {
     ROS_INFO("Saving optimized data to: %s .ply and .csv",
              output_prefix_.c_str());
@@ -97,10 +96,6 @@ bool KimeraPgmo::RegisterCallbacks(const ros::NodeHandle& n) {
                    &KimeraPgmo::IncrementalPoseGraphCallback,
                    this);
 
-  // start timer
-  update_timer_ = nl.createTimer(
-      ros::Duration(timer_period_), &KimeraPgmo::ProcessTimerCallback, this);
-
   // Initialize save mesh service
   save_mesh_srv_ =
       nl.advertiseService("save_mesh", &KimeraPgmo::SaveMeshCallback, this);
@@ -118,7 +113,7 @@ bool KimeraPgmo::PublishOptimizedMesh() {
 
   // Create msg
   mesh_msgs::TriangleMeshStamped new_msg;
-  new_msg.header.stamp = ros::Time::now();
+  new_msg.header.stamp = last_mesh_stamp_;
   new_msg.header.frame_id = frame_id_;
   new_msg.mesh = mesh_msg;
 
@@ -307,10 +302,8 @@ void KimeraPgmo::IncrementalPoseGraphCallback(
 void KimeraPgmo::MeshCallback(
     const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
   input_mesh_ = TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
-  return;
-}
+  last_mesh_stamp_ = mesh_msg->header.stamp;
 
-void KimeraPgmo::ProcessTimerCallback(const ros::TimerEvent& ev) {
   // Update optimized mesh
   try {
     optimized_mesh_ = deformation_graph_.deformMesh(input_mesh_);
@@ -331,6 +324,7 @@ void KimeraPgmo::ProcessTimerCallback(const ros::TimerEvent& ev) {
     GraphMsgPtr pose_graph_ptr = deformation_graph_.getPoseGraph(timestamps_);
     pose_graph_pub_.publish(*pose_graph_ptr);
   }
+  return;
 }
 
 bool KimeraPgmo::SaveMeshCallback(std_srvs::Empty::Request&,

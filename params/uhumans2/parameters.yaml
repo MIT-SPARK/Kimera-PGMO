@@ -6,4 +6,4 @@ embed_trajectory:
 rpgo:
   translation_threshold: 0.01
   rotation_threshold: 0.005
-update_period: 2.0
+update_period: 1.0

@@ -38,7 +38,7 @@ class VoxbloxToMeshMsg {
 
     // start timer
     update_timer_ = nl.createTimer(
-        ros::Duration(0.5), &VoxbloxToMeshMsg::ProcessTimerCallback, this);
+        ros::Duration(1.0), &VoxbloxToMeshMsg::ProcessTimerCallback, this);
   }
 
   ~VoxbloxToMeshMsg() {}

@@ -49,9 +49,6 @@ class KimeraPgmo {
   // Callback for mesh input
   void MeshCallback(const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
 
-  // Timer callback
-  void ProcessTimerCallback(const ros::TimerEvent& ev);
-
   // Save mesh service callback
   bool SaveMeshCallback(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
 
@@ -61,6 +58,7 @@ class KimeraPgmo {
 
   pcl::PolygonMesh input_mesh_;
   pcl::PolygonMesh optimized_mesh_;
+  ros::Time last_mesh_stamp_;
 
   // To get the simplified mesh for deformation graph
   OctreeCompression d_graph_compression_;
@@ -84,9 +82,6 @@ class KimeraPgmo {
   // Trajectory
   std::vector<gtsam::Pose3> trajectory_;
   std::vector<ros::Time> timestamps_;
-
-  // Timer
-  ros::Timer update_timer_;
 
   std::string frame_id_;
 
