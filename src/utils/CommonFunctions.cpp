@@ -631,7 +631,7 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
       // transfer covariance
       gtsam::Matrix66 covariance =
           boost::dynamic_pointer_cast<gtsam::noiseModel::Gaussian>(
-              factor.get_noiseModel())
+              factor.noiseModel())
               ->covariance();
       for (size_t i = 0; i < edge.covariance.size(); i++) {
         size_t row = static_cast<size_t>(i / 6);

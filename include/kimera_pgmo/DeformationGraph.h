@@ -3,6 +3,7 @@
  * @brief  Deformation Graph object
  * @author Yun Chang
  */
+#pragma once
 
 #include <map>
 #include <vector>

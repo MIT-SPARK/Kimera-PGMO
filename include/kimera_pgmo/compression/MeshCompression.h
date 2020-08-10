@@ -3,6 +3,9 @@
  * @brief  Simplify and reconstruct meshes
  * @author Yun Chang
  */
+
+#pragma once
+
 #include <map>
 
 #include <pcl/PolygonMesh.h>

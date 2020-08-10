@@ -3,6 +3,7 @@
  * @brief  KimeraPgmo class: Main class and ROS interface
  * @author Yun Chang
  */
+#pragma once
 
 #include <string>
 
