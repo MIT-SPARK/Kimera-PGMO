@@ -92,7 +92,7 @@ bool KimeraPgmo::RegisterCallbacks(const ros::NodeHandle& n) {
 
   pose_graph_incremental_sub_ =
       nl.subscribe("pose_graph_incremental",
-                   100,
+                   1000,
                    &KimeraPgmo::IncrementalPoseGraphCallback,
                    this);
 
@@ -282,7 +282,7 @@ void KimeraPgmo::IncrementalPoseGraphCallback(
   deformation_graph_.updateMesh(simplified_mesh);
   if (loop_closure) {
     pose_graph_tools::PoseGraphEdge lc_edge = msg->edges[1];
-    const gtsam::Pose3 meas = RosToGtsam(odom_edge.pose);
+    const gtsam::Pose3 meas = RosToGtsam(lc_edge.pose);
     const Vertex from_node = lc_edge.key_from;
     const Vertex to_node = lc_edge.key_to;
     deformation_graph_.addNewBetween(from_node, to_node, meas);

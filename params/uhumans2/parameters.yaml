@@ -2,7 +2,7 @@ frame_id: "world"
 d_graph_resolution: 1.5
 embed_trajectory:
   max_delta_t: 10.0
-  max_delta_r: 3.0
+  max_delta_r: 5.0
 rpgo:
   translation_threshold: 0.01
   rotation_threshold: 0.005
