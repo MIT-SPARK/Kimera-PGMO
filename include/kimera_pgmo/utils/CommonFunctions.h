@@ -45,19 +45,6 @@ pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
                                const std::vector<size_t>& indices_to_check,
                                std::vector<size_t>* vertex_indices);
 
-pcl::PolygonMesh UpdateMesh(const pcl::PolygonMesh& mesh1,
-                            const voxblox_msgs::MeshBlock& mesh_block,
-                            const float& block_edge_length,
-                            const std::vector<size_t>& original_indices,
-                            std::vector<size_t>* updated_indices);
-
-pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
-    const voxblox_msgs::MeshBlock& mesh_block,
-    float block_edge_length);
-
-pcl::PolygonMesh VoxbloxToPolygonMesh(
-    const voxblox_msgs::Mesh::ConstPtr& voxblox_mesh);
-
 bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2);
 
 // Convert gtsam posegaph to PoseGraph msg

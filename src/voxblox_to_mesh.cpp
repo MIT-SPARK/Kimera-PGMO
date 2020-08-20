@@ -12,6 +12,7 @@
 #include <voxblox_msgs/Mesh.h>
 
 #include "kimera_pgmo/utils/CommonFunctions.h"
+#include "kimera_pgmo/utils/VoxbloxUtils.h"
 
 // Define BlockIndex as used in voxblox
 typedef Eigen::Matrix<int, 3, 1> BlockIndex;
@@ -73,18 +74,18 @@ class VoxbloxToMeshMsg {
       if (it == blocks_.end()) {
         // new block
         std::vector<size_t> orig_mesh_block;  // empty vector to make do
-        mesh_ = kimera_pgmo::UpdateMesh(mesh_,
-                                        mesh_block,
-                                        block_edge_length_,
-                                        orig_mesh_block,
-                                        &block_indices);
+        mesh_ = kimera_pgmo::UpdateMeshFromVoxbloxMeshBlock(mesh_,
+                                                            mesh_block,
+                                                            block_edge_length_,
+                                                            orig_mesh_block,
+                                                            &block_indices);
       } else {
         // previously seen block
-        mesh_ = kimera_pgmo::UpdateMesh(mesh_,
-                                        mesh_block,
-                                        block_edge_length_,
-                                        blocks_[idx],
-                                        &block_indices);
+        mesh_ = kimera_pgmo::UpdateMeshFromVoxbloxMeshBlock(mesh_,
+                                                            mesh_block,
+                                                            block_edge_length_,
+                                                            blocks_[idx],
+                                                            &block_indices);
       }
       // track vertex indices of full mesh associated with block
       blocks_[idx] = block_indices;
