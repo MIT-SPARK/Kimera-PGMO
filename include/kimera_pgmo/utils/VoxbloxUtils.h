@@ -10,9 +10,10 @@
 
 #include <pcl/PolygonMesh.h>
 #include <pcl/io/ply_io.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 #include <pcl_msgs/PolygonMesh.h>
 #include <voxblox_msgs/Mesh.h>
-#include <pcl/impl/point_types.hpp>
 
 // Define BlockIndex as used in voxblox
 typedef Eigen::Matrix<int, 3, 1> BlockIndex;
@@ -29,18 +30,21 @@ struct less<BlockIndex> {
 namespace kimera_pgmo {
 
 /*! \brief Update a polygon mesh from a voxblox mesh block
- *  - mesh: mesh to be updated
+ *  outputs the polygon mesh corresponding to mesh block
  *  - mesh_block: voxblox mesh block to update mesh with
  *  - block_edge_length: block_edge_length as given in voxblox msg
+ *  - vertices: the vertices of the mesh to be updated
+ *  - triangles: the connections of the mesh to be updated
  *  - original_indices: if mesh block previously seen ~ the idx vertices last
  * seen
  *  - updated_indices: the idx of the points corresponding to the vertices of
  * the part of the mesh of the mesh block
  */
 pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
-    const pcl::PolygonMesh& mesh,
     const voxblox_msgs::MeshBlock& mesh_block,
     const float& block_edge_length,
+    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
+    std::vector<pcl::Vertices>* triangles,
     const std::vector<size_t>& original_indices,
     std::vector<size_t>* updated_indices);
 
@@ -51,6 +55,18 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
 pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
     const voxblox_msgs::MeshBlock& mesh_block,
     float block_edge_length);
+
+/*! \brief Convert a voxblox mesh block to a polygon
+ * mesh (represented as pointcloud of vertices + sets of triangles )
+ *  - mesh_block: voxblox mesh block input
+ *  - vertices: pointcloud of generated vertices
+ *  - triangles: vector of triplet indices inidicating the connections
+ */
+void VoxbloxMeshBlockToPolygonMesh(
+    const voxblox_msgs::MeshBlock& mesh_block,
+    float block_edge_length,
+    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
+    std::vector<pcl::Vertices>* triangles);
 
 /*! \brief Convert a voxblox mesh ~ consisted of many mesh blocks, to a polygon
  * mesh

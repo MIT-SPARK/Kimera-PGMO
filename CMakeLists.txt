@@ -29,9 +29,11 @@ cs_add_library(${PROJECT_NAME}
 src/compression/OctreeCompression.cpp
 src/utils/CommonFunctions.cpp
 src/utils/CommonStructs.cpp
+src/utils/VoxbloxUtils.cpp
 src/utils/tinyply.cpp
 src/DeformationGraph.cpp
 src/KimeraPgmo.cpp
+src/VoxbloxProcessing.cpp
 )
 target_link_libraries(${PROJECT_NAME} 
   ${catkin_LIBRARIES}
@@ -51,10 +53,6 @@ cs_add_executable(load_mesh
 )
 target_link_libraries(load_mesh ${PROJECT_NAME})
 
-cs_add_executable(voxblox_to_mesh
-  src/voxblox_to_mesh.cpp
-)
-target_link_libraries(voxblox_to_mesh ${PROJECT_NAME})
 
 # Unit tests 
 set(TEST_DATA_PATH "${CMAKE_CURRENT_SOURCE_DIR}/test/data")

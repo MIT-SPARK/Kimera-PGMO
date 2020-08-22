@@ -31,6 +31,10 @@ void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh);
 mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
     const pcl::PolygonMesh& polygon_mesh);
 
+mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
+    const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
+    const std::vector<pcl::Vertices>& polygons);
+
 pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
     const mesh_msgs::TriangleMesh& mesh_msg);
 

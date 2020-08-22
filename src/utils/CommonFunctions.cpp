@@ -4,8 +4,8 @@
  * @author Yun Chang
  */
 #include <algorithm>
-#include <limits>
 #include <chrono>
+#include <limits>
 
 #include <geometry_msgs/Point.h>
 #include <gtsam/inference/Symbol.h>
@@ -209,32 +209,37 @@ mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
   pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
   pcl::fromPCLPointCloud2(polygon_mesh.cloud, vertices_cloud);
 
+  mesh_msgs::TriangleMesh new_mesh =
+      PolygonMeshToTriangleMeshMsg(vertices_cloud, polygon_mesh.polygons);
+
+  return new_mesh;
+}
+
+mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
+    const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
+    const std::vector<pcl::Vertices>& polygons) {
   mesh_msgs::TriangleMesh new_mesh;
   // Convert vertices
-  for (size_t i = 0; i < vertices_cloud.points.size(); i++) {
+  for (size_t i = 0; i < vertices.points.size(); i++) {
     geometry_msgs::Point p;
-    p.x = vertices_cloud.points[i].x;
-    p.y = vertices_cloud.points[i].y;
-    p.z = vertices_cloud.points[i].z;
+    p.x = vertices.points[i].x;
+    p.y = vertices.points[i].y;
+    p.z = vertices.points[i].z;
     new_mesh.vertices.push_back(p);
-    if (vertices_cloud.points[i].r) {
+    if (vertices.points[i].r) {
       std_msgs::ColorRGBA color;
       constexpr float color_conv_factor =
           1.0f / std::numeric_limits<uint8_t>::max();
-      color.r =
-          color_conv_factor * static_cast<float>(vertices_cloud.points[i].r);
-      color.g =
-          color_conv_factor * static_cast<float>(vertices_cloud.points[i].g);
-      color.b =
-          color_conv_factor * static_cast<float>(vertices_cloud.points[i].b);
-      color.a =
-          color_conv_factor * static_cast<float>(vertices_cloud.points[i].a);
+      color.r = color_conv_factor * static_cast<float>(vertices.points[i].r);
+      color.g = color_conv_factor * static_cast<float>(vertices.points[i].g);
+      color.b = color_conv_factor * static_cast<float>(vertices.points[i].b);
+      color.a = color_conv_factor * static_cast<float>(vertices.points[i].a);
       new_mesh.vertex_colors.push_back(color);
     }
   }
 
   // Convert polygons
-  for (pcl::Vertices polygon : polygon_mesh.polygons) {
+  for (pcl::Vertices polygon : polygons) {
     mesh_msgs::TriangleIndices triangle;
     triangle.vertex_indices[0] = polygon.vertices[0];
     triangle.vertex_indices[1] = polygon.vertices[1];
