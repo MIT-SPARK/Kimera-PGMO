@@ -15,7 +15,7 @@ using gtsam::Pose3;
 using gtsam::Rot3;
 
 namespace kimera_pgmo {
-TEST(DeformationEdgeFactor, ZeroRotation) {
+TEST(test_deformation_edge_factor, ZeroRotation) {
   Pose3 node_1 = Pose3(Rot3(), Point3(0, 0, 0));
   Point3 node_2 = Point3(1, 1, 1);
 
@@ -62,7 +62,7 @@ TEST(DeformationEdgeFactor, ZeroRotation) {
   EXPECT_TRUE(gtsam::assert_equal(numericalH2, actualH2, 1E-5));
 }
 
-TEST(DeformationEdgeFactor, ZeroTranslation1) {
+TEST(test_deformation_edge_factor, ZeroTranslation1) {
   Pose3 node_1 = Pose3(Rot3(), Point3(0, 0, 0));
   Point3 node_2 = Point3(1, 1, 1);
 
@@ -109,7 +109,7 @@ TEST(DeformationEdgeFactor, ZeroTranslation1) {
   EXPECT_TRUE(gtsam::assert_equal(numericalH2, actualH2, 1E-5));
 }
 
-TEST(DeformationEdgeFactor, ZeroTranslation2) {
+TEST(test_deformation_edge_factor, ZeroTranslation2) {
   Pose3 node_1 = Pose3(Rot3(), Point3(0, 0, 0));
   Point3 node_2 = Point3(1, 1, 1);
 
@@ -156,7 +156,7 @@ TEST(DeformationEdgeFactor, ZeroTranslation2) {
   EXPECT_TRUE(gtsam::assert_equal(numericalH2, actualH2, 1E-5));
 }
 
-TEST(DeformationEdgeFactor, Simple) {
+TEST(test_deformation_edge_factor, Simple) {
   Pose3 node_1 = Pose3(Rot3(), Point3(0, 1, 0));
   Point3 node_2 = Point3(1, 3, 1);
 
@@ -204,7 +204,7 @@ TEST(DeformationEdgeFactor, Simple) {
   EXPECT_TRUE(gtsam::assert_equal(numericalH2, actualH2, 1E-5));
 }
 
-TEST(DeformationEdgeFactor, Relative1) {
+TEST(test_deformation_edge_factor, Relative1) {
   Pose3 node_1 = Pose3(Rot3(0, 0, 0, 1), Point3(1, 0, 0));
   Point3 node_2 = Point3(1, 1, 1);
 
@@ -251,7 +251,7 @@ TEST(DeformationEdgeFactor, Relative1) {
   EXPECT_TRUE(gtsam::assert_equal(numericalH2, actualH2, 1E-5));
 }
 
-TEST(DeformationEdgeFactor, Relative2) {
+TEST(test_deformation_edge_factor, Relative2) {
   Pose3 node_1 = Pose3(Rot3(0, 0, 0, 1), Point3(1, 0, 0));
   Point3 node_2 = Point3(1, 1, 1);
 
@@ -298,3 +298,8 @@ TEST(DeformationEdgeFactor, Relative2) {
   EXPECT_TRUE(gtsam::assert_equal(numericalH2, actualH2, 1E-5));
 }
 }  // namespace kimera_pgmo
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}

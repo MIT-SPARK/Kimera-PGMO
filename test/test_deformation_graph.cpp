@@ -114,7 +114,7 @@ bool ComparePointcloud(const pcl::PointCloud<pcl::PointXYZRGBA>& cloud1,
   return true;
 }
 
-TEST(DeformationGraph, reconstructMesh) {
+TEST(test_deformation_graph, reconstructMesh) {
   DeformationGraph graph;
   graph.Initialize(100, 100);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
@@ -155,7 +155,7 @@ TEST(DeformationGraph, reconstructMesh) {
   EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
 }
 
-TEST(DeformationGraph, deformMeshtranslation) {
+TEST(test_deformation_graph, deformMeshtranslation) {
   DeformationGraph graph;
   graph.Initialize(100, 100);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
@@ -199,7 +199,7 @@ TEST(DeformationGraph, deformMeshtranslation) {
   EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
 }
 
-TEST(DeformationGraph, deformMesh) {
+TEST(test_deformation_graph, deformMesh) {
   pcl::PolygonMeshPtr cube_mesh(new pcl::PolygonMesh());
   ReadMeshFromPly(std::string(DATASET_PATH) + "/cube.ply", cube_mesh);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
@@ -246,7 +246,7 @@ TEST(DeformationGraph, deformMesh) {
   EXPECT_EQ(cube_mesh->polygons[3].vertices, new_mesh.polygons[3].vertices);
 }
 
-TEST(DeformationGraph, updateMesh) {
+TEST(test_deformation_graph, updateMesh) {
   DeformationGraph graph;
   graph.Initialize(100, 100);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
@@ -297,7 +297,7 @@ TEST(DeformationGraph, updateMesh) {
   EXPECT_EQ(Edge(new_key, new_key_2), base_edges[21]);
 }
 
-TEST(DeformationGraph, addNodeMeasurement) {
+TEST(test_deformation_graph, addNodeMeasurement) {
   DeformationGraph graph;
   graph.Initialize(100, 100);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
@@ -329,7 +329,7 @@ TEST(DeformationGraph, addNodeMeasurement) {
   EXPECT_NEAR(4, actual_vertices.points[2].x, 0.001);
 }
 
-TEST(DeformationGraph, addNewBetween) {
+TEST(test_deformation_graph, addNewBetween) {
   DeformationGraph graph;
   graph.Initialize(100, 100);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
@@ -399,3 +399,8 @@ TEST(DeformationGraph, addNewBetween) {
 }
 
 }  // namespace kimera_pgmo
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}

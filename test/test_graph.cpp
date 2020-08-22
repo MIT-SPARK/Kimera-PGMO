@@ -37,7 +37,7 @@ pcl::PolygonMesh createSimpleMesh() {
   return mesh;
 }
 
-TEST(Graph, createFromPclMesh) {
+TEST(test_graph, createFromPclMesh) {
   pcl::PolygonMesh mesh = createSimpleMesh();
 
   Graph new_graph;
@@ -58,7 +58,7 @@ TEST(Graph, createFromPclMesh) {
   EXPECT_EQ(valences_4, new_graph.getValence(4));
 }
 
-TEST(Graph, createFromPclMeshBidirection) {
+TEST(test_graph, createFromPclMeshBidirection) {
   pcl::PolygonMesh mesh = createSimpleMesh();
 
   Graph new_graph;
@@ -88,7 +88,7 @@ TEST(Graph, createFromPclMeshBidirection) {
   EXPECT_EQ(valences_4, actual_4);
 }
 
-TEST(Graph, addEdgeAndVertices) {
+TEST(test_graph, addEdgeAndVertices) {
   Graph new_graph;
   new_graph.addEdgeAndVertices(Edge(0, 1));
   Vertices new_vertices = Vertices{0, 1};
@@ -109,7 +109,7 @@ TEST(Graph, addEdgeAndVertices) {
   EXPECT_EQ(valence_0, new_graph.getValence(0));
 }
 
-TEST(Graph, addEdge) {
+TEST(test_graph, addEdge) {
   pcl::PolygonMesh mesh = createSimpleMesh();
 
   Graph new_graph;
@@ -130,7 +130,7 @@ TEST(Graph, addEdge) {
   EXPECT_EQ(valences_4, new_graph.getValence(4));
 }
 
-TEST(Graph, combineGraph) {
+TEST(test_graph, combineGraph) {
   Graph graph_1, graph_2;
 
   graph_1.addEdgeAndVertices(Edge(0, 1));
@@ -152,3 +152,8 @@ TEST(Graph, combineGraph) {
 }
 
 }  // namespace kimera_pgmo
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}
