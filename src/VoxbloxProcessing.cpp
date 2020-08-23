@@ -66,6 +66,7 @@ void VoxbloxProcessing::voxbloxCallback(
 }
 
 void VoxbloxProcessing::pruneStoredBlocks(const ros::Time& latest_time) {
+  if (latest_time.toSec() - time_horizon_.toSec() < 0) return;
   for (auto it = mesh_block_last_detection_.cbegin();
        it != mesh_block_last_detection_.cend();) {
     if (it->second < latest_time - time_horizon_) {

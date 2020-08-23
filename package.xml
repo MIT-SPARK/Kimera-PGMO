@@ -33,5 +33,6 @@
   <depend>pcl_conversions</depend>
   <depend>pcl_msgs</depend>
 
-  <test_depend>rosunit</test_depend>
+  <depend>rosunit</depend>
+  <depend>rostest</depend>
 </package>

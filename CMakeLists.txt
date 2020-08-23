@@ -71,6 +71,9 @@ target_link_libraries(${PROJECT_NAME}-test_deformation_graph ${PROJECT_NAME} -lt
 catkin_add_gtest(${PROJECT_NAME}-test_graph test/test_graph.cpp)
 target_link_libraries(${PROJECT_NAME}-test_graph ${PROJECT_NAME} -ltbb)
 
+add_rostest_gtest(${PROJECT_NAME}-test_voxblox_processing test/test_voxblox_processing.test test/test_voxblox_processing.cpp)
+target_link_libraries(${PROJECT_NAME}-test_voxblox_processing ${PROJECT_NAME} -ltbb)
+
 cs_install()
 
 cs_export()

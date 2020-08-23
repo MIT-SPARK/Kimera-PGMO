@@ -1,5 +1,5 @@
 /**
- * @file   testGraph.cpp
+ * @file   test_graph.cpp
  * @brief  Unit-tests for the graph structure
  * @author Yun Chang
  */

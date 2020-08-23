@@ -1,5 +1,5 @@
 /**
- * @file   testDeformationGraph.cpp
+ * @file   test_deformation_graph.cpp
  * @brief  Unit-tests for the deformation graph class
  * @author Yun Chang
  */

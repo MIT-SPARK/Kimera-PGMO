@@ -40,8 +40,10 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
 
   // Extract mesh block
   size_t vertex_index = vertices->points.size();
+  size_t vertex_index_new = 0;
   // translate vertex data from message to voxblox mesh
   pcl::Vertices triangle;
+  pcl::Vertices triangle_new;  // triangle with indices for partial mesh
   bool new_triangle = false;
   for (size_t i = 0; i < mesh_block.x.size(); ++i) {
     // (2*block_size), see mesh_vis.h for the slightly convoluted
@@ -73,7 +75,9 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
 
     // Search if vertex inserted
     size_t vidx;
+    size_t vidx_new;  // idx for the partial mesh
     bool point_exists = false;
+    bool point_exists_in_new = false;  // does point exist in the partial mesh
     for (size_t j : original_indices) {
       if (mesh_x == vertices->points[j].x && mesh_y == vertices->points[j].y &&
           mesh_z == vertices->points[j].z) {
@@ -83,22 +87,44 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
       }
     }
 
-    if (!point_exists) {
-      vidx = vertex_index++;
-      vertices->push_back(point);
-      new_triangle = true;
+    // Also check the new vertices
+    for (size_t j : *updated_indices) {
+      if (mesh_x == vertices->points[j].x && mesh_y == vertices->points[j].y &&
+          mesh_z == vertices->points[j].z) {
+        vidx = j;
+        // For partial mesh, the indices should start with 0
+        vidx_new = j - updated_indices->at(0);
+        point_exists = true;
+        point_exists_in_new = true;
+        break;
+      }
     }
-    new_vertices.push_back(point);
 
-    updated_indices->push_back(vidx);
+    // if point exists prior to processing this mesh block
+    if (!point_exists) {
+      new_triangle = true;
+      if (!point_exists_in_new) {
+        vidx = vertex_index++;
+        vertices->push_back(point);
+      }
+    }
+    // if points already added when processing this mesh block
+    if (!point_exists_in_new) {
+      vidx_new = vertex_index_new++;
+      new_vertices.push_back(point);
+      updated_indices->push_back(vidx);
+    }
 
     triangle.vertices.push_back(vidx);
+    // Keep track of triangle_new separate, since indices different
+    triangle_new.vertices.push_back(vidx_new);
     if (triangle.vertices.size() == 3) {
       if (new_triangle) {
         triangles->push_back(triangle);
       }
-      new_added_mesh.polygons.push_back(triangle);
+      new_added_mesh.polygons.push_back(triangle_new);
       triangle = pcl::Vertices();
+      triangle_new = pcl::Vertices();
       new_triangle = false;
     }
   }
