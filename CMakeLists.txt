@@ -48,6 +48,11 @@ cs_add_executable(kimera_pgmo_node
 )
 target_link_libraries(kimera_pgmo_node ${PROJECT_NAME})
 
+cs_add_executable(voxblox_processing_node
+  src/voxblox_processing_node.cpp
+)
+target_link_libraries(voxblox_processing_node ${PROJECT_NAME})
+
 cs_add_executable(load_mesh
   src/load_mesh.cpp
 )
