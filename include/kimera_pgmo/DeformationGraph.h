@@ -82,13 +82,10 @@ class DeformationGraph {
   DeformationGraph();
   ~DeformationGraph();
 
-  bool Initialize(double pgo_trans_threshold, double pgo_rot_threshold);
+  bool initialize(double pgo_trans_threshold, double pgo_rot_threshold);
 
-  void update();
-
-  inline void updateMesh(const pcl::PolygonMesh& mesh) {
-    mesh_structure_ = mesh;
-  }
+  void updateMesh(const pcl::PointCloud<pcl::PointXYZ>& new_vertices,
+                  const std::vector<pcl::Vertices> new_surfaces);
 
   void addMeasurement(const Vertex& v, const geometry_msgs::Pose& transform);
 
@@ -102,13 +99,7 @@ class DeformationGraph {
                      const gtsam::Pose3& meas,
                      const gtsam::Pose3& initial_pose = gtsam::Pose3());
 
-  void addNode(const pcl::PointXYZ& position,
-               Vertices valences,
-               bool connect_to_previous = false);
-
-  void updateNodeValence(size_t i,
-                         Vertices valences,
-                         bool connect_to_previous = false);
+  void addNodeValence(const size_t& i, const Vertices& valences);
 
   std::vector<gtsam::Pose3> getOptimizedTrajectory() const;
 
@@ -126,20 +117,18 @@ class DeformationGraph {
   }
 
  private:
-  void updateConsistencyFactors(const Graph& new_graph);
-
-  void addNonMeshNodesToGraph(Graph* graph);
+  void updateConsistencyFactors(const Vertices& new_vertices,
+                                const std::vector<Edge>& new_edges);
 
  private:
   Graph graph_;
   pcl::PointCloud<pcl::PointXYZ> vertices_;
   // Keep track of vertices not part of mesh
   // for embedding trajectory, etc.
-  std::vector<pcl::PointXYZ> pg_vertices_;
   std::vector<gtsam::Pose3> pg_initial_poses_;
   std::vector<Vertices> pg_connections_;
 
-  std::map<Vertex, gtsam::Point3> vertex_positions_;
+  std::vector<gtsam::Point3> vertex_positions_;
 
   // track mesh if one used to create deformation graph
   pcl::PolygonMesh mesh_structure_;

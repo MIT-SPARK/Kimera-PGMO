@@ -32,7 +32,7 @@ src/utils/CommonStructs.cpp
 src/utils/VoxbloxUtils.cpp
 src/utils/tinyply.cpp
 src/DeformationGraph.cpp
-src/KimeraPgmo.cpp
+# src/KimeraPgmo.cpp
 src/VoxbloxProcessing.cpp
 )
 target_link_libraries(${PROJECT_NAME} 
@@ -43,10 +43,10 @@ target_link_libraries(${PROJECT_NAME}
   gtsam
 )
 
-cs_add_executable(kimera_pgmo_node
-  src/kimera_pgmo_node.cpp
-)
-target_link_libraries(kimera_pgmo_node ${PROJECT_NAME})
+# cs_add_executable(kimera_pgmo_node
+#   src/kimera_pgmo_node.cpp
+# )
+# target_link_libraries(kimera_pgmo_node ${PROJECT_NAME})
 
 cs_add_executable(voxblox_processing_node
   src/voxblox_processing_node.cpp

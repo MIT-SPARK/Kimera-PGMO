@@ -28,17 +28,21 @@ class Graph {
 
   std::vector<Edge> getEdges() const;
 
-  void addEdge(const Edge& e);
+  void addEdge(const Edge& e, bool check = true);
   void addVertex(const Vertex& v);
   void addEdgeAndVertices(const Edge& e);
   bool combineGraph(const Graph& new_graph);
   bool createFromPclMesh(const pcl::PolygonMesh& mesh);
   bool createFromPclMeshBidirection(const pcl::PolygonMesh& mesh);
+  std::vector<Edge> addPointsAndSurfaces(
+      const std::vector<size_t>& vertices,
+      const std::vector<pcl::Vertices>& polygons);
   void print(std::string header) const;
 
  private:
   Vertices vertices_;
   Edges edges_;
+  Vertex max_vertex_ = 0;
 };
 
 typedef std::shared_ptr<Graph> GraphPtr;
