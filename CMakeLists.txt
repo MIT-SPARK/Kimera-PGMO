@@ -64,17 +64,20 @@ set(TEST_DATA_PATH "${CMAKE_CURRENT_SOURCE_DIR}/test/data")
 configure_file(test/test_config.h.in test/test_config.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/test)
 
-catkin_add_gtest(${PROJECT_NAME}-test_common_functions test/test_common_functions.cpp)
-target_link_libraries(${PROJECT_NAME}-test_common_functions ${PROJECT_NAME} -ltbb)
+# catkin_add_gtest(${PROJECT_NAME}-test_common_functions test/test_common_functions.cpp)
+# target_link_libraries(${PROJECT_NAME}-test_common_functions ${PROJECT_NAME} -ltbb)
 
-catkin_add_gtest(${PROJECT_NAME}-test_deformation_edge_factor test/test_deformation_edge_factor.cpp)
-target_link_libraries(${PROJECT_NAME}-test_deformation_edge_factor ${PROJECT_NAME} -ltbb)
+# catkin_add_gtest(${PROJECT_NAME}-test_deformation_edge_factor test/test_deformation_edge_factor.cpp)
+# target_link_libraries(${PROJECT_NAME}-test_deformation_edge_factor ${PROJECT_NAME} -ltbb)
 
-catkin_add_gtest(${PROJECT_NAME}-test_deformation_graph test/test_deformation_graph.cpp)
-target_link_libraries(${PROJECT_NAME}-test_deformation_graph ${PROJECT_NAME} -ltbb)
+# catkin_add_gtest(${PROJECT_NAME}-test_deformation_graph test/test_deformation_graph.cpp)
+# target_link_libraries(${PROJECT_NAME}-test_deformation_graph ${PROJECT_NAME} -ltbb)
 
-catkin_add_gtest(${PROJECT_NAME}-test_graph test/test_graph.cpp)
-target_link_libraries(${PROJECT_NAME}-test_graph ${PROJECT_NAME} -ltbb)
+# catkin_add_gtest(${PROJECT_NAME}-test_graph test/test_graph.cpp)
+# target_link_libraries(${PROJECT_NAME}-test_graph ${PROJECT_NAME} -ltbb)
+
+catkin_add_gtest(${PROJECT_NAME}-test_octree_compression test/test_octree_compression.cpp)
+target_link_libraries(${PROJECT_NAME}-test_octree_compression ${PROJECT_NAME} -ltbb)
 
 add_rostest_gtest(${PROJECT_NAME}-test_voxblox_processing test/test_voxblox_processing.test test/test_voxblox_processing.cpp)
 target_link_libraries(${PROJECT_NAME}-test_voxblox_processing ${PROJECT_NAME} -ltbb)

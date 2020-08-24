@@ -15,10 +15,11 @@ namespace kimera_pgmo {
 
 OctreeCompression::OctreeCompression(double resolution)
     : octree_resolution_(resolution) {
-  vertices_.reset(new PointCloud);
+  active_vertices_.reset(new PointCloud);
+  all_vertices_.reset(new PointCloud);
   // Initialize octree
   octree_.reset(new Octree(octree_resolution_));
-  octree_->setInputCloud(vertices_);
+  octree_->setInputCloud(active_vertices_);
 }
 
 OctreeCompression::~OctreeCompression() {}
@@ -40,7 +41,7 @@ void OctreeCompression::compressAndIntegrate(
   // Keep track of the new indices when redoing the connections
   // for the mesh surfaces
   std::map<size_t, size_t> remapping;
-  size_t original_size = vertices_->points.size();
+  size_t original_size = all_vertices_->points.size();
 
   for (size_t i = 0; i < new_cloud->points.size(); ++i) {
     const pcl::PointXYZRGBA p = new_cloud->points[i];
@@ -51,10 +52,13 @@ void OctreeCompression::compressAndIntegrate(
     if (!is_in_box || !octree_->isVoxelOccupiedAtPoint(p)) {
       // New point
       new_vertices->push_back(p);
-      octree_->addPointToCloud(p, vertices_);  // add to octree
+      octree_->addPointToCloud(p, active_vertices_);  // add to octree
+      all_vertices_->push_back(p);
       // Add index
-      remapping[i] = vertices_->points.size() - 1;
-      new_indices->push_back(vertices_->points.size() - 1);
+      remapping[i] = all_vertices_->points.size() - 1;
+      // keep track of index
+      active_vertices_index_.push_back(all_vertices_->points.size() - 1);
+      new_indices->push_back(all_vertices_->points.size() - 1);
       // Add latest observed time
       vertices_latest_time_.push_back(stamp_in_sec);
     } else {
@@ -63,8 +67,8 @@ void OctreeCompression::compressAndIntegrate(
       int result_idx;
       octree_->approxNearestSearch(p, result_idx, unused);
       // Add remapping index
-      remapping[i] = result_idx;
-      new_indices->push_back(result_idx);
+      remapping[i] = active_vertices_index_[result_idx];
+      new_indices->push_back(active_vertices_index_[result_idx]);
       if (result_idx < vertices_latest_time_.size())
         vertices_latest_time_.at(result_idx) = stamp_in_sec;
     }
@@ -78,7 +82,7 @@ void OctreeCompression::compressAndIntegrate(
     bool new_surface = false;
     for (size_t idx : polygon.vertices) {
       new_polygon.vertices.push_back(remapping[idx]);
-      if (remapping[idx] < original_size) new_surface = true;
+      if (remapping[idx] >= original_size) new_surface = true;
     }
     // Check if polygon has actual three diferent surfaces
     // To avoid degeneracy
@@ -98,51 +102,37 @@ void OctreeCompression::compressAndIntegrate(
 
 void OctreeCompression::pruneStoredMesh(const double& earliest_time_sec) {
   // Entries in vertices_latest_time_ shoudl correspond to number of points
-  if (vertices_latest_time_.size() != vertices_->points.size()) {
+  if (vertices_latest_time_.size() != active_vertices_->points.size()) {
     ROS_ERROR(
-        "Length of book-keeped vertex time does not match number of points. ");
+        "Length of book-keeped vertex time does not match number of active "
+        "points. ");
+  }
+
+  if (active_vertices_index_.size() != active_vertices_->points.size()) {
+    ROS_ERROR(
+        "Length of book-keeped vertex indices does not match number of active "
+        "points. ");
   }
   // Discard all vertices last detected before this time
-  PointCloud new_vertices;
-  std::vector<double> new_vertices_time;
-  std::vector<size_t> removed_indices;
+  PointCloud temp_active_vertices = *active_vertices_;
+  std::vector<double> temp_vertices_time = vertices_latest_time_;
+  std::vector<size_t> temp_vertices_index = active_vertices_index_;
 
-  for (size_t i = 0; i < vertices_latest_time_.size(); i++) {
-    if (vertices_latest_time_[i] > earliest_time_sec) {
-      new_vertices_time.push_back(vertices_latest_time_[i]);
-      new_vertices.push_back(vertices_->points[i]);
-    } else {
-      // Track the indices of the removed vertices
-      removed_indices.push_back(i);
+  active_vertices_->clear();
+  vertices_latest_time_.clear();
+  active_vertices_index_.clear();
+
+  // Reset octree
+  octree_.reset(new Octree(octree_resolution_));
+  octree_->setInputCloud(active_vertices_);
+
+  for (size_t i = 0; i < temp_vertices_time.size(); i++) {
+    if (temp_vertices_time[i] > earliest_time_sec) {
+      octree_->addPointToCloud(temp_active_vertices.points[i],
+                               active_vertices_);  // add to octree
+      vertices_latest_time_.push_back(temp_vertices_time[i]);
+      active_vertices_index_.push_back(temp_vertices_index[i]);
     }
-  }
-
-  // If discarded new points
-  if (removed_indices.size() > 0) {
-    // Set to not-removed vertices
-    *vertices_ = new_vertices;
-    vertices_latest_time_ = new_vertices_time;
-
-    // Reset octree
-    octree_.reset(new Octree(octree_resolution_));
-    octree_->setInputCloud(vertices_);
-
-    // Reset polygons
-    std::vector<pcl::Vertices> new_polygons;
-    for (pcl::Vertices polygon : polygons_) {
-      bool remove = false;
-      for (size_t idx : polygon.vertices) {
-        // Check if polygon has removed vertices
-        if (std::find(removed_indices.begin(), removed_indices.end(), idx) !=
-            removed_indices.end())
-          remove = true;
-        break;
-      }
-      if (!remove) {
-        new_polygons.push_back(polygon);
-      }
-    }
-    polygons_ = new_polygons;
   }
 }
 
