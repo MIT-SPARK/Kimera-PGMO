@@ -17,56 +17,43 @@
 namespace kimera_pgmo {
 
 class OctreeCompression {
+  friend class OctreeCompressionTest;
+
  public:
   typedef pcl::PointCloud<pcl::PointXYZRGBA> PointCloud;
   typedef pcl::PointCloud<pcl::PointXYZ> PointCloudXYZ;
   typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBA> Octree;
 
-  OctreeCompression();
+  OctreeCompression(double resolution);
   ~OctreeCompression();
 
-  bool Initialize(const ros::NodeHandle& n,
-                  double resolution,
-                  std::string label);
+  /*! \brief Compress and integrate with the full compressed mesh
+   *  - input: input mesh in polygon mesh type
+   *  - new_vertices: new vertices added after compression
+   *  - new_triangles: new mesh surfaces (as triangles) added after compression
+   *  - new_indices: indices of the vertices of the compressed partial mesh
+   *  - stamp_in_sec: current time stamp in seconds
+   */
+  void compressAndIntegrate(
+      const pcl::PolygonMesh& input,
+      pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
+      std::vector<pcl::Vertices>* new_triangles,
+      std::vector<size_t>* new_indices,
+      const double& stamp_in_sec = ros::Time::now().toSec());
 
-  bool PublishVertices();
+  /*! \brief Discard parts of the stored compressed full mesh by detection time
+   *  - earliest_time_sec: discard all vertices added earlier than this time in
+   * seconds
+   */
+  void pruneStoredMesh(const double& earliest_time_sec);
 
-  bool PublishMesh();
-
-  inline void getVertices(PointCloud::Ptr vertices) const {
-    *vertices = *vertices_;
-  }
-
-  inline void getPolygons(std::vector<pcl::Vertices>* polygons) {
-    *polygons = polygons_;
-  }
-
-  inline void getVerticesTimestamps(std::vector<double>* vertices_times) {
-    *vertices_times = vertices_latest_time_;
-  }
-
- private:
-  bool LoadParameters(const ros::NodeHandle& n);
-  bool RegisterCallbacks(const ros::NodeHandle& n);
-
-  // Callback for input mesh
-  void InsertMesh(const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
-
-  std::string frame_id_;
+ protected:
   PointCloud::Ptr vertices_;
   std::vector<pcl::Vertices> polygons_;
   Octree::Ptr octree_;
 
-  std::vector<std::vector<pcl::Vertices>> adjacent_surfaces_;
   std::vector<double> vertices_latest_time_;
 
   double octree_resolution_;
-  std::string label_;
-
-  // Publishers
-  ros::Publisher vertices_pub_;
-  ros::Publisher mesh_pub_;
-
-  ros::Subscriber mesh_sub_;
 };
 }  // namespace kimera_pgmo

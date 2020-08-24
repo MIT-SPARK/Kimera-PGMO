@@ -62,7 +62,7 @@ class KimeraPgmo {
   ros::Time last_mesh_stamp_;
 
   // To get the simplified mesh for deformation graph
-  OctreeCompression d_graph_compression_;
+  // OctreeCompression d_graph_compression_;
 
   DeformationGraph deformation_graph_;
 

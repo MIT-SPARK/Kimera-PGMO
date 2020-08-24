@@ -48,13 +48,13 @@ bool KimeraPgmo::LoadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("d_graph_resolution", deformation_graph_resolution))
     return false;
 
-  if (!d_graph_compression_.Initialize(
-          n, deformation_graph_resolution, "deformation")) {
-    ROS_ERROR(
-        "KimeraPgmo: Failed to intialize deformation graph compression "
-        "module.");
-    return false;
-  }
+  // if (!d_graph_compression_.Initialize(
+  //         n, deformation_graph_resolution, "deformation")) {
+  //   ROS_ERROR(
+  //       "KimeraPgmo: Failed to intialize deformation graph compression "
+  //       "module.");
+  //   return false;
+  // }
 
   // start deformation graph module
   double pgo_trans_threshold, pgo_rot_threshold;
@@ -233,7 +233,7 @@ void KimeraPgmo::IncrementalPoseGraphCallback(
   // Associate the node to the simplified mesh and add to trajectory
   // Get the latest observation timestamp of the vertices
   std::vector<double> latest_observed_times;
-  d_graph_compression_.getVerticesTimestamps(&latest_observed_times);
+  // d_graph_compression_.getVerticesTimestamps(&latest_observed_times);
   // check the latest progress of mesh received
   double latest_observed_t = 0;
   if (latest_observed_times.size() > 0)
@@ -242,7 +242,7 @@ void KimeraPgmo::IncrementalPoseGraphCallback(
   // Get the vertices of the simplified mesh
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr simplified_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  d_graph_compression_.getVertices(simplified_vertices);
+  // d_graph_compression_.getVertices(simplified_vertices);
   // TODO might not be best but for now need to do this
   // since meshes is running slow, fix later to synch properly
   for (size_t i = 0; i < trajectory_.size(); i++) {
@@ -274,7 +274,7 @@ void KimeraPgmo::IncrementalPoseGraphCallback(
   pcl::PolygonMesh simplified_mesh;
   // Fill in simplified mesh
   std::vector<pcl::Vertices> simplified_polygons;
-  d_graph_compression_.getPolygons(&simplified_polygons);
+  // d_graph_compression_.getPolygons(&simplified_polygons);
   simplified_mesh.polygons = simplified_polygons;
   pcl::toPCLPointCloud2(*simplified_vertices, simplified_mesh.cloud);
 
