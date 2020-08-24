@@ -15,6 +15,9 @@ In addition to PCL, OpenCV, GTSAM, the following pacakges AND THEIR DEPENDENCIES
 
 [Mesh Msgs](https://github.com/yunzc/colorized_mesh_display)
 
+## Architecture 
+![Basic system setup in the single robot case](diagram.png)
+
 ## Running Kimera-PGMO
 
 ### Single robot Kimera
