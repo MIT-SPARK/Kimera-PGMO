@@ -39,7 +39,7 @@ bool DeformationGraph::initialize(double pgo_trans_threshold,
 }
 
 void DeformationGraph::updateMesh(
-    const pcl::PointCloud<pcl::PointXYZ>& new_vertices,
+    const pcl::PointCloud<pcl::PointXYZRGBA>& new_vertices,
     const std::vector<pcl::Vertices> new_surfaces) {
   // Add new points to vertices
   size_t start_of_new_idx = vertex_positions_.size();
@@ -221,7 +221,8 @@ void DeformationGraph::addNewBetween(const size_t& from,
   return;
 }
 
-void DeformationGraph::initFirstNode(const gtsam::Pose3& initial_pose) {
+void DeformationGraph::initFirstNode(const gtsam::Pose3& initial_pose,
+                                     bool add_prior) {
   // new node
   // For now push empty valence, valences will be populated when updated
   gtsam::Values new_values;
@@ -235,8 +236,12 @@ void DeformationGraph::initFirstNode(const gtsam::Pose3& initial_pose) {
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
   new_values.insert(symb, initial_pose);
-  pg_factors_.add(gtsam::PriorFactor<gtsam::Pose3>(symb, initial_pose, noise));
-  new_factors.add(gtsam::PriorFactor<gtsam::Pose3>(symb, initial_pose, noise));
+  if (add_prior) {
+    pg_factors_.add(
+        gtsam::PriorFactor<gtsam::Pose3>(symb, initial_pose, noise));
+    new_factors.add(
+        gtsam::PriorFactor<gtsam::Pose3>(symb, initial_pose, noise));
+  }
 
   pgo_->update(new_factors, new_values);
   values_ = pgo_->calculateEstimate();
@@ -270,7 +275,7 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
     std::vector<std::pair<Vertex, double>> nearest_nodes;
     gtsam::Point3 vi(p.x, p.y, p.z);
     for (size_t i = 0; i < vertices_.points.size(); i++) {
-      pcl::PointXYZ p_vertex = vertices_.points.at(i);
+      pcl::PointXYZRGBA p_vertex = vertices_.points.at(i);
       double distance = (p.x - p_vertex.x) * (p.x - p_vertex.x) +
                         (p.y - p_vertex.y) * (p.y - p_vertex.y) +
                         (p.z - p_vertex.z) * (p.z - p_vertex.z);
@@ -298,7 +303,7 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
     double d_max = std::sqrt(nearest_nodes.at(nearest_nodes.size() - 1).second);
     double weight_sum = 0;
     for (size_t j = 0; j < nearest_nodes.size() - 1; j++) {
-      pcl::PointXYZ p_g = vertices_.points.at(nearest_nodes[j].first);
+      pcl::PointXYZRGBA p_g = vertices_.points.at(nearest_nodes[j].first);
       gtsam::Point3 gj(p_g.x, p_g.y, p_g.z);
       double weight = (1 - std::sqrt(nearest_nodes[j].second) / d_max);
       if (weight_sum == 0 && weight == 0) weight = 1;

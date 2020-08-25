@@ -75,6 +75,9 @@ class DeformationEdgeFactor
 
     return t2_1 - t2_2;
   }
+
+  inline gtsam::Pose3 fromPose() const { return node1_pose; }
+  inline gtsam::Point3 toPoint() const { return node2_position; }
 };
 
 class DeformationGraph {
@@ -84,7 +87,7 @@ class DeformationGraph {
 
   bool initialize(double pgo_trans_threshold, double pgo_rot_threshold);
 
-  void updateMesh(const pcl::PointCloud<pcl::PointXYZ>& new_vertices,
+  void updateMesh(const pcl::PointCloud<pcl::PointXYZRGBA>& new_vertices,
                   const std::vector<pcl::Vertices> new_surfaces);
 
   void addMeasurement(const Vertex& v, const geometry_msgs::Pose& transform);
@@ -92,7 +95,7 @@ class DeformationGraph {
   void addNodeMeasurement(const size_t& node_number,
                           const gtsam::Pose3 delta_pose);
 
-  void initFirstNode(const gtsam::Pose3& initial_pose);
+  void initFirstNode(const gtsam::Pose3& initial_pose, bool add_prior);
 
   void addNewBetween(const size_t& from,
                      const size_t& to,
@@ -107,10 +110,13 @@ class DeformationGraph {
                               size_t k = 4);
 
   inline size_t getNumVertices() const { return vertices_.points.size(); }
-  inline pcl::PointCloud<pcl::PointXYZ> getVertices() const {
+  inline pcl::PointCloud<pcl::PointXYZRGBA> getVertices() const {
     return vertices_;
   }
   inline Graph getGraph() const { return graph_; }
+
+  inline gtsam::Values getGtsamValues() const { return values_; }
+  inline gtsam::NonlinearFactorGraph getGtsamFactors() const { return nfg_; }
 
   inline GraphMsgPtr getPoseGraph(const std::vector<ros::Time>& timestamps) {
     return GtsamGraphToRos(nfg_, values_, timestamps);
@@ -122,7 +128,7 @@ class DeformationGraph {
 
  private:
   Graph graph_;
-  pcl::PointCloud<pcl::PointXYZ> vertices_;
+  pcl::PointCloud<pcl::PointXYZRGBA> vertices_;
   // Keep track of vertices not part of mesh
   // for embedding trajectory, etc.
   std::vector<gtsam::Pose3> pg_initial_poses_;
