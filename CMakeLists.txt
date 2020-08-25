@@ -82,6 +82,9 @@ target_link_libraries(${PROJECT_NAME}-test_octree_compression ${PROJECT_NAME} -l
 add_rostest_gtest(${PROJECT_NAME}-test_voxblox_processing test/test_voxblox_processing.test test/test_voxblox_processing.cpp)
 target_link_libraries(${PROJECT_NAME}-test_voxblox_processing ${PROJECT_NAME} -ltbb)
 
+add_rostest_gtest(${PROJECT_NAME}-test_kimera_pgmo test/test_kimera_pgmo.test test/test_kimera_pgmo.cpp)
+target_link_libraries(${PROJECT_NAME}-test_kimera_pgmo ${PROJECT_NAME} -ltbb)
+
 cs_install()
 
 cs_export()

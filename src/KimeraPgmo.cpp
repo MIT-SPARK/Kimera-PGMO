@@ -42,7 +42,7 @@ bool KimeraPgmo::loadParameters(const ros::NodeHandle& n) {
     ROS_INFO("Saving optimized data to: %s .ply and .csv",
              output_prefix_.c_str());
   }
-  if (!n.getParam("embed_trajectory/max_delta_t", embed_delta_t_)) return false;
+  if (!n.getParam("embed_trajectory_delta_t", embed_delta_t_)) return false;
 
   // start the mesh compression module for deformation graph
   double deformation_graph_resolution;
@@ -211,6 +211,7 @@ void KimeraPgmo::incrementalPoseGraphCallback(
     // Initiate first node but do not add prior
     deformation_graph_.initFirstNode(init_pose, false);
     trajectory_.push_back(init_pose);
+    timestamps_.push_back(odom_edge.header.stamp);
     unconnected_nodes_.push(prev_node);
     ROS_INFO("Initialized first node in pose graph. ");
   }

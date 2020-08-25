@@ -26,6 +26,8 @@
 
 namespace kimera_pgmo {
 class KimeraPgmo {
+  friend class KimeraPgmoTest;
+
  public:
   KimeraPgmo();
   ~KimeraPgmo();
@@ -33,7 +35,7 @@ class KimeraPgmo {
   // Initialize parameters, publishers, and subscribers
   bool initialize(const ros::NodeHandle& n);
 
- private:
+ protected:
   bool loadParameters(const ros::NodeHandle& n);
 
   bool createPublishers(const ros::NodeHandle& n);
