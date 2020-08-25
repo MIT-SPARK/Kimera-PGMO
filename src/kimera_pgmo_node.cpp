@@ -13,8 +13,8 @@ int main(int argc, char* argv[]) {
   ros::NodeHandle n("~");
 
   kimera_pgmo::KimeraPgmo kimera_pgmo;
-  if (!kimera_pgmo.Initialize(n)) {
-    ROS_ERROR("Failed to initialize Mesher Mapper.");
+  if (!kimera_pgmo.initialize(n)) {
+    ROS_ERROR("Failed to initialize Kimera Pgmo.");
     return EXIT_FAILURE;
   }
 
