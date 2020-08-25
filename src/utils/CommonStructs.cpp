@@ -46,20 +46,25 @@ void Graph::addEdgeAndVertices(const Edge& e) {
   addEdge(e);
 }
 
-void Graph::addEdge(const Edge& e, bool check) {
+bool Graph::addEdge(const Edge& e, bool check) {
   // Push edge
   if (!check) {
     edges_[e.first].push_back(e.second);
-    return;
+    return true;
   }
   Edges::iterator iter = edges_.find(e.first);
   if (iter == edges_.end()) {
     edges_[e.first] = Vertices{e.second};
+    return true;
   } else {
     std::vector<Vertex>::iterator iter2;
     iter2 = std::find(edges_[e.first].begin(), edges_[e.first].end(), e.second);
-    if (iter2 == edges_[e.first].end()) edges_[e.first].push_back(e.second);
+    if (iter2 == edges_[e.first].end()) {
+      edges_[e.first].push_back(e.second);
+      return true;
+    }
   }
+  return false;
 }
 
 bool Graph::createFromPclMesh(const pcl::PolygonMesh& mesh) {
@@ -111,11 +116,9 @@ std::vector<Edge> Graph::addPointsAndSurfaces(
     for (size_t i = 0; i < polygon.vertices.size(); i++) {
       size_t i_next = (i + 1) % polygon.vertices.size();
       Edge e1(polygon.vertices[i], polygon.vertices[i_next]);
-      addEdge(e1);
+      if (addEdge(e1, true)) new_edges.push_back(e1);
       Edge e2(polygon.vertices[i_next], polygon.vertices[i]);
-      addEdge(e2);
-      new_edges.push_back(e1);
-      new_edges.push_back(e2);
+      if (addEdge(e2, true)) new_edges.push_back(e2);
     }
   }
   return new_edges;

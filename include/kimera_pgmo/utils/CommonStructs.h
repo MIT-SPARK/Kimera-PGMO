@@ -28,7 +28,7 @@ class Graph {
 
   std::vector<Edge> getEdges() const;
 
-  void addEdge(const Edge& e, bool check = true);
+  bool addEdge(const Edge& e, bool check = true);
   void addVertex(const Vertex& v);
   void addEdgeAndVertices(const Edge& e);
   bool combineGraph(const Graph& new_graph);
