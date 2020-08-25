@@ -32,7 +32,7 @@ src/utils/CommonStructs.cpp
 src/utils/VoxbloxUtils.cpp
 src/utils/tinyply.cpp
 src/DeformationGraph.cpp
-# src/KimeraPgmo.cpp
+src/KimeraPgmo.cpp
 src/VoxbloxProcessing.cpp
 )
 target_link_libraries(${PROJECT_NAME} 

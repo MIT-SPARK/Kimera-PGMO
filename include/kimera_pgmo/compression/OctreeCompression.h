@@ -17,8 +17,6 @@
 namespace kimera_pgmo {
 
 class OctreeCompression {
-  friend class OctreeCompressionTest;
-
  public:
   typedef pcl::PointCloud<pcl::PointXYZRGBA> PointCloud;
   typedef pcl::PointCloud<pcl::PointXYZ> PointCloudXYZ;
@@ -75,4 +73,6 @@ class OctreeCompression {
 
   double octree_resolution_;
 };
+
+typedef std::shared_ptr<OctreeCompression> OctreeCompressionPtr;
 }  // namespace kimera_pgmo
