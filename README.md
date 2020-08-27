@@ -47,7 +47,7 @@ roslaunch kimera_vio_ros kimera_vio_ros_uhumans2.launch
 ```
 Then launch kimera_pgmo:
 ```bash
-rosunch kimera_pgmo kimera_pgmo.launch launch_voxblox:=false dataset:=uhumans2
+rosunch kimera_pgmo kimera_pgmo.launch launch_voxblox:=false dataset:=uhumans
 ```
 Launch Kimera-Semantics:
 ```basg

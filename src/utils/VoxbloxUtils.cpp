@@ -122,9 +122,7 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
     // Keep track of triangle_new separate, since indices different
     triangle_new.vertices.push_back(vidx_new);
     if (triangle.vertices.size() == 3) {
-      if (new_triangle) {
-        triangles->push_back(triangle);
-      }
+      triangles->push_back(triangle);
       new_added_mesh.polygons.push_back(triangle_new);
       triangle = pcl::Vertices();
       triangle_new = pcl::Vertices();

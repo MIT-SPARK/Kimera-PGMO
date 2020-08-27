@@ -1,9 +1,9 @@
 <launch>
-  <arg name="dataset" default="uhumans1" />
+  <arg name="dataset" default="uhumans" />
   <arg name="launch_voxblox" default="true" />
 
   <node name="voxblox_processing" pkg="kimera_pgmo" type="voxblox_processing_node" output="screen" >
-    <param name="horizon" value="360" />
+    <param name="horizon" value="1000" />
     <remap from="~voxblox_mesh" to="/voxblox_node/mesh" if="$(arg launch_voxblox)" />
     <remap from="~voxblox_mesh" to="/kimera_semantics_node/mesh" unless="$(arg launch_voxblox)" />
   </node> 

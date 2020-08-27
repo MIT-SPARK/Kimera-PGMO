@@ -297,6 +297,7 @@ void KimeraPgmo::incrementalMeshCallback(
     size_t node = unconnected_nodes_.front();
     unconnected_nodes_.pop();
     if (timestamps_[node].toSec() > msg_time - embed_delta_t_) {
+      ROS_INFO("Connection node %d to %d vertices. ", node, new_indices.size());
       deformation_graph_.addNodeValence(node, new_indices);
     }
     // termination guarantee
