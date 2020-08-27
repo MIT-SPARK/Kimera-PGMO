@@ -37,6 +37,7 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
   // Mesh corresponding to input mesh block
   pcl::PolygonMesh new_added_mesh;
   pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
+  std::vector<size_t> updated_indices_partial;
 
   // Extract mesh block
   size_t vertex_index = vertices->points.size();
@@ -88,12 +89,13 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
     }
 
     // Also check the new vertices
-    for (size_t j : *updated_indices) {
-      if (mesh_x == vertices->points[j].x && mesh_y == vertices->points[j].y &&
-          mesh_z == vertices->points[j].z) {
-        vidx = j;
+    for (size_t j = 0; j < updated_indices->size(); j++) {
+      size_t k = updated_indices->at(j);
+      if (mesh_x == vertices->points[k].x && mesh_y == vertices->points[k].y &&
+          mesh_z == vertices->points[k].z) {
+        vidx = k;
         // For partial mesh, the indices should start with 0
-        vidx_new = j - updated_indices->at(0);
+        vidx_new = updated_indices_partial.at(j);
         point_exists = true;
         point_exists_in_new = true;
         break;
@@ -113,6 +115,7 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
       vidx_new = vertex_index_new++;
       new_vertices.push_back(point);
       updated_indices->push_back(vidx);
+      updated_indices_partial.push_back(vidx_new);
     }
 
     triangle.vertices.push_back(vidx);

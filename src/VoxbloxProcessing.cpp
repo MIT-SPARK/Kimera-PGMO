@@ -46,12 +46,14 @@ bool VoxbloxProcessing::createPublishers(const ros::NodeHandle& n) {
       nl.advertise<mesh_msgs::TriangleMeshStamped>("full_mesh", 1, false);
   partial_mesh_pub_ =
       nl.advertise<mesh_msgs::TriangleMeshStamped>("partial_mesh", 1, false);
+  return true;
 }
 
 bool VoxbloxProcessing::registerCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
   voxblox_sub_ = nl.subscribe(
       "voxblox_mesh", 20, &VoxbloxProcessing::voxbloxCallback, this);
+  return true;
 }
 
 void VoxbloxProcessing::voxbloxCallback(
