@@ -5,6 +5,7 @@ Panels:
     Property Tree Widget:
       Expanded:
         - /Ground Truth1/Shape1
+        - /debug1/PartialMesh1/Status1
       Splitter Ratio: 0.5
     Tree Height: 443
   - Class: rviz/Selection
@@ -242,9 +243,51 @@ Visualization Manager:
       Marker Topic: /kimera_pgmo_node/posegraph_viewer/odometry_edges
       Name: Odometry
       Namespaces:
-        world: true
+        {}
       Queue Size: 100
       Value: true
+    - Class: rviz/Group
+      Displays:
+        - Class: rviz_mesh_plugin/TriangleMesh
+          Display Type:
+            Faces Alpha: 1
+            Faces Color: 0; 255; 0
+            Value: Vertex Color
+          Enabled: true
+          Mesh Buffer Size: 1
+          Name: PartialMesh
+          Show Normals:
+            Normals Alpha: 1
+            Normals Color: 255; 0; 255
+            Normals Scaling Factor: 0.10000000149011612
+            Value: false
+          Show Wireframe:
+            Value: false
+            Wireframe Alpha: 1
+            Wireframe Color: 0; 0; 0
+          Topic: /voxblox_processing/partial_mesh
+          Value: true
+        - Class: rviz_mesh_plugin/TriangleMesh
+          Display Type:
+            Faces Alpha: 1
+            Faces Color: 0; 255; 0
+            Value: Vertex Color
+          Enabled: true
+          Mesh Buffer Size: 1
+          Name: FullMesh
+          Show Normals:
+            Normals Alpha: 1
+            Normals Color: 255; 0; 255
+            Normals Scaling Factor: 0.10000000149011612
+            Value: false
+          Show Wireframe:
+            Value: false
+            Wireframe Alpha: 1
+            Wireframe Color: 0; 0; 0
+          Topic: /voxblox_processing/full_mesh
+          Value: true
+      Enabled: false
+      Name: debug
   Enabled: true
   Global Options:
     Background Color: 0; 0; 0
@@ -273,25 +316,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 14.64339828491211
+      Distance: 75.50546264648438
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -0.7478491067886353
-        Y: 0.7055305242538452
-        Z: -0.20652274787425995
+        X: 15.866344451904297
+        Y: -0.17518462240695953
+        Z: -1.8436565399169922
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 0.5052028894424438
+      Pitch: 0.8747963309288025
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 5.7485761642456055
+      Yaw: 1.798574447631836
     Saved: ~
 Window Geometry:
   Displays:
