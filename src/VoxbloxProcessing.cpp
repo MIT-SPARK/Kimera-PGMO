@@ -158,7 +158,7 @@ void VoxbloxProcessing::publishFullMesh(const ros::Time& stamp) const {
   new_msg.header.stamp = stamp;
   new_msg.header.frame_id = "world";
   new_msg.mesh = mesh_msg;
-  partial_mesh_pub_.publish(new_msg);
+  full_mesh_pub_.publish(new_msg);
 }
 
 }  // namespace kimera_pgmo
