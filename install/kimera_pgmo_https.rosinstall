@@ -1,0 +1,19 @@
+- git:
+    local-name: catkin_simple
+    uri: https://github.com/catkin/catkin_simple.git
+    version: master
+- git:
+    local-name: mesh_tools
+    uri: https://github.com/yunzc/mesh_tools.git
+    version: master
+- git:
+    local-name: pose_graph_tools
+    uri: https://github.com/MIT-SPARK/pose_graph_tools.git
+    version: feature/multirobot
+- git:
+    local-name: Kimera-RPGO
+    uri: https://github.com/MIT-SPARK/Kimera-RPGO.git
+    version: master
+- git:
+    local-name: voxblox
+    uri: https://github.com/ethz-asl/voxblox.git
