@@ -68,7 +68,11 @@ void OctreeCompression::compressAndIntegrate(
       octree_->approxNearestSearch(p, result_idx, unused);
       // Add remapping index
       remapping[i] = active_vertices_index_[result_idx];
-      new_indices->push_back(active_vertices_index_[result_idx]);
+      // Push to new indices if does not already yet
+      if (std::find(new_indices->begin(),
+                    new_indices->end(),
+                    active_vertices_index_[result_idx]) == new_indices->end())
+        new_indices->push_back(active_vertices_index_[result_idx]);
       if (result_idx < vertices_latest_time_.size())
         vertices_latest_time_.at(result_idx) = stamp_in_sec;
     }
