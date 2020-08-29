@@ -1,5 +1,5 @@
 /**
- * @file   testCommonFunctions.cpp
+ * @file   test_common_functions.cpp
  * @brief  Unit-tests for some common functions
  * @author Yun Chang
  */
@@ -15,7 +15,7 @@
 #include "test_config.h"
 
 namespace kimera_pgmo {
-TEST(CommonFunctions, testReadPLY) {
+TEST(test_common_functions, testReadPLY) {
   pcl::PolygonMeshPtr mesh(new pcl::PolygonMesh());
   ReadMeshFromPly(std::string(DATASET_PATH) + "/sphere.ply", mesh);
 
@@ -40,7 +40,7 @@ TEST(CommonFunctions, testReadPLY) {
   EXPECT_EQ(127, cloud.points[421].z);
 }
 
-TEST(CommonFunctions, PCLtoMeshMsg) {
+TEST(test_common_functions, PCLtoMeshMsg) {
   pcl::PolygonMeshPtr mesh(new pcl::PolygonMesh());
   ReadMeshFromPly(std::string(DATASET_PATH) + "/sphere.ply", mesh);
 
@@ -64,7 +64,7 @@ TEST(CommonFunctions, PCLtoMeshMsg) {
             new_mesh.polygons[839].vertices[0]);
 }
 
-TEST(CommonFunctions, PolygonsEqual) {
+TEST(test_common_functions, PolygonsEqual) {
   pcl::Vertices p0, p1, p2, p3;
 
   p0.vertices.push_back(0);
@@ -90,3 +90,8 @@ TEST(CommonFunctions, PolygonsEqual) {
   EXPECT_FALSE(PolygonsEqual(p0, p3));
 }
 }  // namespace kimera_pgmo
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}

@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <queue>
 #include <string>
 
 #include <nav_msgs/Odometry.h>
@@ -25,36 +26,42 @@
 
 namespace kimera_pgmo {
 class KimeraPgmo {
+  friend class KimeraPgmoTest;
+
  public:
   KimeraPgmo();
   ~KimeraPgmo();
 
   // Initialize parameters, publishers, and subscribers
-  bool Initialize(const ros::NodeHandle& n);
+  bool initialize(const ros::NodeHandle& n);
 
- private:
-  bool LoadParameters(const ros::NodeHandle& n);
+ protected:
+  bool loadParameters(const ros::NodeHandle& n);
 
-  bool CreatePublishers(const ros::NodeHandle& n);
+  bool createPublishers(const ros::NodeHandle& n);
 
-  bool RegisterCallbacks(const ros::NodeHandle& n);
+  bool registerCallbacks(const ros::NodeHandle& n);
 
   // Functions to publish
-  bool PublishOptimizedMesh();
-  bool PublishOptimizedPath() const;
+  bool publishOptimizedMesh();
+  bool publishOptimizedPath() const;
 
   // Callback for loopclosure
-  void IncrementalPoseGraphCallback(
+  void incrementalPoseGraphCallback(
       const pose_graph_tools::PoseGraph::ConstPtr& msg);
 
   // Callback for mesh input
-  void MeshCallback(const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
+  void fullMeshCallback(
+      const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
+
+  void incrementalMeshCallback(
+      const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
 
   // Save mesh service callback
-  bool SaveMeshCallback(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
+  bool saveMeshCallback(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
 
   // Save optimized trajectory callback
-  bool SaveTrajectoryCallback(std_srvs::Empty::Request&,
+  bool saveTrajectoryCallback(std_srvs::Empty::Request&,
                               std_srvs::Empty::Response&);
 
   pcl::PolygonMesh input_mesh_;
@@ -62,9 +69,11 @@ class KimeraPgmo {
   ros::Time last_mesh_stamp_;
 
   // To get the simplified mesh for deformation graph
-  OctreeCompression d_graph_compression_;
+  // OctreeCompression d_graph_compression_;
 
   DeformationGraph deformation_graph_;
+  OctreeCompressionPtr compression_;
+  double compression_time_horizon_;
 
   // Publishers
   ros::Publisher optimized_mesh_pub_;
@@ -74,7 +83,8 @@ class KimeraPgmo {
 
   // Subscribers
   ros::Subscriber pose_graph_incremental_sub_;
-  ros::Subscriber input_mesh_sub_;
+  ros::Subscriber full_mesh_sub_;
+  ros::Subscriber incremental_mesh_sub_;
 
   // Service
   ros::ServiceServer save_mesh_srv_;
@@ -82,13 +92,13 @@ class KimeraPgmo {
 
   // Trajectory
   std::vector<gtsam::Pose3> trajectory_;
+  std::queue<size_t> unconnected_nodes_;
   std::vector<ros::Time> timestamps_;
+  double embed_delta_t_;
+  // maximum time allowed when associating node to mesh
 
   std::string frame_id_;
 
-  // Parameters for embedding
-  double embed_delta_t_;
-  double embed_delta_r_;
   double timer_period_;
 
   // Save output

@@ -1,5 +1,5 @@
 /**
- * @file   testGraph.cpp
+ * @file   test_graph.cpp
  * @brief  Unit-tests for the graph structure
  * @author Yun Chang
  */
@@ -37,7 +37,7 @@ pcl::PolygonMesh createSimpleMesh() {
   return mesh;
 }
 
-TEST(Graph, createFromPclMesh) {
+TEST(test_graph, createFromPclMesh) {
   pcl::PolygonMesh mesh = createSimpleMesh();
 
   Graph new_graph;
@@ -58,7 +58,7 @@ TEST(Graph, createFromPclMesh) {
   EXPECT_EQ(valences_4, new_graph.getValence(4));
 }
 
-TEST(Graph, createFromPclMeshBidirection) {
+TEST(test_graph, createFromPclMeshBidirection) {
   pcl::PolygonMesh mesh = createSimpleMesh();
 
   Graph new_graph;
@@ -88,7 +88,7 @@ TEST(Graph, createFromPclMeshBidirection) {
   EXPECT_EQ(valences_4, actual_4);
 }
 
-TEST(Graph, addEdgeAndVertices) {
+TEST(test_graph, addEdgeAndVertices) {
   Graph new_graph;
   new_graph.addEdgeAndVertices(Edge(0, 1));
   Vertices new_vertices = Vertices{0, 1};
@@ -109,7 +109,7 @@ TEST(Graph, addEdgeAndVertices) {
   EXPECT_EQ(valence_0, new_graph.getValence(0));
 }
 
-TEST(Graph, addEdge) {
+TEST(test_graph, addEdge) {
   pcl::PolygonMesh mesh = createSimpleMesh();
 
   Graph new_graph;
@@ -130,7 +130,7 @@ TEST(Graph, addEdge) {
   EXPECT_EQ(valences_4, new_graph.getValence(4));
 }
 
-TEST(Graph, combineGraph) {
+TEST(test_graph, combineGraph) {
   Graph graph_1, graph_2;
 
   graph_1.addEdgeAndVertices(Edge(0, 1));
@@ -151,4 +151,43 @@ TEST(Graph, combineGraph) {
   EXPECT_EQ(Edge(3, 2), graph_1.getEdges()[5]);
 }
 
+TEST(test_graph, addPointsAndSurfaces) {
+  Graph graph;
+
+  graph.addEdgeAndVertices(Edge(0, 1));
+  graph.addEdgeAndVertices(Edge(1, 0));
+  graph.addEdgeAndVertices(Edge(1, 2));
+  graph.addEdgeAndVertices(Edge(2, 1));
+  graph.addEdgeAndVertices(Edge(2, 0));
+  graph.addEdgeAndVertices(Edge(0, 2));
+
+  std::vector<size_t> new_indices = {3, 4};
+  std::vector<pcl::Vertices> new_polygons;
+
+  pcl::Vertices p1, p2;
+  p1.vertices = {2, 3, 4};
+  p2.vertices = {0, 1, 4};
+  new_polygons = {p1, p2};
+
+  std::vector<Edge> new_edges =
+      graph.addPointsAndSurfaces(new_indices, new_polygons);
+
+  EXPECT_EQ(size_t(10), new_edges.size());
+  EXPECT_EQ(Edge(2, 3), new_edges[0]);
+  EXPECT_EQ(Edge(0, 4), new_edges[9]);
+
+  Vertices expected_vertices(5);
+  std::iota(std::begin(expected_vertices), std::end(expected_vertices), 0);
+  EXPECT_EQ(expected_vertices, graph.getVertices());
+
+  EXPECT_EQ(size_t(16), graph.getEdges().size());
+  EXPECT_EQ(Edge(0, 1), graph.getEdges()[0]);
+  EXPECT_EQ(Edge(4, 0), graph.getEdges()[15]);
+}
+
 }  // namespace kimera_pgmo
+
+int main(int argc, char** argv) {
+  ::testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}

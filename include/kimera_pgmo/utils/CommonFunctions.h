@@ -31,6 +31,10 @@ void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh);
 mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
     const pcl::PolygonMesh& polygon_mesh);
 
+mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
+    const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
+    const std::vector<pcl::Vertices>& polygons);
+
 pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
     const mesh_msgs::TriangleMesh& mesh_msg);
 
@@ -44,19 +48,6 @@ pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
                                const pcl::PolygonMesh& mesh2,
                                const std::vector<size_t>& indices_to_check,
                                std::vector<size_t>* vertex_indices);
-
-pcl::PolygonMesh UpdateMesh(const pcl::PolygonMesh& mesh1,
-                            const voxblox_msgs::MeshBlock& mesh_block,
-                            const float& block_edge_length,
-                            const std::vector<size_t>& original_indices,
-                            std::vector<size_t>* updated_indices);
-
-pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
-    const voxblox_msgs::MeshBlock& mesh_block,
-    float block_edge_length);
-
-pcl::PolygonMesh VoxbloxToPolygonMesh(
-    const voxblox_msgs::Mesh::ConstPtr& voxblox_mesh);
 
 bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2);
 

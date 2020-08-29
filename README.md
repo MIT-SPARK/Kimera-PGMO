@@ -15,6 +15,9 @@ In addition to PCL, OpenCV, GTSAM, the following pacakges AND THEIR DEPENDENCIES
 
 [Mesh Msgs](https://github.com/yunzc/colorized_mesh_display)
 
+## Architecture 
+![Basic system setup in the single robot case](diagram.png)
+
 ## Running Kimera-PGMO
 
 ### Single robot Kimera
@@ -44,7 +47,7 @@ roslaunch kimera_vio_ros kimera_vio_ros_uhumans2.launch
 ```
 Then launch kimera_pgmo:
 ```bash
-rosunch kimera_pgmo kimera_pgmo.launch launch_voxblox:=false dataset:=uhumans2
+rosunch kimera_pgmo kimera_pgmo.launch launch_voxblox:=false dataset:=uhumans
 ```
 Launch Kimera-Semantics:
 ```basg

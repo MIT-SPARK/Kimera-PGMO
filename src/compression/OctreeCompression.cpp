@@ -13,64 +13,35 @@
 
 namespace kimera_pgmo {
 
-OctreeCompression::OctreeCompression() { vertices_.reset(new PointCloud); }
+OctreeCompression::OctreeCompression(double resolution)
+    : octree_resolution_(resolution) {
+  active_vertices_.reset(new PointCloud);
+  all_vertices_.reset(new PointCloud);
+  // Initialize octree
+  octree_.reset(new Octree(octree_resolution_));
+  octree_->setInputCloud(active_vertices_);
+}
 
 OctreeCompression::~OctreeCompression() {}
 
-bool OctreeCompression::Initialize(const ros::NodeHandle& n,
-                                   double resolution,
-                                   std::string label) {
-  octree_resolution_ = resolution;
-  label_ = label;
-
-  if (!LoadParameters(n)) {
-    ROS_ERROR("OctreeCompression: failed to load parameters.");
-    return false;
-  }
-
-  if (!RegisterCallbacks(n)) {
-    ROS_ERROR("OctreeCompression: failed to register callbacks.");
-    return false;
-  }
-
-  ROS_INFO("Initialized Octree Compression module with resolution %f.",
-           octree_resolution_);
-  return true;
-}
-
-bool OctreeCompression::LoadParameters(const ros::NodeHandle& n) {
-  if (!n.getParam("frame_id", frame_id_)) return false;
-
-  // Initialize octree
-  octree_.reset(new Octree(octree_resolution_));
-  octree_->setInputCloud(vertices_);
-
-  return true;
-}
-
-bool OctreeCompression::RegisterCallbacks(const ros::NodeHandle& n) {
-  // Create local nodehandle to manage callbacks
-  ros::NodeHandle nl(n);
-
-  vertices_pub_ = nl.advertise<PointCloud>("vertices", 10, true);
-  std::string pub_topic = "compressed_mesh_" + label_;
-  mesh_pub_ = nl.advertise<mesh_msgs::TriangleMeshStamped>(pub_topic, 10, true);
-  mesh_sub_ =
-      nl.subscribe("input_mesh", 1, &OctreeCompression::InsertMesh, this);
-  return true;
-}
-
-void OctreeCompression::InsertMesh(
-    const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
-  // Convert polygon mesh vertices to pointcloud
-  pcl::PolygonMesh polygon_mesh = TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
+void OctreeCompression::compressAndIntegrate(
+    const pcl::PolygonMesh& input,
+    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
+    std::vector<pcl::Vertices>* new_triangles,
+    std::vector<size_t>* new_indices,
+    const double& stamp_in_sec) {
+  // Extract vertices from input mesh
   PointCloud::Ptr new_cloud(new PointCloud);
-  pcl::fromPCLPointCloud2(polygon_mesh.cloud, *new_cloud);
+  pcl::fromPCLPointCloud2(input.cloud, *new_cloud);
 
+  // Place vertices through octree for compression
   double min_x, min_y, min_z, max_x, max_y, max_z;
 
   bool is_in_box;
+  // Keep track of the new indices when redoing the connections
+  // for the mesh surfaces
   std::map<size_t, size_t> remapping;
+  size_t original_size = all_vertices_->points.size();
 
   for (size_t i = 0; i < new_cloud->points.size(); ++i) {
     const pcl::PointXYZRGBA p = new_cloud->points[i];
@@ -79,88 +50,94 @@ void OctreeCompression::InsertMesh(
                 (p.y >= min_y && p.y <= max_y) &&
                 (p.z >= min_z && p.z <= max_z);
     if (!is_in_box || !octree_->isVoxelOccupiedAtPoint(p)) {
-      octree_->addPointToCloud(p, vertices_);
-      remapping[i] = vertices_->points.size() - 1;
+      // New point
+      new_vertices->push_back(p);
+      octree_->addPointToCloud(p, active_vertices_);  // add to octree
+      all_vertices_->push_back(p);
+      // Add index
+      remapping[i] = all_vertices_->points.size() - 1;
+      // keep track of index
+      active_vertices_index_.push_back(all_vertices_->points.size() - 1);
+      new_indices->push_back(all_vertices_->points.size() - 1);
       // Add latest observed time
-      vertices_latest_time_.push_back(ros::Time::now().toSec());
+      vertices_latest_time_.push_back(stamp_in_sec);
     } else {
+      // A nearby point exist, remap to nearby point
       float unused = 0.f;
       int result_idx;
       octree_->approxNearestSearch(p, result_idx, unused);
-      // Add remapping
-      remapping[i] = result_idx;
+      // Add remapping index
+      remapping[i] = active_vertices_index_[result_idx];
+      // Push to new indices if does not already yet
+      if (std::find(new_indices->begin(),
+                    new_indices->end(),
+                    active_vertices_index_[result_idx]) == new_indices->end())
+        new_indices->push_back(active_vertices_index_[result_idx]);
       if (result_idx < vertices_latest_time_.size())
-        vertices_latest_time_.at(result_idx) = ros::Time::now().toSec();
+        vertices_latest_time_.at(result_idx) = stamp_in_sec;
     }
   }
 
   // Insert polygons
-  for (pcl::Vertices polygon : polygon_mesh.polygons) {
+  for (pcl::Vertices polygon : input.polygons) {
     pcl::Vertices new_polygon;
-    size_t largest_idx = 0;
+    // Remap polygon while checking if polygon is new
+    // by checking to see if nay indices in new regime
+    bool new_surface = false;
     for (size_t idx : polygon.vertices) {
       new_polygon.vertices.push_back(remapping[idx]);
-      if (remapping[idx] > largest_idx) largest_idx = remapping[idx];
+      if (remapping[idx] >= original_size) new_surface = true;
     }
     // Check if polygon has actual three diferent surfaces
+    // To avoid degeneracy
     if (new_polygon.vertices[0] == new_polygon.vertices[1] ||
         new_polygon.vertices[1] == new_polygon.vertices[2] ||
         new_polygon.vertices[2] == new_polygon.vertices[0])
       continue;
 
-    // Check if this polygon already inserted
-    bool surface_exist = false;
-    if (largest_idx < adjacent_surfaces_.size()) {
-      // Check if an existing surface
-      // Iterate through adjacent surfaces of first vertex
-      for (pcl::Vertices existed_p :
-           adjacent_surfaces_[new_polygon.vertices[0]]) {
-        if (PolygonsEqual(existed_p, new_polygon)) {
-          surface_exist = true;
-          break;
-        }
-      }
-    }
-
-    // If surface does not exit, add
-    if (!surface_exist) {
+    // If it is a new surface, add
+    if (new_surface) {
       // Definitely a new surface
       polygons_.push_back(new_polygon);
-      // Push to adjacent surfaces
-      for (size_t idx : new_polygon.vertices) {
-        if (idx >= adjacent_surfaces_.size()) {
-          adjacent_surfaces_.push_back(std::vector<pcl::Vertices>{new_polygon});
-        } else {
-          adjacent_surfaces_[idx].push_back(new_polygon);
-        }
-      }
+      new_triangles->push_back(new_polygon);
     }
   }
-  // Publish
-  if (vertices_pub_.getNumSubscribers() > 0) PublishVertices();
-  if (mesh_pub_.getNumSubscribers() > 0) PublishMesh();
 }
 
-bool OctreeCompression::PublishVertices() {
-  vertices_->header.frame_id = frame_id_;
-  vertices_pub_.publish(vertices_);
-  return true;
-}
+void OctreeCompression::pruneStoredMesh(const double& earliest_time_sec) {
+  // Entries in vertices_latest_time_ shoudl correspond to number of points
+  if (vertices_latest_time_.size() != active_vertices_->points.size()) {
+    ROS_ERROR(
+        "Length of book-keeped vertex time does not match number of active "
+        "points. ");
+  }
 
-bool OctreeCompression::PublishMesh() {
-  pcl::PolygonMesh new_mesh;
-  pcl::toPCLPointCloud2(*vertices_, new_mesh.cloud);
-  new_mesh.polygons = polygons_;
-  mesh_msgs::TriangleMesh mesh_msg = PolygonMeshToTriangleMeshMsg(new_mesh);
+  if (active_vertices_index_.size() != active_vertices_->points.size()) {
+    ROS_ERROR(
+        "Length of book-keeped vertex indices does not match number of active "
+        "points. ");
+  }
+  // Discard all vertices last detected before this time
+  PointCloud temp_active_vertices = *active_vertices_;
+  std::vector<double> temp_vertices_time = vertices_latest_time_;
+  std::vector<size_t> temp_vertices_index = active_vertices_index_;
 
-  // Create msg
-  mesh_msgs::TriangleMeshStamped new_msg;
-  new_msg.header.stamp = ros::Time::now();
-  new_msg.header.frame_id = frame_id_;
-  new_msg.mesh = mesh_msg;
+  active_vertices_->clear();
+  vertices_latest_time_.clear();
+  active_vertices_index_.clear();
 
-  mesh_pub_.publish(new_msg);
-  return true;
+  // Reset octree
+  octree_.reset(new Octree(octree_resolution_));
+  octree_->setInputCloud(active_vertices_);
+
+  for (size_t i = 0; i < temp_vertices_time.size(); i++) {
+    if (temp_vertices_time[i] > earliest_time_sec) {
+      octree_->addPointToCloud(temp_active_vertices.points[i],
+                               active_vertices_);  // add to octree
+      vertices_latest_time_.push_back(temp_vertices_time[i]);
+      active_vertices_index_.push_back(temp_vertices_index[i]);
+    }
+  }
 }
 
 }  // namespace kimera_pgmo

@@ -27,52 +27,52 @@ std::vector<Edge> Graph::getEdges() const {
 }
 
 void Graph::addVertex(const Vertex& v) {
-  for (Vertex vertex : vertices_) {
-    if (v == vertex) return;
+  if (v > max_vertex_) {
+    max_vertex_ = v;
+  } else {
+    for (Vertex vertex : vertices_) {
+      if (v == vertex) return;
+    }
   }
   vertices_.push_back(v);
+  edges_[v] = Vertices();
 }
 
 void Graph::addEdgeAndVertices(const Edge& e) {
   Vertex v1 = e.first;
   Vertex v2 = e.second;
-  // Search if vertices exist, otherwise push
-  bool exist_v1 = false;
-  bool exist_v2 = false;
-  for (Vertex v : vertices_) {
-    if (v == v1) exist_v1 = true;
-    if (v == v2) exist_v2 = true;
-    if (exist_v1 and exist_v2) break;
-  }
-  if (!exist_v1) {
-    vertices_.push_back(v1);
-  }
-  if (!exist_v2) {
-    vertices_.push_back(v2);
-  }
+  addVertex(v1);
+  addVertex(v2);
   addEdge(e);
 }
 
-void Graph::addEdge(const Edge& e) {
+bool Graph::addEdge(const Edge& e, bool check) {
   // Push edge
+  if (!check) {
+    edges_[e.first].push_back(e.second);
+    return true;
+  }
   Edges::iterator iter = edges_.find(e.first);
   if (iter == edges_.end()) {
     edges_[e.first] = Vertices{e.second};
+    return true;
   } else {
     std::vector<Vertex>::iterator iter2;
     iter2 = std::find(edges_[e.first].begin(), edges_[e.first].end(), e.second);
-    if (iter2 == edges_[e.first].end()) edges_[e.first].push_back(e.second);
+    if (iter2 == edges_[e.first].end()) {
+      edges_[e.first].push_back(e.second);
+      return true;
+    }
   }
+  return false;
 }
 
 bool Graph::createFromPclMesh(const pcl::PolygonMesh& mesh) {
   pcl::PointCloud<pcl::PointXYZ> cloud;
   pcl::fromPCLPointCloud2(mesh.cloud, cloud);
   size_t n = cloud.points.size();
-  vertices_ = std::vector<Vertex>(n);
-  std::iota(std::begin(vertices_), std::end(vertices_), 0);
-  for (Vertex v : vertices_) {
-    edges_[v] = Vertices();
+  for (Vertex v = 0; v < n; v++) {
+    addVertex(v);
   }
   for (pcl::Vertices polygon : mesh.polygons) {
     for (size_t i = 0; i < polygon.vertices.size(); i++) {
@@ -88,10 +88,8 @@ bool Graph::createFromPclMeshBidirection(const pcl::PolygonMesh& mesh) {
   pcl::PointCloud<pcl::PointXYZ> cloud;
   pcl::fromPCLPointCloud2(mesh.cloud, cloud);
   size_t n = cloud.points.size();
-  vertices_ = std::vector<Vertex>(n);
-  std::iota(std::begin(vertices_), std::end(vertices_), 0);
-  for (Vertex v : vertices_) {
-    edges_[v] = Vertices();
+  for (Vertex v = 0; v < n; v++) {
+    addVertex(v);
   }
   for (pcl::Vertices polygon : mesh.polygons) {
     for (size_t i = 0; i < polygon.vertices.size(); i++) {
@@ -103,6 +101,27 @@ bool Graph::createFromPclMeshBidirection(const pcl::PolygonMesh& mesh) {
     }
   }
   return true;
+}
+
+std::vector<Edge> Graph::addPointsAndSurfaces(
+    const std::vector<size_t>& vertices,
+    const std::vector<pcl::Vertices>& polygons) {
+  // return the new edges
+  for (Vertex v : vertices) {
+    addVertex(v);
+  }
+
+  std::vector<Edge> new_edges;
+  for (pcl::Vertices polygon : polygons) {
+    for (size_t i = 0; i < polygon.vertices.size(); i++) {
+      size_t i_next = (i + 1) % polygon.vertices.size();
+      Edge e1(polygon.vertices[i], polygon.vertices[i_next]);
+      if (addEdge(e1, true)) new_edges.push_back(e1);
+      Edge e2(polygon.vertices[i_next], polygon.vertices[i]);
+      if (addEdge(e2, true)) new_edges.push_back(e2);
+    }
+  }
+  return new_edges;
 }
 
 bool Graph::combineGraph(const Graph& new_graph) {

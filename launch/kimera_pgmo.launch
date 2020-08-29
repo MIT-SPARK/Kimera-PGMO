@@ -1,15 +1,18 @@
 <launch>
-  <arg name="dataset" default="uhumans1" />
+  <arg name="dataset" default="uhumans" />
   <arg name="launch_voxblox" default="true" />
 
-  <include file="$(find kimera_pgmo)/launch/generate_mesh.launch" pass_all_args="true"/>
+  <node name="voxblox_processing" pkg="kimera_pgmo" type="voxblox_processing_node" output="screen" >
+    <param name="horizon" value="1000" />
+    <remap from="~voxblox_mesh" to="/voxblox_node/mesh" if="$(arg launch_voxblox)" />
+    <remap from="~voxblox_mesh" to="/kimera_semantics_node/mesh" unless="$(arg launch_voxblox)" />
+  </node> 
 
   <node type="kimera_pgmo_node" name="kimera_pgmo_node" pkg="kimera_pgmo" output="screen" >
     <rosparam file="$(find kimera_pgmo)/params/$(arg dataset)/parameters.yaml" />
-
     <param name="output_prefix" value="/home/yunchang/Downloads/optimized" />
-
-    <remap from="~input_mesh" to="/converted_mesh" />
+    <remap from="~incremental_mesh" to="/voxblox_processing/partial_mesh" />
+    <remap from="~full_mesh" to="/voxblox_processing/full_mesh" />
     <remap from="~pose_graph_incremental" to="/kimera_vio_ros/pose_graph_incremental" />
   </node>
 

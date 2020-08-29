@@ -15,16 +15,16 @@ KimeraPgmo::KimeraPgmo() {}
 KimeraPgmo::~KimeraPgmo() {}
 
 // Initialize parameters, publishers, and subscribers and deformation graph
-bool KimeraPgmo::Initialize(const ros::NodeHandle& n) {
-  if (!LoadParameters(n)) {
+bool KimeraPgmo::initialize(const ros::NodeHandle& n) {
+  if (!loadParameters(n)) {
     ROS_ERROR("KimeraPgmo: Failed to load parameters.");
   }
 
-  if (!CreatePublishers(n)) {
+  if (!createPublishers(n)) {
     ROS_ERROR("KimeraPgmo: Failed to create publishers.");
   }
 
-  if (!RegisterCallbacks(n)) {
+  if (!registerCallbacks(n)) {
     ROS_ERROR("KimeraPgmo: Failed to register callbacks.");
   }
 
@@ -34,27 +34,22 @@ bool KimeraPgmo::Initialize(const ros::NodeHandle& n) {
 }
 
 // Load deformation parameters
-bool KimeraPgmo::LoadParameters(const ros::NodeHandle& n) {
+bool KimeraPgmo::loadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("frame_id", frame_id_)) return false;
-  if (!n.getParam("embed_trajectory/max_delta_t", embed_delta_t_)) return false;
-  if (!n.getParam("embed_trajectory/max_delta_r", embed_delta_r_)) return false;
+  if (!n.getParam("compression_time_horizon", compression_time_horizon_))
+    return false;
   if (n.getParam("output_prefix", output_prefix_)) {
     ROS_INFO("Saving optimized data to: %s .ply and .csv",
              output_prefix_.c_str());
   }
+  if (!n.getParam("embed_trajectory_delta_t", embed_delta_t_)) return false;
 
   // start the mesh compression module for deformation graph
   double deformation_graph_resolution;
   if (!n.getParam("d_graph_resolution", deformation_graph_resolution))
     return false;
 
-  if (!d_graph_compression_.Initialize(
-          n, deformation_graph_resolution, "deformation")) {
-    ROS_ERROR(
-        "KimeraPgmo: Failed to intialize deformation graph compression "
-        "module.");
-    return false;
-  }
+  compression_.reset(new OctreeCompression(deformation_graph_resolution));
 
   // start deformation graph module
   double pgo_trans_threshold, pgo_rot_threshold;
@@ -62,7 +57,7 @@ bool KimeraPgmo::LoadParameters(const ros::NodeHandle& n) {
     return false;
   if (!n.getParam("rpgo/rotation_threshold", pgo_rot_threshold)) return false;
 
-  if (!deformation_graph_.Initialize(pgo_trans_threshold, pgo_rot_threshold)) {
+  if (!deformation_graph_.initialize(pgo_trans_threshold, pgo_rot_threshold)) {
     ROS_ERROR("KimeraPgmo: Failed to initialize deformation graph.");
     return false;
   }
@@ -70,7 +65,7 @@ bool KimeraPgmo::LoadParameters(const ros::NodeHandle& n) {
 }
 
 // Initialize publishers
-bool KimeraPgmo::CreatePublishers(const ros::NodeHandle& n) {
+bool KimeraPgmo::createPublishers(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
   optimized_mesh_pub_ =
       nl.advertise<mesh_msgs::TriangleMeshStamped>("optimized_mesh", 1, false);
@@ -84,30 +79,33 @@ bool KimeraPgmo::CreatePublishers(const ros::NodeHandle& n) {
 }
 
 // Initialize callbacks
-bool KimeraPgmo::RegisterCallbacks(const ros::NodeHandle& n) {
+bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
 
-  input_mesh_sub_ =
-      nl.subscribe("input_mesh", 5, &KimeraPgmo::MeshCallback, this);
+  full_mesh_sub_ =
+      nl.subscribe("full_mesh", 5, &KimeraPgmo::fullMeshCallback, this);
+
+  incremental_mesh_sub_ = nl.subscribe(
+      "incremental_mesh", 5, &KimeraPgmo::incrementalMeshCallback, this);
 
   pose_graph_incremental_sub_ =
       nl.subscribe("pose_graph_incremental",
                    1000,
-                   &KimeraPgmo::IncrementalPoseGraphCallback,
+                   &KimeraPgmo::incrementalPoseGraphCallback,
                    this);
 
   // Initialize save mesh service
   save_mesh_srv_ =
-      nl.advertiseService("save_mesh", &KimeraPgmo::SaveMeshCallback, this);
+      nl.advertiseService("save_mesh", &KimeraPgmo::saveMeshCallback, this);
 
   // Initialize save trajectory service
   save_traj_srv_ = nl.advertiseService(
-      "save_trajectory", &KimeraPgmo::SaveTrajectoryCallback, this);
+      "save_trajectory", &KimeraPgmo::saveTrajectoryCallback, this);
   return true;
 }
 
 // To publish optimized mesh
-bool KimeraPgmo::PublishOptimizedMesh() {
+bool KimeraPgmo::publishOptimizedMesh() {
   mesh_msgs::TriangleMesh mesh_msg =
       PolygonMeshToTriangleMeshMsg(optimized_mesh_);
 
@@ -122,7 +120,7 @@ bool KimeraPgmo::PublishOptimizedMesh() {
 }
 
 // To publish optimized trajectory
-bool KimeraPgmo::PublishOptimizedPath() const {
+bool KimeraPgmo::publishOptimizedPath() const {
   std::vector<gtsam::Pose3> gtsam_path =
       deformation_graph_.getOptimizedTrajectory();
 
@@ -185,7 +183,7 @@ bool KimeraPgmo::PublishOptimizedPath() const {
   return true;
 }
 
-void KimeraPgmo::IncrementalPoseGraphCallback(
+void KimeraPgmo::incrementalPoseGraphCallback(
     const pose_graph_tools::PoseGraph::ConstPtr& msg) {
   if (msg->edges.size() == 0) {
     ROS_WARN("No edges in incremental pose graph msg. ");
@@ -210,8 +208,11 @@ void KimeraPgmo::IncrementalPoseGraphCallback(
       ROS_WARN("KimeraPgmo: is the first node not of key 0? ");
     }
     gtsam::Pose3 init_pose = RosToGtsam(msg->nodes[0].pose);
-    deformation_graph_.initFirstNode(init_pose);
+    // Initiate first node but do not add prior
+    deformation_graph_.initFirstNode(init_pose, false);
     trajectory_.push_back(init_pose);
+    timestamps_.push_back(odom_edge.header.stamp);
+    unconnected_nodes_.push(prev_node);
     ROS_INFO("Initialized first node in pose graph. ");
   }
 
@@ -228,65 +229,15 @@ void KimeraPgmo::IncrementalPoseGraphCallback(
   gtsam::Pose3 new_pose = trajectory_[prev_node].compose(new_odom);
   trajectory_.push_back(new_pose);
   timestamps_.push_back(odom_edge.header.stamp);
+  unconnected_nodes_.push(current_node);
   deformation_graph_.addNewBetween(prev_node, current_node, new_odom, new_pose);
 
-  // Associate the node to the simplified mesh and add to trajectory
-  // Get the latest observation timestamp of the vertices
-  std::vector<double> latest_observed_times;
-  d_graph_compression_.getVerticesTimestamps(&latest_observed_times);
-  // check the latest progress of mesh received
-  double latest_observed_t = 0;
-  if (latest_observed_times.size() > 0)
-    latest_observed_t = latest_observed_times[latest_observed_times.size() - 1];
-
-  // Get the vertices of the simplified mesh
-  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr simplified_vertices(
-      new pcl::PointCloud<pcl::PointXYZRGBA>);
-  d_graph_compression_.getVertices(simplified_vertices);
-  // TODO might not be best but for now need to do this
-  // since meshes is running slow, fix later to synch properly
-  for (size_t i = 0; i < trajectory_.size(); i++) {
-    if (latest_observed_t - timestamps_[i].toSec() < embed_delta_t_) {
-      Vertices valences;
-      gtsam::Point3 pos = trajectory_[i].translation();
-      // connect to nodes that are proximate in spacetime
-      for (size_t j = 0; j < latest_observed_times.size(); j++) {
-        if (abs(timestamps_[i].toSec() - latest_observed_times[j]) <
-            embed_delta_t_) {
-          pcl::PointXYZRGBA candidate_pos = simplified_vertices->points[j];
-          double dist = std::sqrt(
-              (pos.x() - candidate_pos.x) * (pos.x() - candidate_pos.x) +
-              (pos.y() - candidate_pos.y) * (pos.y() - candidate_pos.y) +
-              (pos.z() - candidate_pos.z) * (pos.z() - candidate_pos.z));
-          if (dist < embed_delta_r_) {
-            valences.push_back(j);
-          }
-        }
-      }
-      ROS_DEBUG_STREAM("Trajectory node "
-                       << i << " connected to " << valences.size()
-                       << " points out of " << latest_observed_times.size()
-                       << " in simplified mesh");
-      deformation_graph_.updateNodeValence(i, valences, true);
-    }
-  }
-
-  pcl::PolygonMesh simplified_mesh;
-  // Fill in simplified mesh
-  std::vector<pcl::Vertices> simplified_polygons;
-  d_graph_compression_.getPolygons(&simplified_polygons);
-  simplified_mesh.polygons = simplified_polygons;
-  pcl::toPCLPointCloud2(*simplified_vertices, simplified_mesh.cloud);
-
-  // Check if new portions added for deformation graph
-  deformation_graph_.updateMesh(simplified_mesh);
   if (loop_closure) {
     pose_graph_tools::PoseGraphEdge lc_edge = msg->edges[1];
     const gtsam::Pose3 meas = RosToGtsam(lc_edge.pose);
     const Vertex from_node = lc_edge.key_from;
     const Vertex to_node = lc_edge.key_to;
     deformation_graph_.addNewBetween(from_node, to_node, meas);
-    deformation_graph_.update();
     ROS_INFO(
         "KimeraPgmo: Loop closure detected between node %d and %d, optimized "
         "with trajectory of "
@@ -294,12 +245,10 @@ void KimeraPgmo::IncrementalPoseGraphCallback(
         from_node,
         to_node,
         trajectory_.size());
-  } else {
-    deformation_graph_.update();
   }
 }
 
-void KimeraPgmo::MeshCallback(
+void KimeraPgmo::fullMeshCallback(
     const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
   input_mesh_ = TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
   last_mesh_stamp_ = mesh_msg->header.stamp;
@@ -312,11 +261,11 @@ void KimeraPgmo::MeshCallback(
     optimized_mesh_ = input_mesh_;
   }
   if (optimized_mesh_pub_.getNumSubscribers() > 0) {
-    PublishOptimizedMesh();
+    publishOptimizedMesh();
   }
   if (optimized_path_pub_.getNumSubscribers() > 0 ||
       optimized_odom_pub_.getNumSubscribers() > 0) {
-    PublishOptimizedPath();
+    publishOptimizedPath();
   }
 
   if (pose_graph_pub_.getNumSubscribers() > 0) {
@@ -327,7 +276,37 @@ void KimeraPgmo::MeshCallback(
   return;
 }
 
-bool KimeraPgmo::SaveMeshCallback(std_srvs::Empty::Request&,
+void KimeraPgmo::incrementalMeshCallback(
+    const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
+  pcl::PolygonMesh incremental_mesh =
+      TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
+
+  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
+      new pcl::PointCloud<pcl::PointXYZRGBA>);
+  std::vector<pcl::Vertices> new_triangles;
+  std::vector<size_t> new_indices;
+
+  double msg_time = mesh_msg->header.stamp.toSec();
+  compression_->pruneStoredMesh(msg_time - compression_time_horizon_);
+  compression_->compressAndIntegrate(
+      incremental_mesh, new_vertices, &new_triangles, &new_indices, msg_time);
+
+  deformation_graph_.updateMesh(*new_vertices, new_triangles);
+  // Associate nodes to mesh
+  while (!unconnected_nodes_.empty()) {
+    size_t node = unconnected_nodes_.front();
+    unconnected_nodes_.pop();
+    if (timestamps_[node].toSec() > msg_time - embed_delta_t_) {
+      ROS_INFO("Connection node %d to %d vertices. ", node, new_indices.size());
+      deformation_graph_.addNodeValence(node, new_indices);
+    }
+    // termination guarantee
+    if (timestamps_[node].toSec() > msg_time + embed_delta_t_) break;
+  }
+  return;
+}
+
+bool KimeraPgmo::saveMeshCallback(std_srvs::Empty::Request&,
                                   std_srvs::Empty::Response&) {
   // Save mesh
   std::string ply_name = output_prefix_ + std::string(".ply");
@@ -336,7 +315,7 @@ bool KimeraPgmo::SaveMeshCallback(std_srvs::Empty::Request&,
   return true;
 }
 
-bool KimeraPgmo::SaveTrajectoryCallback(std_srvs::Empty::Request&,
+bool KimeraPgmo::saveTrajectoryCallback(std_srvs::Empty::Request&,
                                         std_srvs::Empty::Response&) {
   // Save trajectory
   std::vector<gtsam::Pose3> optimized_path =
