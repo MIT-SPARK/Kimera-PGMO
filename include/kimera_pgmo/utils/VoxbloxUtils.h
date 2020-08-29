@@ -46,7 +46,18 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
     std::vector<pcl::Vertices>* triangles,
     const std::vector<size_t>& original_indices,
-    std::vector<size_t>* updated_indices);
+    std::vector<size_t>* updated_indices,
+    std::map<size_t, std::vector<pcl::Vertices> >* adjacent_surfaces);
+
+/*! \brief When adding new mesh surface, check first if exist with a stored
+ * index to adjacent surface map, and also update map if surface is new
+ *  - new_triangle: new surface to be inserted
+ *  - adjacent_surfaces: vertex to adjacent surfaces map
+ *  returns true if surface exists
+ */
+bool CheckAndUpdateAdjacentSurfaces(
+    const pcl::Vertices& new_triangle,
+    std::map<size_t, std::vector<pcl::Vertices> >* adjacent_surfaces);
 
 /*! \brief Convert a voxblox mesh block to a polygon mesh type
  *  - mesh_block: voxblox mesh block input

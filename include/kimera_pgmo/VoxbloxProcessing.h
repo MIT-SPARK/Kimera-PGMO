@@ -62,7 +62,9 @@ class VoxbloxProcessing {
   std::map<BlockIndex, ros::Time> mesh_block_last_detection_;
   // Keeping track of the indices in the cloud
   // representing the vertices of the mesh its corresponding block
-  std::map<BlockIndex, std::vector<size_t>> mesh_block_vertices_;
+  std::map<BlockIndex, std::vector<size_t> > mesh_block_vertices_;
+  // Track adjacent surfaces of vertices
+  std::map<size_t, std::vector<pcl::Vertices> > adjacent_surfaces_;
 
   // Vertices of full mesh
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices_;

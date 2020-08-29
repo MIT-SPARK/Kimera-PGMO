@@ -112,7 +112,8 @@ pcl::PolygonMesh VoxbloxProcessing::processVoxbloxMesh(
                                                         vertices_,
                                                         &triangles_,
                                                         orig_mesh_block,
-                                                        &block_indices);
+                                                        &block_indices,
+                                                        &adjacent_surfaces_);
       } else {
         // previously seen block
         meshblock_mesh =
@@ -121,7 +122,8 @@ pcl::PolygonMesh VoxbloxProcessing::processVoxbloxMesh(
                                            vertices_,
                                            &triangles_,
                                            mesh_block_vertices_[idx],
-                                           &block_indices);
+                                           &block_indices,
+                                           &adjacent_surfaces_);
       }
       // track vertex indices of full mesh associated with block
       mesh_block_vertices_[idx] = block_indices;

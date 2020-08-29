@@ -27,7 +27,8 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
     std::vector<pcl::Vertices>* triangles,
     const std::vector<size_t>& original_indices,
-    std::vector<size_t>* updated_indices) {
+    std::vector<size_t>* updated_indices,
+    std::map<size_t, std::vector<pcl::Vertices> >* adjacent_surfaces) {
   // For speed, assume mesh is incrementally increasing
   if (mesh_block.x.size() <= original_indices.size()) {
     *updated_indices = original_indices;
@@ -104,7 +105,6 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
 
     // if point exists prior to processing this mesh block
     if (!point_exists) {
-      new_triangle = true;
       if (!point_exists_in_new) {
         vidx = vertex_index++;
         vertices->push_back(point);
@@ -122,7 +122,10 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
     // Keep track of triangle_new separate, since indices different
     triangle_new.vertices.push_back(vidx_new);
     if (triangle.vertices.size() == 3) {
-      triangles->push_back(triangle);
+      // Check if surface previously added and insert
+      if (!CheckAndUpdateAdjacentSurfaces(triangle, adjacent_surfaces)) {
+        triangles->push_back(triangle);
+      }
       new_added_mesh.polygons.push_back(triangle_new);
       triangle = pcl::Vertices();
       triangle_new = pcl::Vertices();
@@ -131,6 +134,41 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
   }
   pcl::toPCLPointCloud2(new_vertices, new_added_mesh.cloud);
   return new_added_mesh;
+}
+
+bool CheckAndUpdateAdjacentSurfaces(
+    const pcl::Vertices& new_triangle,
+    std::map<size_t, std::vector<pcl::Vertices> >* adjacent_surfaces) {
+  if (new_triangle.vertices.size() < 3) return false;
+  size_t idx0 = new_triangle.vertices.at(0);
+  bool exist = false;
+  // Check if vertex is new, if new than surface does not exist
+  if (adjacent_surfaces->find(idx0) != adjacent_surfaces->end()) {
+    // iterate through the adjacent surfaces of the vertex
+    for (size_t i = 0; i < adjacent_surfaces->at(idx0).size(); i++) {
+      if (adjacent_surfaces->at(idx0)[i].vertices == new_triangle.vertices) {
+        exist = true;
+        break;
+      }
+    }
+  }
+
+  if (!exist) {
+    // Update adjacent surfaces with new surface
+    for (size_t idx : new_triangle.vertices) {
+      if (adjacent_surfaces->find(idx) == adjacent_surfaces->end()) {
+        // Add the new vertex
+        adjacent_surfaces->insert(
+            std::pair<size_t, std::vector<pcl::Vertices> >(idx,
+                                                           {new_triangle}));
+      } else {
+        // Add surface
+        adjacent_surfaces->at(idx).push_back(new_triangle);
+      }
+    }
+  }
+
+  return exist;
 }
 
 pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
