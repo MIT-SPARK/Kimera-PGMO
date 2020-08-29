@@ -4,11 +4,12 @@ Kimera-PGMO (Pose Graph and Mesh Optimizer) optimizes the mesh and the trajector
 
 For example, given a mesh and a pose graph trajectory
 <img src="images/mesh-and-posegraph.jpg" width="500">
+
 We generate the embedded deformation graph and optimize simultaneously the mesh and the pose graph when a loop closure is obtained. 
 <img src="images/deformation-graph.jpg" width="500">
 
 ## Dependencies 
-In addition to PCL, OpenCV, GTSAM, the following pacakges AND THEIR DEPENDENCIES are needed. Package is set up to run with the following repositories:
+In addition to PCL, OpenCV, GTSAM, Kimera-PGMO is designed as part of Kimera, so the following Kimera packages and their dependencies are needed:
 
 [Kimera-VIO](https://github.mit.edu/SPARK/Kimera-VIO/tree/feature/mesh_deformation) branch: feature/mesh_deformation
 
@@ -20,6 +21,13 @@ For the immediate dependencies, check out the rosinstall files.
 
 ## Architecture 
 ![Basic system setup in the single robot case](images/diagram.png)
+
+## Parameters 
+Configure the parameters in the params folder for your dataset and environment. 
+- `d_graph_resolution` sets how sparse to sample the mesh to obtain the vertices of the deformation graph
+- `compression_time_horizon` sets a time horizon to discard older parts of the mesh to avoid associating a new node with an old part of the mesh 
+- `embed_trajectory_delta_t` the slack to set when synchronizing incoming incremental mesh with incoming pose graph 
+- `rpgo` the outlier rejection thresholds 
 
 ## Running Kimera-PGMO
 
