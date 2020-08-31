@@ -33,9 +33,7 @@ bool VoxbloxProcessing::initialize(const ros::NodeHandle& n) {
 }
 
 bool VoxbloxProcessing::loadParameters(const ros::NodeHandle& n) {
-  double time_horizon_sec;
-  if (!n.getParam("horizon", time_horizon_sec)) return false;
-  time_horizon_ = ros::Duration(time_horizon_sec);
+  if (!n.getParam("horizon", time_horizon_)) return false;
 
   double mesh_resolution;
   if (!n.getParam("output_mesh_resolution", mesh_resolution)) return false;
@@ -72,19 +70,6 @@ void VoxbloxProcessing::voxbloxCallback(
     publishFullMesh(msg->header.stamp);
 }
 
-void VoxbloxProcessing::pruneStoredBlocks(const ros::Time& latest_time) {
-  if (latest_time.toSec() - time_horizon_.toSec() < 0) return;
-  for (auto it = mesh_block_last_detection_.cbegin();
-       it != mesh_block_last_detection_.cend();) {
-    if (it->second < latest_time - time_horizon_) {
-      mesh_block_vertices_.erase(it->first);
-      it = mesh_block_last_detection_.erase(it);
-    } else {
-      ++it;
-    }
-  }
-}
-
 // Creates partial mesh while updating the full mesh and also the last detected
 // mesh blocks
 pcl::PolygonMesh VoxbloxProcessing::processVoxbloxMesh(
@@ -95,49 +80,54 @@ pcl::PolygonMesh VoxbloxProcessing::processVoxbloxMesh(
   pcl::PolygonMesh partial_mesh;
 
   // First prune the mesh blocks
-  pruneStoredBlocks(msg_timestamp);
+  double msg_time = msg->header.stamp.toSec();
+  compression_->pruneStoredMesh(msg_time - time_horizon_);
 
   // Iterate through the mesh blocks
   for (const voxblox_msgs::MeshBlock& mesh_block : msg->mesh_blocks) {
+    // For each mesh block
+    // Convert it into a vertices - surfaces format and input to compressor
+    // Full mesh will then be extracted from compressor
+    // While mesh blocks are combined to build a partial mesh to be returned
     if (mesh_block.x.size() > 0) {
-      BlockIndex idx(
-          mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
-
       pcl::PolygonMesh meshblock_mesh;
-      // Check if block in queue
-      std::map<BlockIndex, std::vector<size_t>>::iterator it =
-          mesh_block_vertices_.find(idx);
-      // Keep track of indices of vertex corresponding to mesh block
-      std::vector<size_t> block_indices;
-      if (it == mesh_block_vertices_.end()) {
-        // new block
-        std::vector<size_t> orig_mesh_block;  // empty vector to make do
-        meshblock_mesh = UpdateMeshFromVoxbloxMeshBlock(mesh_block,
-                                                        msg->block_edge_length,
-                                                        vertices_,
-                                                        &triangles_,
-                                                        orig_mesh_block,
-                                                        &block_indices,
-                                                        &adjacent_surfaces_);
-      } else {
-        // previously seen block
-        meshblock_mesh =
-            UpdateMeshFromVoxbloxMeshBlock(mesh_block,
-                                           msg->block_edge_length,
-                                           vertices_,
-                                           &triangles_,
-                                           mesh_block_vertices_[idx],
-                                           &block_indices,
-                                           &adjacent_surfaces_);
-      }
-      // track vertex indices of full mesh associated with block
-      mesh_block_vertices_[idx] = block_indices;
-      mesh_block_last_detection_[idx] = msg_timestamp;
+      // Convert to vertices and surfaces
+      pcl::PointCloud<pcl::PointXYZRGBA>::Ptr mesh_block_vertices(
+          new pcl::PointCloud<pcl::PointXYZRGBA>);
+      std::vector<pcl::Vertices> mesh_block_surfaces;
+      VoxbloxMeshBlockToPolygonMesh(mesh_block,
+                                    msg->block_edge_length,
+                                    mesh_block_vertices,
+                                    &mesh_block_surfaces);
+
+      // Add to compressor
+
+      // Note these following values are arguments compress method
+      // but unsued
+      pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
+          new pcl::PointCloud<pcl::PointXYZRGBA>);
+      std::vector<pcl::Vertices> new_triangles;
+      std::vector<size_t> new_indices;
+      // Pass for mesh compression
+      compression_->compressAndIntegrate(*mesh_block_vertices,
+                                         mesh_block_surfaces,
+                                         new_vertices,
+                                         &new_triangles,
+                                         &new_indices,
+                                         msg_time);
+
+      // Mesh block mesh
+      pcl::toPCLPointCloud2(*mesh_block_vertices, meshblock_mesh.cloud);
+      meshblock_mesh.polygons = mesh_block_surfaces;
 
       // Add to partial mesh
       partial_mesh = CombineMeshes(partial_mesh, meshblock_mesh);
     }
   }
+
+  // Update the full mesh vertices and surfaces
+  compression_->getVertices(vertices_);
+  compression_->getStoredPolygons(&triangles_);
 
   // Return partial mesh
   return partial_mesh;

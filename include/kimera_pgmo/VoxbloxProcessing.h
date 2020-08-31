@@ -16,6 +16,7 @@
 #include <pcl/point_types.h>
 #include <voxblox_msgs/Mesh.h>
 
+#include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/VoxbloxUtils.h"
 
 namespace kimera_pgmo {
@@ -55,18 +56,10 @@ class VoxbloxProcessing {
   ros::Publisher full_mesh_pub_;
   ros::Publisher partial_mesh_pub_;
 
-  ros::Duration time_horizon_;  // only merge meshes for the blocks detected
-                                // within defined time horizon
+  double time_horizon_;  // only merge meshes for the blocks detected
+                         // within defined time horizon (secs)
 
-  OctreeCompressionPtr compression_; // Allow compression of full mesh
-
-  // The time mesh block of index last seen
-  std::map<BlockIndex, ros::Time> mesh_block_last_detection_;
-  // Keeping track of the indices in the cloud
-  // representing the vertices of the mesh its corresponding block
-  std::map<BlockIndex, std::vector<size_t> > mesh_block_vertices_;
-  // Track adjacent surfaces of vertices
-  std::map<size_t, std::vector<pcl::Vertices> > adjacent_surfaces_;
+  OctreeCompressionPtr compression_;  // Allow compression of full mesh
 
   // Vertices of full mesh
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices_;
