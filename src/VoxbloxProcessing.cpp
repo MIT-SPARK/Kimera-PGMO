@@ -37,6 +37,11 @@ bool VoxbloxProcessing::loadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("horizon", time_horizon_sec)) return false;
   time_horizon_ = ros::Duration(time_horizon_sec);
 
+  double mesh_resolution;
+  if (!n.getParam("output_mesh_resolution", mesh_resolution)) return false;
+
+  compression_.reset(new OctreeCompression(mesh_resolution));
+
   return true;
 }
 

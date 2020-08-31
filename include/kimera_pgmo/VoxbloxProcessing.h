@@ -58,6 +58,8 @@ class VoxbloxProcessing {
   ros::Duration time_horizon_;  // only merge meshes for the blocks detected
                                 // within defined time horizon
 
+  OctreeCompressionPtr compression_; // Allow compression of full mesh
+
   // The time mesh block of index last seen
   std::map<BlockIndex, ros::Time> mesh_block_last_detection_;
   // Keeping track of the indices in the cloud
