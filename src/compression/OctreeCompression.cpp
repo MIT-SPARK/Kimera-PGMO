@@ -31,9 +31,24 @@ void OctreeCompression::compressAndIntegrate(
     std::vector<size_t>* new_indices,
     const double& stamp_in_sec) {
   // Extract vertices from input mesh
-  PointCloud::Ptr new_cloud(new PointCloud);
-  pcl::fromPCLPointCloud2(input.cloud, *new_cloud);
+  PointCloud input_vertices;
+  pcl::fromPCLPointCloud2(input.cloud, input_vertices);
 
+  compressAndIntegrate(input_vertices,
+                       input.polygons,
+                       new_vertices,
+                       new_triangles,
+                       new_indices,
+                       stamp_in_sec);
+}
+
+void OctreeCompression::compressAndIntegrate(
+    const pcl::PointCloud<pcl::PointXYZRGBA>& input_vertices,
+    const std::vector<pcl::Vertices>& input_surfaces,
+    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
+    std::vector<pcl::Vertices>* new_triangles,
+    std::vector<size_t>* new_indices,
+    const double& stamp_in_sec) {
   // Place vertices through octree for compression
   double min_x, min_y, min_z, max_x, max_y, max_z;
 
@@ -43,8 +58,8 @@ void OctreeCompression::compressAndIntegrate(
   std::map<size_t, size_t> remapping;
   size_t original_size = all_vertices_->points.size();
 
-  for (size_t i = 0; i < new_cloud->points.size(); ++i) {
-    const pcl::PointXYZRGBA p = new_cloud->points[i];
+  for (size_t i = 0; i < input_vertices.points.size(); ++i) {
+    const pcl::PointXYZRGBA p = input_vertices.points[i];
     octree_->getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
     is_in_box = (p.x >= min_x && p.x <= max_x) &&
                 (p.y >= min_y && p.y <= max_y) &&
@@ -79,7 +94,7 @@ void OctreeCompression::compressAndIntegrate(
   }
 
   // Insert polygons
-  for (pcl::Vertices polygon : input.polygons) {
+  for (pcl::Vertices polygon : input_surfaces) {
     pcl::Vertices new_polygon;
     // Remap polygon while checking if polygon is new
     // by checking to see if nay indices in new regime
