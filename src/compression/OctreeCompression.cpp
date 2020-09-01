@@ -67,6 +67,7 @@ void OctreeCompression::compressAndIntegrate(
     if (!is_in_box || !octree_->isVoxelOccupiedAtPoint(p)) {
       // New point
       new_vertices->push_back(p);
+      adjacent_polygons_.push_back(std::vector<pcl::Vertices>());
       octree_->addPointToCloud(p, active_vertices_);  // add to octree
       all_vertices_->push_back(p);
       // Add index
@@ -103,18 +104,29 @@ void OctreeCompression::compressAndIntegrate(
       new_polygon.vertices.push_back(remapping[idx]);
       if (remapping[idx] >= original_size) new_surface = true;
     }
-    // Check if polygon has actual three diferent surfaces
+
+    // Check if polygon has actual three diferent vertices
     // To avoid degeneracy
-    if (new_polygon.vertices[0] == new_polygon.vertices[1] ||
+    if (new_polygon.vertices.size() < 3 ||
+        new_polygon.vertices[0] == new_polygon.vertices[1] ||
         new_polygon.vertices[1] == new_polygon.vertices[2] ||
         new_polygon.vertices[2] == new_polygon.vertices[0])
       continue;
+
+    // Check if it is a new surface constructed from existing points
+    if (!new_surface) {
+      new_surface = !SurfaceExists(new_polygon, adjacent_polygons_);
+    }
 
     // If it is a new surface, add
     if (new_surface) {
       // Definitely a new surface
       polygons_.push_back(new_polygon);
       new_triangles->push_back(new_polygon);
+      // Update adjacent polygons
+      for (size_t v : new_polygon.vertices) {
+        adjacent_polygons_[v].push_back(new_polygon);
+      }
     }
   }
 }

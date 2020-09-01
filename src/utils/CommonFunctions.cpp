@@ -520,4 +520,24 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
   return boost::make_shared<pose_graph_tools::PoseGraph>(posegraph);
 }
 
+bool SurfaceExists(
+    const pcl::Vertices& new_surface,
+    const std::vector<std::vector<pcl::Vertices> >& adjacent_surfaces) {
+  // Degenerate face
+  if (new_surface.vertices.size() < 3) return false;
+
+  size_t idx0 = new_surface.vertices.at(0);
+  bool exist = false;
+  if (idx0 > adjacent_surfaces.size()) {
+    // vertex not yet tracked in adjacent surfaces
+    return false;
+  }
+
+  for (pcl::Vertices p : adjacent_surfaces[idx0]) {
+    if (p.vertices == new_surface.vertices) {
+      return true;
+    }
+  }
+  return false;
+}
 }  // namespace kimera_pgmo

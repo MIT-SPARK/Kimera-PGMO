@@ -56,4 +56,14 @@ GraphMsgPtr GtsamGraphToRos(
     const gtsam::NonlinearFactorGraph& factors,
     const gtsam::Values& values,
     const std::vector<ros::Time>& timestamps = std::vector<ros::Time>());
+
+/*! \brief Check if a surface exist based on previous tracked adjacent surfaces
+ *  - new_surface: new surface to be inserted
+ *  - adjacent_surfaces: vertex to adjacent surfaces (should correspond exactly
+ * to order of vertices)
+ *  returns true if surface exists
+ */
+bool SurfaceExists(
+    const pcl::Vertices& new_surface,
+    const std::vector<std::vector<pcl::Vertices> >& adjacent_surfaces);
 }  // namespace kimera_pgmo
