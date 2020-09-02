@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <map>
 #include <queue>
 #include <string>
 
@@ -18,6 +19,7 @@
 #include <std_srvs/Empty.h>
 
 #include <gtsam/geometry/Pose3.h>
+#include <gtsam/inference/Symbol.h>
 
 #include "kimera_pgmo/AbsolutePoseStamped.h"
 #include "kimera_pgmo/DeformationGraph.h"
@@ -91,9 +93,9 @@ class KimeraPgmo {
   ros::ServiceServer save_traj_srv_;
 
   // Trajectory
-  std::vector<gtsam::Pose3> trajectory_;
-  std::queue<size_t> unconnected_nodes_;
-  std::vector<ros::Time> timestamps_;
+  std::map<size_t, std::vector<gtsam::Pose3> > trajectory_;
+  std::queue<gtsam::Key> unconnected_nodes_;
+  std::map<size_t, std::vector<ros::Time> > timestamps_;
   double embed_delta_t_;
   // maximum time allowed when associating node to mesh
 

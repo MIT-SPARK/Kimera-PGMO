@@ -425,9 +425,10 @@ bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2) {
 }
 
 // Convert gtsam posegaph to PoseGraph msg
-GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
-                            const gtsam::Values& values,
-                            const std::vector<ros::Time>& timestamps) {
+GraphMsgPtr GtsamGraphToRos(
+    const gtsam::NonlinearFactorGraph& factors,
+    const gtsam::Values& values,
+    const std::map<size_t, std::vector<ros::Time> >& timestamps) {
   std::vector<pose_graph_tools::PoseGraphEdge> edges;
 
   // first store the factors as edges
@@ -441,12 +442,17 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
               factors[i]);
       // convert between factor to PoseGraphEdge type
       pose_graph_tools::PoseGraphEdge edge;
-      edge.key_from = factor.front();
-      edge.key_to = factor.back();
+      gtsam::Symbol front(factor.front());
+      gtsam::Symbol back(factor.back());
+      edge.key_from = front.index();
+      edge.key_to = back.index();
+      edge.robot_from = robot_prefix_to_id(front.chr());
+      edge.robot_to = robot_prefix_to_id(back.chr());
+
       if (edge.key_to == edge.key_from + 1) {  // check if odom
         edge.type = pose_graph_tools::PoseGraphEdge::ODOM;
         try {
-          edge.header.stamp = timestamps.at(edge.key_to);
+          edge.header.stamp = timestamps.at(edge.robot_to).at(edge.key_to);
         } catch (...) {
           // ignore
         }
@@ -503,9 +509,10 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
 
     // TODO(Yun) make this part general
     gtsam::Symbol node_symb(key_list[i]);
-    if (node_symb.chr() == 'n') {
+    if (node_symb.chr() != 'v') {
       try {
-        node.header.stamp = timestamps.at(node_symb.index());
+        size_t robot_id = robot_prefix_to_id(node_symb.chr());
+        node.header.stamp = timestamps.at(robot_id).at(node_symb.index());
       } catch (...) {
         // ignore
       }

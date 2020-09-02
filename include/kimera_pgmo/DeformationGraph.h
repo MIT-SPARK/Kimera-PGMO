@@ -92,19 +92,20 @@ class DeformationGraph {
 
   void addMeasurement(const Vertex& v, const geometry_msgs::Pose& transform);
 
-  void addNodeMeasurement(const size_t& node_number,
-                          const gtsam::Pose3 delta_pose);
+  void addNodeMeasurement(const gtsam::Key& key, const gtsam::Pose3 pose);
 
-  void initFirstNode(const gtsam::Pose3& initial_pose, bool add_prior);
+  void initFirstNode(const gtsam::Key& key,
+                     const gtsam::Pose3& initial_pose,
+                     bool add_prior);
 
-  void addNewBetween(const size_t& from,
-                     const size_t& to,
+  void addNewBetween(const gtsam::Key& key_from,
+                     const gtsam::Key& key_to,
                      const gtsam::Pose3& meas,
                      const gtsam::Pose3& initial_pose = gtsam::Pose3());
 
-  void addNodeValence(const size_t& i, const Vertices& valences);
+  void addNodeValence(const gtsam::Key& key, const Vertices& valences);
 
-  std::vector<gtsam::Pose3> getOptimizedTrajectory() const;
+  std::vector<gtsam::Pose3> getOptimizedTrajectory(char prefix) const;
 
   pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
                               size_t k = 4);
@@ -118,7 +119,8 @@ class DeformationGraph {
   inline gtsam::Values getGtsamValues() const { return values_; }
   inline gtsam::NonlinearFactorGraph getGtsamFactors() const { return nfg_; }
 
-  inline GraphMsgPtr getPoseGraph(const std::vector<ros::Time>& timestamps) {
+  inline GraphMsgPtr getPoseGraph(
+      const std::map<size_t, std::vector<ros::Time> >& timestamps) {
     return GtsamGraphToRos(nfg_, values_, timestamps);
   }
 
@@ -131,13 +133,9 @@ class DeformationGraph {
   pcl::PointCloud<pcl::PointXYZRGBA> vertices_;
   // Keep track of vertices not part of mesh
   // for embedding trajectory, etc.
-  std::vector<gtsam::Pose3> pg_initial_poses_;
-  std::vector<Vertices> pg_connections_;
+  std::map<char, std::vector<gtsam::Pose3> > pg_initial_poses_;
 
   std::vector<gtsam::Point3> vertex_positions_;
-
-  // track mesh if one used to create deformation graph
-  pcl::PolygonMesh mesh_structure_;
 
   std::unique_ptr<KimeraRPGO::RobustSolver> pgo_;
 

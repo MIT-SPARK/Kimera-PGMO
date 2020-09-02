@@ -202,22 +202,25 @@ void KimeraPgmo::incrementalPoseGraphCallback(
   const gtsam::Pose3 new_odom = RosToGtsam(odom_edge.pose);
   const Vertex prev_node = odom_edge.key_from;
   const Vertex current_node = odom_edge.key_to;
+  const size_t robot_id = odom_edge.robot_from;
   // Initialize if first node
-  if (prev_node == 0 && trajectory_.size() == 0) {
+  if (trajectory_.find(robot_id) == trajectory_.end()) {
     if (msg->nodes[0].key != 0) {
-      ROS_WARN("KimeraPgmo: is the first node not of key 0? ");
+      ROS_WARN("KimeraPgmo: is the first node of robot %d not of key 0? ",
+               robot_id);
     }
+    gtsam::Symbol key_symb(GetRobotPrefix(robot_id), msg->nodes[0].key);
     gtsam::Pose3 init_pose = RosToGtsam(msg->nodes[0].pose);
     // Initiate first node but do not add prior
-    deformation_graph_.initFirstNode(init_pose, false);
-    trajectory_.push_back(init_pose);
-    timestamps_.push_back(odom_edge.header.stamp);
-    unconnected_nodes_.push(prev_node);
+    deformation_graph_.initFirstNode(key_symb.key(), init_pose, false);
+    trajectory_[robot_id] = std::vector<gtsam::Pose3>{init_pose};
+    timestamps_[robot_id] = std::vector<ros::Time>{odom_edge.header.stamp};
+    unconnected_nodes_.push(key_symb.key());
     ROS_INFO("Initialized first node in pose graph. ");
   }
 
   // Sanity check key node
-  if (trajectory_.size() != current_node) {
+  if (trajectory_[robot_id].size() != current_node) {
     // TODO (For now we are assuming that we don't have any prefixes and
     // nodes start from 0 )
     ROS_WARN(
@@ -226,18 +229,23 @@ void KimeraPgmo::incrementalPoseGraphCallback(
         current_node);
     return;
   }
-  gtsam::Pose3 new_pose = trajectory_[prev_node].compose(new_odom);
-  trajectory_.push_back(new_pose);
-  timestamps_.push_back(odom_edge.header.stamp);
-  unconnected_nodes_.push(current_node);
-  deformation_graph_.addNewBetween(prev_node, current_node, new_odom, new_pose);
+  gtsam::Symbol prev_key(GetRobotPrefix(robot_id), prev_node);
+  gtsam::Symbol current_key(GetRobotPrefix(robot_id), current_node);
+  gtsam::Pose3 new_pose = trajectory_[robot_id][prev_node].compose(new_odom);
+  trajectory_[robot_id].push_back(new_pose);
+  timestamps_[robot_id].push_back(odom_edge.header.stamp);
+  unconnected_nodes_.push(current_key);
+  deformation_graph_.addNewBetween(prev_key, current_key, new_odom, new_pose);
 
   if (loop_closure) {
     pose_graph_tools::PoseGraphEdge lc_edge = msg->edges[1];
     const gtsam::Pose3 meas = RosToGtsam(lc_edge.pose);
-    const Vertex from_node = lc_edge.key_from;
-    const Vertex to_node = lc_edge.key_to;
-    deformation_graph_.addNewBetween(from_node, to_node, meas);
+    const gtsam::Symbol from_key(GetRobotPrefix(lc_edge.robot_from),
+                                 lc_edge.key_from);
+    const gtsam::Symbol to_key(GetRobotPrefix(lc_edge.robot_to),
+                               lc_edge.key_to);
+
+    deformation_graph_.addNewBetween(from_key, to_key, meas);
     ROS_INFO(
         "KimeraPgmo: Loop closure detected between node %d and %d, optimized "
         "with trajectory of "
@@ -294,14 +302,18 @@ void KimeraPgmo::incrementalMeshCallback(
   deformation_graph_.updateMesh(*new_vertices, new_triangles);
   // Associate nodes to mesh
   while (!unconnected_nodes_.empty()) {
-    size_t node = unconnected_nodes_.front();
+    gtsam::Symbol node = gtsam::Symbol(unconnected_nodes_.front());
     unconnected_nodes_.pop();
-    if (timestamps_[node].toSec() > msg_time - embed_delta_t_) {
-      ROS_INFO("Connection node %d to %d vertices. ", node, new_indices.size());
+    size_t robot_id = robot_prefix_to_id.at(node.chr());
+    if (timestamps_[robot_id][node].toSec() > msg_time - embed_delta_t_) {
+      ROS_INFO("Connection robot %d node %d to %d vertices. ",
+               robot_id,
+               node.index(),
+               new_indices.size());
       deformation_graph_.addNodeValence(node, new_indices);
     }
     // termination guarantee
-    if (timestamps_[node].toSec() > msg_time + embed_delta_t_) break;
+    if (timestamps_[robot_id][node].toSec() > msg_time + embed_delta_t_) break;
   }
   return;
 }
@@ -318,22 +330,26 @@ bool KimeraPgmo::saveMeshCallback(std_srvs::Empty::Request&,
 bool KimeraPgmo::saveTrajectoryCallback(std_srvs::Empty::Request&,
                                         std_srvs::Empty::Response&) {
   // Save trajectory
-  std::vector<gtsam::Pose3> optimized_path =
-      deformation_graph_.getOptimizedTrajectory();
-  std::ofstream csvfile;
-  std::string csv_name = output_prefix_ + std::string(".csv");
-  csvfile.open(csv_name);
-  csvfile << "timestamp[ns],x,y,z,qw,qx,qy,qz\n";
-  for (size_t i = 0; i < optimized_path.size(); i++) {
-    gtsam::Point3 pos = trajectory_[i].translation();
-    gtsam::Quaternion quat = trajectory_[i].rotation().toQuaternion();
-    ros::Time stamp = timestamps_[i];
-    csvfile << stamp.toNSec() << "," << pos.x() << "," << pos.y() << ","
-            << pos.z() << "," << quat.w() << "," << quat.x() << "," << quat.y()
-            << "," << quat.z() << "\n";
+  for (auto const& traj : trajectory_) {
+    size_t robot_id = traj.first;
+    std::vector<gtsam::Pose3> optimized_path =
+        deformation_graph_.getOptimizedTrajectory(GetRobotPrefix(robot_id));
+    std::ofstream csvfile;
+    std::string csv_name =
+        output_prefix_ + std::string(robot_id) + std::string(".csv");
+    csvfile.open(csv_name);
+    csvfile << "timestamp[ns],x,y,z,qw,qx,qy,qz\n";
+    for (size_t i = 0; i < optimized_path.size(); i++) {
+      gtsam::Point3 pos = trajectory_[i].translation();
+      gtsam::Quaternion quat = trajectory_[i].rotation().toQuaternion();
+      ros::Time stamp = timestamps_[i];
+      csvfile << stamp.toNSec() << "," << pos.x() << "," << pos.y() << ","
+              << pos.z() << "," << quat.w() << "," << quat.x() << ","
+              << quat.y() << "," << quat.z() << "\n";
+    }
+    csvfile.close();
   }
-  csvfile.close();
-  ROS_INFO("KimeraPgmo: Saved trajectory to file.");
+  ROS_INFO("KimeraPgmo: Saved trajectories to file.");
   return true;
 }
 
