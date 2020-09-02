@@ -69,9 +69,9 @@ void DeformationGraph::updateConsistencyFactors(
   // add new vertices to values
   for (Vertex v : new_vertices) {
     gtsam::Pose3 v_pose;
-    gtsam::Symbol v_symb(v);
+    gtsam::Symbol v_symb('v', v);
     v_pose = gtsam::Pose3(gtsam::Rot3(), vertex_positions_.at(v));
-    new_values.insert(v, v_pose);
+    new_values.insert(v_symb, v_pose);
   }
 
   // build the connections factors
@@ -80,8 +80,8 @@ void DeformationGraph::updateConsistencyFactors(
     Vertex to = e.second;
     gtsam::Pose3 from_pose;
     gtsam::Point3 to_point;
-    gtsam::Symbol from_symb(from);
-    gtsam::Symbol to_symb(to);
+    gtsam::Symbol from_symb('v', from);
+    gtsam::Symbol to_symb('v', to);
     from_pose = gtsam::Pose3(gtsam::Rot3(), vertex_positions_.at(from));
 
     to_point = vertex_positions_.at(to);
@@ -90,7 +90,8 @@ void DeformationGraph::updateConsistencyFactors(
     static const gtsam::SharedNoiseModel& noise =
         gtsam::noiseModel::Isotropic::Variance(3, 1e-3);
     // Create deformation edge factor
-    DeformationEdgeFactor new_edge(from, to, from_pose, to_point, noise);
+    DeformationEdgeFactor new_edge(
+        from_symb, to_symb, from_pose, to_point, noise);
     consistency_factors_.add(new_edge);
     new_factors.add(new_edge);
   }
@@ -108,7 +109,7 @@ void DeformationGraph::addNodeValence(const size_t& i,
   // Add the consistency factors
   for (Vertex v : valences) {
     gtsam::Symbol node('n', i);
-    gtsam::Symbol vertex(v);
+    gtsam::Symbol vertex('v', v);
     gtsam::Pose3 node_pose = pg_initial_poses_.at(i);
     gtsam::Pose3 vertex_pose =
         gtsam::Pose3(gtsam::Rot3(), vertex_positions_.at(v));
@@ -140,8 +141,9 @@ void DeformationGraph::addMeasurement(const Vertex& v,
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(6, 1e-10);
 
+  gtsam::Symbol v_symb('v', v);
   gtsam::Pose3 meas = RosToGtsam(pose);
-  gtsam::PriorFactor<gtsam::Pose3> absolute_meas(v, meas, noise);
+  gtsam::PriorFactor<gtsam::Pose3> absolute_meas(v_symb, meas, noise);
   prior_factors_.add(absolute_meas);
   new_factors.add(absolute_meas);
 
@@ -281,7 +283,7 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
                         (p.z - p_vertex.z) * (p.z - p_vertex.z);
       if (nearest_nodes.size() < k + 1 ||
           nearest_nodes.at(k).second > distance) {
-        if (values_.exists(i)) {
+        if (values_.exists(gtsam::Symbol('v', i))) {
           // make sure that the node in question has already been optimized
           nearest_nodes.push_back(std::pair<Vertex, double>(i, distance));
         }
@@ -309,7 +311,7 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
       if (weight_sum == 0 && weight == 0) weight = 1;
       weight_sum = weight_sum + weight;
       gtsam::Pose3 node_transform =
-          values_.at<gtsam::Pose3>(nearest_nodes[j].first);
+          values_.at<gtsam::Pose3>(gtsam::Symbol('v', nearest_nodes[j].first));
       gtsam::Point3 add = node_transform.rotation().rotate(vi - gj) +
                           node_transform.translation();
       new_point = new_point + weight * add;

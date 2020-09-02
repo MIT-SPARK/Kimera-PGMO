@@ -296,7 +296,7 @@ TEST(test_deformation_graph, updateMesh) {
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), factor6.fromPose()));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(0, 0, 0), factor6.toPoint()));
   EXPECT_EQ(gtsam::Symbol('n', 0).key(), factor6.front());
-  EXPECT_EQ(0, factor6.back());
+  EXPECT_EQ(gtsam::Symbol('v', 0).key(), factor6.back());
 
   Vertices new_node_valences_2{2};
   graph.addNewBetween(
@@ -319,7 +319,7 @@ TEST(test_deformation_graph, updateMesh) {
       gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 0)),
                           factor12.fromPose()));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(2, 3, 4), factor12.toPoint()));
-  EXPECT_EQ(2, factor12.front());
+  EXPECT_EQ(gtsam::Symbol('v', 2).key(), factor12.front());
   EXPECT_EQ(gtsam::Symbol('n', 1).key(), factor12.back());
 }
 
@@ -352,7 +352,7 @@ TEST(test_deformation_graph, addNodeMeasurement) {
       factor6.fromPose()));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(0, 0, 0), factor6.toPoint()));
   EXPECT_EQ(gtsam::Symbol('n', 0).key(), factor6.front());
-  EXPECT_EQ(0, factor6.back());
+  EXPECT_EQ(gtsam::Symbol('v', 0).key(), factor6.back());
 
   // Add node measurement
   graph.addNodeMeasurement(0,
@@ -436,8 +436,8 @@ TEST(test_deformation_graph, addNewBetween) {
       *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[1]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(), factor1.fromPose()));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor1.toPoint()));
-  EXPECT_EQ(0, factor1.front());
-  EXPECT_EQ(1, factor1.back());
+  EXPECT_EQ(gtsam::Symbol('v', 0).key(), factor1.front());
+  EXPECT_EQ(gtsam::Symbol('v', 1).key(), factor1.back());
 
   // Expect no change
   pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 1);
@@ -504,7 +504,7 @@ TEST(test_deformation_graph, addNewBetween) {
       factor14.fromPose()));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(0, 1, 0), factor14.toPoint()));
   EXPECT_EQ(gtsam::Symbol('n', 2).key(), factor14.front());
-  EXPECT_EQ(2, factor14.back());
+  EXPECT_EQ(gtsam::Symbol('v', 2).key(), factor14.back());
 
   traj = graph.getOptimizedTrajectory();
   EXPECT_EQ(3, traj.size());
