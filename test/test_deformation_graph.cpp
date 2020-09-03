@@ -301,11 +301,11 @@ TEST(test_deformation_graph, updateMesh) {
 
   Vertices new_node_valences_2{2};
   graph.addNewBetween(
-      0,
-      1,
+      gtsam::Symbol('a', 0),
+      gtsam::Symbol('a', 1),
       gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(0, 1, 2)),
       gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(2, 3, 4)));
-  graph.addNodeValence(1, new_node_valences_2);
+  graph.addNodeValence(gtsam::Symbol('a', 1), new_node_valences_2);
 
   // Check that the factors are added
   values = graph.getGtsamValues();
@@ -339,7 +339,7 @@ TEST(test_deformation_graph, addNodeMeasurement) {
       gtsam::Symbol('a', 0),
       gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)),
       false);
-  graph.addNodeValence(0, new_node_valences);
+  graph.addNodeValence(gtsam::Symbol('a', 0), new_node_valences);
 
   // Check factors added
   gtsam::Values values = graph.getGtsamValues();
@@ -358,7 +358,7 @@ TEST(test_deformation_graph, addNodeMeasurement) {
   EXPECT_EQ(gtsam::Symbol('v', 0).key(), factor6.back());
 
   // Add node measurement
-  graph.addNodeMeasurement(0,
+  graph.addNodeMeasurement(gtsam::Symbol('a', 0),
                            gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)));
 
   factors = graph.getGtsamFactors();
@@ -459,15 +459,16 @@ TEST(test_deformation_graph, addNewBetween) {
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)), traj[1]));
 
-  graph.addNewBetween(1,
-                      2,
+  graph.addNewBetween(gtsam::Symbol('a', 1),
+                      gtsam::Symbol('a', 2),
                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)),
                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)));
-  graph.addNewBetween(
-      0, 2, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)));
+  graph.addNewBetween(gtsam::Symbol('a', 0),
+                      gtsam::Symbol('a', 2),
+                      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)));
 
   Vertices new_node_valences_2{2};
-  graph.addNodeValence(2, new_node_valences_2);
+  graph.addNodeValence(gtsam::Symbol('a', 2), new_node_valences_2);
 
   // Check added factors
   values = graph.getGtsamValues();

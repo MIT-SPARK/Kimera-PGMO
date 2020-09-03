@@ -301,7 +301,8 @@ void KimeraPgmo::incrementalMeshCallback(
     gtsam::Symbol node = gtsam::Symbol(unconnected_nodes_.front());
     unconnected_nodes_.pop();
     size_t robot_id = robot_prefix_to_id.at(node.chr());
-    if (timestamps_[robot_id][node].toSec() > msg_time - embed_delta_t_) {
+    if (timestamps_[robot_id][node.index()].toSec() >
+        msg_time - embed_delta_t_) {
       ROS_INFO("Connection robot %d node %d to %d vertices. ",
                robot_id,
                node.index(),
@@ -309,7 +310,8 @@ void KimeraPgmo::incrementalMeshCallback(
       deformation_graph_.addNodeValence(node, new_indices);
     }
     // termination guarantee
-    if (timestamps_[robot_id][node].toSec() > msg_time + embed_delta_t_) break;
+    if (timestamps_[robot_id][node.index()].toSec() > msg_time + embed_delta_t_)
+      break;
   }
   return;
 }
