@@ -90,7 +90,7 @@ TEST(test_octree_compression, constructor) {
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);
   compression.getStoredPolygons(&triangles);
-  compression.getVertexTimestamps(&vertex_timestamps);
+  compression.getActiveVerticesTimestamps(&vertex_timestamps);
 
   EXPECT_EQ(size_t(0), vertices->points.size());
   EXPECT_EQ(size_t(0), active_vertices->points.size());
@@ -168,7 +168,7 @@ TEST(test_octree_compression, storedValues) {
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);
   compression.getStoredPolygons(&triangles);
-  compression.getVertexTimestamps(&vertex_timestamps);
+  compression.getActiveVerticesTimestamps(&vertex_timestamps);
 
   // Check the stored interated values
   EXPECT_EQ(size_t(5), vertices->size());
@@ -198,7 +198,7 @@ TEST(test_octree_compression, storedValues) {
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);
   compression.getStoredPolygons(&triangles);
-  compression.getVertexTimestamps(&vertex_timestamps);
+  compression.getActiveVerticesTimestamps(&vertex_timestamps);
 
   EXPECT_EQ(size_t(9), vertices->size());
   EXPECT_EQ(size_t(9), active_vertices->size());
@@ -249,7 +249,7 @@ TEST(test_octree_compression, pruneStoredMesh) {
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);
   compression.getStoredPolygons(&triangles);
-  compression.getVertexTimestamps(&vertex_timestamps);
+  compression.getActiveVerticesTimestamps(&vertex_timestamps);
 
   EXPECT_EQ(size_t(5), active_vertices->size());
   EXPECT_EQ(size_t(8), triangles.size());
@@ -282,7 +282,7 @@ TEST(test_octree_compression, pruneStoredMesh) {
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);
   compression.getStoredPolygons(&triangles);
-  compression.getVertexTimestamps(&vertex_timestamps);
+  compression.getActiveVerticesTimestamps(&vertex_timestamps);
 
   EXPECT_EQ(size_t(9), active_vertices->size());
   EXPECT_EQ(size_t(12), triangles.size());
@@ -380,7 +380,7 @@ TEST(test_octree_compression, storedValuesCompressed) {
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);
   compression.getStoredPolygons(&triangles);
-  compression.getVertexTimestamps(&vertex_timestamps);
+  compression.getActiveVerticesTimestamps(&vertex_timestamps);
 
   // Check the stored interated values
   EXPECT_EQ(size_t(1), vertices->size());
@@ -408,7 +408,7 @@ TEST(test_octree_compression, storedValuesCompressed) {
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);
   compression.getStoredPolygons(&triangles);
-  compression.getVertexTimestamps(&vertex_timestamps);
+  compression.getActiveVerticesTimestamps(&vertex_timestamps);
 
   EXPECT_EQ(size_t(1), vertices->size());
   EXPECT_EQ(size_t(1), active_vertices->size());

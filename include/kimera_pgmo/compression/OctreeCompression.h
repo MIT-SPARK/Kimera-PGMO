@@ -61,19 +61,34 @@ class OctreeCompression {
    */
   void pruneStoredMesh(const double& earliest_time_sec);
 
+  /*! \brief Get the vertices of the compressed full mesh
+   *  - vertices: pointer to vertices of full compressed mesh
+   */
   inline void getVertices(PointCloud::Ptr vertices) {
     *vertices = *all_vertices_;
   }
 
+  /*! \brief Get the vertices currently in the octree (actively being checked
+   * for duplication according to resolution)
+   *  - vertices: pointer to vertices in octree
+   */
   inline void getActiveVertices(PointCloud::Ptr vertices) {
     *vertices = *active_vertices_;
   }
 
+  /*! \brief Get the surfaces of the compressed full mesh
+   *  - vertices: pointer to surfaces of full compressed mesh
+   */
   inline void getStoredPolygons(std::vector<pcl::Vertices>* polygons) {
     *polygons = polygons_;
   }
 
-  inline void getVertexTimestamps(std::vector<double>* timestamps) {
+  /*! \brief Get the timestamps of the active vertices (time of the msg from
+   * which the vertices were inserted )
+   *  - timestamps: vector of the timestamps indices corresponding to active
+   * vertices
+   */
+  inline void getActiveVerticesTimestamps(std::vector<double>* timestamps) {
     *timestamps = vertices_latest_time_;
   }
 
