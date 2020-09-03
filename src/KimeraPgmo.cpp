@@ -69,8 +69,6 @@ bool KimeraPgmo::createPublishers(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
   optimized_mesh_pub_ =
       nl.advertise<mesh_msgs::TriangleMeshStamped>("optimized_mesh", 1, false);
-  optimized_path_pub_ =
-      nl.advertise<nav_msgs::Path>("optimized_path", 1, false);
   optimized_odom_pub_ =
       nl.advertise<nav_msgs::Odometry>("optimized_odom", 1, false);
   pose_graph_pub_ =
@@ -120,9 +118,9 @@ bool KimeraPgmo::publishOptimizedMesh() {
 }
 
 // To publish optimized trajectory
-bool KimeraPgmo::publishOptimizedPath() const {
+bool KimeraPgmo::publishOptimizedPath(const size_t& robot_id) const {
   std::vector<gtsam::Pose3> gtsam_path =
-      deformation_graph_.getOptimizedTrajectory();
+      deformation_graph_.getOptimizedTrajectory(GetRobotPrefix(robot_id));
 
   if (gtsam_path.size() == 0) return false;
 
@@ -247,11 +245,14 @@ void KimeraPgmo::incrementalPoseGraphCallback(
 
     deformation_graph_.addNewBetween(from_key, to_key, meas);
     ROS_INFO(
-        "KimeraPgmo: Loop closure detected between node %d and %d, optimized "
+        "KimeraPgmo: Loop closure detected between robot %d node %d and robot "
+        "%d node %d, optimized "
         "with trajectory of "
         "length %d.",
-        from_node,
-        to_node,
+        lc_edge.robot_from,
+        lc_edge.key_from,
+        lc_edge.robot_to,
+        lc_edge.key_to,
         trajectory_.size());
   }
 }
@@ -271,11 +272,6 @@ void KimeraPgmo::fullMeshCallback(
   if (optimized_mesh_pub_.getNumSubscribers() > 0) {
     publishOptimizedMesh();
   }
-  if (optimized_path_pub_.getNumSubscribers() > 0 ||
-      optimized_odom_pub_.getNumSubscribers() > 0) {
-    publishOptimizedPath();
-  }
-
   if (pose_graph_pub_.getNumSubscribers() > 0) {
     // Publish pose graph
     GraphMsgPtr pose_graph_ptr = deformation_graph_.getPoseGraph(timestamps_);
@@ -336,13 +332,13 @@ bool KimeraPgmo::saveTrajectoryCallback(std_srvs::Empty::Request&,
         deformation_graph_.getOptimizedTrajectory(GetRobotPrefix(robot_id));
     std::ofstream csvfile;
     std::string csv_name =
-        output_prefix_ + std::string(robot_id) + std::string(".csv");
+        output_prefix_ + std::to_string(robot_id) + std::string(".csv");
     csvfile.open(csv_name);
     csvfile << "timestamp[ns],x,y,z,qw,qx,qy,qz\n";
     for (size_t i = 0; i < optimized_path.size(); i++) {
-      gtsam::Point3 pos = trajectory_[i].translation();
-      gtsam::Quaternion quat = trajectory_[i].rotation().toQuaternion();
-      ros::Time stamp = timestamps_[i];
+      gtsam::Point3 pos = optimized_path[i].translation();
+      gtsam::Quaternion quat = optimized_path[i].rotation().toQuaternion();
+      ros::Time stamp = timestamps_[robot_id][i];
       csvfile << stamp.toNSec() << "," << pos.x() << "," << pos.y() << ","
               << pos.z() << "," << quat.w() << "," << quat.x() << ","
               << quat.y() << "," << quat.z() << "\n";

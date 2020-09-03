@@ -46,7 +46,7 @@ class KimeraPgmo {
 
   // Functions to publish
   bool publishOptimizedMesh();
-  bool publishOptimizedPath() const;
+  bool publishOptimizedPath(const size_t& robot_id) const;
 
   // Callback for loopclosure
   void incrementalPoseGraphCallback(
@@ -79,7 +79,7 @@ class KimeraPgmo {
 
   // Publishers
   ros::Publisher optimized_mesh_pub_;
-  ros::Publisher optimized_path_pub_;
+  ros::Publisher optimized_path_pub_;  // currently unused
   ros::Publisher optimized_odom_pub_;
   ros::Publisher pose_graph_pub_;
 

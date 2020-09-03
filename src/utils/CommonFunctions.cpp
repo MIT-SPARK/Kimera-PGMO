@@ -446,8 +446,8 @@ GraphMsgPtr GtsamGraphToRos(
       gtsam::Symbol back(factor.back());
       edge.key_from = front.index();
       edge.key_to = back.index();
-      edge.robot_from = robot_prefix_to_id(front.chr());
-      edge.robot_to = robot_prefix_to_id(back.chr());
+      edge.robot_from = robot_prefix_to_id.at(front.chr());
+      edge.robot_to = robot_prefix_to_id.at(back.chr());
 
       if (edge.key_to == edge.key_from + 1) {  // check if odom
         edge.type = pose_graph_tools::PoseGraphEdge::ODOM;
@@ -511,7 +511,7 @@ GraphMsgPtr GtsamGraphToRos(
     gtsam::Symbol node_symb(key_list[i]);
     if (node_symb.chr() != 'v') {
       try {
-        size_t robot_id = robot_prefix_to_id(node_symb.chr());
+        size_t robot_id = robot_prefix_to_id.at(node_symb.chr());
         node.header.stamp = timestamps.at(robot_id).at(node_symb.index());
       } catch (...) {
         // ignore

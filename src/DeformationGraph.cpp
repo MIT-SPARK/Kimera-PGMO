@@ -105,10 +105,11 @@ void DeformationGraph::addNodeValence(const gtsam::Key& key,
   gtsam::NonlinearFactorGraph new_factors;
   gtsam::Values new_values;
   char prefix = gtsam::Symbol(key).chr();
+  size_t idx = gtsam::Symbol(key).index();
   // Add the consistency factors
   for (Vertex v : valences) {
     gtsam::Symbol vertex('v', v);
-    gtsam::Pose3 node_pose = pg_initial_poses_[prefix].at(i);
+    gtsam::Pose3 node_pose = pg_initial_poses_[prefix].at(idx);
     gtsam::Pose3 vertex_pose =
         gtsam::Pose3(gtsam::Rot3(), vertex_positions_.at(v));
 
@@ -176,24 +177,26 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
   gtsam::NonlinearFactorGraph new_factors;
   char from_prefix = gtsam::Symbol(key_from).chr();
   char to_prefix = gtsam::Symbol(key_to).chr();
+  size_t from_idx = gtsam::Symbol(key_from).index();
+  size_t to_idx = gtsam::Symbol(key_to).index();
 
-  if (from >= pg_initial_poses_[from_prefix].size()) {
+  if (from_idx >= pg_initial_poses_[from_prefix].size()) {
     ROS_ERROR(
         "DeformationGraph: when adding new between from key should already "
         "exist.");
     return;
   }
 
-  if (to > pg_initial_poses_[to_prefix].size()) {
+  if (to_idx > pg_initial_poses_[to_prefix].size()) {
     ROS_ERROR("DeformationGraph: skipping keys in addNewBetween.");
     return;
-  } else if (to == pg_initial_poses_[to_prefix].size()) {
+  } else if (to_idx == pg_initial_poses_[to_prefix].size()) {
     // new node
     // For now push empty valence, valences will be populated when updated
     Vertices valences;
     pg_initial_poses_[to_prefix].push_back(initial_pose);
 
-    new_values.insert(to_symb, initial_pose);
+    new_values.insert(key_to, initial_pose);
   }
 
   static const gtsam::SharedNoiseModel& noise =
@@ -227,6 +230,11 @@ void DeformationGraph::initFirstNode(const gtsam::Key& key,
 
   Vertices valences;
   char prefix = gtsam::Symbol(key).chr();
+  size_t idx = gtsam::Symbol(key).index();
+  if (idx != 0)
+    ROS_ERROR(
+        "First node initialized from a trajectory is not 0. Breaks "
+        "assumption. ");
   pg_initial_poses_[prefix] = std::vector<gtsam::Pose3>{initial_pose};
 
   static const gtsam::SharedNoiseModel& noise =

@@ -45,8 +45,7 @@ const std::map<size_t, char> robot_prefix_to_id = {
 };
 inline char GetRobotPrefix(size_t robot_id) {
   if (!robot_id_to_prefix.count(robot_id)) {
-    ROS_ERROR("No matching prefix for robot id");
-    return 0;
+    return '\0';
   }
   return robot_id_to_prefix.at(robot_id);
 }
@@ -84,7 +83,7 @@ bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2);
 GraphMsgPtr GtsamGraphToRos(
     const gtsam::NonlinearFactorGraph& factors,
     const gtsam::Values& values,
-    const std::vector<ros::Time>& timestamps = std::vector<ros::Time>());
+    const std::map<size_t, std::vector<ros::Time> >& timestamps);
 
 /*! \brief Check if a surface exist based on previous tracked adjacent surfaces
  *  - new_surface: new surface to be inserted
