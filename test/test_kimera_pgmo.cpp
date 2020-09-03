@@ -45,16 +45,16 @@ class KimeraPgmoTest : public ::testing::Test {
     pgmo_.incrementalMeshCallback(mesh_msg);
   }
 
-  inline std::vector<gtsam::Pose3> getTrajectory() const {
-    return pgmo_.trajectory_;
+  inline std::vector<gtsam::Pose3> getTrajectory(const size_t& id) const {
+    return pgmo_.trajectory_.at(id);
   }
 
   inline std::queue<size_t> getUnconnectedNodes() const {
     return pgmo_.unconnected_nodes_;
   }
 
-  inline std::vector<ros::Time> getTimestamps() const {
-    return pgmo_.timestamps_;
+  inline std::vector<ros::Time> getTimestamps(const size_t& id) const {
+    return pgmo_.timestamps_.at(id);
   }
 
   inline gtsam::Values getValues() const {
@@ -77,7 +77,6 @@ class KimeraPgmoTest : public ::testing::Test {
     e0.header.stamp = stamp;
     e0.key_from = 0;
     e0.key_to = 1;
-    e0.robot_id = 1;
     e0.pose.position.x = 1;
     e0.pose.orientation.w = 1;
     e0.type = pose_graph_tools::PoseGraphEdge::ODOM;
@@ -112,7 +111,6 @@ class KimeraPgmoTest : public ::testing::Test {
     e1.header.stamp = stamp;
     e1.key_from = 1;
     e1.key_to = 2;
-    e1.robot_id = 1;
     e1.pose.position.y = 1;
     e1.pose.orientation.w = 1;
     e1.type = pose_graph_tools::PoseGraphEdge::ODOM;
@@ -123,7 +121,6 @@ class KimeraPgmoTest : public ::testing::Test {
     e2.header.stamp = stamp;
     e2.key_from = 0;
     e2.key_to = 2;
-    e2.robot_id = 1;
     e2.pose.position.x = 1;
     e2.pose.position.y = 1;
     e2.pose.orientation.w = 1;
@@ -133,12 +130,10 @@ class KimeraPgmoTest : public ::testing::Test {
                      0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
 
     n1.header.stamp = stamp;
-    n1.robot_id = 1;
     n1.key = 0;
     n1.pose.orientation.w = 1;
 
     n2.header.stamp = stamp;
-    n2.robot_id = 1;
     n2.key = 2;
     n2.pose.orientation.w = 1;
 
@@ -159,7 +154,6 @@ class KimeraPgmoTest : public ::testing::Test {
     e1.header.stamp = stamp;
     e1.key_from = 2;
     e1.key_to = 3;
-    e1.robot_id = 1;
     e1.pose.position.z = 1;
     e1.pose.orientation.w = 1;
     e1.type = pose_graph_tools::PoseGraphEdge::ODOM;
@@ -170,7 +164,6 @@ class KimeraPgmoTest : public ::testing::Test {
     e2.header.stamp = stamp;
     e2.key_from = 0;
     e2.key_to = 3;
-    e2.robot_id = 1;
     e2.pose.position.z = -1;
     e2.pose.position.x = -1;
     e2.pose.orientation.w = 1;
@@ -180,12 +173,10 @@ class KimeraPgmoTest : public ::testing::Test {
                      0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
 
     n1.header.stamp = stamp;
-    n1.robot_id = 1;
     n1.key = 0;
     n1.pose.orientation.w = 1;
 
     n2.header.stamp = stamp;
-    n2.robot_id = 1;
     n2.key = 3;
     n2.pose.orientation.w = 1;
 
@@ -279,9 +270,9 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   *inc_graph = SingleOdomGraph(ros::Time(10.2));
   IncrementalPoseGraphCallback(inc_graph);
 
-  std::vector<gtsam::Pose3> traj = getTrajectory();
+  std::vector<gtsam::Pose3> traj = getTrajectory(0);
   std::queue<size_t> unconnected_nodes = getUnconnectedNodes();
-  std::vector<ros::Time> stamps = getTimestamps();
+  std::vector<ros::Time> stamps = getTimestamps(0);
   gtsam::NonlinearFactorGraph factors = getFactors();
   gtsam::Values values = getValues();
 
@@ -319,9 +310,9 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   *inc_graph = OdomLoopclosureGraph(ros::Time(20.3));
   IncrementalPoseGraphCallback(inc_graph);
 
-  traj = getTrajectory();
+  traj = getTrajectory(0);
   unconnected_nodes = getUnconnectedNodes();
-  stamps = getTimestamps();
+  stamps = getTimestamps(0);
   factors = getFactors();
   values = getValues();
 
