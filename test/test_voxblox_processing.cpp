@@ -23,9 +23,6 @@ class VoxbloxProcessingTest : public ::testing::Test {
 
   ~VoxbloxProcessingTest() {}
 
-  // Measurements callback
-  void PruneStoredBlocks(const ros::Time& time) { vp_.pruneStoredBlocks(time); }
-
   // Test update called in timer event
   pcl::PolygonMesh ProcessVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
     return vp_.processVoxbloxMesh(msg);
