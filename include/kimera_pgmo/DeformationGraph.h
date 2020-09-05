@@ -27,7 +27,10 @@
 
 namespace kimera_pgmo {
 
-// Define a factor type for edges of deformation graph
+/*! \brief Define a factor type for edges between two mesh vertices or between a
+ * mesh vertex and a pose graph node to be added to deformation graph. Inherited
+ * from GTSAM NoiseModelFactor2
+ */
 class DeformationEdgeFactor
     : public gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3> {
  private:
@@ -82,49 +85,127 @@ class DeformationEdgeFactor
 
 class DeformationGraph {
  public:
+  /*! \brief Deformation graph class constructor
+   */
   DeformationGraph();
   ~DeformationGraph();
 
+  /*! \brief Initialize deformation graph along with robust solver backend.
+   *  - pgo_trans_threshold: translation threshold (meters of error per node)
+   * for backend PCM outlier rejection
+   *  - pgo_rot_threshold: rotation threshold (radians of error per node) for
+   * backend PCM outlier rejection
+   */
   bool initialize(double pgo_trans_threshold, double pgo_rot_threshold);
 
+  /*! \brief Add new vertices as nodes in deformation graph and the sides of the
+   * new surfaces as edges in deformation graph.
+   *  - new_vertices: new vertices of sampled mesh that makes up most of
+   * deformation graph
+   *  - new_surfaces: new surfaces of sampled mesh
+   */
   void updateMesh(const pcl::PointCloud<pcl::PointXYZRGBA>& new_vertices,
                   const std::vector<pcl::Vertices> new_surfaces);
 
+  /*! \brief Fix the transform of a node corresponding to a sampled mesh vertex
+   * in deformation graph. Note that all vertices has an original rotation of
+   * identity.
+   *  - v: Vertex (index) to impose transform on
+   *  - transform: imposed transform (geometry_msgs Pose)
+   */
   void addMeasurement(const Vertex& v, const geometry_msgs::Pose& transform);
 
+  /*! \brief Fix the transform of a node corresponding to a pose graph node
+   *  - key: Key of the node to transform. Note that this is the key after
+   * adding the prefix, etc gtsam::Symbol(prefix, index).key()
+   *  - pose: Transform to impose (GTSAM Pose3)
+   */
   void addNodeMeasurement(const gtsam::Key& key, const gtsam::Pose3 pose);
 
+  /*! \brief Initialize with first node of a new trajectory
+   *  - key: Key of first node in new trajectory
+   *  - initial_pose: Initial measurement of first node
+   *  - add_prior: boolean - add a Prior Factor or not
+   */
   void initFirstNode(const gtsam::Key& key,
                      const gtsam::Pose3& initial_pose,
                      bool add_prior);
 
+  /*! \brief Add a new between factor to the deformation graph
+   *  - key_from: Key of front node to connect between factor
+   *  - key_to: Key of back node to connect between factor
+   *  - meas: Measurement of between factor
+   *  - Estimated position of new node (the back node if node is new)
+   */
   void addNewBetween(const gtsam::Key& key_from,
                      const gtsam::Key& key_to,
                      const gtsam::Pose3& meas,
                      const gtsam::Pose3& initial_pose = gtsam::Pose3());
 
+  /*! \brief Add connections from a pose graph node to mesh vertices nodes
+   *  - key: Key of pose graph node
+   *  - valences: The mesh vertices nodes to connect to
+   */
   void addNodeValence(const gtsam::Key& key, const Vertices& valences);
 
+  /*! \brief Get the optimized estimates for nodes with certain prefix
+   *  - prefix: prefix of the nodes to query best estimate
+   */
   std::vector<gtsam::Pose3> getOptimizedTrajectory(char prefix) const;
 
+  /*! \brief Deform a mesh based on the deformation graph
+   * - original_mesh: mesh to deform
+   * - k: how many nearby nodes to use to adjust new position of vertices when
+   * deforming
+   */
   pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
                               size_t k = 4);
 
+  /*! \brief Get the number of mesh vertices nodes in the deformation graph
+   * - outputs the number of mesh vertices nodes
+   */
   inline size_t getNumVertices() const { return vertices_.points.size(); }
+
+  /*! \brief Get the positions of the mesh vertices nodes in the deformation
+   * graph
+   * - outputs the positions of mesh vertices nodes as a pointcloud
+   */
   inline pcl::PointCloud<pcl::PointXYZRGBA> getVertices() const {
     return vertices_;
   }
+
+  /*! \brief Gets the deformation graph as a graph type (currently the pose
+   * graph nodes not included)
+   * - outputs graph
+   */
   inline Graph getGraph() const { return graph_; }
 
+  /*! \brief Gets the estimated values since last optimization
+   *  - outputs last estimated values as GTSAM Values
+   */
   inline gtsam::Values getGtsamValues() const { return values_; }
+
+  /*! \brief Gets the factors added to the backend, minus the detected outliers
+   *  - outputs the factors as a GTSAM NonlinearFactorGraph
+   */
   inline gtsam::NonlinearFactorGraph getGtsamFactors() const { return nfg_; }
 
+  /*! \brief Gets the pose graph from the backend
+   *   - timestamps: map of robot id to sequential timestamps in order to stamp
+   * the nodes in the output pose graph msg
+   *  - outputs the pose graph in pose_graph_tools PoseGraph type
+   */
   inline GraphMsgPtr getPoseGraph(
       const std::map<size_t, std::vector<ros::Time> >& timestamps) {
     return GtsamGraphToRos(nfg_, values_, timestamps);
   }
 
  private:
+  /*! \brief Called within updateMesh to create the DeformationEdgeFactors
+   * created from the newly added mesh surfaces
+   *  - new_vertices: vertices of the newly added mesh (in updateMesh)
+   *  - new_edges: edges created from the sides of the new mesh surfaces
+   */
   void updateConsistencyFactors(const Vertices& new_vertices,
                                 const std::vector<Edge>& new_edges);
 
