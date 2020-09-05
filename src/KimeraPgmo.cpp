@@ -232,7 +232,8 @@ void KimeraPgmo::incrementalPoseGraphCallback(
         gtsam::Pose3 new_pose =
             trajectory_[robot_from][prev_node].compose(measure);
         // Add to trajectory and timestamp maps
-        trajectory_[robot_from].push_back(new_pose);
+        if (trajectory_[robot_from].size() == current_node)
+          trajectory_[robot_from].push_back(new_pose);
         timestamps_[robot_from].push_back(pg_edge.header.stamp);
         // Add new node to queue to be connected to mesh later
         unconnected_nodes_.push(to_key);
@@ -304,7 +305,7 @@ void KimeraPgmo::incrementalMeshCallback(
     size_t robot_id = robot_prefix_to_id.at(node.chr());
     if (timestamps_[robot_id][node.index()].toSec() >
         msg_time - embed_delta_t_) {
-      ROS_INFO("Connection robot %d node %d to %d vertices. ",
+      ROS_INFO("Connecting robot %d node %d to %d vertices. ",
                robot_id,
                node.index(),
                new_indices.size());

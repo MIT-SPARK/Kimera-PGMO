@@ -491,34 +491,32 @@ GraphMsgPtr GtsamGraphToRos(
   // Then store the values as nodes
   gtsam::KeyVector key_list = values.keys();
   for (size_t i = 0; i < key_list.size(); i++) {
-    pose_graph_tools::PoseGraphNode node;
-    node.key = key_list[i];
-    const gtsam::Pose3& value = values.at<gtsam::Pose3>(key_list[i]);
-    const gtsam::Point3& translation = value.translation();
-    const gtsam::Quaternion& quaternion = value.rotation().toQuaternion();
-
-    // pose - translation
-    node.pose.position.x = translation.x();
-    node.pose.position.y = translation.y();
-    node.pose.position.z = translation.z();
-    // pose - rotation (to quaternion)
-    node.pose.orientation.x = quaternion.x();
-    node.pose.orientation.y = quaternion.y();
-    node.pose.orientation.z = quaternion.z();
-    node.pose.orientation.w = quaternion.w();
-
-    // TODO(Yun) make this part general
     gtsam::Symbol node_symb(key_list[i]);
     if (node_symb.chr() != 'v') {
+      pose_graph_tools::PoseGraphNode node;
+      node.key = node_symb.index();
+      const gtsam::Pose3& value = values.at<gtsam::Pose3>(key_list[i]);
+      const gtsam::Point3& translation = value.translation();
+      const gtsam::Quaternion& quaternion = value.rotation().toQuaternion();
+
+      // pose - translation
+      node.pose.position.x = translation.x();
+      node.pose.position.y = translation.y();
+      node.pose.position.z = translation.z();
+      // pose - rotation (to quaternion)
+      node.pose.orientation.x = quaternion.x();
+      node.pose.orientation.y = quaternion.y();
+      node.pose.orientation.z = quaternion.z();
+      node.pose.orientation.w = quaternion.w();
+
       try {
         size_t robot_id = robot_prefix_to_id.at(node_symb.chr());
         node.header.stamp = timestamps.at(robot_id).at(node_symb.index());
       } catch (...) {
         // ignore
       }
+      nodes.push_back(node);
     }
-
-    nodes.push_back(node);
   }
 
   pose_graph_tools::PoseGraph posegraph;
