@@ -85,12 +85,10 @@ class KimeraPgmoTest : public ::testing::Test {
                      0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
 
     n0.header.stamp = stamp;
-    n0.robot_id = 1;
     n0.key = 0;
     n0.pose.orientation.w = 1;
 
     n1.header.stamp = stamp;
-    n1.robot_id = 1;
     n1.key = 0;
     n1.pose.position.x = 1;
     n1.pose.orientation.w = 1;

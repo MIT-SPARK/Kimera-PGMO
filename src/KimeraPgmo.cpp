@@ -188,72 +188,73 @@ void KimeraPgmo::incrementalPoseGraphCallback(
     return;
   }
 
-  // Check if there are loop closures
-  bool loop_closure = (msg->edges.size() > 1);
-
-  // Extract latest odom edge and add to factor graph
-  pose_graph_tools::PoseGraphEdge odom_edge = msg->edges[0];
-  if (odom_edge.type != pose_graph_tools::PoseGraphEdge::ODOM) {
-    ROS_WARN("Expects the odom edge to be first in message.");
-    return;
-  }
-  const gtsam::Pose3 new_odom = RosToGtsam(odom_edge.pose);
-  const Vertex prev_node = odom_edge.key_from;
-  const Vertex current_node = odom_edge.key_to;
-  const size_t robot_id = odom_edge.robot_from;
-  // Initialize if first node
-  if (trajectory_.find(robot_id) == trajectory_.end()) {
-    if (msg->nodes[0].key != 0) {
-      ROS_WARN("KimeraPgmo: is the first node of robot %d not of key 0? ",
-               robot_id);
+  // if first node initialize
+  //// Note that we assume for all node ids that the keys start with 0
+  if (msg->nodes[0].key == 0) {
+    size_t robot_id = msg->nodes[0].robot_id;
+    if (trajectory_.find(robot_id) == trajectory_.end()) {
+      gtsam::Symbol key_symb(GetRobotPrefix(robot_id), 0);
+      gtsam::Pose3 init_pose = RosToGtsam(msg->nodes[0].pose);
+      // Initiate first node but do not add prior
+      deformation_graph_.initFirstNode(key_symb.key(), init_pose, false);
+      // Add to trajectory and timestamp map
+      trajectory_[robot_id] = std::vector<gtsam::Pose3>{init_pose};
+      timestamps_[robot_id] =
+          std::vector<ros::Time>{msg->nodes[0].header.stamp};
+      // Push node to queue to be connected to mesh vertices later
+      unconnected_nodes_.push(key_symb.key());
+      ROS_INFO("Initialized first node in pose graph. ");
     }
-    gtsam::Symbol key_symb(GetRobotPrefix(robot_id), msg->nodes[0].key);
-    gtsam::Pose3 init_pose = RosToGtsam(msg->nodes[0].pose);
-    // Initiate first node but do not add prior
-    deformation_graph_.initFirstNode(key_symb.key(), init_pose, false);
-    trajectory_[robot_id] = std::vector<gtsam::Pose3>{init_pose};
-    timestamps_[robot_id] = std::vector<ros::Time>{odom_edge.header.stamp};
-    unconnected_nodes_.push(key_symb.key());
-    ROS_INFO("Initialized first node in pose graph. ");
   }
 
-  // Sanity check key node
-  if (trajectory_[robot_id].size() != current_node) {
-    // TODO (For now we are assuming that we don't have any prefixes and
-    // nodes start from 0 )
-    ROS_WARN(
-        "New current node does not match current trajectory length. %d vs %d",
-        trajectory_.size(),
-        current_node);
-    return;
-  }
-  gtsam::Symbol prev_key(GetRobotPrefix(robot_id), prev_node);
-  gtsam::Symbol current_key(GetRobotPrefix(robot_id), current_node);
-  gtsam::Pose3 new_pose = trajectory_[robot_id][prev_node].compose(new_odom);
-  trajectory_[robot_id].push_back(new_pose);
-  timestamps_[robot_id].push_back(odom_edge.header.stamp);
-  unconnected_nodes_.push(current_key);
-  deformation_graph_.addNewBetween(prev_key, current_key, new_odom, new_pose);
+  try {
+    for (pose_graph_tools::PoseGraphEdge pg_edge : msg->edges) {
+      // Get edge information
+      const gtsam::Pose3 measure = RosToGtsam(pg_edge.pose);
+      const Vertex prev_node = pg_edge.key_from;
+      const Vertex current_node = pg_edge.key_to;
+      const size_t robot_from = pg_edge.robot_from;
+      const size_t robot_to = pg_edge.robot_to;
+      gtsam::Symbol from_key(GetRobotPrefix(robot_from), prev_node);
+      gtsam::Symbol to_key(GetRobotPrefix(robot_to), current_node);
 
-  if (loop_closure) {
-    pose_graph_tools::PoseGraphEdge lc_edge = msg->edges[1];
-    const gtsam::Pose3 meas = RosToGtsam(lc_edge.pose);
-    const gtsam::Symbol from_key(GetRobotPrefix(lc_edge.robot_from),
-                                 lc_edge.key_from);
-    const gtsam::Symbol to_key(GetRobotPrefix(lc_edge.robot_to),
-                               lc_edge.key_to);
-
-    deformation_graph_.addNewBetween(from_key, to_key, meas);
-    ROS_INFO(
-        "KimeraPgmo: Loop closure detected between robot %d node %d and robot "
-        "%d node %d, optimized "
-        "with trajectory of "
-        "length %d.",
-        lc_edge.robot_from,
-        lc_edge.key_from,
-        lc_edge.robot_to,
-        lc_edge.key_to,
-        trajectory_.size());
+      if (pg_edge.type == pose_graph_tools::PoseGraphEdge::ODOM) {
+        // odometry edge
+        // Sanity check key node
+        if (trajectory_[robot_from].size() != current_node) {
+          ROS_WARN(
+              "New current node does not match current trajectory length. %d "
+              "vs %d",
+              trajectory_[robot_from].size(),
+              current_node);
+        }
+        // Calculate pose of new node
+        gtsam::Pose3 new_pose =
+            trajectory_[robot_from][prev_node].compose(measure);
+        // Add to trajectory and timestamp maps
+        trajectory_[robot_from].push_back(new_pose);
+        timestamps_[robot_from].push_back(pg_edge.header.stamp);
+        // Add new node to queue to be connected to mesh later
+        unconnected_nodes_.push(to_key);
+        // Add to deformation graph
+        deformation_graph_.addNewBetween(from_key, to_key, measure, new_pose);
+      } else if (pg_edge.type == pose_graph_tools::PoseGraphEdge::LOOPCLOSE) {
+        // Loop closure edge
+        // Add to deformation graph
+        deformation_graph_.addNewBetween(from_key, to_key, measure);
+        ROS_INFO(
+            "KimeraPgmo: Loop closure detected between robot %d node %d and "
+            "robot "
+            "%d node %d.",
+            robot_from,
+            prev_node,
+            robot_to,
+            current_node);
+      }
+    }
+  } catch (const std::exception& e) {
+    ROS_ERROR("Error in KimeraPgmo incrementalPoseGraphCallback. ");
+    ROS_ERROR(e.what());
   }
 }
 
