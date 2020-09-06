@@ -20,7 +20,11 @@ In addition to PCL, OpenCV, GTSAM, Kimera-PGMO is designed as part of Kimera, so
 For the immediate dependencies, check out the rosinstall files. 
 
 ## Architecture 
-![Basic system setup in the single robot case](images/diagram.png)
+For the common usage with a single robot, the following is the diagram of the architecture.
+![Basic system setup in the single robot case](images/diagram_pgmo.png)
+
+We also provide a merger node for possible centralized multi-robot usage. 
+![Basic system setup in the single robot case](images/diagram_merger.png)
 
 ## Parameters 
 Configure the parameters in the params folder for your dataset and environment. 
