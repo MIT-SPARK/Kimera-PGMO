@@ -45,16 +45,16 @@ class KimeraPgmoTest : public ::testing::Test {
     pgmo_.incrementalMeshCallback(mesh_msg);
   }
 
-  inline std::vector<gtsam::Pose3> getTrajectory() const {
-    return pgmo_.trajectory_;
+  inline std::vector<gtsam::Pose3> getTrajectory(const size_t& id) const {
+    return pgmo_.trajectory_.at(id);
   }
 
   inline std::queue<size_t> getUnconnectedNodes() const {
     return pgmo_.unconnected_nodes_;
   }
 
-  inline std::vector<ros::Time> getTimestamps() const {
-    return pgmo_.timestamps_;
+  inline std::vector<ros::Time> getTimestamps(const size_t& id) const {
+    return pgmo_.timestamps_.at(id);
   }
 
   inline gtsam::Values getValues() const {
@@ -77,7 +77,6 @@ class KimeraPgmoTest : public ::testing::Test {
     e0.header.stamp = stamp;
     e0.key_from = 0;
     e0.key_to = 1;
-    e0.robot_id = 1;
     e0.pose.position.x = 1;
     e0.pose.orientation.w = 1;
     e0.type = pose_graph_tools::PoseGraphEdge::ODOM;
@@ -86,12 +85,10 @@ class KimeraPgmoTest : public ::testing::Test {
                      0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
 
     n0.header.stamp = stamp;
-    n0.robot_id = 1;
     n0.key = 0;
     n0.pose.orientation.w = 1;
 
     n1.header.stamp = stamp;
-    n1.robot_id = 1;
     n1.key = 0;
     n1.pose.position.x = 1;
     n1.pose.orientation.w = 1;
@@ -112,7 +109,6 @@ class KimeraPgmoTest : public ::testing::Test {
     e1.header.stamp = stamp;
     e1.key_from = 1;
     e1.key_to = 2;
-    e1.robot_id = 1;
     e1.pose.position.y = 1;
     e1.pose.orientation.w = 1;
     e1.type = pose_graph_tools::PoseGraphEdge::ODOM;
@@ -123,7 +119,6 @@ class KimeraPgmoTest : public ::testing::Test {
     e2.header.stamp = stamp;
     e2.key_from = 0;
     e2.key_to = 2;
-    e2.robot_id = 1;
     e2.pose.position.x = 1;
     e2.pose.position.y = 1;
     e2.pose.orientation.w = 1;
@@ -133,12 +128,10 @@ class KimeraPgmoTest : public ::testing::Test {
                      0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
 
     n1.header.stamp = stamp;
-    n1.robot_id = 1;
     n1.key = 0;
     n1.pose.orientation.w = 1;
 
     n2.header.stamp = stamp;
-    n2.robot_id = 1;
     n2.key = 2;
     n2.pose.orientation.w = 1;
 
@@ -159,7 +152,6 @@ class KimeraPgmoTest : public ::testing::Test {
     e1.header.stamp = stamp;
     e1.key_from = 2;
     e1.key_to = 3;
-    e1.robot_id = 1;
     e1.pose.position.z = 1;
     e1.pose.orientation.w = 1;
     e1.type = pose_graph_tools::PoseGraphEdge::ODOM;
@@ -170,7 +162,6 @@ class KimeraPgmoTest : public ::testing::Test {
     e2.header.stamp = stamp;
     e2.key_from = 0;
     e2.key_to = 3;
-    e2.robot_id = 1;
     e2.pose.position.z = -1;
     e2.pose.position.x = -1;
     e2.pose.orientation.w = 1;
@@ -180,12 +171,10 @@ class KimeraPgmoTest : public ::testing::Test {
                      0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
 
     n1.header.stamp = stamp;
-    n1.robot_id = 1;
     n1.key = 0;
     n1.pose.orientation.w = 1;
 
     n2.header.stamp = stamp;
-    n2.robot_id = 1;
     n2.key = 3;
     n2.pose.orientation.w = 1;
 
@@ -279,9 +268,9 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   *inc_graph = SingleOdomGraph(ros::Time(10.2));
   IncrementalPoseGraphCallback(inc_graph);
 
-  std::vector<gtsam::Pose3> traj = getTrajectory();
+  std::vector<gtsam::Pose3> traj = getTrajectory(0);
   std::queue<size_t> unconnected_nodes = getUnconnectedNodes();
-  std::vector<ros::Time> stamps = getTimestamps();
+  std::vector<ros::Time> stamps = getTimestamps(0);
   gtsam::NonlinearFactorGraph factors = getFactors();
   gtsam::Values values = getValues();
 
@@ -294,16 +283,16 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   // Briefly check values in trajectory, unconnected-nodes, stamps
 
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(), traj[0]));
-  EXPECT_EQ(0, unconnected_nodes.front());
-  EXPECT_EQ(1, unconnected_nodes.back());
+  EXPECT_EQ(gtsam::Symbol('a', 0).key(), unconnected_nodes.front());
+  EXPECT_EQ(gtsam::Symbol('a', 1).key(), unconnected_nodes.back());
   EXPECT_EQ(10.2, stamps[0].toSec());
 
   // check values
   EXPECT_TRUE(gtsam::assert_equal(
-      gtsam::Pose3(), values.at<gtsam::Pose3>(gtsam::Symbol('n', 0))));
+      gtsam::Pose3(), values.at<gtsam::Pose3>(gtsam::Symbol('a', 0))));
   EXPECT_TRUE(
       gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
-                          values.at<gtsam::Pose3>(gtsam::Symbol('n', 1))));
+                          values.at<gtsam::Pose3>(gtsam::Symbol('a', 1))));
 
   // check factors
   EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(
@@ -319,9 +308,9 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   *inc_graph = OdomLoopclosureGraph(ros::Time(20.3));
   IncrementalPoseGraphCallback(inc_graph);
 
-  traj = getTrajectory();
+  traj = getTrajectory(0);
   unconnected_nodes = getUnconnectedNodes();
-  stamps = getTimestamps();
+  stamps = getTimestamps(0);
   factors = getFactors();
   values = getValues();
 
@@ -334,13 +323,13 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
 
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)), traj[2]));
-  EXPECT_EQ(2, unconnected_nodes.back());
+  EXPECT_EQ(gtsam::Symbol('a', 2).key(), unconnected_nodes.back());
   EXPECT_EQ(20.3, stamps[2].toSec());
 
   // check values
   EXPECT_TRUE(
       gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
-                          values.at<gtsam::Pose3>(gtsam::Symbol('n', 2))));
+                          values.at<gtsam::Pose3>(gtsam::Symbol('a', 2))));
 
   // check factors
   EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(
@@ -356,8 +345,8 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
           factors[2]);
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 0)), factor1.measured()));
-  EXPECT_EQ(gtsam::Symbol('n', 0).key(), factor2.front());
-  EXPECT_EQ(gtsam::Symbol('n', 2).key(), factor2.back());
+  EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor2.front());
+  EXPECT_EQ(gtsam::Symbol('a', 2).key(), factor2.back());
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)), factor2.measured()));
 }
@@ -418,8 +407,8 @@ TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
           factors[2]);
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)), factor2.measured()));
-  EXPECT_EQ(gtsam::Symbol('n', 0).key(), factor2.front());
-  EXPECT_EQ(gtsam::Symbol('n', 2).key(), factor2.back());
+  EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor2.front());
+  EXPECT_EQ(gtsam::Symbol('a', 2).key(), factor2.back());
 
   // Check deformation edge factors
   EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[3]));
@@ -427,8 +416,8 @@ TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
       *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[3]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(), factor3.fromPose()));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor3.toPoint()));
-  EXPECT_EQ(0, factor3.front());
-  EXPECT_EQ(1, factor3.back());
+  EXPECT_EQ(gtsam::Symbol('v', 0), factor3.front());
+  EXPECT_EQ(gtsam::Symbol('v', 1), factor3.back());
 
   EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[63]));
   DeformationEdgeFactor factor63 =
@@ -437,8 +426,8 @@ TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
       gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
                           factor63.fromPose()));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(2, 0, 1), factor63.toPoint()));
-  EXPECT_EQ(gtsam::Symbol('n', 2), factor63.front());
-  EXPECT_EQ(9, factor63.back());
+  EXPECT_EQ(gtsam::Symbol('a', 2), factor63.front());
+  EXPECT_EQ(gtsam::Symbol('v', 9), factor63.back());
 }
 
 TEST_F(KimeraPgmoTest, nodeToMeshConnectionDeltaT) {

@@ -425,9 +425,10 @@ bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2) {
 }
 
 // Convert gtsam posegaph to PoseGraph msg
-GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
-                            const gtsam::Values& values,
-                            const std::vector<ros::Time>& timestamps) {
+GraphMsgPtr GtsamGraphToRos(
+    const gtsam::NonlinearFactorGraph& factors,
+    const gtsam::Values& values,
+    const std::map<size_t, std::vector<ros::Time> >& timestamps) {
   std::vector<pose_graph_tools::PoseGraphEdge> edges;
 
   // first store the factors as edges
@@ -441,12 +442,17 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
               factors[i]);
       // convert between factor to PoseGraphEdge type
       pose_graph_tools::PoseGraphEdge edge;
-      edge.key_from = factor.front();
-      edge.key_to = factor.back();
+      gtsam::Symbol front(factor.front());
+      gtsam::Symbol back(factor.back());
+      edge.key_from = front.index();
+      edge.key_to = back.index();
+      edge.robot_from = robot_prefix_to_id.at(front.chr());
+      edge.robot_to = robot_prefix_to_id.at(back.chr());
+
       if (edge.key_to == edge.key_from + 1) {  // check if odom
         edge.type = pose_graph_tools::PoseGraphEdge::ODOM;
         try {
-          edge.header.stamp = timestamps.at(edge.key_to);
+          edge.header.stamp = timestamps.at(edge.robot_to).at(edge.key_to);
         } catch (...) {
           // ignore
         }
@@ -485,33 +491,32 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
   // Then store the values as nodes
   gtsam::KeyVector key_list = values.keys();
   for (size_t i = 0; i < key_list.size(); i++) {
-    pose_graph_tools::PoseGraphNode node;
-    node.key = key_list[i];
-    const gtsam::Pose3& value = values.at<gtsam::Pose3>(key_list[i]);
-    const gtsam::Point3& translation = value.translation();
-    const gtsam::Quaternion& quaternion = value.rotation().toQuaternion();
-
-    // pose - translation
-    node.pose.position.x = translation.x();
-    node.pose.position.y = translation.y();
-    node.pose.position.z = translation.z();
-    // pose - rotation (to quaternion)
-    node.pose.orientation.x = quaternion.x();
-    node.pose.orientation.y = quaternion.y();
-    node.pose.orientation.z = quaternion.z();
-    node.pose.orientation.w = quaternion.w();
-
-    // TODO(Yun) make this part general
     gtsam::Symbol node_symb(key_list[i]);
-    if (node_symb.chr() == 'n') {
+    if (node_symb.chr() != 'v') {
+      pose_graph_tools::PoseGraphNode node;
+      node.key = node_symb.index();
+      const gtsam::Pose3& value = values.at<gtsam::Pose3>(key_list[i]);
+      const gtsam::Point3& translation = value.translation();
+      const gtsam::Quaternion& quaternion = value.rotation().toQuaternion();
+
+      // pose - translation
+      node.pose.position.x = translation.x();
+      node.pose.position.y = translation.y();
+      node.pose.position.z = translation.z();
+      // pose - rotation (to quaternion)
+      node.pose.orientation.x = quaternion.x();
+      node.pose.orientation.y = quaternion.y();
+      node.pose.orientation.z = quaternion.z();
+      node.pose.orientation.w = quaternion.w();
+
       try {
-        node.header.stamp = timestamps.at(node_symb.index());
+        size_t robot_id = robot_prefix_to_id.at(node_symb.chr());
+        node.header.stamp = timestamps.at(robot_id).at(node_symb.index());
       } catch (...) {
         // ignore
       }
+      nodes.push_back(node);
     }
-
-    nodes.push_back(node);
   }
 
   pose_graph_tools::PoseGraph posegraph;
@@ -520,4 +525,24 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
   return boost::make_shared<pose_graph_tools::PoseGraph>(posegraph);
 }
 
+bool SurfaceExists(
+    const pcl::Vertices& new_surface,
+    const std::vector<std::vector<pcl::Vertices> >& adjacent_surfaces) {
+  // Degenerate face
+  if (new_surface.vertices.size() < 3) return false;
+
+  size_t idx0 = new_surface.vertices.at(0);
+  bool exist = false;
+  if (idx0 > adjacent_surfaces.size()) {
+    // vertex not yet tracked in adjacent surfaces
+    return false;
+  }
+
+  for (pcl::Vertices p : adjacent_surfaces[idx0]) {
+    if (p.vertices == new_surface.vertices) {
+      return true;
+    }
+  }
+  return false;
+}
 }  // namespace kimera_pgmo

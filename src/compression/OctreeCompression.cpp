@@ -31,9 +31,24 @@ void OctreeCompression::compressAndIntegrate(
     std::vector<size_t>* new_indices,
     const double& stamp_in_sec) {
   // Extract vertices from input mesh
-  PointCloud::Ptr new_cloud(new PointCloud);
-  pcl::fromPCLPointCloud2(input.cloud, *new_cloud);
+  PointCloud input_vertices;
+  pcl::fromPCLPointCloud2(input.cloud, input_vertices);
 
+  compressAndIntegrate(input_vertices,
+                       input.polygons,
+                       new_vertices,
+                       new_triangles,
+                       new_indices,
+                       stamp_in_sec);
+}
+
+void OctreeCompression::compressAndIntegrate(
+    const pcl::PointCloud<pcl::PointXYZRGBA>& input_vertices,
+    const std::vector<pcl::Vertices>& input_surfaces,
+    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
+    std::vector<pcl::Vertices>* new_triangles,
+    std::vector<size_t>* new_indices,
+    const double& stamp_in_sec) {
   // Place vertices through octree for compression
   double min_x, min_y, min_z, max_x, max_y, max_z;
 
@@ -43,8 +58,8 @@ void OctreeCompression::compressAndIntegrate(
   std::map<size_t, size_t> remapping;
   size_t original_size = all_vertices_->points.size();
 
-  for (size_t i = 0; i < new_cloud->points.size(); ++i) {
-    const pcl::PointXYZRGBA p = new_cloud->points[i];
+  for (size_t i = 0; i < input_vertices.points.size(); ++i) {
+    const pcl::PointXYZRGBA p = input_vertices.points[i];
     octree_->getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
     is_in_box = (p.x >= min_x && p.x <= max_x) &&
                 (p.y >= min_y && p.y <= max_y) &&
@@ -52,6 +67,7 @@ void OctreeCompression::compressAndIntegrate(
     if (!is_in_box || !octree_->isVoxelOccupiedAtPoint(p)) {
       // New point
       new_vertices->push_back(p);
+      adjacent_polygons_.push_back(std::vector<pcl::Vertices>());
       octree_->addPointToCloud(p, active_vertices_);  // add to octree
       all_vertices_->push_back(p);
       // Add index
@@ -79,7 +95,7 @@ void OctreeCompression::compressAndIntegrate(
   }
 
   // Insert polygons
-  for (pcl::Vertices polygon : input.polygons) {
+  for (pcl::Vertices polygon : input_surfaces) {
     pcl::Vertices new_polygon;
     // Remap polygon while checking if polygon is new
     // by checking to see if nay indices in new regime
@@ -88,18 +104,29 @@ void OctreeCompression::compressAndIntegrate(
       new_polygon.vertices.push_back(remapping[idx]);
       if (remapping[idx] >= original_size) new_surface = true;
     }
-    // Check if polygon has actual three diferent surfaces
+
+    // Check if polygon has actual three diferent vertices
     // To avoid degeneracy
-    if (new_polygon.vertices[0] == new_polygon.vertices[1] ||
+    if (new_polygon.vertices.size() < 3 ||
+        new_polygon.vertices[0] == new_polygon.vertices[1] ||
         new_polygon.vertices[1] == new_polygon.vertices[2] ||
         new_polygon.vertices[2] == new_polygon.vertices[0])
       continue;
+
+    // Check if it is a new surface constructed from existing points
+    if (!new_surface) {
+      new_surface = !SurfaceExists(new_polygon, adjacent_polygons_);
+    }
 
     // If it is a new surface, add
     if (new_surface) {
       // Definitely a new surface
       polygons_.push_back(new_polygon);
       new_triangles->push_back(new_polygon);
+      // Update adjacent polygons
+      for (size_t v : new_polygon.vertices) {
+        adjacent_polygons_[v].push_back(new_polygon);
+      }
     }
   }
 }

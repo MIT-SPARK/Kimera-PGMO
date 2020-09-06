@@ -54,3 +54,6 @@ Finally play the rosbag
 ```bash
 rosbag play some_bag.bag --clock
 ```
+
+## Developer notes 
+One thing to note if a developer is working with GTSAM and want to add other factors into the system is that here we assumed that all nodes in the factor graph corresponding to a mesh vertex is marked with a prefix 'v'. By prefix we mean the key character as described [here](https://borg.cc.gatech.edu/sites/edu.borg/html/a00244.html). 

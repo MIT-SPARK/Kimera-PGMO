@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <map>
 #include <queue>
 #include <string>
 
@@ -18,6 +19,7 @@
 #include <std_srvs/Empty.h>
 
 #include <gtsam/geometry/Pose3.h>
+#include <gtsam/inference/Symbol.h>
 
 #include "kimera_pgmo/AbsolutePoseStamped.h"
 #include "kimera_pgmo/DeformationGraph.h"
@@ -29,38 +31,79 @@ class KimeraPgmo {
   friend class KimeraPgmoTest;
 
  public:
+  /*! \brief Constructor for Kimera Pgmo class. Which subscribes to the
+   * incremental mesh and pose graph to create the deformation graph and also
+   * the full mesh to perform distortions and publish the optimzed distored mesh
+   * and trajectory
+   */
   KimeraPgmo();
   ~KimeraPgmo();
 
-  // Initialize parameters, publishers, and subscribers
+  /*! \brief Initializes callbacks and publishers, and also parse the parameters
+   *  - n: ROS node handle.
+   */
   bool initialize(const ros::NodeHandle& n);
 
  protected:
+  /*! \brief Load the parameters required by this class through ROS
+   *  - n: ROS node handle
+   */
   bool loadParameters(const ros::NodeHandle& n);
 
+  /*! \brief Creates the ROS publishers used
+   *  - n: ROS node handle
+   */
   bool createPublishers(const ros::NodeHandle& n);
 
+  /*! \brief Starts the callbacks in this class
+   *  - n: ROS node handle
+   */
   bool registerCallbacks(const ros::NodeHandle& n);
 
-  // Functions to publish
+  /*! \brief Publish the optimized mesh (stored after deformation)
+   */
   bool publishOptimizedMesh();
-  bool publishOptimizedPath() const;
 
-  // Callback for loopclosure
+  /*! \brief Publish optimized trajectory (Currently unused, as trajectory can
+   * be visualized with published pose graph)
+   *  - robot_id: the robot for which the trajectory is to be published
+   */
+  bool publishOptimizedPath(const size_t& robot_id) const;
+
+  /*! \brief Recieves latest edges in the pose graph and add to deformation
+   * graph. Also place the received node in a queue to connect them to the
+   * incremental mesh when that comes in
+   *  - msg: new Pose Graph message consisting of the newest pose graph edges
+   */
   void incrementalPoseGraphCallback(
       const pose_graph_tools::PoseGraph::ConstPtr& msg);
 
-  // Callback for mesh input
+  /*! \brief Subscribes to the full mesh and deform it based on the deformation
+   * graph. Then publish the deformed mesh, and also the optimized pose graph
+   *  - mesh_msg: the full unoptimized mesh in mesh_msgs TriangleMeshStamped
+   * format
+   */
   void fullMeshCallback(
       const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
 
+  /*! \brief Subscribes to the partial mesh from VoxbloxProcessing, which
+   * corresponds to the latest partial mesh from Voxblox or Kimera-Semantics. We
+   * sample this partial mesh to add to the deformation graph and also connect
+   * the nodes stored in the waiting queue to the vertices of the sampled mesh,
+   * provided that the time difference is within the threshold
+   *  - mesh_msg: partial mesh in mesh_msgs TriangleMeshStamped format
+   */
   void incrementalMeshCallback(
       const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
 
-  // Save mesh service callback
+  /*! \brief Saves mesh as a ply file. Triggers through a rosservice call and
+   * saves to file [output_prefix_].ply
+   */
   bool saveMeshCallback(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
 
-  // Save optimized trajectory callback
+  /*! \brief Saves all the trajectories of all robots to csv files. Triggers
+   * through a rosservice call and saves to file [output_prefix_][robot_id].csv
+   */
   bool saveTrajectoryCallback(std_srvs::Empty::Request&,
                               std_srvs::Empty::Response&);
 
@@ -68,16 +111,13 @@ class KimeraPgmo {
   pcl::PolygonMesh optimized_mesh_;
   ros::Time last_mesh_stamp_;
 
-  // To get the simplified mesh for deformation graph
-  // OctreeCompression d_graph_compression_;
-
   DeformationGraph deformation_graph_;
   OctreeCompressionPtr compression_;
   double compression_time_horizon_;
 
   // Publishers
   ros::Publisher optimized_mesh_pub_;
-  ros::Publisher optimized_path_pub_;
+  ros::Publisher optimized_path_pub_;  // currently unused
   ros::Publisher optimized_odom_pub_;
   ros::Publisher pose_graph_pub_;
 
@@ -91,9 +131,9 @@ class KimeraPgmo {
   ros::ServiceServer save_traj_srv_;
 
   // Trajectory
-  std::vector<gtsam::Pose3> trajectory_;
-  std::queue<size_t> unconnected_nodes_;
-  std::vector<ros::Time> timestamps_;
+  std::map<size_t, std::vector<gtsam::Pose3> > trajectory_;
+  std::queue<gtsam::Key> unconnected_nodes_;
+  std::map<size_t, std::vector<ros::Time> > timestamps_;
   double embed_delta_t_;
   // maximum time allowed when associating node to mesh
 

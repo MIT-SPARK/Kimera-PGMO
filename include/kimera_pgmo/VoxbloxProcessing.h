@@ -16,6 +16,7 @@
 #include <pcl/point_types.h>
 #include <voxblox_msgs/Mesh.h>
 
+#include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/VoxbloxUtils.h"
 
 namespace kimera_pgmo {
@@ -24,30 +25,59 @@ class VoxbloxProcessing {
   friend class VoxbloxProcessingTest;
 
  public:
+  /*! \brief Constructor for VoxbloxProcessing class, which is in charge of
+   * converting from Voxblox msg type to our mesh type while storing and
+   * compressing the full unoptimized mesh
+   */
   VoxbloxProcessing();
   ~VoxbloxProcessing();
 
-  // Initialize parameters, publishers, and subscribers
+  /*! \brief Initializes callbacks and publishers, and also parse the parameters
+   *  - n: ROS node handle.
+   */
   bool initialize(const ros::NodeHandle& n);
 
  protected:
+  /*! \brief Load the parameters required by this class through ROS
+   *  - n: ROS node handle
+   */
   bool loadParameters(const ros::NodeHandle& n);
 
+  /*! \brief Creates the ROS publishers used
+   *  - n: ROS node handle
+   */
   bool createPublishers(const ros::NodeHandle& n);
 
+  /*! \brief Starts the callbacks in this class
+   *  - n: ROS node handle
+   */
   bool registerCallbacks(const ros::NodeHandle& n);
 
+  /*! \brief Main callback of this class: receives the updated incremental mesh
+   * from Voxblox or Kimera-Semantics
+   *  - msg: mesh msg from Voxblox or Kimera Semantics
+   */
   void voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg);
 
   // Creates partial mesh while updating the full mesh and also the last
   // detected mesh blocks
+  /*! \brief Creates a partial mesh from the latest incremental mesh from the
+   * callback and add the partial mesh to the full mesh and compress
+   *  - msg: mesh msg from Voxblox or Kimera Semantics
+   */
   pcl::PolygonMesh processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg);
 
-  void pruneStoredBlocks(const ros::Time& latest_time);
-
+  /*! \brief Publish a mesh (used in callback to publish the partial mesh
+   * created from the incremental mesh converted from latest msg from callback)
+   *  - mesh: mesh to publish in pcl PolygonMesh format
+   *  - stamp: timestamp
+   */
   void publishPartialMesh(const pcl::PolygonMesh& mesh,
                           const ros::Time& stamp) const;
 
+  /*! \brief Publish the full (compressed) mesh stored
+   *  - stamp: timestamp
+   */
   void publishFullMesh(const ros::Time& stamp) const;
 
   // Class arguments
@@ -55,16 +85,10 @@ class VoxbloxProcessing {
   ros::Publisher full_mesh_pub_;
   ros::Publisher partial_mesh_pub_;
 
-  ros::Duration time_horizon_;  // only merge meshes for the blocks detected
-                                // within defined time horizon
+  double time_horizon_;  // only merge meshes for the blocks detected
+                         // within defined time horizon (secs)
 
-  // The time mesh block of index last seen
-  std::map<BlockIndex, ros::Time> mesh_block_last_detection_;
-  // Keeping track of the indices in the cloud
-  // representing the vertices of the mesh its corresponding block
-  std::map<BlockIndex, std::vector<size_t> > mesh_block_vertices_;
-  // Track adjacent surfaces of vertices
-  std::map<size_t, std::vector<pcl::Vertices> > adjacent_surfaces_;
+  OctreeCompressionPtr compression_;  // Allow compression of full mesh
 
   // Vertices of full mesh
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices_;
