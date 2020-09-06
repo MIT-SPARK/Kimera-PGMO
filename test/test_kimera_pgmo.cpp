@@ -45,16 +45,16 @@ class KimeraPgmoTest : public ::testing::Test {
     pgmo_.incrementalMeshCallback(mesh_msg);
   }
 
-  inline std::vector<gtsam::Pose3> getTrajectory(const size_t& id) const {
-    return pgmo_.trajectory_.at(id);
+  inline std::vector<gtsam::Pose3> getTrajectory() const {
+    return pgmo_.trajectory_;
   }
 
   inline std::queue<size_t> getUnconnectedNodes() const {
     return pgmo_.unconnected_nodes_;
   }
 
-  inline std::vector<ros::Time> getTimestamps(const size_t& id) const {
-    return pgmo_.timestamps_.at(id);
+  inline std::vector<ros::Time> getTimestamps() const {
+    return pgmo_.timestamps_;
   }
 
   inline gtsam::Values getValues() const {
@@ -268,9 +268,9 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   *inc_graph = SingleOdomGraph(ros::Time(10.2));
   IncrementalPoseGraphCallback(inc_graph);
 
-  std::vector<gtsam::Pose3> traj = getTrajectory(0);
+  std::vector<gtsam::Pose3> traj = getTrajectory();
   std::queue<size_t> unconnected_nodes = getUnconnectedNodes();
-  std::vector<ros::Time> stamps = getTimestamps(0);
+  std::vector<ros::Time> stamps = getTimestamps();
   gtsam::NonlinearFactorGraph factors = getFactors();
   gtsam::Values values = getValues();
 
@@ -308,9 +308,9 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   *inc_graph = OdomLoopclosureGraph(ros::Time(20.3));
   IncrementalPoseGraphCallback(inc_graph);
 
-  traj = getTrajectory(0);
+  traj = getTrajectory();
   unconnected_nodes = getUnconnectedNodes();
-  stamps = getTimestamps(0);
+  stamps = getTimestamps();
   factors = getFactors();
   values = getValues();
 
