@@ -1,6 +1,6 @@
 /**
- * @file   KimeraPgmo.h
- * @brief  KimeraPgmo class: Main class and ROS interface
+ * @file   KimeraPgmoMerger.h
+ * @brief  KimeraPgmoMerger class: Main class and ROS interface
  * @author Yun Chang
  */
 #pragma once
@@ -10,9 +10,7 @@
 #include <string>
 
 #include <nav_msgs/Odometry.h>
-#include <nav_msgs/Path.h>
 #include <pcl/PolygonMesh.h>
-#include <pcl_msgs/PolygonMesh.h>
 #include <pose_graph_tools/PoseGraph.h>
 #include <ros/ros.h>
 #include <std_msgs/String.h>
@@ -27,8 +25,8 @@
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
 namespace kimera_pgmo {
-class KimeraPgmo {
-  friend class KimeraPgmoTest;
+class KimeraPgmoMerger {
+  friend class KimeraPgmoMergerTest;
 
  public:
   /*! \brief Constructor for Kimera Pgmo class. Which subscribes to the
@@ -36,8 +34,8 @@ class KimeraPgmo {
    * the full mesh to perform distortions and publish the optimzed distored mesh
    * and trajectory
    */
-  KimeraPgmo();
-  ~KimeraPgmo();
+  KimeraPgmoMerger();
+  ~KimeraPgmoMerger();
 
   /*! \brief Initializes callbacks and publishers, and also parse the parameters
    *  - n: ROS node handle.
@@ -64,37 +62,17 @@ class KimeraPgmo {
    */
   bool publishOptimizedMesh();
 
-  /*! \brief Publish optimized trajectory (Currently unused, as trajectory can
-   * be visualized with published pose graph)
-   *  - robot_id: the robot for which the trajectory is to be published
-   */
-  bool publishOptimizedPath() const;
-
-  /*! \brief Recieves latest edges in the pose graph and add to deformation
-   * graph. Also place the received node in a queue to connect them to the
-   * incremental mesh when that comes in
+  /*! \brief Recieves latest pose graph edges and deformation graph edges
    *  - msg: new Pose Graph message consisting of the newest pose graph edges
    */
-  void incrementalPoseGraphCallback(
-      const pose_graph_tools::PoseGraph::ConstPtr& msg);
+  void poseGraphEdgesCallback(const pose_graph_tools::PoseGraph::ConstPtr& msg);
 
   /*! \brief Subscribes to the full mesh and deform it based on the deformation
    * graph. Then publish the deformed mesh, and also the optimized pose graph
    *  - mesh_msg: the full unoptimized mesh in mesh_msgs TriangleMeshStamped
    * format
    */
-  void fullMeshCallback(
-      const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
-
-  /*! \brief Subscribes to the partial mesh from VoxbloxProcessing, which
-   * corresponds to the latest partial mesh from Voxblox or Kimera-Semantics. We
-   * sample this partial mesh to add to the deformation graph and also connect
-   * the nodes stored in the waiting queue to the vertices of the sampled mesh,
-   * provided that the time difference is within the threshold
-   *  - mesh_msg: partial mesh in mesh_msgs TriangleMeshStamped format
-   */
-  void incrementalMeshCallback(
-      const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
+  void meshCallback(const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
 
   /*! \brief Saves mesh as a ply file. Triggers through a rosservice call and
    * saves to file [output_prefix_].ply
@@ -107,23 +85,21 @@ class KimeraPgmo {
   bool saveTrajectoryCallback(std_srvs::Empty::Request&,
                               std_srvs::Empty::Response&);
 
-  pcl::PolygonMesh input_mesh_;
   pcl::PolygonMesh optimized_mesh_;
   ros::Time last_mesh_stamp_;
 
+  // Deformation graph to collect deformation graph edges and pose graph edges
   DeformationGraph deformation_graph_;
+  // Compress output merged mesh
   OctreeCompressionPtr compression_;
-  double compression_time_horizon_;
 
   // Publishers
   ros::Publisher optimized_mesh_pub_;
-  ros::Publisher optimized_path_pub_;
-  ros::Publisher optimized_odom_pub_;
   ros::Publisher pose_graph_pub_;
 
   // Subscribers
-  ros::Subscriber pose_graph_incremental_sub_;
-  ros::Subscriber full_mesh_sub_;
+  std::vector<ros::Subscriber> pose_graph_edges_sub_;
+  std::vector<ros::Subscriber> mesh_sub_;
   ros::Subscriber incremental_mesh_sub_;
 
   // Service

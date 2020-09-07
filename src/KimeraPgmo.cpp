@@ -267,7 +267,8 @@ void KimeraPgmo::fullMeshCallback(
 
   // Update optimized mesh
   try {
-    optimized_mesh_ = deformation_graph_.deformMesh(input_mesh_);
+    optimized_mesh_ =
+        deformation_graph_.deformMesh(input_mesh_, GetVertexPrefix(robot_id_));
   } catch (const std::out_of_range& e) {
     ROS_ERROR("Failed to deform mesh. Out of range error. ");
     optimized_mesh_ = input_mesh_;
@@ -300,7 +301,8 @@ void KimeraPgmo::incrementalMeshCallback(
   compression_->compressAndIntegrate(
       incremental_mesh, new_vertices, &new_triangles, &new_indices, msg_time);
 
-  deformation_graph_.updateMesh(*new_vertices, new_triangles);
+  deformation_graph_.updateMesh(
+      *new_vertices, new_triangles, GetVertexPrefix(robot_id_));
   // Associate nodes to mesh
   while (!unconnected_nodes_.empty()) {
     gtsam::Symbol node = gtsam::Symbol(unconnected_nodes_.front());
@@ -311,7 +313,8 @@ void KimeraPgmo::incrementalMeshCallback(
                robot_id,
                node.index(),
                new_indices.size());
-      deformation_graph_.addNodeValence(node, new_indices);
+      deformation_graph_.addNodeValence(
+          node, new_indices, GetVertexPrefix(robot_id_));
     }
     // termination guarantee
     if (timestamps_[node.index()].toSec() > msg_time + embed_delta_t_) break;
