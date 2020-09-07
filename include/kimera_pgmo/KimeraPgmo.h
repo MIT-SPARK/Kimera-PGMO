@@ -69,7 +69,7 @@ class KimeraPgmo {
    * be visualized with published pose graph)
    *  - robot_id: the robot for which the trajectory is to be published
    */
-  bool publishOptimizedPath() const;
+  bool publishOptimizedPath(const size_t& robot_id) const;
 
   /*! \brief Recieves latest edges in the pose graph and add to deformation
    * graph. Also place the received node in a queue to connect them to the
@@ -118,8 +118,8 @@ class KimeraPgmo {
 
   // Publishers
   ros::Publisher optimized_mesh_pub_;
-  ros::Publisher optimized_path_pub_;
-  ros::Publisher optimized_odom_pub_;
+  ros::Publisher optimized_path_pub_;  // Unused for now (TODO)
+  ros::Publisher optimized_odom_pub_;  // Unused for now (TODO)
   ros::Publisher pose_graph_pub_;
 
   // Subscribers
@@ -132,14 +132,13 @@ class KimeraPgmo {
   ros::ServiceServer save_traj_srv_;
 
   // Trajectory
-  std::vector<gtsam::Pose3> trajectory_;
-  std::queue<gtsam::Key> unconnected_nodes_;
-  std::vector<ros::Time> timestamps_;
+  std::map<size_t, std::vector<gtsam::Pose3> > trajectory_;
+  std::map<size_t, std::queue<gtsam::Key> > unconnected_nodes_;
+  std::map<size_t, std::vector<ros::Time> > timestamps_;
   double embed_delta_t_;
   // maximum time allowed when associating node to mesh
 
   std::string frame_id_;
-  size_t robot_id_;  // robot id for kimera pgmo instance
 
   double timer_period_;
 

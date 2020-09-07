@@ -45,16 +45,16 @@ class KimeraPgmoTest : public ::testing::Test {
     pgmo_.incrementalMeshCallback(mesh_msg);
   }
 
-  inline std::vector<gtsam::Pose3> getTrajectory() const {
-    return pgmo_.trajectory_;
+  inline std::vector<gtsam::Pose3> getTrajectory(const size_t& robot_id) const {
+    return pgmo_.trajectory_.at(robot_id);
   }
 
-  inline std::queue<size_t> getUnconnectedNodes() const {
-    return pgmo_.unconnected_nodes_;
+  inline std::queue<size_t> getUnconnectedNodes(const size_t& robot_id) const {
+    return pgmo_.unconnected_nodes_.at(robot_id);
   }
 
-  inline std::vector<ros::Time> getTimestamps() const {
-    return pgmo_.timestamps_;
+  inline std::vector<ros::Time> getTimestamps(const size_t& robot_id) const {
+    return pgmo_.timestamps_.at(robot_id);
   }
 
   inline gtsam::Values getValues() const {
@@ -268,9 +268,9 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   *inc_graph = SingleOdomGraph(ros::Time(10.2));
   IncrementalPoseGraphCallback(inc_graph);
 
-  std::vector<gtsam::Pose3> traj = getTrajectory();
-  std::queue<size_t> unconnected_nodes = getUnconnectedNodes();
-  std::vector<ros::Time> stamps = getTimestamps();
+  std::vector<gtsam::Pose3> traj = getTrajectory(0);
+  std::queue<size_t> unconnected_nodes = getUnconnectedNodes(0);
+  std::vector<ros::Time> stamps = getTimestamps(0);
   gtsam::NonlinearFactorGraph factors = getFactors();
   gtsam::Values values = getValues();
 
@@ -283,8 +283,8 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   // Briefly check values in trajectory, unconnected-nodes, stamps
 
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(), traj[0]));
-  EXPECT_EQ(gtsam::Symbol('a', 0).key(), unconnected_nodes.front());
-  EXPECT_EQ(gtsam::Symbol('a', 1).key(), unconnected_nodes.back());
+  EXPECT_EQ(0, unconnected_nodes.front());
+  EXPECT_EQ(1, unconnected_nodes.back());
   EXPECT_EQ(10.2, stamps[0].toSec());
 
   // check values
@@ -308,9 +308,9 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   *inc_graph = OdomLoopclosureGraph(ros::Time(20.3));
   IncrementalPoseGraphCallback(inc_graph);
 
-  traj = getTrajectory();
-  unconnected_nodes = getUnconnectedNodes();
-  stamps = getTimestamps();
+  traj = getTrajectory(0);
+  unconnected_nodes = getUnconnectedNodes(0);
+  stamps = getTimestamps(0);
   factors = getFactors();
   values = getValues();
 
@@ -323,7 +323,7 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
 
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)), traj[2]));
-  EXPECT_EQ(gtsam::Symbol('a', 2).key(), unconnected_nodes.back());
+  EXPECT_EQ(2, unconnected_nodes.back());
   EXPECT_EQ(20.3, stamps[2].toSec());
 
   // check values
