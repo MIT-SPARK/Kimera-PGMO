@@ -17,6 +17,7 @@
 #include <ros/ros.h>
 #include <std_msgs/String.h>
 #include <std_srvs/Empty.h>
+#include <tf2_ros/transform_broadcaster.h>
 
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/inference/Symbol.h>
@@ -87,6 +88,11 @@ class KimeraPgmo {
   void fullMeshCallback(
       const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg);
 
+  /*! \brief Publish the transform for each robot id based on the latest node in
+   * pose graph
+   */
+  void publishTransforms();
+
   /*! \brief Subscribes to the partial mesh from VoxbloxProcessing, which
    * corresponds to the latest partial mesh from Voxblox or Kimera-Semantics. We
    * sample this partial mesh to add to the deformation graph and also connect
@@ -121,6 +127,9 @@ class KimeraPgmo {
   ros::Publisher optimized_path_pub_;  // Unused for now (TODO)
   ros::Publisher optimized_odom_pub_;  // Unused for now (TODO)
   ros::Publisher pose_graph_pub_;
+
+  // Transform broadcaster
+  tf2_ros::TransformBroadcaster tf_broadcast_;
 
   // Subscribers
   ros::Subscriber pose_graph_incremental_sub_;

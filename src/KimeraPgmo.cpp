@@ -3,8 +3,10 @@
  * @brief  KimeraPgmo class: Main class and ROS interface
  * @author Yun Chang
  */
-#include <geometry_msgs/PoseStamped.h>
 #include <cmath>
+
+#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/TransformStamped.h>
 
 #include "kimera_pgmo/KimeraPgmo.h"
 
@@ -264,6 +266,9 @@ void KimeraPgmo::incrementalPoseGraphCallback(
     ROS_ERROR("Error in KimeraPgmo incrementalPoseGraphCallback. ");
     ROS_ERROR(e.what());
   }
+
+  // Update transforms
+  publishTransforms();
 }
 
 void KimeraPgmo::fullMeshCallback(
@@ -328,6 +333,34 @@ void KimeraPgmo::incrementalMeshCallback(
     if (timestamps_[robot_id][node].toSec() > msg_time + embed_delta_t_) break;
   }
   return;
+}
+
+void KimeraPgmo::publishTransforms() {
+  for (auto traj : trajectory_) {
+    const size_t robot_id = traj.first;
+    const std::vector<gtsam::Pose3> gtsam_path =
+        deformation_graph_.getOptimizedTrajectory(GetRobotPrefix(robot_id));
+    const gtsam::Pose3 latest_pose = gtsam_path[traj.second.size() - 1];
+
+    const gtsam::Point3 pos = latest_pose.translation();
+    const gtsam::Quaternion quat = latest_pose.rotation().toQuaternion();
+    // Create transfomr message
+
+    geometry_msgs::TransformStamped transform;
+    std::string frame_name = "pgmo_base_link_" + std::to_string(robot_id);
+    transform.header.stamp = ros::Time::now();
+    transform.header.frame_id = "world";
+    transform.child_frame_id = frame_name;
+    transform.transform.translation.x = pos.x();
+    transform.transform.translation.y = pos.y();
+    transform.transform.translation.z = pos.z();
+    transform.transform.rotation.x = quat.x();
+    transform.transform.rotation.y = quat.y();
+    transform.transform.rotation.z = quat.z();
+    transform.transform.rotation.w = quat.w();
+
+    tf_broadcast_.sendTransform(transform);
+  }
 }
 
 bool KimeraPgmo::saveMeshCallback(std_srvs::Empty::Request&,
