@@ -195,7 +195,7 @@ void KimeraPgmo::incrementalPoseGraphCallback(
   //// Note that we assume for all node ids that the keys start with 0
   if (msg->nodes[0].key == 0 &&
       trajectory_.find(msg->nodes[0].robot_id) == trajectory_.end()) {
-    robot_id = msg->nodes[0].robot_id;
+    const size_t robot_id = msg->nodes[0].robot_id;
     gtsam::Symbol key_symb(GetRobotPrefix(robot_id), 0);
     gtsam::Pose3 init_pose = RosToGtsam(msg->nodes[0].pose);
     // Initiate first node but do not add prior
@@ -204,7 +204,8 @@ void KimeraPgmo::incrementalPoseGraphCallback(
     trajectory_[robot_id] = {init_pose};
     timestamps_[robot_id] = {msg->nodes[0].header.stamp};
     // Push node to queue to be connected to mesh vertices later
-    unconnected_nodes_[robot_id] = {0};
+    unconnected_nodes_[robot_id] = std::queue<size_t>();
+    unconnected_nodes_[robot_id].push(0);
     ROS_INFO("Initialized first node in pose graph. ");
   }
 
@@ -253,7 +254,8 @@ void KimeraPgmo::incrementalPoseGraphCallback(
         ROS_INFO(
             "KimeraPgmo: Loop closure detected between robot %d node %d and "
             "robot %d node %d.",
-            robot_from prev_node,
+            robot_from,
+            prev_node,
             robot_to,
             current_node);
       }
@@ -265,14 +267,15 @@ void KimeraPgmo::incrementalPoseGraphCallback(
 }
 
 void KimeraPgmo::fullMeshCallback(
-    const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
+    const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
   input_mesh_ = TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
   last_mesh_stamp_ = mesh_msg->header.stamp;
+  const size_t robot_id = mesh_msg->id;
 
   // Update optimized mesh
   try {
     optimized_mesh_ =
-        deformation_graph_.deformMesh(input_mesh_, GetVertexPrefix(robot_id_));
+        deformation_graph_.deformMesh(input_mesh_, GetVertexPrefix(robot_id));
   } catch (const std::out_of_range& e) {
     ROS_ERROR("Failed to deform mesh. Out of range error. ");
     optimized_mesh_ = input_mesh_;
@@ -290,7 +293,7 @@ void KimeraPgmo::fullMeshCallback(
 
 void KimeraPgmo::incrementalMeshCallback(
     const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
-  size_t robot_id = mesh_msg->id;
+  const size_t robot_id = mesh_msg->id;
 
   pcl::PolygonMesh incremental_mesh =
       TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
@@ -309,8 +312,8 @@ void KimeraPgmo::incrementalMeshCallback(
       *new_vertices, new_triangles, GetVertexPrefix(robot_id));
   // Associate nodes to mesh
   while (!unconnected_nodes_[robot_id].empty()) {
-    size_t node = unconnected_nodes_.front();
-    unconnected_nodes_.pop();
+    size_t node = unconnected_nodes_[robot_id].front();
+    unconnected_nodes_[robot_id].pop();
     if (timestamps_[robot_id][node].toSec() > msg_time - embed_delta_t_) {
       ROS_INFO("Connecting robot %d node %d to %d vertices. ",
                robot_id,

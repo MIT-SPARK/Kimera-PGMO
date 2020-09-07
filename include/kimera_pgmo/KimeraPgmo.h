@@ -85,7 +85,7 @@ class KimeraPgmo {
    * format
    */
   void fullMeshCallback(
-      const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
+      const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg);
 
   /*! \brief Subscribes to the partial mesh from VoxbloxProcessing, which
    * corresponds to the latest partial mesh from Voxblox or Kimera-Semantics. We
@@ -133,7 +133,7 @@ class KimeraPgmo {
 
   // Trajectory
   std::map<size_t, std::vector<gtsam::Pose3> > trajectory_;
-  std::map<size_t, std::queue<gtsam::Key> > unconnected_nodes_;
+  std::map<size_t, std::queue<size_t> > unconnected_nodes_;
   std::map<size_t, std::vector<ros::Time> > timestamps_;
   double embed_delta_t_;
   // maximum time allowed when associating node to mesh
