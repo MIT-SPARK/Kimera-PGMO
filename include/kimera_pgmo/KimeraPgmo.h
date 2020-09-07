@@ -23,6 +23,7 @@
 
 #include "kimera_pgmo/AbsolutePoseStamped.h"
 #include "kimera_pgmo/DeformationGraph.h"
+#include "kimera_pgmo/TriangleMeshIdStamped.h"
 #include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
@@ -94,7 +95,7 @@ class KimeraPgmo {
    *  - mesh_msg: partial mesh in mesh_msgs TriangleMeshStamped format
    */
   void incrementalMeshCallback(
-      const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
+      const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg);
 
   /*! \brief Saves mesh as a ply file. Triggers through a rosservice call and
    * saves to file [output_prefix_].ply

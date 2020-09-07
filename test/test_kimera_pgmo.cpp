@@ -41,7 +41,7 @@ class KimeraPgmoTest : public ::testing::Test {
   }
 
   void IncrementalMeshCallback(
-      const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
+      const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
     pgmo_.incrementalMeshCallback(mesh_msg);
   }
 
@@ -369,8 +369,8 @@ TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  mesh_msgs::TriangleMeshStamped::Ptr mesh_msg(
-      new mesh_msgs::TriangleMeshStamped);
+  kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
+      new kimera_pgmo::TriangleMeshIdStamped);
   mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
   mesh_msg->header.stamp = ros::Time(12.5);  // within 3 sec of pose graph msg
   IncrementalMeshCallback(mesh_msg);
@@ -451,8 +451,8 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnectionDeltaT) {
 
   // Add mesh but after embed time so should not connect
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  mesh_msgs::TriangleMeshStamped::Ptr mesh_msg(
-      new mesh_msgs::TriangleMeshStamped);
+  kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
+      new kimera_pgmo::TriangleMeshIdStamped);
   mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
   mesh_msg->header.stamp = ros::Time(13.5);  // after 3 sec of pose graph msg
   IncrementalMeshCallback(mesh_msg);
@@ -496,8 +496,8 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnectionDelay) {
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  mesh_msgs::TriangleMeshStamped::Ptr mesh_msg(
-      new mesh_msgs::TriangleMeshStamped);
+  kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
+      new kimera_pgmo::TriangleMeshIdStamped);
   mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
   mesh_msg->header.stamp = ros::Time(12.2);  // within 3 sec of pose graph msg
   IncrementalMeshCallback(mesh_msg);
@@ -524,8 +524,8 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  mesh_msgs::TriangleMeshStamped::Ptr mesh_msg(
-      new mesh_msgs::TriangleMeshStamped);
+  kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
+      new kimera_pgmo::TriangleMeshIdStamped);
   mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
   mesh_msg->header.stamp = ros::Time(12.5);
   IncrementalMeshCallback(mesh_msg);

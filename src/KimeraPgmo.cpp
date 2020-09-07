@@ -287,7 +287,9 @@ void KimeraPgmo::fullMeshCallback(
 }
 
 void KimeraPgmo::incrementalMeshCallback(
-    const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
+    const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
+  size_t robot_id = mesh_msg->id;
+
   pcl::PolygonMesh incremental_mesh =
       TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
 
@@ -302,7 +304,7 @@ void KimeraPgmo::incrementalMeshCallback(
       incremental_mesh, new_vertices, &new_triangles, &new_indices, msg_time);
 
   deformation_graph_.updateMesh(
-      *new_vertices, new_triangles, GetVertexPrefix(robot_id_));
+      *new_vertices, new_triangles, GetVertexPrefix(robot_id));
   // Associate nodes to mesh
   while (!unconnected_nodes_.empty()) {
     gtsam::Symbol node = gtsam::Symbol(unconnected_nodes_.front());
@@ -314,7 +316,7 @@ void KimeraPgmo::incrementalMeshCallback(
                node.index(),
                new_indices.size());
       deformation_graph_.addNodeValence(
-          node, new_indices, GetVertexPrefix(robot_id_));
+          node, new_indices, GetVertexPrefix(robot_id));
     }
     // termination guarantee
     if (timestamps_[node.index()].toSec() > msg_time + embed_delta_t_) break;
