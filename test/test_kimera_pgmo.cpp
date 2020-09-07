@@ -36,7 +36,7 @@ class KimeraPgmoTest : public ::testing::Test {
   }
 
   void FullMeshCallback(
-      const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
+      const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
     pgmo_.fullMeshCallback(mesh_msg);
   }
 
@@ -542,8 +542,8 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
 
   // Add mesh to be deformed
   pcl::PolygonMesh full_mesh = createMesh(2, 2, 2);
-  mesh_msgs::TriangleMeshStamped::Ptr full_mesh_msg(
-      new mesh_msgs::TriangleMeshStamped);
+  kimera_pgmo::TriangleMeshIdStamped::Ptr full_mesh_msg(
+      new kimera_pgmo::TriangleMeshIdStamped);
   full_mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(full_mesh);
   FullMeshCallback(full_mesh_msg);
 
