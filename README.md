@@ -20,11 +20,8 @@ In addition to PCL, OpenCV, GTSAM, Kimera-PGMO is designed as part of Kimera, so
 For the immediate dependencies, check out the rosinstall files. 
 
 ## Architecture 
-For the common usage with a single robot, the following is the diagram of the architecture.
+The following is the diagram of our Kimera PGMO architecture.
 ![Basic system setup in the single robot case](images/diagram_pgmo.png)
-
-We also provide a merger node for possible centralized multi-robot usage. 
-![Basic system setup in the single robot case](images/diagram_merger.png)
 
 ## Parameters 
 Configure the parameters in the params folder for your dataset and environment. 
@@ -60,4 +57,4 @@ rosbag play some_bag.bag --clock
 ```
 
 ## Developer notes 
-One thing to note if a developer is working with GTSAM and want to add other factors into the system is that here we assumed that all nodes in the factor graph corresponding to a mesh vertex is marked with a prefix 'v'. By prefix we mean the key character as described [here](https://borg.cc.gatech.edu/sites/edu.borg/html/a00244.html). 
+One thing to note if a developer is working with GTSAM and want to add other factors into the system is that here we specify different prefixes for different types of nodes in the deformation graph, take a look at `utils/CommonFunctions.h` for reference. By prefix we mean the key character as described [here](https://borg.cc.gatech.edu/sites/edu.borg/html/a00244.html). 
