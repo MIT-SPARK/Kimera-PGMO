@@ -3,8 +3,10 @@
  * @brief  KimeraPgmo class: Main class and ROS interface
  * @author Yun Chang
  */
-#include <geometry_msgs/PoseStamped.h>
 #include <cmath>
+
+#include <geometry_msgs/PoseStamped.h>
+#include <geometry_msgs/TransformStamped.h>
 
 #include "kimera_pgmo/KimeraPgmo.h"
 
@@ -91,6 +93,9 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
                    1000,
                    &KimeraPgmo::incrementalPoseGraphCallback,
                    this);
+
+  optimized_path_pub_ =
+      nl.advertise<nav_msgs::Path>("optimized_path", 1, false);
 
   // Initialize save mesh service
   save_mesh_srv_ =
@@ -190,21 +195,20 @@ void KimeraPgmo::incrementalPoseGraphCallback(
 
   // if first node initialize
   //// Note that we assume for all node ids that the keys start with 0
-  if (msg->nodes[0].key == 0) {
-    size_t robot_id = msg->nodes[0].robot_id;
-    if (trajectory_.find(robot_id) == trajectory_.end()) {
-      gtsam::Symbol key_symb(GetRobotPrefix(robot_id), 0);
-      gtsam::Pose3 init_pose = RosToGtsam(msg->nodes[0].pose);
-      // Initiate first node but do not add prior
-      deformation_graph_.initFirstNode(key_symb.key(), init_pose, false);
-      // Add to trajectory and timestamp map
-      trajectory_[robot_id] = std::vector<gtsam::Pose3>{init_pose};
-      timestamps_[robot_id] =
-          std::vector<ros::Time>{msg->nodes[0].header.stamp};
-      // Push node to queue to be connected to mesh vertices later
-      unconnected_nodes_.push(key_symb.key());
-      ROS_INFO("Initialized first node in pose graph. ");
-    }
+  if (msg->nodes[0].key == 0 &&
+      trajectory_.find(msg->nodes[0].robot_id) == trajectory_.end()) {
+    const size_t robot_id = msg->nodes[0].robot_id;
+    gtsam::Symbol key_symb(GetRobotPrefix(robot_id), 0);
+    gtsam::Pose3 init_pose = RosToGtsam(msg->nodes[0].pose);
+    // Initiate first node but do not add prior
+    deformation_graph_.initFirstNode(key_symb.key(), init_pose, false);
+    // Add to trajectory and timestamp map
+    trajectory_[robot_id] = {init_pose};
+    timestamps_[robot_id] = {msg->nodes[0].header.stamp};
+    // Push node to queue to be connected to mesh vertices later
+    unconnected_nodes_[robot_id] = std::queue<size_t>();
+    unconnected_nodes_[robot_id].push(0);
+    ROS_INFO("Initialized first node in pose graph. ");
   }
 
   try {
@@ -220,6 +224,12 @@ void KimeraPgmo::incrementalPoseGraphCallback(
 
       if (pg_edge.type == pose_graph_tools::PoseGraphEdge::ODOM) {
         // odometry edge
+        if (robot_from != robot_to) {
+          ROS_ERROR(
+              "Odometry edge should not connect two nodes from different "
+              "robots. ");
+          continue;
+        }
         // Sanity check key node
         if (trajectory_[robot_from].size() != current_node) {
           ROS_WARN(
@@ -236,7 +246,7 @@ void KimeraPgmo::incrementalPoseGraphCallback(
           trajectory_[robot_from].push_back(new_pose);
         timestamps_[robot_from].push_back(pg_edge.header.stamp);
         // Add new node to queue to be connected to mesh later
-        unconnected_nodes_.push(to_key);
+        unconnected_nodes_[robot_from].push(current_node);
         // Add to deformation graph
         deformation_graph_.addNewBetween(from_key, to_key, measure, new_pose);
       } else if (pg_edge.type == pose_graph_tools::PoseGraphEdge::LOOPCLOSE) {
@@ -245,8 +255,7 @@ void KimeraPgmo::incrementalPoseGraphCallback(
         deformation_graph_.addNewBetween(from_key, to_key, measure);
         ROS_INFO(
             "KimeraPgmo: Loop closure detected between robot %d node %d and "
-            "robot "
-            "%d node %d.",
+            "robot %d node %d.",
             robot_from,
             prev_node,
             robot_to,
@@ -257,16 +266,21 @@ void KimeraPgmo::incrementalPoseGraphCallback(
     ROS_ERROR("Error in KimeraPgmo incrementalPoseGraphCallback. ");
     ROS_ERROR(e.what());
   }
+
+  // Update transforms
+  publishTransforms();
 }
 
 void KimeraPgmo::fullMeshCallback(
-    const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
+    const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
   input_mesh_ = TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
   last_mesh_stamp_ = mesh_msg->header.stamp;
+  const size_t robot_id = mesh_msg->id;
 
   // Update optimized mesh
   try {
-    optimized_mesh_ = deformation_graph_.deformMesh(input_mesh_);
+    optimized_mesh_ =
+        deformation_graph_.deformMesh(input_mesh_, GetVertexPrefix(robot_id));
   } catch (const std::out_of_range& e) {
     ROS_ERROR("Failed to deform mesh. Out of range error. ");
     optimized_mesh_ = input_mesh_;
@@ -283,7 +297,9 @@ void KimeraPgmo::fullMeshCallback(
 }
 
 void KimeraPgmo::incrementalMeshCallback(
-    const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
+    const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
+  const size_t robot_id = mesh_msg->id;
+
   pcl::PolygonMesh incremental_mesh =
       TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
 
@@ -297,25 +313,54 @@ void KimeraPgmo::incrementalMeshCallback(
   compression_->compressAndIntegrate(
       incremental_mesh, new_vertices, &new_triangles, &new_indices, msg_time);
 
-  deformation_graph_.updateMesh(*new_vertices, new_triangles);
+  deformation_graph_.updateMesh(
+      *new_vertices, new_triangles, GetVertexPrefix(robot_id));
   // Associate nodes to mesh
-  while (!unconnected_nodes_.empty()) {
-    gtsam::Symbol node = gtsam::Symbol(unconnected_nodes_.front());
-    unconnected_nodes_.pop();
-    size_t robot_id = robot_prefix_to_id.at(node.chr());
-    if (timestamps_[robot_id][node.index()].toSec() >
-        msg_time - embed_delta_t_) {
+  while (!unconnected_nodes_[robot_id].empty()) {
+    size_t node = unconnected_nodes_[robot_id].front();
+    unconnected_nodes_[robot_id].pop();
+    if (timestamps_[robot_id][node].toSec() > msg_time - embed_delta_t_) {
       ROS_INFO("Connecting robot %d node %d to %d vertices. ",
                robot_id,
-               node.index(),
+               node,
                new_indices.size());
-      deformation_graph_.addNodeValence(node, new_indices);
+      deformation_graph_.addNodeValence(
+          gtsam::Symbol(GetRobotPrefix(robot_id), node),
+          new_indices,
+          GetVertexPrefix(robot_id));
     }
     // termination guarantee
-    if (timestamps_[robot_id][node.index()].toSec() > msg_time + embed_delta_t_)
-      break;
+    if (timestamps_[robot_id][node].toSec() > msg_time + embed_delta_t_) break;
   }
   return;
+}
+
+void KimeraPgmo::publishTransforms() {
+  for (auto traj : trajectory_) {
+    const size_t robot_id = traj.first;
+    const std::vector<gtsam::Pose3> gtsam_path =
+        deformation_graph_.getOptimizedTrajectory(GetRobotPrefix(robot_id));
+    const gtsam::Pose3 latest_pose = gtsam_path[traj.second.size() - 1];
+
+    const gtsam::Point3 pos = latest_pose.translation();
+    const gtsam::Quaternion quat = latest_pose.rotation().toQuaternion();
+    // Create transfomr message
+
+    geometry_msgs::TransformStamped transform;
+    std::string frame_name = "pgmo_base_link_" + std::to_string(robot_id);
+    transform.header.stamp = ros::Time::now();
+    transform.header.frame_id = "world";
+    transform.child_frame_id = frame_name;
+    transform.transform.translation.x = pos.x();
+    transform.transform.translation.y = pos.y();
+    transform.transform.translation.z = pos.z();
+    transform.transform.rotation.x = quat.x();
+    transform.transform.rotation.y = quat.y();
+    transform.transform.rotation.z = quat.z();
+    transform.transform.rotation.w = quat.w();
+
+    tf_broadcast_.sendTransform(transform);
+  }
 }
 
 bool KimeraPgmo::saveMeshCallback(std_srvs::Empty::Request&,
@@ -330,13 +375,12 @@ bool KimeraPgmo::saveMeshCallback(std_srvs::Empty::Request&,
 bool KimeraPgmo::saveTrajectoryCallback(std_srvs::Empty::Request&,
                                         std_srvs::Empty::Response&) {
   // Save trajectory
-  for (auto const& traj : trajectory_) {
+  for (auto traj : trajectory_) {
     size_t robot_id = traj.first;
     std::vector<gtsam::Pose3> optimized_path =
         deformation_graph_.getOptimizedTrajectory(GetRobotPrefix(robot_id));
     std::ofstream csvfile;
-    std::string csv_name =
-        output_prefix_ + std::to_string(robot_id) + std::string(".csv");
+    std::string csv_name = output_prefix_ + std::string(".csv");
     csvfile.open(csv_name);
     csvfile << "timestamp[ns],x,y,z,qw,qx,qy,qz\n";
     for (size_t i = 0; i < optimized_path.size(); i++) {

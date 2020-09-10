@@ -124,10 +124,10 @@ TEST(test_deformation_graph, reconstructMesh) {
   pcl::fromPCLPointCloud2(simple_mesh.cloud, simple_vertices);
 
   // deform mesh
-  graph.updateMesh(simple_vertices, simple_mesh.polygons);
+  graph.updateMesh(simple_vertices, simple_mesh.polygons, 'v');
 
   // First try deform with k = 1, should not change
-  pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 1);
+  pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 'v', 1);
   pcl::PointCloud<pcl::PointXYZRGBA> deformed_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, deformed_vertices);
   EXPECT_EQ(5, deformed_vertices.points.size());
@@ -142,7 +142,7 @@ TEST(test_deformation_graph, reconstructMesh) {
   EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
 
   // Try with k = 2
-  new_mesh = graph.deformMesh(original_mesh, 2);
+  new_mesh = graph.deformMesh(original_mesh, 'v', 2);
   pcl::fromPCLPointCloud2(new_mesh.cloud, deformed_vertices);
   EXPECT_EQ(5, deformed_vertices.points.size());
   EXPECT_EQ(1, deformed_vertices.points[1].x);
@@ -166,10 +166,10 @@ TEST(test_deformation_graph, deformMeshtranslation) {
   pcl::fromPCLPointCloud2(simple_mesh.cloud, simple_vertices);
 
   // deform mesh
-  graph.updateMesh(simple_vertices, simple_mesh.polygons);
+  graph.updateMesh(simple_vertices, simple_mesh.polygons, 'v');
   geometry_msgs::Pose distortion;
   distortion.position.x = 1.5;
-  graph.addMeasurement(1, distortion);
+  graph.addMeasurement(1, distortion, 'v');
 
   pcl::PointCloud<pcl::PointXYZRGBA> original_vertices, expected_vertices;
   pcl::fromPCLPointCloud2(original_mesh.cloud, original_vertices);
@@ -185,7 +185,7 @@ TEST(test_deformation_graph, deformMeshtranslation) {
     expected_vertices.push_back(new_point);
   }
   // First try deform with k = 1, should not change
-  pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 1);
+  pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 'v', 1);
   pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
 
@@ -194,7 +194,7 @@ TEST(test_deformation_graph, deformMeshtranslation) {
   EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
 
   // Try with k = 2
-  new_mesh = graph.deformMesh(original_mesh, 2);
+  new_mesh = graph.deformMesh(original_mesh, 'v', 2);
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
   EXPECT_TRUE(ComparePointcloud(expected_vertices, actual_vertices, 1e-6));
   EXPECT_EQ(original_mesh.polygons[0].vertices, new_mesh.polygons[0].vertices);
@@ -211,10 +211,10 @@ TEST(test_deformation_graph, deformMesh) {
   pcl::PointCloud<pcl::PointXYZRGBA> simple_vertices;
   pcl::fromPCLPointCloud2(simple_mesh.cloud, simple_vertices);
 
-  graph.updateMesh(simple_vertices, simple_mesh.polygons);
+  graph.updateMesh(simple_vertices, simple_mesh.polygons, 'v');
   geometry_msgs::Pose distortion;
   distortion.position.x = -0.5;
-  graph.addMeasurement(0, distortion);
+  graph.addMeasurement(0, distortion, 'v');
   pcl::PointCloud<pcl::PointXYZRGBA> original_vertices, expected_vertices;
   pcl::fromPCLPointCloud2(cube_mesh->cloud, original_vertices);
   for (pcl::PointXYZRGBA p : original_vertices.points) {
@@ -229,7 +229,7 @@ TEST(test_deformation_graph, deformMesh) {
     expected_vertices.push_back(new_point);
   }
   // Try with k = 3
-  pcl::PolygonMesh new_mesh = graph.deformMesh(*cube_mesh, 3);
+  pcl::PolygonMesh new_mesh = graph.deformMesh(*cube_mesh, 'v', 3);
   pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
   EXPECT_TRUE(ComparePointcloud(expected_vertices, actual_vertices, 1e-6));
@@ -239,9 +239,9 @@ TEST(test_deformation_graph, deformMesh) {
   // deform mesh again
   geometry_msgs::Pose distortion2;
   distortion2.position.x = 1.5;
-  graph.addMeasurement(1, distortion2);
+  graph.addMeasurement(1, distortion2, 'v');
   // Try with k = 3
-  new_mesh = graph.deformMesh(*cube_mesh, 2);
+  new_mesh = graph.deformMesh(*cube_mesh, 'v', 2);
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
   EXPECT_NEAR(-0.5, actual_vertices.points[0].x, 0.001);
   EXPECT_NEAR(1.273, actual_vertices.points[1].x, 0.001);
@@ -260,7 +260,7 @@ TEST(test_deformation_graph, updateMesh) {
   pcl::PointCloud<pcl::PointXYZRGBA> simple_vertices;
   pcl::fromPCLPointCloud2(simple_mesh.cloud, simple_vertices);
 
-  graph.updateMesh(simple_vertices, simple_mesh.polygons);
+  graph.updateMesh(simple_vertices, simple_mesh.polygons, 'v');
 
   EXPECT_EQ(3, graph.getNumVertices());
   EXPECT_EQ(0, graph.getVertices().points[0].x);
@@ -282,7 +282,7 @@ TEST(test_deformation_graph, updateMesh) {
   graph.initFirstNode(gtsam::Symbol('a', 0),
                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
                       false);
-  graph.addNodeValence(gtsam::Symbol('a', 0), new_node_valences);
+  graph.addNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
 
   // Check that the factors are added correctly
   values = graph.getGtsamValues();
@@ -305,7 +305,7 @@ TEST(test_deformation_graph, updateMesh) {
       gtsam::Symbol('a', 1),
       gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(0, 1, 2)),
       gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(2, 3, 4)));
-  graph.addNodeValence(gtsam::Symbol('a', 1), new_node_valences_2);
+  graph.addNodeValence(gtsam::Symbol('a', 1), new_node_valences_2, 'v');
 
   // Check that the factors are added
   values = graph.getGtsamValues();
@@ -333,13 +333,13 @@ TEST(test_deformation_graph, addNodeMeasurement) {
   pcl::PointCloud<pcl::PointXYZRGBA> simple_vertices;
   pcl::fromPCLPointCloud2(simple_mesh.cloud, simple_vertices);
 
-  graph.updateMesh(simple_vertices, simple_mesh.polygons);
+  graph.updateMesh(simple_vertices, simple_mesh.polygons, 'v');
   Vertices new_node_valences{0, 2};
   graph.initFirstNode(
       gtsam::Symbol('a', 0),
       gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)),
       false);
-  graph.addNodeValence(gtsam::Symbol('a', 0), new_node_valences);
+  graph.addNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
 
   // Check factors added
   gtsam::Values values = graph.getGtsamValues();
@@ -367,7 +367,7 @@ TEST(test_deformation_graph, addNodeMeasurement) {
   EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(
       factors[10]));
 
-  pcl::PolygonMesh new_mesh = graph.deformMesh(simple_mesh, 1);
+  pcl::PolygonMesh new_mesh = graph.deformMesh(simple_mesh, 'v', 1);
   pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
 
@@ -390,7 +390,7 @@ TEST(test_deformation_graph, addNewBetween) {
   pcl::PointCloud<pcl::PointXYZRGBA> simple_vertices;
   pcl::fromPCLPointCloud2(simple_mesh.cloud, simple_vertices);
 
-  graph.updateMesh(simple_vertices, simple_mesh.polygons);
+  graph.updateMesh(simple_vertices, simple_mesh.polygons, 'v');
 
   EXPECT_EQ(3, graph.getNumVertices());
   EXPECT_EQ(0, graph.getVertices().points[0].x);
@@ -400,7 +400,7 @@ TEST(test_deformation_graph, addNewBetween) {
   graph.initFirstNode(gtsam::Symbol('a', 0),
                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
                       true);
-  graph.addNodeValence(gtsam::Symbol('a', 0), new_node_valences);
+  graph.addNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
   graph.addNewBetween(gtsam::Symbol('a', 0),
                       gtsam::Symbol('a', 1),
                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)),
@@ -444,7 +444,7 @@ TEST(test_deformation_graph, addNewBetween) {
   EXPECT_EQ(gtsam::Symbol('v', 1).key(), factor1.back());
 
   // Expect no change
-  pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 1);
+  pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 'v', 1);
   pcl::PointCloud<pcl::PointXYZ> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
 
@@ -468,7 +468,7 @@ TEST(test_deformation_graph, addNewBetween) {
                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)));
 
   Vertices new_node_valences_2{2};
-  graph.addNodeValence(gtsam::Symbol('a', 2), new_node_valences_2);
+  graph.addNodeValence(gtsam::Symbol('a', 2), new_node_valences_2, 'v');
 
   // Check added factors
   values = graph.getGtsamValues();

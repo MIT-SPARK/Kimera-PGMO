@@ -60,37 +60,41 @@ void OctreeCompression::compressAndIntegrate(
 
   for (size_t i = 0; i < input_vertices.points.size(); ++i) {
     const pcl::PointXYZRGBA p = input_vertices.points[i];
-    octree_->getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
-    is_in_box = (p.x >= min_x && p.x <= max_x) &&
-                (p.y >= min_y && p.y <= max_y) &&
-                (p.z >= min_z && p.z <= max_z);
-    if (!is_in_box || !octree_->isVoxelOccupiedAtPoint(p)) {
-      // New point
-      new_vertices->push_back(p);
-      adjacent_polygons_.push_back(std::vector<pcl::Vertices>());
-      octree_->addPointToCloud(p, active_vertices_);  // add to octree
-      all_vertices_->push_back(p);
-      // Add index
-      remapping[i] = all_vertices_->points.size() - 1;
-      // keep track of index
-      active_vertices_index_.push_back(all_vertices_->points.size() - 1);
-      new_indices->push_back(all_vertices_->points.size() - 1);
-      // Add latest observed time
-      vertices_latest_time_.push_back(stamp_in_sec);
-    } else {
-      // A nearby point exist, remap to nearby point
-      float unused = 0.f;
-      int result_idx;
-      octree_->approxNearestSearch(p, result_idx, unused);
-      // Add remapping index
-      remapping[i] = active_vertices_index_[result_idx];
-      // Push to new indices if does not already yet
-      if (std::find(new_indices->begin(),
-                    new_indices->end(),
-                    active_vertices_index_[result_idx]) == new_indices->end())
-        new_indices->push_back(active_vertices_index_[result_idx]);
-      if (result_idx < vertices_latest_time_.size())
-        vertices_latest_time_.at(result_idx) = stamp_in_sec;
+    try {
+      octree_->getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
+      is_in_box = (p.x >= min_x && p.x <= max_x) &&
+                  (p.y >= min_y && p.y <= max_y) &&
+                  (p.z >= min_z && p.z <= max_z);
+      if (!is_in_box || !octree_->isVoxelOccupiedAtPoint(p)) {
+        // New point
+        new_vertices->push_back(p);
+        adjacent_polygons_.push_back(std::vector<pcl::Vertices>());
+        octree_->addPointToCloud(p, active_vertices_);  // add to octree
+        all_vertices_->push_back(p);
+        // Add index
+        remapping[i] = all_vertices_->points.size() - 1;
+        // keep track of index
+        active_vertices_index_.push_back(all_vertices_->points.size() - 1);
+        new_indices->push_back(all_vertices_->points.size() - 1);
+        // Add latest observed time
+        vertices_latest_time_.push_back(stamp_in_sec);
+      } else {
+        // A nearby point exist, remap to nearby point
+        float unused = 0.f;
+        int result_idx;
+        octree_->approxNearestSearch(p, result_idx, unused);
+        // Add remapping index
+        remapping[i] = active_vertices_index_[result_idx];
+        // Push to new indices if does not already yet
+        if (std::find(new_indices->begin(),
+                      new_indices->end(),
+                      active_vertices_index_[result_idx]) == new_indices->end())
+          new_indices->push_back(active_vertices_index_[result_idx]);
+        if (result_idx < vertices_latest_time_.size())
+          vertices_latest_time_.at(result_idx) = stamp_in_sec;
+      }
+    } catch (...) {
+      ROS_ERROR("OctreeCompression: Failed to insert mesh vertex. ");
     }
   }
 
@@ -132,6 +136,7 @@ void OctreeCompression::compressAndIntegrate(
 }
 
 void OctreeCompression::pruneStoredMesh(const double& earliest_time_sec) {
+  if (active_vertices_->points.size() == 0) return;  // nothing to prune
   // Entries in vertices_latest_time_ shoudl correspond to number of points
   if (vertices_latest_time_.size() != active_vertices_->points.size()) {
     ROS_ERROR(
@@ -141,29 +146,35 @@ void OctreeCompression::pruneStoredMesh(const double& earliest_time_sec) {
 
   if (active_vertices_index_.size() != active_vertices_->points.size()) {
     ROS_ERROR(
-        "Length of book-keeped vertex indices does not match number of active "
+        "Length of book-keeped vertex indices does not match number of "
+        "active "
         "points. ");
   }
-  // Discard all vertices last detected before this time
-  PointCloud temp_active_vertices = *active_vertices_;
-  std::vector<double> temp_vertices_time = vertices_latest_time_;
-  std::vector<size_t> temp_vertices_index = active_vertices_index_;
 
-  active_vertices_->clear();
-  vertices_latest_time_.clear();
-  active_vertices_index_.clear();
+  try {
+    // Discard all vertices last detected before this time
+    PointCloud temp_active_vertices = *active_vertices_;
+    std::vector<double> temp_vertices_time = vertices_latest_time_;
+    std::vector<size_t> temp_vertices_index = active_vertices_index_;
 
-  // Reset octree
-  octree_.reset(new Octree(octree_resolution_));
-  octree_->setInputCloud(active_vertices_);
+    active_vertices_->clear();
+    vertices_latest_time_.clear();
+    active_vertices_index_.clear();
 
-  for (size_t i = 0; i < temp_vertices_time.size(); i++) {
-    if (temp_vertices_time[i] > earliest_time_sec) {
-      octree_->addPointToCloud(temp_active_vertices.points[i],
-                               active_vertices_);  // add to octree
-      vertices_latest_time_.push_back(temp_vertices_time[i]);
-      active_vertices_index_.push_back(temp_vertices_index[i]);
+    // Reset octree
+    octree_.reset(new Octree(octree_resolution_));
+    octree_->setInputCloud(active_vertices_);
+
+    for (size_t i = 0; i < temp_vertices_time.size(); i++) {
+      if (temp_vertices_time[i] > earliest_time_sec) {
+        octree_->addPointToCloud(temp_active_vertices.points[i],
+                                 active_vertices_);  // add to octree
+        vertices_latest_time_.push_back(temp_vertices_time[i]);
+        active_vertices_index_.push_back(temp_vertices_index[i]);
+      }
     }
+  } catch (...) {
+    ROS_ERROR("OctreeCompression: Failed to prune active mesh. ");
   }
 }
 

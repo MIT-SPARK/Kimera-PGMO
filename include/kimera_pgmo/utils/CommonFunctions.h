@@ -44,6 +44,28 @@ const std::map<size_t, char> robot_prefix_to_id = {
     {'h', 7},
 };
 
+const std::map<size_t, char> robot_id_to_vertex_prefix = {
+    {0, 's'},
+    {1, 't'},
+    {2, 'u'},
+    {3, 'v'},
+    {4, 'w'},
+    {5, 'x'},
+    {6, 'y'},
+    {7, 'z'},
+};
+
+const std::map<size_t, char> vertex_prefix_to_id = {
+    {'s', 0},
+    {'t', 1},
+    {'u', 2},
+    {'v', 3},
+    {'w', 4},
+    {'x', 5},
+    {'y', 6},
+    {'z', 7},
+};
+
 /*! \brief Get gtsam prefix for a robot id
  *  - robot_id: id of robot from pose graph messages
  */
@@ -52,6 +74,17 @@ inline char GetRobotPrefix(size_t robot_id) {
     return '\0';
   }
   return robot_id_to_prefix.at(robot_id);
+}
+
+/*! \brief Get gtsam prefix (for mesh vertices in deformation graph) for a robot
+ * id
+ *  - robot_id: id of robot from pose graph messages
+ */
+inline char GetVertexPrefix(size_t robot_id) {
+  if (!robot_id_to_vertex_prefix.count(robot_id)) {
+    return '\0';
+  }
+  return robot_id_to_vertex_prefix.at(robot_id);
 }
 
 typedef pose_graph_tools::PoseGraph::ConstPtr GraphMsgPtr;

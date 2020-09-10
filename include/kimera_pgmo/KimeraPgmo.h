@@ -17,12 +17,14 @@
 #include <ros/ros.h>
 #include <std_msgs/String.h>
 #include <std_srvs/Empty.h>
+#include <tf2_ros/transform_broadcaster.h>
 
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/inference/Symbol.h>
 
 #include "kimera_pgmo/AbsolutePoseStamped.h"
 #include "kimera_pgmo/DeformationGraph.h"
+#include "kimera_pgmo/TriangleMeshIdStamped.h"
 #include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
@@ -84,7 +86,12 @@ class KimeraPgmo {
    * format
    */
   void fullMeshCallback(
-      const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
+      const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg);
+
+  /*! \brief Publish the transform for each robot id based on the latest node in
+   * pose graph
+   */
+  void publishTransforms();
 
   /*! \brief Subscribes to the partial mesh from VoxbloxProcessing, which
    * corresponds to the latest partial mesh from Voxblox or Kimera-Semantics. We
@@ -94,7 +101,7 @@ class KimeraPgmo {
    *  - mesh_msg: partial mesh in mesh_msgs TriangleMeshStamped format
    */
   void incrementalMeshCallback(
-      const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg);
+      const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg);
 
   /*! \brief Saves mesh as a ply file. Triggers through a rosservice call and
    * saves to file [output_prefix_].ply
@@ -117,9 +124,12 @@ class KimeraPgmo {
 
   // Publishers
   ros::Publisher optimized_mesh_pub_;
-  ros::Publisher optimized_path_pub_;  // currently unused
-  ros::Publisher optimized_odom_pub_;
+  ros::Publisher optimized_path_pub_;  // Unused for now (TODO)
+  ros::Publisher optimized_odom_pub_;  // Unused for now (TODO)
   ros::Publisher pose_graph_pub_;
+
+  // Transform broadcaster
+  tf2_ros::TransformBroadcaster tf_broadcast_;
 
   // Subscribers
   ros::Subscriber pose_graph_incremental_sub_;
@@ -132,7 +142,7 @@ class KimeraPgmo {
 
   // Trajectory
   std::map<size_t, std::vector<gtsam::Pose3> > trajectory_;
-  std::queue<gtsam::Key> unconnected_nodes_;
+  std::map<size_t, std::queue<size_t> > unconnected_nodes_;
   std::map<size_t, std::vector<ros::Time> > timestamps_;
   double embed_delta_t_;
   // maximum time allowed when associating node to mesh

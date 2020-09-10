@@ -103,17 +103,24 @@ class DeformationGraph {
    *  - new_vertices: new vertices of sampled mesh that makes up most of
    * deformation graph
    *  - new_surfaces: new surfaces of sampled mesh
+   *  - prefix: the prefixes of the key of the nodes corresponding to mesh
+   * vertices
    */
   void updateMesh(const pcl::PointCloud<pcl::PointXYZRGBA>& new_vertices,
-                  const std::vector<pcl::Vertices> new_surfaces);
+                  const std::vector<pcl::Vertices> new_surfaces,
+                  const char& prefix);
 
   /*! \brief Fix the transform of a node corresponding to a sampled mesh vertex
    * in deformation graph. Note that all vertices has an original rotation of
    * identity.
    *  - v: Vertex (index) to impose transform on
    *  - transform: imposed transform (geometry_msgs Pose)
+   *  - prefix: the prefixes of the key of the nodes corresponding to mesh
+   * vertices
    */
-  void addMeasurement(const Vertex& v, const geometry_msgs::Pose& transform);
+  void addMeasurement(const Vertex& v,
+                      const geometry_msgs::Pose& transform,
+                      const char& prefix);
 
   /*! \brief Fix the transform of a node corresponding to a pose graph node
    *  - key: Key of the node to transform. Note that this is the key after
@@ -145,8 +152,12 @@ class DeformationGraph {
   /*! \brief Add connections from a pose graph node to mesh vertices nodes
    *  - key: Key of pose graph node
    *  - valences: The mesh vertices nodes to connect to
+   *  - prefix: the prefixes of the key of the nodes corresponding to mesh
+   * vertices
    */
-  void addNodeValence(const gtsam::Key& key, const Vertices& valences);
+  void addNodeValence(const gtsam::Key& key,
+                      const Vertices& valences,
+                      const char& valence_prefix);
 
   /*! \brief Get the optimized estimates for nodes with certain prefix
    *  - prefix: prefix of the nodes to query best estimate
@@ -156,9 +167,12 @@ class DeformationGraph {
   /*! \brief Deform a mesh based on the deformation graph
    * - original_mesh: mesh to deform
    * - k: how many nearby nodes to use to adjust new position of vertices when
+   * - prefix: the prefixes of the key of the nodes corresponding to mesh
+   * vertices
    * deforming
    */
   pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
+                              const char& prefix,
                               size_t k = 4);
 
   /*! \brief Get the number of mesh vertices nodes in the deformation graph
@@ -205,9 +219,12 @@ class DeformationGraph {
    * created from the newly added mesh surfaces
    *  - new_vertices: vertices of the newly added mesh (in updateMesh)
    *  - new_edges: edges created from the sides of the new mesh surfaces
+   *  - prefix: the prefixes of the key of the nodes corresponding to mesh
+   * vertices
    */
   void updateConsistencyFactors(const Vertices& new_vertices,
-                                const std::vector<Edge>& new_edges);
+                                const std::vector<Edge>& new_edges,
+                                const char& prefix);
 
  private:
   Graph graph_;
@@ -217,6 +234,8 @@ class DeformationGraph {
   std::map<char, std::vector<gtsam::Pose3> > pg_initial_poses_;
 
   std::vector<gtsam::Point3> vertex_positions_;
+  // track the prefixes only important in multirobot case
+  std::vector<char> vertex_prefixes_;
 
   std::unique_ptr<KimeraRPGO::RobustSolver> pgo_;
 

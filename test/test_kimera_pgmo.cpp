@@ -36,25 +36,25 @@ class KimeraPgmoTest : public ::testing::Test {
   }
 
   void FullMeshCallback(
-      const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
+      const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
     pgmo_.fullMeshCallback(mesh_msg);
   }
 
   void IncrementalMeshCallback(
-      const mesh_msgs::TriangleMeshStamped::ConstPtr& mesh_msg) {
+      const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
     pgmo_.incrementalMeshCallback(mesh_msg);
   }
 
-  inline std::vector<gtsam::Pose3> getTrajectory(const size_t& id) const {
-    return pgmo_.trajectory_.at(id);
+  inline std::vector<gtsam::Pose3> getTrajectory(const size_t& robot_id) const {
+    return pgmo_.trajectory_.at(robot_id);
   }
 
-  inline std::queue<size_t> getUnconnectedNodes() const {
-    return pgmo_.unconnected_nodes_;
+  inline std::queue<size_t> getUnconnectedNodes(const size_t& robot_id) const {
+    return pgmo_.unconnected_nodes_.at(robot_id);
   }
 
-  inline std::vector<ros::Time> getTimestamps(const size_t& id) const {
-    return pgmo_.timestamps_.at(id);
+  inline std::vector<ros::Time> getTimestamps(const size_t& robot_id) const {
+    return pgmo_.timestamps_.at(robot_id);
   }
 
   inline gtsam::Values getValues() const {
@@ -269,7 +269,7 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   IncrementalPoseGraphCallback(inc_graph);
 
   std::vector<gtsam::Pose3> traj = getTrajectory(0);
-  std::queue<size_t> unconnected_nodes = getUnconnectedNodes();
+  std::queue<size_t> unconnected_nodes = getUnconnectedNodes(0);
   std::vector<ros::Time> stamps = getTimestamps(0);
   gtsam::NonlinearFactorGraph factors = getFactors();
   gtsam::Values values = getValues();
@@ -283,8 +283,8 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   // Briefly check values in trajectory, unconnected-nodes, stamps
 
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(), traj[0]));
-  EXPECT_EQ(gtsam::Symbol('a', 0).key(), unconnected_nodes.front());
-  EXPECT_EQ(gtsam::Symbol('a', 1).key(), unconnected_nodes.back());
+  EXPECT_EQ(0, unconnected_nodes.front());
+  EXPECT_EQ(1, unconnected_nodes.back());
   EXPECT_EQ(10.2, stamps[0].toSec());
 
   // check values
@@ -309,7 +309,7 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   IncrementalPoseGraphCallback(inc_graph);
 
   traj = getTrajectory(0);
-  unconnected_nodes = getUnconnectedNodes();
+  unconnected_nodes = getUnconnectedNodes(0);
   stamps = getTimestamps(0);
   factors = getFactors();
   values = getValues();
@@ -323,7 +323,7 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
 
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)), traj[2]));
-  EXPECT_EQ(gtsam::Symbol('a', 2).key(), unconnected_nodes.back());
+  EXPECT_EQ(2, unconnected_nodes.back());
   EXPECT_EQ(20.3, stamps[2].toSec());
 
   // check values
@@ -369,8 +369,8 @@ TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  mesh_msgs::TriangleMeshStamped::Ptr mesh_msg(
-      new mesh_msgs::TriangleMeshStamped);
+  kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
+      new kimera_pgmo::TriangleMeshIdStamped);
   mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
   mesh_msg->header.stamp = ros::Time(12.5);  // within 3 sec of pose graph msg
   IncrementalMeshCallback(mesh_msg);
@@ -416,8 +416,8 @@ TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
       *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[3]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(), factor3.fromPose()));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor3.toPoint()));
-  EXPECT_EQ(gtsam::Symbol('v', 0), factor3.front());
-  EXPECT_EQ(gtsam::Symbol('v', 1), factor3.back());
+  EXPECT_EQ(gtsam::Symbol('s', 0), factor3.front());
+  EXPECT_EQ(gtsam::Symbol('s', 1), factor3.back());
 
   EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[63]));
   DeformationEdgeFactor factor63 =
@@ -427,7 +427,7 @@ TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
                           factor63.fromPose()));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(2, 0, 1), factor63.toPoint()));
   EXPECT_EQ(gtsam::Symbol('a', 2), factor63.front());
-  EXPECT_EQ(gtsam::Symbol('v', 9), factor63.back());
+  EXPECT_EQ(gtsam::Symbol('s', 9), factor63.back());
 }
 
 TEST_F(KimeraPgmoTest, nodeToMeshConnectionDeltaT) {
@@ -451,8 +451,8 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnectionDeltaT) {
 
   // Add mesh but after embed time so should not connect
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  mesh_msgs::TriangleMeshStamped::Ptr mesh_msg(
-      new mesh_msgs::TriangleMeshStamped);
+  kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
+      new kimera_pgmo::TriangleMeshIdStamped);
   mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
   mesh_msg->header.stamp = ros::Time(13.5);  // after 3 sec of pose graph msg
   IncrementalMeshCallback(mesh_msg);
@@ -496,8 +496,8 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnectionDelay) {
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  mesh_msgs::TriangleMeshStamped::Ptr mesh_msg(
-      new mesh_msgs::TriangleMeshStamped);
+  kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
+      new kimera_pgmo::TriangleMeshIdStamped);
   mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
   mesh_msg->header.stamp = ros::Time(12.2);  // within 3 sec of pose graph msg
   IncrementalMeshCallback(mesh_msg);
@@ -524,8 +524,8 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  mesh_msgs::TriangleMeshStamped::Ptr mesh_msg(
-      new mesh_msgs::TriangleMeshStamped);
+  kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
+      new kimera_pgmo::TriangleMeshIdStamped);
   mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
   mesh_msg->header.stamp = ros::Time(12.5);
   IncrementalMeshCallback(mesh_msg);
@@ -542,8 +542,8 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
 
   // Add mesh to be deformed
   pcl::PolygonMesh full_mesh = createMesh(2, 2, 2);
-  mesh_msgs::TriangleMeshStamped::Ptr full_mesh_msg(
-      new mesh_msgs::TriangleMeshStamped);
+  kimera_pgmo::TriangleMeshIdStamped::Ptr full_mesh_msg(
+      new kimera_pgmo::TriangleMeshIdStamped);
   full_mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(full_mesh);
   FullMeshCallback(full_mesh_msg);
 

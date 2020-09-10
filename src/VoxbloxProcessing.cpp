@@ -3,14 +3,15 @@
  * @brief  VoxbloxProcessing class: process incoming voxblox meshes
  * @author Yun Chang
  */
+#include "kimera_pgmo/TriangleMeshIdStamped.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
 #include "kimera_pgmo/VoxbloxProcessing.h"
 
 namespace kimera_pgmo {
 
-VoxbloxProcessing::VoxbloxProcessing()
-    : vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>) {}
+VoxbloxProcessing::VoxbloxProcessing(size_t robot_id)
+    : vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>), robot_id_(robot_id) {}
 VoxbloxProcessing::~VoxbloxProcessing() {}
 
 // Initialize parameters, publishers, and subscribers
@@ -46,9 +47,9 @@ bool VoxbloxProcessing::loadParameters(const ros::NodeHandle& n) {
 bool VoxbloxProcessing::createPublishers(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
   full_mesh_pub_ =
-      nl.advertise<mesh_msgs::TriangleMeshStamped>("full_mesh", 1, false);
-  partial_mesh_pub_ =
-      nl.advertise<mesh_msgs::TriangleMeshStamped>("partial_mesh", 1, false);
+      nl.advertise<kimera_pgmo::TriangleMeshIdStamped>("full_mesh", 1, false);
+  partial_mesh_pub_ = nl.advertise<kimera_pgmo::TriangleMeshIdStamped>(
+      "partial_mesh", 1, false);
   return true;
 }
 
@@ -139,10 +140,11 @@ void VoxbloxProcessing::publishPartialMesh(const pcl::PolygonMesh& mesh,
   mesh_msgs::TriangleMesh mesh_msg =
       kimera_pgmo::PolygonMeshToTriangleMeshMsg(mesh);
   // publish
-  mesh_msgs::TriangleMeshStamped new_msg;
+  kimera_pgmo::TriangleMeshIdStamped new_msg;
   new_msg.header.stamp = stamp;
   new_msg.header.frame_id = "world";
   new_msg.mesh = mesh_msg;
+  new_msg.id = robot_id_;
   partial_mesh_pub_.publish(new_msg);
 }
 
@@ -151,10 +153,11 @@ void VoxbloxProcessing::publishFullMesh(const ros::Time& stamp) const {
   mesh_msgs::TriangleMesh mesh_msg =
       kimera_pgmo::PolygonMeshToTriangleMeshMsg(*vertices_, triangles_);
   // publish
-  mesh_msgs::TriangleMeshStamped new_msg;
+  kimera_pgmo::TriangleMeshIdStamped new_msg;
   new_msg.header.stamp = stamp;
   new_msg.header.frame_id = "world";
   new_msg.mesh = mesh_msg;
+  new_msg.id = robot_id_;
   full_mesh_pub_.publish(new_msg);
 }
 

@@ -29,7 +29,7 @@ class VoxbloxProcessing {
    * converting from Voxblox msg type to our mesh type while storing and
    * compressing the full unoptimized mesh
    */
-  VoxbloxProcessing();
+  VoxbloxProcessing(size_t robot_id = 0);
   ~VoxbloxProcessing();
 
   /*! \brief Initializes callbacks and publishers, and also parse the parameters
@@ -89,6 +89,8 @@ class VoxbloxProcessing {
                          // within defined time horizon (secs)
 
   OctreeCompressionPtr compression_;  // Allow compression of full mesh
+
+  size_t robot_id_;
 
   // Vertices of full mesh
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices_;

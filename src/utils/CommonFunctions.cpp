@@ -449,7 +449,8 @@ GraphMsgPtr GtsamGraphToRos(
       edge.robot_from = robot_prefix_to_id.at(front.chr());
       edge.robot_to = robot_prefix_to_id.at(back.chr());
 
-      if (edge.key_to == edge.key_from + 1) {  // check if odom
+      if (edge.key_to == edge.key_from + 1 &&
+          edge.robot_from == edge.robot_to) {  // check if odom
         edge.type = pose_graph_tools::PoseGraphEdge::ODOM;
         try {
           edge.header.stamp = timestamps.at(edge.robot_to).at(edge.key_to);
@@ -492,9 +493,12 @@ GraphMsgPtr GtsamGraphToRos(
   gtsam::KeyVector key_list = values.keys();
   for (size_t i = 0; i < key_list.size(); i++) {
     gtsam::Symbol node_symb(key_list[i]);
-    if (node_symb.chr() != 'v') {
+    try {
+      size_t robot_id = robot_prefix_to_id.at(node_symb.chr());
+
       pose_graph_tools::PoseGraphNode node;
       node.key = node_symb.index();
+      node.robot_id = robot_id;
       const gtsam::Pose3& value = values.at<gtsam::Pose3>(key_list[i]);
       const gtsam::Point3& translation = value.translation();
       const gtsam::Quaternion& quaternion = value.rotation().toQuaternion();
@@ -509,13 +513,11 @@ GraphMsgPtr GtsamGraphToRos(
       node.pose.orientation.z = quaternion.z();
       node.pose.orientation.w = quaternion.w();
 
-      try {
-        size_t robot_id = robot_prefix_to_id.at(node_symb.chr());
-        node.header.stamp = timestamps.at(robot_id).at(node_symb.index());
-      } catch (...) {
-        // ignore
-      }
+      node.header.stamp = timestamps.at(robot_id).at(node_symb.index());
+
       nodes.push_back(node);
+    } catch (...) {
+      // ignore
     }
   }
 
