@@ -10,8 +10,8 @@
 
 namespace kimera_pgmo {
 
-VoxbloxProcessing::VoxbloxProcessing(size_t robot_id)
-    : vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>), robot_id_(robot_id) {}
+VoxbloxProcessing::VoxbloxProcessing()
+    : vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>) {}
 VoxbloxProcessing::~VoxbloxProcessing() {}
 
 // Initialize parameters, publishers, and subscribers
@@ -35,6 +35,7 @@ bool VoxbloxProcessing::initialize(const ros::NodeHandle& n) {
 
 bool VoxbloxProcessing::loadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("horizon", time_horizon_)) return false;
+  if (!n.getParam("robot_id", robot_id_)) return false;
 
   double mesh_resolution;
   if (!n.getParam("output_mesh_resolution", mesh_resolution)) return false;
