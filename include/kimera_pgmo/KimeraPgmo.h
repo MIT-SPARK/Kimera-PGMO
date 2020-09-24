@@ -114,6 +114,13 @@ class KimeraPgmo {
   bool saveTrajectoryCallback(std_srvs::Empty::Request&,
                               std_srvs::Empty::Response&);
 
+ protected:
+  enum class RunMode {
+    FULL = 0u,  // Optimize mesh and pose graph
+    MESH = 1u   // Optimize mesh based on given optimized trajectory
+  };
+  RunMode run_mode_;
+
   pcl::PolygonMesh input_mesh_;
   pcl::PolygonMesh optimized_mesh_;
   ros::Time last_mesh_stamp_;

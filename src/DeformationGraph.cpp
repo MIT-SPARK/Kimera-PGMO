@@ -225,9 +225,9 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
   return;
 }
 
-void DeformationGraph::initFirstNode(const gtsam::Key& key,
-                                     const gtsam::Pose3& initial_pose,
-                                     bool add_prior) {
+void DeformationGraph::addNewNode(const gtsam::Key& key,
+                                  const gtsam::Pose3& initial_pose,
+                                  bool add_prior) {
   // new node
   // For now push empty valence, valences will be populated when updated
   gtsam::Values new_values;

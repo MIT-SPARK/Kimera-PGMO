@@ -2,6 +2,7 @@
   <arg name="dataset" default="uhumans" />
   <arg name="launch_voxblox" default="true" />
   <arg name="robot_id" default="0" />
+  <arg name="run_mode" default="0" /> 
 
   <node name="voxblox_processing" pkg="kimera_pgmo" type="voxblox_processing_node" output="screen" >
     <param name="horizon" value="1000" />
@@ -14,6 +15,7 @@
   <node type="kimera_pgmo_node" name="kimera_pgmo_node" pkg="kimera_pgmo" output="screen" >
     <rosparam file="$(find kimera_pgmo)/params/$(arg dataset)/parameters.yaml" />
     <param name="output_prefix" value="/home/yunchang/Downloads/optimized" />
+    <param name="run_mode" value="$(arg run_mode)" />
     <remap from="~incremental_mesh" to="/voxblox_processing/partial_mesh" />
     <remap from="~full_mesh" to="/voxblox_processing/full_mesh" />
     <remap from="~pose_graph_incremental" to="/kimera_vio_ros/pose_graph_incremental" />

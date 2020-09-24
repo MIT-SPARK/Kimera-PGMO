@@ -129,14 +129,14 @@ class DeformationGraph {
    */
   void addNodeMeasurement(const gtsam::Key& key, const gtsam::Pose3 pose);
 
-  /*! \brief Initialize with first node of a new trajectory
+  /*! \brief Initialize with new node of a trajectory
    *  - key: Key of first node in new trajectory
    *  - initial_pose: Initial measurement of first node
    *  - add_prior: boolean - add a Prior Factor or not
    */
-  void initFirstNode(const gtsam::Key& key,
-                     const gtsam::Pose3& initial_pose,
-                     bool add_prior);
+  void addNewNode(const gtsam::Key& key,
+                  const gtsam::Pose3& initial_pose,
+                  bool add_prior);
 
   /*! \brief Add a new between factor to the deformation graph
    *  - key_from: Key of front node to connect between factor

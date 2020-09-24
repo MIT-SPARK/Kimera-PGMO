@@ -279,9 +279,9 @@ TEST(test_deformation_graph, updateMesh) {
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor.toPoint()));
 
   Vertices new_node_valences{0, 2};
-  graph.initFirstNode(gtsam::Symbol('a', 0),
-                      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
-                      false);
+  graph.addNewNode(gtsam::Symbol('a', 0),
+                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
+                   false);
   graph.addNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
 
   // Check that the factors are added correctly
@@ -335,7 +335,7 @@ TEST(test_deformation_graph, addNodeMeasurement) {
 
   graph.updateMesh(simple_vertices, simple_mesh.polygons, 'v');
   Vertices new_node_valences{0, 2};
-  graph.initFirstNode(
+  graph.addNewNode(
       gtsam::Symbol('a', 0),
       gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)),
       false);
@@ -397,9 +397,9 @@ TEST(test_deformation_graph, addNewBetween) {
   EXPECT_EQ(1, graph.getVertices().points[2].y);
 
   Vertices new_node_valences{0, 2};
-  graph.initFirstNode(gtsam::Symbol('a', 0),
-                      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
-                      true);
+  graph.addNewNode(gtsam::Symbol('a', 0),
+                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
+                   true);
   graph.addNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
   graph.addNewBetween(gtsam::Symbol('a', 0),
                       gtsam::Symbol('a', 1),

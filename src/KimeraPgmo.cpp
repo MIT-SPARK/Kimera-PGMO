@@ -37,6 +37,11 @@ bool KimeraPgmo::initialize(const ros::NodeHandle& n) {
 
 // Load deformation parameters
 bool KimeraPgmo::loadParameters(const ros::NodeHandle& n) {
+  // Set run mode
+  int run_mode_num;
+  if (!n.getParam("run_mode", run_mode_num)) return false;
+  run_mode_ = static_cast<RunMode>(run_mode_num);
+
   if (!n.getParam("frame_id", frame_id_)) return false;
   if (!n.getParam("compression_time_horizon", compression_time_horizon_))
     return false;
@@ -201,7 +206,7 @@ void KimeraPgmo::incrementalPoseGraphCallback(
     gtsam::Symbol key_symb(GetRobotPrefix(robot_id), 0);
     gtsam::Pose3 init_pose = RosToGtsam(msg->nodes[0].pose);
     // Initiate first node but do not add prior
-    deformation_graph_.initFirstNode(key_symb.key(), init_pose, false);
+    deformation_graph_.addNewNode(key_symb.key(), init_pose, false);
     // Add to trajectory and timestamp map
     trajectory_[robot_id] = {init_pose};
     timestamps_[robot_id] = {msg->nodes[0].header.stamp};
@@ -248,9 +253,19 @@ void KimeraPgmo::incrementalPoseGraphCallback(
         // Add new node to queue to be connected to mesh later
         unconnected_nodes_[robot_from].push(current_node);
         // Add to deformation graph
-        deformation_graph_.addNewBetween(from_key, to_key, measure, new_pose);
-      } else if (pg_edge.type == pose_graph_tools::PoseGraphEdge::LOOPCLOSE) {
-        // Loop closure edge
+        if (run_mode_ == RunMode::FULL) {
+          // Add the pose estimate of new node and between factor (odometry)
+          deformation_graph_.addNewBetween(from_key, to_key, measure, new_pose);
+        } else if (run_mode_ == RunMode::MESH) {
+          // Only add the pose estimate of new node (gtsam Value)
+          // Do not add factor
+          deformation_graph_.addNewNode(to_key, new_pose, false);
+        } else {
+          ROS_ERROR("KimeraPgmo: unrecognized run mode. ");
+        }
+      } else if (pg_edge.type == pose_graph_tools::PoseGraphEdge::LOOPCLOSE &&
+                 run_mode_ == RunMode::FULL) {
+        // Loop closure edge (only add if we are in full optimization mode )
         // Add to deformation graph
         deformation_graph_.addNewBetween(from_key, to_key, measure);
         ROS_INFO(
