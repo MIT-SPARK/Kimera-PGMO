@@ -129,6 +129,12 @@ class DeformationGraph {
    */
   void addNodeMeasurement(const gtsam::Key& key, const gtsam::Pose3 pose);
 
+  /*! \brief Fix the measurements of multiple nodes
+   *  - measurements: a vector of key->pose pair of node measurements
+   */
+  void addNodeMeasurements(
+      const std::vector<std::pair<gtsam::Key, gtsam::Pose3> >& measurements);
+
   /*! \brief Initialize with new node of a trajectory
    *  - key: Key of first node in new trajectory
    *  - initial_pose: Initial measurement of first node

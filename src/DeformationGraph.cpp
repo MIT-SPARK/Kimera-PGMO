@@ -159,6 +159,7 @@ void DeformationGraph::addMeasurement(const Vertex& v,
 
 void DeformationGraph::addNodeMeasurement(const gtsam::Key& key,
                                           const gtsam::Pose3 pose) {
+  // TODO: consider consolidating with addNodeMeasurements
   gtsam::Values new_values;
   gtsam::NonlinearFactorGraph new_factors;
 
@@ -167,6 +168,42 @@ void DeformationGraph::addNodeMeasurement(const gtsam::Key& key,
   gtsam::PriorFactor<gtsam::Pose3> measurement(key, pose, noise);
   prior_factors_.add(measurement);
   new_factors.add(measurement);
+
+  if (!values_.exists(key)) {
+    ROS_WARN(
+        "DeformationGraph: adding node measurement to a node %s not previously "
+        "seen before. ",
+        gtsam::DefaultKeyFormatter(key));
+    new_values.insert(key, pose);
+  }
+
+  pgo_->update(new_factors, new_values);
+  values_ = pgo_->calculateEstimate();
+  nfg_ = pgo_->getFactorsUnsafe();
+  recalculate_vertices_ = true;
+}
+
+void DeformationGraph::addNodeMeasurements(
+    const std::vector<std::pair<gtsam::Key, gtsam::Pose3>>& measurements) {
+  gtsam::Values new_values;
+  gtsam::NonlinearFactorGraph new_factors;
+
+  for (auto keyed_pose : measurements) {
+    static const gtsam::SharedNoiseModel& noise =
+        gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
+    gtsam::PriorFactor<gtsam::Pose3> measurement(
+        keyed_pose.first, keyed_pose.second, noise);
+    prior_factors_.add(measurement);
+    new_factors.add(measurement);
+
+    if (!values_.exists(keyed_pose.first)) {
+      ROS_WARN(
+          "DeformationGraph: adding node measurement to a node %s not "
+          "previously seen before. ",
+          gtsam::DefaultKeyFormatter(keyed_pose.first));
+      new_values.insert(keyed_pose.first, keyed_pose.second);
+    }
+  }
 
   pgo_->update(new_factors, new_values);
   values_ = pgo_->calculateEstimate();
