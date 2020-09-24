@@ -273,11 +273,14 @@ void DeformationGraph::addNewNode(const gtsam::Key& key,
   Vertices valences;
   char prefix = gtsam::Symbol(key).chr();
   size_t idx = gtsam::Symbol(key).index();
-  if (idx != 0)
-    ROS_ERROR(
-        "First node initialized from a trajectory is not 0. Breaks "
-        "assumption. ");
-  pg_initial_poses_[prefix] = std::vector<gtsam::Pose3>{initial_pose};
+  if (idx == 0) {
+    pg_initial_poses_[prefix] = std::vector<gtsam::Pose3>{initial_pose};
+  } else {
+    if (idx != pg_initial_poses_[prefix].size()) {
+      ROS_ERROR("DeformationGraph: Nodes skipped in pose graph nodes. ");
+    }
+    pg_initial_poses_[prefix].push_back(initial_pose);
+  }
 
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(6, 1e-15);

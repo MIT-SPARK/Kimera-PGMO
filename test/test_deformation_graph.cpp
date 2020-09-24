@@ -395,10 +395,10 @@ TEST(test_deformation_graph, addNodeMeasurements) {
       gtsam::Symbol('a', 0),
       gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)),
       false);
-  graph.addNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
   graph.addNewNode(gtsam::Symbol('a', 1),
                    gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
                    false);
+  graph.addNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
 
   // Check factors added
   gtsam::Values values = graph.getGtsamValues();
