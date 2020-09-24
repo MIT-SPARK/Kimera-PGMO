@@ -253,8 +253,6 @@ class DeformationGraph {
   //// Below separated factor types for debugging
   // factor graph encoding the mesh structure
   gtsam::NonlinearFactorGraph consistency_factors_;
-  // factor graph storing the prior factors for distortions
-  gtsam::NonlinearFactorGraph prior_factors_;
   // factor graph for pose graph related factors
   gtsam::NonlinearFactorGraph pg_factors_;
 

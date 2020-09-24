@@ -148,7 +148,6 @@ void DeformationGraph::addMeasurement(const Vertex& v,
   gtsam::Symbol v_symb(prefix, v);
   gtsam::Pose3 meas = RosToGtsam(pose);
   gtsam::PriorFactor<gtsam::Pose3> absolute_meas(v_symb, meas, noise);
-  prior_factors_.add(absolute_meas);
   new_factors.add(absolute_meas);
 
   pgo_->update(new_factors, new_values);
@@ -166,7 +165,6 @@ void DeformationGraph::addNodeMeasurement(const gtsam::Key& key,
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
   gtsam::PriorFactor<gtsam::Pose3> measurement(key, pose, noise);
-  prior_factors_.add(measurement);
   new_factors.add(measurement);
 
   if (!values_.exists(key)) {
@@ -193,7 +191,6 @@ void DeformationGraph::addNodeMeasurements(
         gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
     gtsam::PriorFactor<gtsam::Pose3> measurement(
         keyed_pose.first, keyed_pose.second, noise);
-    prior_factors_.add(measurement);
     new_factors.add(measurement);
 
     if (!values_.exists(keyed_pose.first)) {
@@ -243,8 +240,6 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
 
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
-  pg_factors_.add(
-      gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
   new_factors.add(
       gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
 
@@ -286,7 +281,6 @@ void DeformationGraph::addNewNode(const gtsam::Key& key,
       gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
   new_values.insert(key, initial_pose);
   if (add_prior) {
-    pg_factors_.add(gtsam::PriorFactor<gtsam::Pose3>(key, initial_pose, noise));
     new_factors.add(gtsam::PriorFactor<gtsam::Pose3>(key, initial_pose, noise));
   }
 
