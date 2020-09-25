@@ -290,6 +290,14 @@ void DeformationGraph::addNewNode(const gtsam::Key& key,
   return;
 }
 
+void DeformationGraph::removePriorsWithPrefix(const char& prefix) {
+  pgo_->removePriorFactorsWithPrefix(prefix);
+  values_ = pgo_->calculateEstimate();
+  nfg_ = pgo_->getFactorsUnsafe();
+  recalculate_vertices_ = true;
+  return;
+}
+
 pcl::PolygonMesh DeformationGraph::deformMesh(
     const pcl::PolygonMesh& original_mesh,
     const char& prefix,

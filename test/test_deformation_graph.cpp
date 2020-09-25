@@ -448,6 +448,81 @@ TEST(test_deformation_graph, addNodeMeasurements) {
   EXPECT_NEAR(4, actual_vertices.points[2].x, 0.001);
 }
 
+TEST(test_deformation_graph, removePriorsWithPrefix) {
+  DeformationGraph graph;
+  graph.initialize(100, 100);
+  pcl::PolygonMesh simple_mesh = createMeshTriangle();
+
+  pcl::PolygonMesh original_mesh = SimpleMesh();
+  pcl::PointCloud<pcl::PointXYZRGBA> simple_vertices;
+  pcl::fromPCLPointCloud2(simple_mesh.cloud, simple_vertices);
+
+  graph.updateMesh(simple_vertices, simple_mesh.polygons, 'v');
+  Vertices new_node_valences{0, 2};
+  graph.addNewNode(
+      gtsam::Symbol('a', 0),
+      gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)),
+      false);
+  graph.addNewNode(gtsam::Symbol('a', 1),
+                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
+                   false);
+  graph.addNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
+
+  // Add node measurement
+  std::vector<std::pair<gtsam::Key, gtsam::Pose3> > measurements;
+  measurements.push_back(std::pair<gtsam::Key, gtsam::Pose3>(
+      gtsam::Symbol('a', 0),
+      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2))));
+  measurements.push_back(std::pair<gtsam::Key, gtsam::Pose3>(
+      gtsam::Symbol('a', 1),
+      gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2))));
+
+  graph.addNodeMeasurements(measurements);
+
+  gtsam::NonlinearFactorGraph factors = graph.getGtsamFactors();
+
+  EXPECT_EQ(size_t(12), factors.size());
+  EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(
+      factors[10]));
+  EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(
+      factors[11]));
+
+  pcl::PolygonMesh new_mesh = graph.deformMesh(simple_mesh, 'v', 1);
+  pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
+  pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
+
+  EXPECT_NEAR(4, actual_vertices.points[0].x, 0.001);
+  EXPECT_NEAR(4, actual_vertices.points[0].y, 0.001);
+  EXPECT_NEAR(0, actual_vertices.points[0].z, 0.001);
+  EXPECT_NEAR(3, actual_vertices.points[1].x, 0.001);
+  EXPECT_NEAR(3, actual_vertices.points[2].y, 0.001);
+  EXPECT_NEAR(0, actual_vertices.points[1].z, 0.001);
+  EXPECT_NEAR(4, actual_vertices.points[2].x, 0.001);
+
+  // Up to here should be same as last test case
+  // Remove priors
+  graph.removePriorsWithPrefix('a');
+
+  factors = graph.getGtsamFactors();
+  EXPECT_EQ(size_t(10), factors.size());
+
+  // Add another prior to see if mesh reset
+  graph.addNodeMeasurement(
+      gtsam::Symbol('a', 0),
+      gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)));
+
+  new_mesh = graph.deformMesh(simple_mesh, 'v', 1);
+  pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
+
+  EXPECT_NEAR(0, actual_vertices.points[0].x, 0.001);
+  EXPECT_NEAR(0, actual_vertices.points[0].y, 0.001);
+  EXPECT_NEAR(0, actual_vertices.points[0].z, 0.001);
+  EXPECT_NEAR(1, actual_vertices.points[1].x, 0.001);
+  EXPECT_NEAR(1, actual_vertices.points[2].y, 0.001);
+  EXPECT_NEAR(0, actual_vertices.points[1].z, 0.001);
+  EXPECT_NEAR(0, actual_vertices.points[2].x, 0.001);
+}
+
 TEST(test_deformation_graph, addNewBetween) {
   DeformationGraph graph;
   graph.initialize(100, 100);

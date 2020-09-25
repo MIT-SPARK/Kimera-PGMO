@@ -165,6 +165,11 @@ class DeformationGraph {
                       const Vertices& valences,
                       const char& valence_prefix);
 
+  /*! \brief Remove sll prior factors of nodes that have given prefix
+   *  - prefix: prefix of nodes to remove prior
+   */
+  void removePriorsWithPrefix(const char& prefix);
+
   /*! \brief Get the optimized estimates for nodes with certain prefix
    *  - prefix: prefix of the nodes to query best estimate
    */
