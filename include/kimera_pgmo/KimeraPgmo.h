@@ -103,8 +103,16 @@ class KimeraPgmo {
   void incrementalMeshCallback(
       const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg);
 
-  /*! \brief Saves mesh as a ply file. Triggers through a rosservice call and
-   * saves to file [output_prefix_].ply
+  /*! \brief Subscribes to an optimized trajectory. The path should correspond
+   * to the nodes of the pose graph received in the
+   * incrementalPoseGraphCallback. Note that this should only be used in the
+   * single robot pose graph case.
+   *  - mesh_msg: partial mesh in mesh_msgs TriangleMeshStamped format
+   */
+  void optimizedPathCallback(const nav_msgs::Path::ConstPtr& path_msg);
+
+  /*! \brief Saves mesh as a ply file. Triggers through a rosservice call
+   * and saves to file [output_prefix_].ply
    */
   bool saveMeshCallback(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
 
@@ -142,6 +150,7 @@ class KimeraPgmo {
   ros::Subscriber pose_graph_incremental_sub_;
   ros::Subscriber full_mesh_sub_;
   ros::Subscriber incremental_mesh_sub_;
+  ros::Subscriber path_callback_;
 
   // Service
   ros::ServiceServer save_mesh_srv_;

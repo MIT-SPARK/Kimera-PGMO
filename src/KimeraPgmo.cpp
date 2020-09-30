@@ -286,6 +286,26 @@ void KimeraPgmo::incrementalPoseGraphCallback(
   publishTransforms();
 }
 
+void KimeraPgmo::optimizedPathCallback(
+    const nav_msgs::Path::ConstPtr& path_msg) {
+  if (trajectory_.size() > 1) {
+    ROS_ERROR(
+        "KimeraPgmo: Path subscriber does not support centralized multirobot "
+        "scenario. ");
+  }
+
+  size_t robot_id = trajectory_.begin()->first;
+  deformation_graph_.removePriorsWithPrefix(GetRobotPrefix(robot_id));
+
+  std::vector<std::pair<gtsam::Key, gtsam::Pose3> > node_estimates;
+  for (size_t i = 0; i < path_msg->poses.size(); i++) {
+    node_estimates.push_back(std::pair<gtsam::Key, gtsam::Pose3>(
+        gtsam::Symbol(GetRobotPrefix(robot_id), i).key(),
+        RosToGtsam(path_msg->poses[i].pose)));
+  }
+  deformation_graph_.addNodeMeasurements(node_estimates);
+}
+
 void KimeraPgmo::fullMeshCallback(
     const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
   input_mesh_ = TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);

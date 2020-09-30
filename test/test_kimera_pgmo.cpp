@@ -46,6 +46,10 @@ class KimeraPgmoTest : public ::testing::Test {
     pgmo_.incrementalMeshCallback(mesh_msg);
   }
 
+  void OptimizedPathCallback(const nav_msgs::Path::ConstPtr& path_msg) {
+    pgmo_.optimizedPathCallback(path_msg);
+  }
+
   inline std::vector<gtsam::Pose3> getTrajectory(const size_t& robot_id) const {
     return pgmo_.trajectory_.at(robot_id);
   }
@@ -585,6 +589,128 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
   EXPECT_NE(2, optimized_vertices.points[4].x);
   EXPECT_NE(2, optimized_vertices.points[4].y);
   EXPECT_NE(3, optimized_vertices.points[4].z);
+}
+
+TEST_F(KimeraPgmoTest, optimizedPathCallback) {
+  ros::NodeHandle nh;
+  pgmo_.initialize(nh);
+
+  // check callback
+  pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
+  *inc_graph = SingleOdomGraph(ros::Time(10.2));
+  IncrementalPoseGraphCallback(inc_graph);
+
+  // Create a Path
+  nav_msgs::Path::Ptr path_msg(new nav_msgs::Path);
+
+  geometry_msgs::PoseStamped pose0;
+  pose0.pose.position.x = 1;
+  pose0.pose.orientation.w = 0;
+  pose0.pose.orientation.x = 1;
+  path_msg->poses.push_back(pose0);
+
+  geometry_msgs::PoseStamped pose1;
+  pose1.pose.position.x = 2;
+  pose1.pose.orientation.w = 0;
+  pose1.pose.orientation.x = 1;
+  path_msg->poses.push_back(pose1);
+
+  OptimizedPathCallback(path_msg);
+
+  std::vector<gtsam::Pose3> traj = getTrajectory(0);
+  std::queue<size_t> unconnected_nodes = getUnconnectedNodes(0);
+  std::vector<ros::Time> stamps = getTimestamps(0);
+  gtsam::NonlinearFactorGraph factors = getFactors();
+  gtsam::Values values = getValues();
+
+  // check values
+  EXPECT_TRUE(gtsam::assert_equal(
+      gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(1, 0, 0)),
+      values.at<gtsam::Pose3>(gtsam::Symbol('a', 0)),
+      1e-4));
+
+  EXPECT_TRUE(gtsam::assert_equal(
+      gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(2, 0, 0)),
+      values.at<gtsam::Pose3>(gtsam::Symbol('a', 1)),
+      1e-4));
+
+  // check factors
+  EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(
+      factors[0]));
+  EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(
+      factors[1]));
+  EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(
+      factors[2]));
+
+  gtsam::PriorFactor<gtsam::Pose3> factor1 =
+      *boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(
+          factors[1]);
+  gtsam::PriorFactor<gtsam::Pose3> factor2 =
+      *boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(
+          factors[2]);
+
+  EXPECT_TRUE(gtsam::assert_equal(
+      gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(1, 0, 0)),
+      factor1.prior()));
+  EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor1.key());
+  EXPECT_EQ(gtsam::Symbol('a', 1).key(), factor2.key());
+  EXPECT_TRUE(gtsam::assert_equal(
+      gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(2, 0, 0)),
+      factor2.prior()));
+
+  // Create a Path2
+  path_msg->poses.clear();
+
+  pose0.pose.position.x = 0;
+  pose0.pose.position.y = 0.5;
+  pose0.pose.orientation.w = 1;
+  pose0.pose.orientation.x = 0;
+  path_msg->poses.push_back(pose0);
+
+  pose1.pose.position.x = 1;
+  pose1.pose.position.y = 0.5;
+  pose1.pose.orientation.w = 1;
+  pose1.pose.orientation.x = 0;
+  path_msg->poses.push_back(pose1);
+
+  OptimizedPathCallback(path_msg);
+
+  traj = getTrajectory(0);
+  unconnected_nodes = getUnconnectedNodes(0);
+  stamps = getTimestamps(0);
+  factors = getFactors();
+  values = getValues();
+
+  // check values
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0.5, 0)),
+                          values.at<gtsam::Pose3>(gtsam::Symbol('a', 0)),
+                          1e-4));
+
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0.5, 0)),
+                          values.at<gtsam::Pose3>(gtsam::Symbol('a', 1)),
+                          1e-4));
+
+  // check factors
+  EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(
+      factors[0]));
+  EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(
+      factors[1]));
+  EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(
+      factors[2]));
+
+  factor1 = *boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(
+      factors[1]);
+  factor2 = *boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(
+      factors[2]);
+
+  EXPECT_TRUE(gtsam::assert_equal(
+      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0.5, 0)), factor1.prior()));
+  EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor1.key());
+  EXPECT_EQ(gtsam::Symbol('a', 1).key(), factor2.key());
+  EXPECT_TRUE(gtsam::assert_equal(
+      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0.5, 0)), factor2.prior()));
 }
 
 }  // namespace kimera_pgmo
