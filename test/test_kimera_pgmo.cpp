@@ -23,6 +23,7 @@ class KimeraPgmoTest : public ::testing::Test {
     system("rosparam set frame_id world");
     system("rosparam set compression_time_horizon 10.0");
     system("rosparam set run_mode 0");
+    system("rosparam set use_msg_time true");
     system("rosparam set output_prefix test");
     system("rosparam set embed_trajectory_delta_t 3.0");
     system("rosparam set d_graph_resolution 0.1");
