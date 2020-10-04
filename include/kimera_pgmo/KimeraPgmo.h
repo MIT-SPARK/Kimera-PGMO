@@ -128,6 +128,7 @@ class KimeraPgmo {
     MESH = 1u   // Optimize mesh based on given optimized trajectory
   };
   RunMode run_mode_;
+  bool use_msg_time_;  // use msg time or call back time
 
   pcl::PolygonMesh input_mesh_;
   pcl::PolygonMesh optimized_mesh_;
