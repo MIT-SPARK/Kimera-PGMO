@@ -312,6 +312,7 @@ void KimeraPgmo::optimizedPathCallback(
 
   std::vector<std::pair<gtsam::Key, gtsam::Pose3> > node_estimates;
   for (size_t i = 0; i < path_msg->poses.size(); i++) {
+    if (i == trajectory_[robot_id].size()) break;
     node_estimates.push_back(std::pair<gtsam::Key, gtsam::Pose3>(
         gtsam::Symbol(GetRobotPrefix(robot_id), i).key(),
         RosToGtsam(path_msg->poses[i].pose)));
