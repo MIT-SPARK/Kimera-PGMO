@@ -80,6 +80,8 @@ bool KimeraPgmo::createPublishers(const ros::NodeHandle& n) {
       nl.advertise<nav_msgs::Odometry>("optimized_odom", 1, false);
   pose_graph_pub_ =
       nl.advertise<pose_graph_tools::PoseGraph>("pose_graph", 1, false);
+  optimized_path_pub_ =
+      nl.advertise<nav_msgs::Path>("optimized_path", 1, false);
   return true;
 }
 
@@ -99,8 +101,8 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
                    &KimeraPgmo::incrementalPoseGraphCallback,
                    this);
 
-  optimized_path_pub_ =
-      nl.advertise<nav_msgs::Path>("optimized_path", 1, false);
+  path_callback_sub_ =
+      nl.subscribe("input_path", 2, &KimeraPgmo::optimizedPathCallback, this);
 
   // Initialize save mesh service
   save_mesh_srv_ =

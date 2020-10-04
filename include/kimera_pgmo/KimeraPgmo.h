@@ -150,7 +150,7 @@ class KimeraPgmo {
   ros::Subscriber pose_graph_incremental_sub_;
   ros::Subscriber full_mesh_sub_;
   ros::Subscriber incremental_mesh_sub_;
-  ros::Subscriber path_callback_;
+  ros::Subscriber path_callback_sub_;
 
   // Service
   ros::ServiceServer save_mesh_srv_;

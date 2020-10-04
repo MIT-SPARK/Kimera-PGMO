@@ -1,24 +1,24 @@
 <launch>
   <arg name="dataset" default="uhumans" />
-  <arg name="launch_voxblox" default="true" />
   <arg name="robot_id" default="0" />
   <arg name="run_mode" default="0" /> 
+  <arg name="optimized_path_topic" default="kimera_vio_ros/optimized_path" />
 
   <node name="voxblox_processing" pkg="kimera_pgmo" type="voxblox_processing_node" output="screen" >
     <param name="horizon" value="1000" />
     <param name="output_mesh_resolution" value="0.02" />
     <param name="robot_id" value="$(arg robot_id)" />
-    <remap from="~voxblox_mesh" to="/voxblox_node/mesh" if="$(arg launch_voxblox)" />
-    <remap from="~voxblox_mesh" to="/kimera_semantics_node/mesh" unless="$(arg launch_voxblox)" />
+    <remap from="~voxblox_mesh" to="kimera_semantics_node/mesh" />
   </node> 
 
   <node type="kimera_pgmo_node" name="kimera_pgmo_node" pkg="kimera_pgmo" output="screen" >
     <rosparam file="$(find kimera_pgmo)/params/$(arg dataset)/parameters.yaml" />
     <param name="output_prefix" value="/home/yunchang/Downloads/optimized" />
     <param name="run_mode" value="$(arg run_mode)" />
-    <remap from="~incremental_mesh" to="/voxblox_processing/partial_mesh" />
-    <remap from="~full_mesh" to="/voxblox_processing/full_mesh" />
-    <remap from="~pose_graph_incremental" to="/kimera_vio_ros/pose_graph_incremental" />
+    <remap from="~incremental_mesh" to="voxblox_processing/partial_mesh" />
+    <remap from="~full_mesh" to="voxblox_processing/full_mesh" />
+    <remap from="~pose_graph_incremental" to="kimera_vio_ros/pose_graph_incremental" />
+    <remap from="~input_path" to="$(arg optimized_path_topic)" />
   </node>
 
   <include file="$(find pose_graph_tools)/launch/posegraph_view.launch" >
