@@ -29,6 +29,9 @@ Configure the parameters in the params folder for your dataset and environment.
 - `compression_time_horizon` sets a time horizon to discard older parts of the mesh to avoid associating a new node with an old part of the mesh 
 - `embed_trajectory_delta_t` the slack to set when synchronizing incoming incremental mesh with incoming pose graph 
 - `rpgo` the outlier rejection thresholds 
+- `output_prefix` the path of where you want to save the optimized mesh (as ply) and the optimized trajectory (as csv) 
+- `run_mode` set to 0 for mesh and pose graph optimization and set to 1 for mesh optimization with given optimized pose graph ppublished to `~input_path`
+- `use_msg_time` set to true to use the timestamp in msg when synchronizing, and to false if use time of callback 
 
 ## Running Kimera-PGMO
 
@@ -55,6 +58,17 @@ Finally play the rosbag
 ```bash
 rosbag play some_bag.bag --clock
 ```
+
+To save the mesh, do 
+```bash
+rosservice call /kimera_pgmo_node/save_mesh
+```
+
+and to save optimized trajectory, do 
+```bash
+rosservice call /kimera_pgmo_node/save_trajectory
+```
+the mesh will be saved to ouput_prefix.ply and trajectory will be saved to output_prefix.csv (see Parameters section)
 
 ## Developer notes 
 One thing to note if a developer is working with GTSAM and want to add other factors into the system is that here we specify different prefixes for different types of nodes in the deformation graph, take a look at `utils/CommonFunctions.h` for reference. By prefix we mean the key character as described [here](https://borg.cc.gatech.edu/sites/edu.borg/html/a00244.html). 
