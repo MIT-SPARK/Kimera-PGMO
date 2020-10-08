@@ -19,6 +19,14 @@ In addition to PCL, OpenCV, GTSAM, Kimera-PGMO is designed as part of Kimera, so
 
 For the immediate dependencies, check out the rosinstall files. 
 
+```bash
+cd ~/catkin_ws/src
+wstool merge Kimera-PGMO/install/kimera_pgmo_ssh.rosinstall
+wstool update
+catkin build kimera_pgmo
+```
+Note: doing a full `catkin build` might cause problems with some of the dependencies of Kimera-Semantics, so it is recommended to build the modules one by one. 
+
 ## Architecture 
 The following is the diagram of our Kimera PGMO architecture.
 ![Basic system setup in the single robot case](images/diagram_pgmo.png)
