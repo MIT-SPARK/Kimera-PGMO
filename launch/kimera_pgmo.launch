@@ -4,6 +4,7 @@
   <arg name="run_mode" default="0" /> 
   <arg name="use_msg_time" default="true" />
   <arg name="optimized_path_topic" default="kimera_vio_ros/optimized_path" />
+  <arg name="output_path" default="/home/yunchang/Downloads/optimized" />
 
   <node name="voxblox_processing" pkg="kimera_pgmo" type="voxblox_processing_node" output="screen" >
     <param name="horizon" value="1000" />
@@ -14,7 +15,7 @@
 
   <node type="kimera_pgmo_node" name="kimera_pgmo_node" pkg="kimera_pgmo" output="screen" >
     <rosparam file="$(find kimera_pgmo)/params/$(arg dataset)/parameters.yaml" />
-    <param name="output_prefix" value="/home/yunchang/Downloads/optimized" />
+    <param name="output_prefix" value="$(arg output_path)" />
     <param name="run_mode" value="$(arg run_mode)" />
     <param name="use_msg_time" value="$(arg use_msg_time)" />
     <remap from="~incremental_mesh" to="voxblox_processing/partial_mesh" />
