@@ -226,16 +226,15 @@ mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
     p.y = vertices.points[i].y;
     p.z = vertices.points[i].z;
     new_mesh.vertices.push_back(p);
-    if (vertices.points[i].r) {
-      std_msgs::ColorRGBA color;
-      constexpr float color_conv_factor =
-          1.0f / std::numeric_limits<uint8_t>::max();
-      color.r = color_conv_factor * static_cast<float>(vertices.points[i].r);
-      color.g = color_conv_factor * static_cast<float>(vertices.points[i].g);
-      color.b = color_conv_factor * static_cast<float>(vertices.points[i].b);
-      color.a = color_conv_factor * static_cast<float>(vertices.points[i].a);
-      new_mesh.vertex_colors.push_back(color);
-    }
+    // Point color
+    std_msgs::ColorRGBA color;
+    constexpr float color_conv_factor =
+        1.0f / std::numeric_limits<uint8_t>::max();
+    color.r = color_conv_factor * static_cast<float>(vertices.points[i].r);
+    color.g = color_conv_factor * static_cast<float>(vertices.points[i].g);
+    color.b = color_conv_factor * static_cast<float>(vertices.points[i].b);
+    color.a = color_conv_factor * static_cast<float>(vertices.points[i].a);
+    new_mesh.vertex_colors.push_back(color);
   }
 
   // Convert polygons
