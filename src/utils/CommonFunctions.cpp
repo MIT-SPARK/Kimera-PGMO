@@ -441,6 +441,8 @@ GraphMsgPtr GtsamGraphToRos(
               factors[i]);
       // convert between factor to PoseGraphEdge type
       pose_graph_tools::PoseGraphEdge edge;
+      edge.header.stamp = ros::Time::now();
+      edge.header.frame_id = "world";
       gtsam::Symbol front(factor.front());
       gtsam::Symbol back(factor.back());
       edge.key_from = front.index();
@@ -496,6 +498,8 @@ GraphMsgPtr GtsamGraphToRos(
       size_t robot_id = robot_prefix_to_id.at(node_symb.chr());
 
       pose_graph_tools::PoseGraphNode node;
+      node.header.stamp = ros::Time::now();
+      node.header.frame_id = "world";
       node.key = node_symb.index();
       node.robot_id = robot_id;
       const gtsam::Pose3& value = values.at<gtsam::Pose3>(key_list[i]);
@@ -521,6 +525,8 @@ GraphMsgPtr GtsamGraphToRos(
   }
 
   pose_graph_tools::PoseGraph posegraph;
+  posegraph.header.stamp = ros::Time::now();
+  posegraph.header.frame_id = "world";
   posegraph.nodes = nodes;
   posegraph.edges = edges;
   return boost::make_shared<pose_graph_tools::PoseGraph>(posegraph);

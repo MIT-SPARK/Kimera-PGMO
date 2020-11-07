@@ -32,7 +32,7 @@ bool DeformationGraph::initialize(double pgo_trans_threshold,
   // Initialize pgo_:
   KimeraRPGO::RobustSolverParams pgo_params;
   pgo_params.setPcmSimple3DParams(
-      pgo_trans_threshold, pgo_rot_threshold, KimeraRPGO::Verbosity::QUIET);
+      pgo_trans_threshold, pgo_rot_threshold, KimeraRPGO::Verbosity::UPDATE);
   pgo_ = std::unique_ptr<KimeraRPGO::RobustSolver>(
       new KimeraRPGO::RobustSolver(pgo_params));
   return true;
