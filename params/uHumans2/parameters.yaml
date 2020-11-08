@@ -3,5 +3,5 @@ d_graph_resolution: 4.0 # meters
 compression_time_horizon: 400 # seconds 
 embed_trajectory_delta_t: 4 # seconds 
 rpgo:
-  translation_threshold: 0.05
-  rotation_threshold: 0.01
+  translation_threshold: 0.01
+  rotation_threshold: 0.001
