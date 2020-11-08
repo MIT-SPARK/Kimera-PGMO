@@ -69,7 +69,13 @@ void OctreeCompression::compressAndIntegrate(
         // New point
         new_vertices->push_back(p);
         adjacent_polygons_.push_back(std::vector<pcl::Vertices>());
-        octree_->addPointToCloud(p, active_vertices_);  // add to octree
+        active_vertices_->points.push_back(p);
+        // add to octree
+        octree_->addPointFromCloud(active_vertices_->points.size() - 1,
+                                   nullptr);
+        // Note that the other method to add to octree is addPointToCloud(point,
+        // inputcloud) but this method causes segmentation faults under certain
+        // conditions
         all_vertices_->push_back(p);
         // Add index
         remapping[i] = all_vertices_->points.size() - 1;
@@ -167,8 +173,9 @@ void OctreeCompression::pruneStoredMesh(const double& earliest_time_sec) {
 
     for (size_t i = 0; i < temp_vertices_time.size(); i++) {
       if (temp_vertices_time[i] > earliest_time_sec) {
-        octree_->addPointToCloud(temp_active_vertices.points[i],
-                                 active_vertices_);  // add to octree
+        active_vertices_->push_back(temp_active_vertices.points[i]);
+        octree_->addPointFromCloud(active_vertices_->points.size() - 1,
+                                   nullptr);
         vertices_latest_time_.push_back(temp_vertices_time[i]);
         active_vertices_index_.push_back(temp_vertices_index[i]);
       }

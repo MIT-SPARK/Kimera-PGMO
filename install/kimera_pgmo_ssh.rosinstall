@@ -17,3 +17,11 @@
 - git:
     local-name: voxblox
     uri: git@github.com:ToniRV/voxblox-private.git
+- git:
+    local-name: Kimera-VIO
+    uri: git@github.mit.edu:SPARK/Kimera-VIO.git
+    version: feature/kimera_pgmo
+- git:
+    local-name: Kimera-VIO-ROS
+    uri: git@github.mit.edu:SPARK/Kimera-VIO-ROS.git
+    version: feature/kimera_pgmo

@@ -129,14 +129,20 @@ class DeformationGraph {
    */
   void addNodeMeasurement(const gtsam::Key& key, const gtsam::Pose3 pose);
 
-  /*! \brief Initialize with first node of a new trajectory
+  /*! \brief Fix the measurements of multiple nodes
+   *  - measurements: a vector of key->pose pair of node measurements
+   */
+  void addNodeMeasurements(
+      const std::vector<std::pair<gtsam::Key, gtsam::Pose3> >& measurements);
+
+  /*! \brief Initialize with new node of a trajectory
    *  - key: Key of first node in new trajectory
    *  - initial_pose: Initial measurement of first node
    *  - add_prior: boolean - add a Prior Factor or not
    */
-  void initFirstNode(const gtsam::Key& key,
-                     const gtsam::Pose3& initial_pose,
-                     bool add_prior);
+  void addNewNode(const gtsam::Key& key,
+                  const gtsam::Pose3& initial_pose,
+                  bool add_prior);
 
   /*! \brief Add a new between factor to the deformation graph
    *  - key_from: Key of front node to connect between factor
@@ -158,6 +164,11 @@ class DeformationGraph {
   void addNodeValence(const gtsam::Key& key,
                       const Vertices& valences,
                       const char& valence_prefix);
+
+  /*! \brief Remove sll prior factors of nodes that have given prefix
+   *  - prefix: prefix of nodes to remove prior
+   */
+  void removePriorsWithPrefix(const char& prefix);
 
   /*! \brief Get the optimized estimates for nodes with certain prefix
    *  - prefix: prefix of the nodes to query best estimate
@@ -247,8 +258,6 @@ class DeformationGraph {
   //// Below separated factor types for debugging
   // factor graph encoding the mesh structure
   gtsam::NonlinearFactorGraph consistency_factors_;
-  // factor graph storing the prior factors for distortions
-  gtsam::NonlinearFactorGraph prior_factors_;
   // factor graph for pose graph related factors
   gtsam::NonlinearFactorGraph pg_factors_;
 

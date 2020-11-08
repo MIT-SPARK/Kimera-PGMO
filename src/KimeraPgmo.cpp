@@ -30,13 +30,19 @@ bool KimeraPgmo::initialize(const ros::NodeHandle& n) {
     ROS_ERROR("KimeraPgmo: Failed to register callbacks.");
   }
 
-  ROS_INFO("Initializes Mesher Mapper.");
+  ROS_INFO("Initialized Kimera-PGMO.");
 
   return true;
 }
 
 // Load deformation parameters
 bool KimeraPgmo::loadParameters(const ros::NodeHandle& n) {
+  // Set run mode
+  int run_mode_num;
+  if (!n.getParam("run_mode", run_mode_num)) return false;
+  run_mode_ = static_cast<RunMode>(run_mode_num);
+  if (!n.getParam("use_msg_time", use_msg_time_)) return false;
+
   if (!n.getParam("frame_id", frame_id_)) return false;
   if (!n.getParam("compression_time_horizon", compression_time_horizon_))
     return false;
@@ -75,6 +81,8 @@ bool KimeraPgmo::createPublishers(const ros::NodeHandle& n) {
       nl.advertise<nav_msgs::Odometry>("optimized_odom", 1, false);
   pose_graph_pub_ =
       nl.advertise<pose_graph_tools::PoseGraph>("pose_graph", 1, false);
+  optimized_path_pub_ =
+      nl.advertise<nav_msgs::Path>("optimized_path", 1, false);
   return true;
 }
 
@@ -94,8 +102,8 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
                    &KimeraPgmo::incrementalPoseGraphCallback,
                    this);
 
-  optimized_path_pub_ =
-      nl.advertise<nav_msgs::Path>("optimized_path", 1, false);
+  path_callback_sub_ =
+      nl.subscribe("input_path", 2, &KimeraPgmo::optimizedPathCallback, this);
 
   // Initialize save mesh service
   save_mesh_srv_ =
@@ -201,10 +209,14 @@ void KimeraPgmo::incrementalPoseGraphCallback(
     gtsam::Symbol key_symb(GetRobotPrefix(robot_id), 0);
     gtsam::Pose3 init_pose = RosToGtsam(msg->nodes[0].pose);
     // Initiate first node but do not add prior
-    deformation_graph_.initFirstNode(key_symb.key(), init_pose, false);
+    deformation_graph_.addNewNode(key_symb.key(), init_pose, false);
     // Add to trajectory and timestamp map
     trajectory_[robot_id] = {init_pose};
-    timestamps_[robot_id] = {msg->nodes[0].header.stamp};
+    if (use_msg_time_) {
+      timestamps_[robot_id] = {msg->nodes[0].header.stamp};
+    } else {
+      timestamps_[robot_id] = {ros::Time::now()};
+    }
     // Push node to queue to be connected to mesh vertices later
     unconnected_nodes_[robot_id] = std::queue<size_t>();
     unconnected_nodes_[robot_id].push(0);
@@ -244,13 +256,27 @@ void KimeraPgmo::incrementalPoseGraphCallback(
         // Add to trajectory and timestamp maps
         if (trajectory_[robot_from].size() == current_node)
           trajectory_[robot_from].push_back(new_pose);
-        timestamps_[robot_from].push_back(pg_edge.header.stamp);
+        if (use_msg_time_) {
+          timestamps_[robot_from].push_back(pg_edge.header.stamp);
+        } else {
+          timestamps_[robot_from].push_back(ros::Time::now());
+        }
         // Add new node to queue to be connected to mesh later
         unconnected_nodes_[robot_from].push(current_node);
         // Add to deformation graph
-        deformation_graph_.addNewBetween(from_key, to_key, measure, new_pose);
-      } else if (pg_edge.type == pose_graph_tools::PoseGraphEdge::LOOPCLOSE) {
-        // Loop closure edge
+        if (run_mode_ == RunMode::FULL) {
+          // Add the pose estimate of new node and between factor (odometry)
+          deformation_graph_.addNewBetween(from_key, to_key, measure, new_pose);
+        } else if (run_mode_ == RunMode::MESH) {
+          // Only add the pose estimate of new node (gtsam Value)
+          // Do not add factor
+          deformation_graph_.addNewNode(to_key, new_pose, false);
+        } else {
+          ROS_ERROR("KimeraPgmo: unrecognized run mode. ");
+        }
+      } else if (pg_edge.type == pose_graph_tools::PoseGraphEdge::LOOPCLOSE &&
+                 run_mode_ == RunMode::FULL) {
+        // Loop closure edge (only add if we are in full optimization mode )
         // Add to deformation graph
         deformation_graph_.addNewBetween(from_key, to_key, measure);
         ROS_INFO(
@@ -269,6 +295,29 @@ void KimeraPgmo::incrementalPoseGraphCallback(
 
   // Update transforms
   publishTransforms();
+}
+
+void KimeraPgmo::optimizedPathCallback(
+    const nav_msgs::Path::ConstPtr& path_msg) {
+  if (trajectory_.size() > 1) {
+    ROS_ERROR(
+        "KimeraPgmo: Path subscriber does not support centralized multirobot "
+        "scenario. ");
+  }
+  ROS_INFO(
+      "KimeraPgmo: Received optimized trajectory. Fixing pose graph nodes...");
+
+  size_t robot_id = trajectory_.begin()->first;
+  deformation_graph_.removePriorsWithPrefix(GetRobotPrefix(robot_id));
+
+  std::vector<std::pair<gtsam::Key, gtsam::Pose3> > node_estimates;
+  for (size_t i = 0; i < path_msg->poses.size(); i++) {
+    if (i == trajectory_[robot_id].size()) break;
+    node_estimates.push_back(std::pair<gtsam::Key, gtsam::Pose3>(
+        gtsam::Symbol(GetRobotPrefix(robot_id), i).key(),
+        RosToGtsam(path_msg->poses[i].pose)));
+  }
+  deformation_graph_.addNodeMeasurements(node_estimates);
 }
 
 void KimeraPgmo::fullMeshCallback(
@@ -308,13 +357,20 @@ void KimeraPgmo::incrementalMeshCallback(
   std::vector<pcl::Vertices> new_triangles;
   std::vector<size_t> new_indices;
 
-  double msg_time = mesh_msg->header.stamp.toSec();
+  double msg_time;
+  if (use_msg_time_) {
+    msg_time = mesh_msg->header.stamp.toSec();
+  } else {
+    msg_time = ros::Time::now().toSec();
+  }
   compression_->pruneStoredMesh(msg_time - compression_time_horizon_);
   compression_->compressAndIntegrate(
       incremental_mesh, new_vertices, &new_triangles, &new_indices, msg_time);
 
   deformation_graph_.updateMesh(
       *new_vertices, new_triangles, GetVertexPrefix(robot_id));
+  if (new_indices.size() == 0) return;  // No vertices to connect.
+  bool connection = false;
   // Associate nodes to mesh
   while (!unconnected_nodes_[robot_id].empty()) {
     size_t node = unconnected_nodes_[robot_id].front();
@@ -328,9 +384,13 @@ void KimeraPgmo::incrementalMeshCallback(
           gtsam::Symbol(GetRobotPrefix(robot_id), node),
           new_indices,
           GetVertexPrefix(robot_id));
+      connection = true;
     }
     // termination guarantee
     if (timestamps_[robot_id][node].toSec() > msg_time + embed_delta_t_) break;
+  }
+  if (!connection) {
+    ROS_WARN("KimeraPgmo: Partial mesh not connected to pose graph. ");
   }
   return;
 }
@@ -366,7 +426,7 @@ void KimeraPgmo::publishTransforms() {
 bool KimeraPgmo::saveMeshCallback(std_srvs::Empty::Request&,
                                   std_srvs::Empty::Response&) {
   // Save mesh
-  std::string ply_name = output_prefix_ + std::string(".ply");
+  std::string ply_name = output_prefix_ + std::string("/mesh_pgmo.ply");
   WriteMeshToPly(ply_name, optimized_mesh_);
   ROS_INFO("KimeraPgmo: Saved mesh to file.");
   return true;
@@ -380,7 +440,7 @@ bool KimeraPgmo::saveTrajectoryCallback(std_srvs::Empty::Request&,
     std::vector<gtsam::Pose3> optimized_path =
         deformation_graph_.getOptimizedTrajectory(GetRobotPrefix(robot_id));
     std::ofstream csvfile;
-    std::string csv_name = output_prefix_ + std::string(".csv");
+    std::string csv_name = output_prefix_ + std::string("/traj_pgmo.csv");
     csvfile.open(csv_name);
     csvfile << "timestamp[ns],x,y,z,qw,qx,qy,qz\n";
     for (size_t i = 0; i < optimized_path.size(); i++) {

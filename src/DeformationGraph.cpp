@@ -32,7 +32,7 @@ bool DeformationGraph::initialize(double pgo_trans_threshold,
   // Initialize pgo_:
   KimeraRPGO::RobustSolverParams pgo_params;
   pgo_params.setPcmSimple3DParams(
-      pgo_trans_threshold, pgo_rot_threshold, KimeraRPGO::Verbosity::QUIET);
+      pgo_trans_threshold, pgo_rot_threshold, KimeraRPGO::Verbosity::UPDATE);
   pgo_ = std::unique_ptr<KimeraRPGO::RobustSolver>(
       new KimeraRPGO::RobustSolver(pgo_params));
   return true;
@@ -148,7 +148,6 @@ void DeformationGraph::addMeasurement(const Vertex& v,
   gtsam::Symbol v_symb(prefix, v);
   gtsam::Pose3 meas = RosToGtsam(pose);
   gtsam::PriorFactor<gtsam::Pose3> absolute_meas(v_symb, meas, noise);
-  prior_factors_.add(absolute_meas);
   new_factors.add(absolute_meas);
 
   pgo_->update(new_factors, new_values);
@@ -159,14 +158,49 @@ void DeformationGraph::addMeasurement(const Vertex& v,
 
 void DeformationGraph::addNodeMeasurement(const gtsam::Key& key,
                                           const gtsam::Pose3 pose) {
+  // TODO: consider consolidating with addNodeMeasurements
   gtsam::Values new_values;
   gtsam::NonlinearFactorGraph new_factors;
 
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
   gtsam::PriorFactor<gtsam::Pose3> measurement(key, pose, noise);
-  prior_factors_.add(measurement);
   new_factors.add(measurement);
+
+  if (!values_.exists(key)) {
+    ROS_WARN(
+        "DeformationGraph: adding node measurement to a node %s not previously "
+        "seen before. ",
+        gtsam::DefaultKeyFormatter(key));
+    new_values.insert(key, pose);
+  }
+
+  pgo_->update(new_factors, new_values);
+  values_ = pgo_->calculateEstimate();
+  nfg_ = pgo_->getFactorsUnsafe();
+  recalculate_vertices_ = true;
+}
+
+void DeformationGraph::addNodeMeasurements(
+    const std::vector<std::pair<gtsam::Key, gtsam::Pose3>>& measurements) {
+  gtsam::Values new_values;
+  gtsam::NonlinearFactorGraph new_factors;
+
+  for (auto keyed_pose : measurements) {
+    static const gtsam::SharedNoiseModel& noise =
+        gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
+    gtsam::PriorFactor<gtsam::Pose3> measurement(
+        keyed_pose.first, keyed_pose.second, noise);
+    new_factors.add(measurement);
+
+    if (!values_.exists(keyed_pose.first)) {
+      ROS_WARN(
+          "DeformationGraph: adding node measurement to a node %s not "
+          "previously seen before. ",
+          gtsam::DefaultKeyFormatter(keyed_pose.first));
+      new_values.insert(keyed_pose.first, keyed_pose.second);
+    }
+  }
 
   pgo_->update(new_factors, new_values);
   values_ = pgo_->calculateEstimate();
@@ -206,8 +240,6 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
 
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
-  pg_factors_.add(
-      gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
   new_factors.add(
       gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
 
@@ -225,9 +257,9 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
   return;
 }
 
-void DeformationGraph::initFirstNode(const gtsam::Key& key,
-                                     const gtsam::Pose3& initial_pose,
-                                     bool add_prior) {
+void DeformationGraph::addNewNode(const gtsam::Key& key,
+                                  const gtsam::Pose3& initial_pose,
+                                  bool add_prior) {
   // new node
   // For now push empty valence, valences will be populated when updated
   gtsam::Values new_values;
@@ -236,23 +268,33 @@ void DeformationGraph::initFirstNode(const gtsam::Key& key,
   Vertices valences;
   char prefix = gtsam::Symbol(key).chr();
   size_t idx = gtsam::Symbol(key).index();
-  if (idx != 0)
-    ROS_ERROR(
-        "First node initialized from a trajectory is not 0. Breaks "
-        "assumption. ");
-  pg_initial_poses_[prefix] = std::vector<gtsam::Pose3>{initial_pose};
+  if (idx == 0) {
+    pg_initial_poses_[prefix] = std::vector<gtsam::Pose3>{initial_pose};
+  } else {
+    if (idx != pg_initial_poses_[prefix].size()) {
+      ROS_ERROR("DeformationGraph: Nodes skipped in pose graph nodes. ");
+    }
+    pg_initial_poses_[prefix].push_back(initial_pose);
+  }
 
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
   new_values.insert(key, initial_pose);
   if (add_prior) {
-    pg_factors_.add(gtsam::PriorFactor<gtsam::Pose3>(key, initial_pose, noise));
     new_factors.add(gtsam::PriorFactor<gtsam::Pose3>(key, initial_pose, noise));
   }
 
   pgo_->update(new_factors, new_values);
   values_ = pgo_->calculateEstimate();
   nfg_ = pgo_->getFactorsUnsafe();
+  return;
+}
+
+void DeformationGraph::removePriorsWithPrefix(const char& prefix) {
+  pgo_->removePriorFactorsWithPrefix(prefix);
+  values_ = pgo_->calculateEstimate();
+  nfg_ = pgo_->getFactorsUnsafe();
+  recalculate_vertices_ = true;
   return;
 }
 

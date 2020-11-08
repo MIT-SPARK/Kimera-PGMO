@@ -226,16 +226,15 @@ mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
     p.y = vertices.points[i].y;
     p.z = vertices.points[i].z;
     new_mesh.vertices.push_back(p);
-    if (vertices.points[i].r) {
-      std_msgs::ColorRGBA color;
-      constexpr float color_conv_factor =
-          1.0f / std::numeric_limits<uint8_t>::max();
-      color.r = color_conv_factor * static_cast<float>(vertices.points[i].r);
-      color.g = color_conv_factor * static_cast<float>(vertices.points[i].g);
-      color.b = color_conv_factor * static_cast<float>(vertices.points[i].b);
-      color.a = color_conv_factor * static_cast<float>(vertices.points[i].a);
-      new_mesh.vertex_colors.push_back(color);
-    }
+    // Point color
+    std_msgs::ColorRGBA color;
+    constexpr float color_conv_factor =
+        1.0f / std::numeric_limits<uint8_t>::max();
+    color.r = color_conv_factor * static_cast<float>(vertices.points[i].r);
+    color.g = color_conv_factor * static_cast<float>(vertices.points[i].g);
+    color.b = color_conv_factor * static_cast<float>(vertices.points[i].b);
+    color.a = color_conv_factor * static_cast<float>(vertices.points[i].a);
+    new_mesh.vertex_colors.push_back(color);
   }
 
   // Convert polygons
@@ -442,6 +441,8 @@ GraphMsgPtr GtsamGraphToRos(
               factors[i]);
       // convert between factor to PoseGraphEdge type
       pose_graph_tools::PoseGraphEdge edge;
+      edge.header.stamp = ros::Time::now();
+      edge.header.frame_id = "world";
       gtsam::Symbol front(factor.front());
       gtsam::Symbol back(factor.back());
       edge.key_from = front.index();
@@ -497,6 +498,8 @@ GraphMsgPtr GtsamGraphToRos(
       size_t robot_id = robot_prefix_to_id.at(node_symb.chr());
 
       pose_graph_tools::PoseGraphNode node;
+      node.header.stamp = ros::Time::now();
+      node.header.frame_id = "world";
       node.key = node_symb.index();
       node.robot_id = robot_id;
       const gtsam::Pose3& value = values.at<gtsam::Pose3>(key_list[i]);
@@ -522,6 +525,8 @@ GraphMsgPtr GtsamGraphToRos(
   }
 
   pose_graph_tools::PoseGraph posegraph;
+  posegraph.header.stamp = ros::Time::now();
+  posegraph.header.frame_id = "world";
   posegraph.nodes = nodes;
   posegraph.edges = edges;
   return boost::make_shared<pose_graph_tools::PoseGraph>(posegraph);

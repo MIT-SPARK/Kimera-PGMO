@@ -19,7 +19,10 @@ namespace kimera_pgmo {
 
 class VoxbloxProcessingTest : public ::testing::Test {
  protected:
-  VoxbloxProcessingTest() { system("rosparam set horizon 1.0"); }
+  VoxbloxProcessingTest() {
+    system("rosparam set horizon 1.0");
+    system("rosparam set robot_id 0");
+  }
 
   ~VoxbloxProcessingTest() {}
 
