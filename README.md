@@ -11,9 +11,13 @@ We generate the embedded deformation graph and optimize simultaneously the mesh 
 ## Dependencies 
 In addition to PCL, OpenCV, GTSAM, Kimera-PGMO is designed as part of Kimera, so the following Kimera packages and their dependencies are needed:
 
-[Kimera-VIO](https://github.mit.edu/SPARK/Kimera-VIO/tree/feature/mesh_deformation) branch: feature/mesh_deformation
+[Kimera-VIO](https://github.mit.edu/SPARK/Kimera-VIO/tree/feature/mesh_deformation) branch: feature/kimera_pgmo
 
-[Kimera-VIO-ROS](https://github.mit.edu/SPARK/Kimera-VIO-ROS/tree/feature/deformable_mesh) branch: feature/deformable_mesh
+[Kimera-VIO-ROS](https://github.mit.edu/SPARK/Kimera-VIO-ROS/tree/feature/deformable_mesh) branch: feature/kimera_pgmo
+
+[Kimera-RPGO](https://github.com/MIT-SPARK/Kimera-RPGO) branch: feature/kimera_pgmo
+
+[pose_graph_tools](https://github.mit.edu/SPARK/pose_graph_tools) branch: feature/multirobot
 
 [Kimera-Semantics](https://github.mit.edu/SPARK/Kimera-Semantics)
 
@@ -52,7 +56,7 @@ roslaunch kimera_vio_ros kimera_vio_ros_uhumans2.launch
 ```
 Then launch kimera_pgmo:
 ```bash
-rosunch kimera_pgmo kimera_pgmo.launch launch_voxblox:=false dataset:=uhumans
+rosunch kimera_pgmo kimera_pgmo.launch dataset:=UHumans2
 ```
 Launch Kimera-Semantics:
 ```basg
@@ -62,7 +66,7 @@ For visualization, an rviz configuration is provided:
 ```bash
 rviz -d $(rospack find kimera_pgmo)/rviz/kimera_pgmo.rviz
 ```
-Finally play the rosbag 
+Finally play the rosbag. 
 ```bash
 rosbag play some_bag.bag --clock
 ```
@@ -76,7 +80,7 @@ and to save optimized trajectory, do
 ```bash
 rosservice call /kimera_pgmo_node/save_trajectory
 ```
-the mesh will be saved to ouput_prefix.ply and trajectory will be saved to output_prefix.csv (see Parameters section)
+the mesh will be saved to ouput_folder/mesh_pgmo.ply and trajectory will be saved to output_folder/traj_pgmo.csv (see launch file)
 
 ## Developer notes 
 One thing to note if a developer is working with GTSAM and want to add other factors into the system is that here we specify different prefixes for different types of nodes in the deformation graph, take a look at `utils/CommonFunctions.h` for reference. By prefix we mean the key character as described [here](https://borg.cc.gatech.edu/sites/edu.borg/html/a00244.html). 
