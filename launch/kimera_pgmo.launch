@@ -4,7 +4,7 @@
   <arg name="run_mode" default="0" /> 
   <arg name="use_msg_time" default="true" />
   <arg name="optimized_path_topic" default="kimera_vio_ros/optimized_path" />
-  <arg name="output_path" default="$(find kimera_vio_ros)/output_logs/$(arg dataset)/optimized" />
+  <arg name="output_path" default="$(find kimera_vio_ros)/output_logs/$(arg dataset)" />
   <arg name="horizon" default="1000" />
   <arg name="output_resolution" default="0.02" />
 

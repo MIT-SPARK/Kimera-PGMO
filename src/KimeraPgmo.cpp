@@ -426,7 +426,7 @@ void KimeraPgmo::publishTransforms() {
 bool KimeraPgmo::saveMeshCallback(std_srvs::Empty::Request&,
                                   std_srvs::Empty::Response&) {
   // Save mesh
-  std::string ply_name = output_prefix_ + std::string(".ply");
+  std::string ply_name = output_prefix_ + std::string("/mesh_pgmo.ply");
   WriteMeshToPly(ply_name, optimized_mesh_);
   ROS_INFO("KimeraPgmo: Saved mesh to file.");
   return true;
@@ -440,7 +440,7 @@ bool KimeraPgmo::saveTrajectoryCallback(std_srvs::Empty::Request&,
     std::vector<gtsam::Pose3> optimized_path =
         deformation_graph_.getOptimizedTrajectory(GetRobotPrefix(robot_id));
     std::ofstream csvfile;
-    std::string csv_name = output_prefix_ + std::string(".csv");
+    std::string csv_name = output_prefix_ + std::string("/traj_pgmo.csv");
     csvfile.open(csv_name);
     csvfile << "timestamp[ns],x,y,z,qw,qx,qy,qz\n";
     for (size_t i = 0; i < optimized_path.size(); i++) {
