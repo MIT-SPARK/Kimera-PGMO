@@ -13,7 +13,15 @@
 - git:
     local-name: Kimera-RPGO
     uri: https://github.com/MIT-SPARK/Kimera-RPGO.git
-    version: master
+    version: feature/kimera_pgmo
 - git:
     local-name: voxblox
     uri: https://github.com/ethz-asl/voxblox.git
+- git:
+    local-name: Kimera-VIO
+    uri: https://github.mit.edu/SPARK/Kimera-VIO.git
+    version: feature/kimera_pgmo
+- git:
+    local-name: Kimera-VIO-ROS
+    uri: https://github.mit.edu/SPARK/Kimera-VIO-ROS.git
+    version: feature/kimera_pgmo
