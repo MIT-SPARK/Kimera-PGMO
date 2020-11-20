@@ -256,16 +256,16 @@ pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
   // Convert vertices
   pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
   bool color = (mesh_msg.vertex_colors.size() == mesh_msg.vertices.size());
+  constexpr float color_conv_factor =
+      1.0f * std::numeric_limits<uint8_t>::max();
   for (size_t i = 0; i < mesh_msg.vertices.size(); i++) {
-    geometry_msgs::Point p = mesh_msg.vertices[i];
+    const geometry_msgs::Point& p = mesh_msg.vertices[i];
     pcl::PointXYZRGBA point;
     point.x = p.x;
     point.y = p.y;
     point.z = p.z;
     if (color) {
-      std_msgs::ColorRGBA c = mesh_msg.vertex_colors[i];
-      constexpr float color_conv_factor =
-          1.0f * std::numeric_limits<uint8_t>::max();
+      const std_msgs::ColorRGBA& c = mesh_msg.vertex_colors[i];
       point.r = static_cast<uint8_t>(color_conv_factor * c.r);
       point.g = static_cast<uint8_t>(color_conv_factor * c.g);
       point.b = static_cast<uint8_t>(color_conv_factor * c.b);
@@ -368,7 +368,7 @@ pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
 
   // Iterate through the second set of vertices and remap indices
   size_t new_index = vertices1.points.size();
-  size_t orig_num_vertices = vertices1.points.size();
+  const size_t& orig_num_vertices = vertices1.points.size();
   std::vector<size_t> new_indices;
   for (size_t i = 0; i < vertices2.points.size(); i++) {
     // check if point duplicated
@@ -495,7 +495,7 @@ GraphMsgPtr GtsamGraphToRos(
   for (size_t i = 0; i < key_list.size(); i++) {
     gtsam::Symbol node_symb(key_list[i]);
     try {
-      size_t robot_id = robot_prefix_to_id.at(node_symb.chr());
+      const size_t& robot_id = robot_prefix_to_id.at(node_symb.chr());
 
       pose_graph_tools::PoseGraphNode node;
       node.header.stamp = ros::Time::now();
@@ -538,7 +538,7 @@ bool SurfaceExists(
   // Degenerate face
   if (new_surface.vertices.size() < 3) return false;
 
-  size_t idx0 = new_surface.vertices.at(0);
+  const size_t& idx0 = new_surface.vertices.at(0);
   bool exist = false;
   if (idx0 > adjacent_surfaces.size()) {
     // vertex not yet tracked in adjacent surfaces

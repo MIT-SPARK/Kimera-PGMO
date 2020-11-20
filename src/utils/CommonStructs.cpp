@@ -70,7 +70,7 @@ bool Graph::addEdge(const Edge& e, bool check) {
 bool Graph::createFromPclMesh(const pcl::PolygonMesh& mesh) {
   pcl::PointCloud<pcl::PointXYZ> cloud;
   pcl::fromPCLPointCloud2(mesh.cloud, cloud);
-  size_t n = cloud.points.size();
+  const size_t& n = cloud.points.size();
   for (Vertex v = 0; v < n; v++) {
     addVertex(v);
   }
@@ -87,7 +87,7 @@ bool Graph::createFromPclMesh(const pcl::PolygonMesh& mesh) {
 bool Graph::createFromPclMeshBidirection(const pcl::PolygonMesh& mesh) {
   pcl::PointCloud<pcl::PointXYZ> cloud;
   pcl::fromPCLPointCloud2(mesh.cloud, cloud);
-  size_t n = cloud.points.size();
+  const size_t& n = cloud.points.size();
   for (Vertex v = 0; v < n; v++) {
     addVertex(v);
   }
@@ -125,7 +125,7 @@ std::vector<Edge> Graph::addPointsAndSurfaces(
 }
 
 bool Graph::combineGraph(const Graph& new_graph) {
-  std::vector<Edge> new_edges = new_graph.getEdges();
+  const std::vector<Edge>& new_edges = new_graph.getEdges();
 
   for (Edge e : new_edges) {
     addEdgeAndVertices(e);
