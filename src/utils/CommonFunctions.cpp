@@ -219,6 +219,7 @@ mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
     const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
     const std::vector<pcl::Vertices>& polygons) {
   mesh_msgs::TriangleMesh new_mesh;
+  if (vertices.size() == 0) return new_mesh;
   // Convert vertices
   for (size_t i = 0; i < vertices.points.size(); i++) {
     geometry_msgs::Point p;
@@ -253,6 +254,7 @@ mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
 pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
     const mesh_msgs::TriangleMesh& mesh_msg) {
   pcl::PolygonMesh mesh;
+  if (mesh_msg.vertices.size() == 0) return mesh;
   // Convert vertices
   pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
   bool color = (mesh_msg.vertex_colors.size() == mesh_msg.vertices.size());

@@ -50,7 +50,7 @@ bool VoxbloxProcessing::createPublishers(const ros::NodeHandle& n) {
   full_mesh_pub_ =
       nl.advertise<kimera_pgmo::TriangleMeshIdStamped>("full_mesh", 1, false);
   partial_mesh_pub_ = nl.advertise<kimera_pgmo::TriangleMeshIdStamped>(
-      "partial_mesh", 1, false);
+      "partial_mesh", 10, false);
   return true;
 }
 
@@ -136,15 +136,13 @@ pcl::PolygonMesh VoxbloxProcessing::processVoxbloxMesh(
 }
 
 void VoxbloxProcessing::publishPartialMesh(const pcl::PolygonMesh& mesh,
-                                           const ros::Time& stamp) const {
-  // convert to triangle mesh msg
-  mesh_msgs::TriangleMesh mesh_msg =
-      kimera_pgmo::PolygonMeshToTriangleMeshMsg(mesh);
+                                           const ros::Time& stamp) const {  
   // publish
   kimera_pgmo::TriangleMeshIdStamped new_msg;
   new_msg.header.stamp = stamp;
   new_msg.header.frame_id = "world";
-  new_msg.mesh = mesh_msg;
+  // convert to triangle mesh msg
+  new_msg.mesh = kimera_pgmo::PolygonMeshToTriangleMeshMsg(mesh);
   new_msg.id = robot_id_;
   partial_mesh_pub_.publish(new_msg);
 }

@@ -91,7 +91,7 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
 
   full_mesh_sub_ =
-      nl.subscribe("full_mesh", 5, &KimeraPgmo::fullMeshCallback, this);
+      nl.subscribe("full_mesh", 1, &KimeraPgmo::fullMeshCallback, this);
 
   incremental_mesh_sub_ = nl.subscribe(
       "incremental_mesh", 5, &KimeraPgmo::incrementalMeshCallback, this);
@@ -266,7 +266,7 @@ void KimeraPgmo::incrementalPoseGraphCallback(
         // Add to deformation graph
         if (run_mode_ == RunMode::FULL) {
           // Add the pose estimate of new node and between factor (odometry)
-          deformation_graph_.addNewBetween(from_key, to_key, measure, new_pose, false);
+          deformation_graph_.addNewBetween(from_key, to_key, measure, new_pose);
         } else if (run_mode_ == RunMode::MESH) {
           // Only add the pose estimate of new node (gtsam Value)
           // Do not add factor
@@ -349,8 +349,7 @@ void KimeraPgmo::fullMeshCallback(
 void KimeraPgmo::incrementalMeshCallback(
     const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
   const size_t& robot_id = mesh_msg->id;
-
-  const pcl::PolygonMesh& incremental_mesh =
+  const pcl::PolygonMesh incremental_mesh =
       TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
