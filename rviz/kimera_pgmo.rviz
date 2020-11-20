@@ -211,7 +211,7 @@ Visualization Manager:
       Value: false
     - Class: rviz/Image
       Enabled: true
-      Image Topic: /tesse/seg_cam/rgb/image_raw
+      Image Topic: /depth_camera/color/image_raw
       Max Value: 1
       Median window: 5
       Min Value: 0
@@ -315,25 +315,25 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 38.471221923828125
+      Distance: 35.07415771484375
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: -6.186298847198486
-        Y: 21.95770263671875
-        Z: 2.467547655105591
+        X: 2.269789218902588
+        Y: 1.8155090808868408
+        Z: -2.2161853313446045
       Focal Shape Fixed Size: false
       Focal Shape Size: 0.05000000074505806
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.2138314247131348
+      Pitch: 1.538831353187561
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 3.1157710552215576
+      Yaw: 3.6407759189605713
     Saved: ~
 Window Geometry:
   Displays:
