@@ -111,8 +111,7 @@ void DeformationGraph::addNodeValence(const gtsam::Key& key,
   for (Vertex v : valences) {
     const gtsam::Symbol vertex(valence_prefix, v);
     const gtsam::Pose3& node_pose = pg_initial_poses_[prefix].at(idx);
-    const gtsam::Pose3& vertex_pose =
-        gtsam::Pose3(gtsam::Rot3(), vertex_positions_.at(v));
+    const gtsam::Pose3 vertex_pose(gtsam::Rot3(), vertex_positions_.at(v));
 
     // Define noise. Hardcoded for now
     static const gtsam::SharedNoiseModel& noise =
@@ -323,7 +322,7 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
     gtsam::Point3 vi(p.x, p.y, p.z);
     for (size_t i = 0; i < vertices_.points.size(); i++) {
       if (vertex_prefixes_[i] == prefix) {
-        pcl::PointXYZRGBA p_vertex = vertices_.points.at(i);
+        const pcl::PointXYZRGBA& p_vertex = vertices_.points.at(i);
         double distance = (p.x - p_vertex.x) * (p.x - p_vertex.x) +
                           (p.y - p_vertex.y) * (p.y - p_vertex.y) +
                           (p.z - p_vertex.z) * (p.z - p_vertex.z);

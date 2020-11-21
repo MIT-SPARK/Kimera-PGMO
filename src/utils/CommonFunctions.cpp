@@ -370,7 +370,7 @@ pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
 
   // Iterate through the second set of vertices and remap indices
   size_t new_index = vertices1.points.size();
-  const size_t& orig_num_vertices = vertices1.points.size();
+  const size_t orig_num_vertices = vertices1.points.size();
   std::vector<size_t> new_indices;
   for (size_t i = 0; i < vertices2.points.size(); i++) {
     // check if point duplicated
@@ -497,7 +497,7 @@ GraphMsgPtr GtsamGraphToRos(
   for (size_t i = 0; i < key_list.size(); i++) {
     gtsam::Symbol node_symb(key_list[i]);
     try {
-      const size_t& robot_id = robot_prefix_to_id.at(node_symb.chr());
+      const size_t robot_id = robot_prefix_to_id.at(node_symb.chr());
 
       pose_graph_tools::PoseGraphNode node;
       node.header.stamp = ros::Time::now();
@@ -540,7 +540,7 @@ bool SurfaceExists(
   // Degenerate face
   if (new_surface.vertices.size() < 3) return false;
 
-  const size_t& idx0 = new_surface.vertices.at(0);
+  const size_t idx0 = new_surface.vertices.at(0);
   bool exist = false;
   if (idx0 > adjacent_surfaces.size()) {
     // vertex not yet tracked in adjacent surfaces

@@ -76,13 +76,11 @@ void VoxbloxProcessing::voxbloxCallback(
 // mesh blocks
 pcl::PolygonMesh VoxbloxProcessing::processVoxbloxMesh(
     const voxblox_msgs::Mesh::ConstPtr& msg) {
-  // Timestamp of voxblox mesh
-  const ros::Time& msg_timestamp = msg->header.stamp;
   // Initiate the partial mesh to be returned
   pcl::PolygonMesh partial_mesh;
 
   // First prune the mesh blocks
-  const double& msg_time = msg_timestamp.toSec();
+  const double msg_time = msg->header.stamp.toSec();
   compression_->pruneStoredMesh(msg_time - time_horizon_);
 
   // Iterate through the mesh blocks
