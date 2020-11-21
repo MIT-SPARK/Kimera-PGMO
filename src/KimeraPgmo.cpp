@@ -98,7 +98,7 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
 
   pose_graph_incremental_sub_ =
       nl.subscribe("pose_graph_incremental",
-                   10,
+                   100,
                    &KimeraPgmo::incrementalPoseGraphCallback,
                    this);
 
@@ -373,7 +373,7 @@ void KimeraPgmo::incrementalMeshCallback(
   bool connection = false;
   // Associate nodes to mesh
   while (!unconnected_nodes_[robot_id].empty()) {
-    const size_t& node = unconnected_nodes_[robot_id].front();
+    const size_t node = unconnected_nodes_[robot_id].front();
     unconnected_nodes_[robot_id].pop();
     if (timestamps_[robot_id][node].toSec() > msg_time - embed_delta_t_) {
       ROS_INFO("Connecting robot %d node %d to %d vertices. ",
