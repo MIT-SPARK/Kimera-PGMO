@@ -91,7 +91,7 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
 
   full_mesh_sub_ =
-      nl.subscribe("full_mesh", 5, &KimeraPgmo::fullMeshCallback, this);
+      nl.subscribe("full_mesh", 1, &KimeraPgmo::fullMeshCallback, this);
 
   incremental_mesh_sub_ = nl.subscribe(
       "incremental_mesh", 5, &KimeraPgmo::incrementalMeshCallback, this);
@@ -205,9 +205,9 @@ void KimeraPgmo::incrementalPoseGraphCallback(
   //// Note that we assume for all node ids that the keys start with 0
   if (msg->nodes[0].key == 0 &&
       trajectory_.find(msg->nodes[0].robot_id) == trajectory_.end()) {
-    const size_t robot_id = msg->nodes[0].robot_id;
-    gtsam::Symbol key_symb(GetRobotPrefix(robot_id), 0);
-    gtsam::Pose3 init_pose = RosToGtsam(msg->nodes[0].pose);
+    const size_t& robot_id = msg->nodes[0].robot_id;
+    const gtsam::Symbol key_symb(GetRobotPrefix(robot_id), 0);
+    const gtsam::Pose3& init_pose = RosToGtsam(msg->nodes[0].pose);
     // Initiate first node but do not add prior
     deformation_graph_.addNewNode(key_symb.key(), init_pose, false);
     // Add to trajectory and timestamp map
@@ -226,13 +226,13 @@ void KimeraPgmo::incrementalPoseGraphCallback(
   try {
     for (pose_graph_tools::PoseGraphEdge pg_edge : msg->edges) {
       // Get edge information
-      const gtsam::Pose3 measure = RosToGtsam(pg_edge.pose);
-      const Vertex prev_node = pg_edge.key_from;
-      const Vertex current_node = pg_edge.key_to;
-      const size_t robot_from = pg_edge.robot_from;
-      const size_t robot_to = pg_edge.robot_to;
-      gtsam::Symbol from_key(GetRobotPrefix(robot_from), prev_node);
-      gtsam::Symbol to_key(GetRobotPrefix(robot_to), current_node);
+      const gtsam::Pose3& measure = RosToGtsam(pg_edge.pose);
+      const Vertex& prev_node = pg_edge.key_from;
+      const Vertex& current_node = pg_edge.key_to;
+      const size_t& robot_from = pg_edge.robot_from;
+      const size_t& robot_to = pg_edge.robot_to;
+      const gtsam::Symbol from_key(GetRobotPrefix(robot_from), prev_node);
+      const gtsam::Symbol to_key(GetRobotPrefix(robot_to), current_node);
 
       if (pg_edge.type == pose_graph_tools::PoseGraphEdge::ODOM) {
         // odometry edge
@@ -251,7 +251,7 @@ void KimeraPgmo::incrementalPoseGraphCallback(
               current_node);
         }
         // Calculate pose of new node
-        gtsam::Pose3 new_pose =
+        const gtsam::Pose3& new_pose =
             trajectory_[robot_from][prev_node].compose(measure);
         // Add to trajectory and timestamp maps
         if (trajectory_[robot_from].size() == current_node)
@@ -324,7 +324,7 @@ void KimeraPgmo::fullMeshCallback(
     const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
   input_mesh_ = TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
   last_mesh_stamp_ = mesh_msg->header.stamp;
-  const size_t robot_id = mesh_msg->id;
+  const size_t& robot_id = mesh_msg->id;
 
   // Update optimized mesh
   try {
@@ -339,7 +339,8 @@ void KimeraPgmo::fullMeshCallback(
   }
   if (pose_graph_pub_.getNumSubscribers() > 0) {
     // Publish pose graph
-    GraphMsgPtr pose_graph_ptr = deformation_graph_.getPoseGraph(timestamps_);
+    const GraphMsgPtr& pose_graph_ptr =
+        deformation_graph_.getPoseGraph(timestamps_);
     pose_graph_pub_.publish(*pose_graph_ptr);
   }
   return;
@@ -347,9 +348,8 @@ void KimeraPgmo::fullMeshCallback(
 
 void KimeraPgmo::incrementalMeshCallback(
     const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
-  const size_t robot_id = mesh_msg->id;
-
-  pcl::PolygonMesh incremental_mesh =
+  const size_t& robot_id = mesh_msg->id;
+  const pcl::PolygonMesh incremental_mesh =
       TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
@@ -373,7 +373,7 @@ void KimeraPgmo::incrementalMeshCallback(
   bool connection = false;
   // Associate nodes to mesh
   while (!unconnected_nodes_[robot_id].empty()) {
-    size_t node = unconnected_nodes_[robot_id].front();
+    const size_t node = unconnected_nodes_[robot_id].front();
     unconnected_nodes_[robot_id].pop();
     if (timestamps_[robot_id][node].toSec() > msg_time - embed_delta_t_) {
       ROS_INFO("Connecting robot %d node %d to %d vertices. ",
@@ -397,13 +397,13 @@ void KimeraPgmo::incrementalMeshCallback(
 
 void KimeraPgmo::publishTransforms() {
   for (auto traj : trajectory_) {
-    const size_t robot_id = traj.first;
-    const std::vector<gtsam::Pose3> gtsam_path =
+    const size_t& robot_id = traj.first;
+    const std::vector<gtsam::Pose3>& gtsam_path =
         deformation_graph_.getOptimizedTrajectory(GetRobotPrefix(robot_id));
-    const gtsam::Pose3 latest_pose = gtsam_path[traj.second.size() - 1];
+    const gtsam::Pose3& latest_pose = gtsam_path[traj.second.size() - 1];
 
-    const gtsam::Point3 pos = latest_pose.translation();
-    const gtsam::Quaternion quat = latest_pose.rotation().toQuaternion();
+    const gtsam::Point3& pos = latest_pose.translation();
+    const gtsam::Quaternion& quat = latest_pose.rotation().toQuaternion();
     // Create transfomr message
 
     geometry_msgs::TransformStamped transform;
@@ -436,17 +436,18 @@ bool KimeraPgmo::saveTrajectoryCallback(std_srvs::Empty::Request&,
                                         std_srvs::Empty::Response&) {
   // Save trajectory
   for (auto traj : trajectory_) {
-    size_t robot_id = traj.first;
-    std::vector<gtsam::Pose3> optimized_path =
+    const size_t& robot_id = traj.first;
+    const std::vector<gtsam::Pose3>& optimized_path =
         deformation_graph_.getOptimizedTrajectory(GetRobotPrefix(robot_id));
     std::ofstream csvfile;
     std::string csv_name = output_prefix_ + std::string("/traj_pgmo.csv");
     csvfile.open(csv_name);
     csvfile << "timestamp[ns],x,y,z,qw,qx,qy,qz\n";
     for (size_t i = 0; i < optimized_path.size(); i++) {
-      gtsam::Point3 pos = optimized_path[i].translation();
-      gtsam::Quaternion quat = optimized_path[i].rotation().toQuaternion();
-      ros::Time stamp = timestamps_[robot_id][i];
+      const gtsam::Point3& pos = optimized_path[i].translation();
+      const gtsam::Quaternion& quat =
+          optimized_path[i].rotation().toQuaternion();
+      const ros::Time& stamp = timestamps_[robot_id][i];
       csvfile << stamp.toNSec() << "," << pos.x() << "," << pos.y() << ","
               << pos.z() << "," << quat.w() << "," << quat.x() << ","
               << quat.y() << "," << quat.z() << "\n";
