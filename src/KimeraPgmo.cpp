@@ -98,7 +98,7 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
 
   pose_graph_incremental_sub_ =
       nl.subscribe("pose_graph_incremental",
-                   100,
+                   1000,
                    &KimeraPgmo::incrementalPoseGraphCallback,
                    this);
 
