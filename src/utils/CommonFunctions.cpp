@@ -299,6 +299,25 @@ gtsam::Pose3 RosToGtsam(const geometry_msgs::Pose& transform) {
   return pose;
 }
 
+geometry_msgs::Pose GtsamToRos(const gtsam::Pose3& pose) {
+  const gtsam::Point3& translation = pose.translation();
+  const gtsam::Quaternion& quaternion = pose.rotation().toQuaternion();
+
+  geometry_msgs::Pose ros_pose;
+
+  // pose - translation
+  ros_pose.position.x = translation.x();
+  ros_pose.position.y = translation.y();
+  ros_pose.position.z = translation.z();
+  // pose - rotation (to quaternion)
+  ros_pose.orientation.x = quaternion.x();
+  ros_pose.orientation.y = quaternion.y();
+  ros_pose.orientation.z = quaternion.z();
+  ros_pose.orientation.w = quaternion.w();
+
+  return ros_pose;
+}
+
 pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
                                const pcl::PolygonMesh& mesh2,
                                bool check_duplicate_vertices) {

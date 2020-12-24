@@ -8,6 +8,7 @@
 
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TransformStamped.h>
+#include <visualization_msgs/Marker.h>
 
 #include "kimera_pgmo/KimeraPgmo.h"
 
@@ -101,6 +102,8 @@ bool KimeraPgmo::createPublishers(const ros::NodeHandle& n) {
       nl.advertise<pose_graph_tools::PoseGraph>("pose_graph", 1, false);
   optimized_path_pub_ =
       nl.advertise<nav_msgs::Path>("optimized_path", 1, false);
+  viz_deformation_graph_pub_ =
+      nl.advertise<visualization_msgs::Marker>("deformation_graph", 10, false);
   return true;
 }
 
@@ -407,6 +410,10 @@ void KimeraPgmo::fullMeshCallback(
   auto spin_duration =
       std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
   full_mesh_cb_time_ = spin_duration.count();
+
+  // Publish deformation graph visualization
+  visualizeDeformationGraph();
+
   return;
 }
 
@@ -568,6 +575,68 @@ void KimeraPgmo::logStats(const std::string filename) const {
   file.close();
 
   file.close();
+}
+
+void KimeraPgmo::visualizeDeformationGraph() const {
+  if (viz_deformation_graph_pub_.getNumSubscribers() > 0) {
+    // First get the latest estimates and factors
+    const gtsam::Values& graph_values = deformation_graph_.getGtsamValues();
+    const gtsam::NonlinearFactorGraph& graph_factors =
+        deformation_graph_.getGtsamFactors();
+
+    visualization_msgs::Marker graph_viz;
+    graph_viz.header.frame_id = frame_id_;
+    graph_viz.header.stamp = ros::Time::now();
+    graph_viz.id = 0;
+    graph_viz.action = visualization_msgs::Marker::ADD;
+    graph_viz.type = visualization_msgs::Marker::LINE_LIST;
+    graph_viz.scale.x = 0.02;
+
+    for (auto factor : graph_factors) {
+      // Only interested in edges here
+      if (factor->keys().size() != 2) continue;
+
+      const gtsam::Symbol& front = factor->front();
+      const gtsam::Symbol& back = factor->back();
+
+      const bool front_is_pose_vertex =
+          (robot_prefix_to_id.find(front.chr()) != robot_prefix_to_id.end());
+      const bool back_is_pose_vertex =
+          (robot_prefix_to_id.find(back.chr()) != robot_prefix_to_id.end());
+
+      graph_viz.points.push_back(
+          GtsamToRos(graph_values.at<gtsam::Pose3>(front)).position);
+      graph_viz.points.push_back(
+          GtsamToRos(graph_values.at<gtsam::Pose3>(back)).position);
+
+      // Three types: pose-to-pose, pose-to-mesh, mesh-to-mesh
+      // color accordingly
+      std_msgs::ColorRGBA color;
+      if (front_is_pose_vertex && back_is_pose_vertex) {
+        // pose-to-pose
+        color.r = 1.0;
+        color.g = 0.0;
+        color.b = 0.0;
+        color.a = 0.8;
+      } else if (!front_is_pose_vertex && !back_is_pose_vertex) {
+        // mesh-to-mesh
+        color.r = 0.0;
+        color.g = 1.0;
+        color.b = 0.0;
+        color.a = 0.8;
+      } else {
+        // pose-to-mesh
+        color.r = 1.0;
+        color.g = 1.0;
+        color.b = 0.2;
+        color.a = 0.8;
+      }
+      graph_viz.colors.push_back(color);
+      graph_viz.colors.push_back(color);
+    }
+
+    viz_deformation_graph_pub_.publish(graph_viz);
+  }
 }
 
 }  // namespace kimera_pgmo

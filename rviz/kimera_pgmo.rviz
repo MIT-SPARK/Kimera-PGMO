@@ -25,7 +25,7 @@ Panels:
     Experimental: false
     Name: Time
     SyncMode: 0
-    SyncSource: Image
+    SyncSource: ""
 Preferences:
   PromptSaveOnExit: true
 Toolbars:
@@ -226,7 +226,7 @@ Visualization Manager:
       Marker Topic: /kimera_pgmo_node/posegraph_viewer/loop_edges
       Name: Loopclosures
       Namespaces:
-        world: true
+        {}
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
@@ -287,6 +287,14 @@ Visualization Manager:
           Value: true
       Enabled: false
       Name: debug
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /kimera_pgmo_node/deformation_graph
+      Name: DeformationGraph
+      Namespaces:
+        {}
+      Queue Size: 100
+      Value: true
   Enabled: true
   Global Options:
     Background Color: 0; 0; 0

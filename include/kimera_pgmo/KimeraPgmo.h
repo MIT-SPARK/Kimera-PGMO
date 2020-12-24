@@ -127,6 +127,9 @@ class KimeraPgmo {
    */
   void logStats(const std::string filename) const;
 
+  /*! \brief visualize the edges of the deformation graph  */
+  void visualizeDeformationGraph() const;
+
  protected:
   enum class RunMode {
     FULL = 0u,  // Optimize mesh and pose graph
@@ -148,6 +151,7 @@ class KimeraPgmo {
   ros::Publisher optimized_path_pub_;  // Unused for now (TODO)
   ros::Publisher optimized_odom_pub_;  // Unused for now (TODO)
   ros::Publisher pose_graph_pub_;
+  ros::Publisher viz_deformation_graph_pub_;
 
   // Transform broadcaster
   tf2_ros::TransformBroadcaster tf_broadcast_;

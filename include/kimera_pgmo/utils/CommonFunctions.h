@@ -128,6 +128,12 @@ pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
  */
 gtsam::Pose3 RosToGtsam(const geometry_msgs::Pose& transform);
 
+/*! \brief Converts a gtsam pose type to ros geometry message
+ *  - pose: gtsam pose3
+ *  - outputs pose as geometry_msg/pose
+ */
+geometry_msgs::Pose GtsamToRos(const gtsam::Pose3& pose);
+
 /*! \brief Combine two meshes into one
  *  - mesh1: partial mesh represented as pcl PolygonMesh
  *  - mesh2: partial mesh represented as pcl PolygonMesh
