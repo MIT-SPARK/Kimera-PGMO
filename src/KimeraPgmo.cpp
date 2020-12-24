@@ -546,9 +546,9 @@ void KimeraPgmo::logStats(const std::string filename) const {
   if (trajectory_.size() < 1) {
     file.open(filename);
     // file format
-    file << "num-robots num-keyframes num-loop-closures total-num-factors "
-            "num-vertices num-vertices-simplified inc-mesh-cb-time(mu-s) "
-            "full-mesh-cb-time(mu-s) pg-cb-time(mu-s) path-cb-time(mu-s)\n";
+    file << "num-robots,num-keyframes,num-loop-closures,total-num-factors,num-"
+            "vertices,num-vertices-simplified,inc-mesh-cb-time(mu-s),full-mesh-"
+            "cb-time(mu-s),pg-cb-time(mu-s),path-cb-time(mu-s)\n";
     return;
   }
   // Number of keyframes
@@ -558,13 +558,13 @@ void KimeraPgmo::logStats(const std::string filename) const {
   }
 
   file.open(filename, std::ofstream::out | std::ofstream::app);
-  file << trajectory_.size() << " " << num_keyframes << " "
-       << num_loop_closures_ << " "
-       << deformation_graph_.getGtsamFactors().size() << " "
-       << optimized_mesh_.cloud.width * optimized_mesh_.cloud.height << " "
-       << deformation_graph_.getVertices().points.size() << " "
-       << inc_mesh_cb_time_ << " " << full_mesh_cb_time_ << " " << pg_cb_time_
-       << " " << path_cb_time_ << std::endl;
+  file << trajectory_.size() << "," << num_keyframes << ","
+       << num_loop_closures_ << ","
+       << deformation_graph_.getGtsamFactors().size() << ","
+       << optimized_mesh_.cloud.width * optimized_mesh_.cloud.height << ","
+       << deformation_graph_.getVertices().points.size() << ","
+       << inc_mesh_cb_time_ << "," << full_mesh_cb_time_ << "," << pg_cb_time_
+       << "," << path_cb_time_ << std::endl;
   file.close();
 
   file.close();
