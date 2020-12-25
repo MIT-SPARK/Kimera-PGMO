@@ -2,9 +2,9 @@
 
 Kimera-PGMO (Pose Graph and Mesh Optimizer) is an optimizer that takes in a mesh along with robot odometry and loop closure measurements and then optimizes for the trajectory and the mesh simultaneously. This is done by first creating a deformation graph using the pose graph, the mesh, and the visibility of parts of the mesh from nodes of the pose graph. The optimization problem is then optimized using [Kimera-RPGO](https://github.com/MIT-SPARK/Kimera-RPGO). 
 
-<img src="images/mesh_and_graph.png" width="500">
+<img src="images/mesh_and_graph.png" width="900">
 
-<img src="images/pgmo_optimization.png" width="500">
+<img src="images/pgmo_optimization.png" width="900">
 
 ## Dependencies 
 In addition to PCL, OpenCV, GTSAM, Kimera-PGMO is designed as part of Kimera, so the following Kimera packages and their dependencies are needed:
