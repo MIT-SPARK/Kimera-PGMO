@@ -69,7 +69,7 @@ axs[1, 0].hlines(pose_graph_cb_stats[0], 0, num_factors[-1], color='r')
 axs[1, 0].set_title('Pose Graph Callback Elapsed')
 axs[1, 0].set_xlabel('Size of Factor Graph (number of factors)')
 axs[1, 1].scatter(range(len(path_cb_t)), path_cb_t)
-axs[0, 0].hlines(path_cb_stats[0], 0, len(path_cb_t), color='r')
+axs[1, 1].hlines(path_cb_stats[0], 0, len(path_cb_t), color='r')
 axs[1, 1].set_title('Path Callback Elapsed')
 
 for ax in axs.flat:
