@@ -1,7 +1,7 @@
 frame_id: "world"
-d_graph_resolution: 2.0 # meters
+d_graph_resolution: 1.0 # meters
 compression_time_horizon: 10 # seconds
-embed_trajectory_delta_t: 0.01 # seconds
+embed_trajectory_delta_t: 0.001 # seconds
 rpgo:
   translation_threshold: 0.005
   rotation_threshold: 0.001
