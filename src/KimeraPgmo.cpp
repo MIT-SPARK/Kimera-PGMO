@@ -629,7 +629,7 @@ void KimeraPgmo::visualizeDeformationGraph() const {
         color.r = 1.0;
         color.g = 1.0;
         color.b = 0.2;
-        color.a = 0.8;
+        color.a = 0.3;
       }
       graph_viz.colors.push_back(color);
       graph_viz.colors.push_back(color);
