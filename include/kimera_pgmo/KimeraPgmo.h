@@ -122,6 +122,14 @@ class KimeraPgmo {
   bool saveTrajectoryCallback(std_srvs::Empty::Request&,
                               std_srvs::Empty::Response&);
 
+  /*! \brief log the run-time stats such as pose graph size, mesh size, and run
+   * time
+   */
+  void logStats(const std::string filename) const;
+
+  /*! \brief visualize the edges of the deformation graph  */
+  void visualizeDeformationGraph() const;
+
  protected:
   enum class RunMode {
     FULL = 0u,  // Optimize mesh and pose graph
@@ -143,6 +151,7 @@ class KimeraPgmo {
   ros::Publisher optimized_path_pub_;  // Unused for now (TODO)
   ros::Publisher optimized_odom_pub_;  // Unused for now (TODO)
   ros::Publisher pose_graph_pub_;
+  ros::Publisher viz_deformation_graph_pub_;
 
   // Transform broadcaster
   tf2_ros::TransformBroadcaster tf_broadcast_;
@@ -168,7 +177,18 @@ class KimeraPgmo {
 
   double timer_period_;
 
+  // Track number of loop closures
+  size_t num_loop_closures_;
+
+  // Time callback spin time
+  int inc_mesh_cb_time_;
+  int full_mesh_cb_time_;
+  int pg_cb_time_;
+  int path_cb_time_;
+
   // Save output
   std::string output_prefix_;
+  // Log output to output_prefix_ folder
+  bool log_output_;
 };
 }  // namespace kimera_pgmo
