@@ -47,7 +47,7 @@ void DeformationGraph::updateMesh(
   for (auto p : new_vertices.points) {
     vertex_positions_.push_back(gtsam::Point3(p.x, p.y, p.z));
     vertex_prefixes_.push_back(prefix);
-    vertices_.push_back(p);
+    vertices_.push_back(pcl::PointXYZ(p.x, p.y, p.z));
   }
 
   // Create vector of new indices
@@ -322,7 +322,7 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
     gtsam::Point3 vi(p.x, p.y, p.z);
     for (size_t i = 0; i < vertices_.points.size(); i++) {
       if (vertex_prefixes_[i] == prefix) {
-        const pcl::PointXYZRGBA& p_vertex = vertices_.points.at(i);
+        const pcl::PointXYZ& p_vertex = vertices_.points.at(i);
         double distance = (p.x - p_vertex.x) * (p.x - p_vertex.x) +
                           (p.y - p_vertex.y) * (p.y - p_vertex.y) +
                           (p.z - p_vertex.z) * (p.z - p_vertex.z);
@@ -351,8 +351,7 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
     double d_max = std::sqrt(nearest_nodes.at(nearest_nodes.size() - 1).second);
     double weight_sum = 0;
     for (size_t j = 0; j < nearest_nodes.size() - 1; j++) {
-      const pcl::PointXYZRGBA& p_g =
-          vertices_.points.at(nearest_nodes[j].first);
+      const pcl::PointXYZ& p_g = vertices_.points.at(nearest_nodes[j].first);
       gtsam::Point3 gj(p_g.x, p_g.y, p_g.z);
       double weight = (1 - std::sqrt(nearest_nodes[j].second) / d_max);
       if (weight_sum == 0 && weight == 0) weight = 1;

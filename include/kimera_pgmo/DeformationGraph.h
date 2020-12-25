@@ -195,7 +195,7 @@ class DeformationGraph {
    * graph
    * - outputs the positions of mesh vertices nodes as a pointcloud
    */
-  inline pcl::PointCloud<pcl::PointXYZRGBA> getVertices() const {
+  inline pcl::PointCloud<pcl::PointXYZ> getVertices() const {
     return vertices_;
   }
 
@@ -239,7 +239,7 @@ class DeformationGraph {
 
  private:
   Graph graph_;
-  pcl::PointCloud<pcl::PointXYZRGBA> vertices_;
+  pcl::PointCloud<pcl::PointXYZ> vertices_;
   // Keep track of vertices not part of mesh
   // for embedding trajectory, etc.
   std::map<char, std::vector<gtsam::Pose3> > pg_initial_poses_;
