@@ -19,6 +19,7 @@
 #include <geometry_msgs/Pose.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/common/io.h>
+#include <pcl/octree/octree_search.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
@@ -189,14 +190,14 @@ class DeformationGraph {
   /*! \brief Get the number of mesh vertices nodes in the deformation graph
    * - outputs the number of mesh vertices nodes
    */
-  inline size_t getNumVertices() const { return vertices_.points.size(); }
+  inline size_t getNumVertices() const { return vertices_->points.size(); }
 
   /*! \brief Get the positions of the mesh vertices nodes in the deformation
    * graph
    * - outputs the positions of mesh vertices nodes as a pointcloud
    */
   inline pcl::PointCloud<pcl::PointXYZ> getVertices() const {
-    return vertices_;
+    return *vertices_;
   }
 
   /*! \brief Gets the deformation graph as a graph type (currently the pose
@@ -239,7 +240,10 @@ class DeformationGraph {
 
  private:
   Graph graph_;
-  pcl::PointCloud<pcl::PointXYZ> vertices_;
+  pcl::PointCloud<pcl::PointXYZ>::Ptr vertices_;
+  typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
+  Octree::Ptr vertices_octree_;
+
   // Keep track of vertices not part of mesh
   // for embedding trajectory, etc.
   std::map<char, std::vector<gtsam::Pose3> > pg_initial_poses_;

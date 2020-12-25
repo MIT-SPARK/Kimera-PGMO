@@ -24,7 +24,13 @@ using pcl::PolygonMesh;
 namespace kimera_pgmo {
 
 DeformationGraph::DeformationGraph()
-    : pgo_(nullptr), recalculate_vertices_(false) {}
+    : pgo_(nullptr),
+      recalculate_vertices_(false),
+      vertices_(new pcl::PointCloud<pcl::PointXYZ>),
+      vertices_octree_(new Octree(1.0)) {
+  // Initialize octree
+  vertices_octree_->setInputCloud(vertices_);
+}
 DeformationGraph::~DeformationGraph() {}
 
 bool DeformationGraph::initialize(double pgo_trans_threshold,
@@ -47,7 +53,8 @@ void DeformationGraph::updateMesh(
   for (auto p : new_vertices.points) {
     vertex_positions_.push_back(gtsam::Point3(p.x, p.y, p.z));
     vertex_prefixes_.push_back(prefix);
-    vertices_.push_back(pcl::PointXYZ(p.x, p.y, p.z));
+    vertices_->push_back(pcl::PointXYZ(p.x, p.y, p.z));
+    vertices_octree_->addPointFromCloud(vertices_->points.size() - 1, nullptr);
   }
 
   // Create vector of new indices
@@ -299,7 +306,7 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
     const char& prefix,
     size_t k) {
   // Cannot deform if no nodes in the deformation graph
-  if (vertices_.points.size() == 0) {
+  if (vertices_->points.size() == 0) {
     ROS_DEBUG("Deformable mesh empty. No deformation. ");
     return original_mesh;
   }
@@ -319,45 +326,27 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
     const pcl::PointXYZRGBA& p = original_vertices.points[ii];
     // search for k + 1 nearest nodes
     std::vector<std::pair<Vertex, double>> nearest_nodes;
+    pcl::PointXYZ p_xyz(p.x, p.y, p.z);
     gtsam::Point3 vi(p.x, p.y, p.z);
-    for (size_t i = 0; i < vertices_.points.size(); i++) {
-      if (vertex_prefixes_[i] == prefix) {
-        const pcl::PointXYZ& p_vertex = vertices_.points.at(i);
-        double distance = (p.x - p_vertex.x) * (p.x - p_vertex.x) +
-                          (p.y - p_vertex.y) * (p.y - p_vertex.y) +
-                          (p.z - p_vertex.z) * (p.z - p_vertex.z);
-        if (nearest_nodes.size() < k + 1 ||
-            nearest_nodes.at(k).second > distance) {
-          if (values_.exists(gtsam::Symbol(prefix, i))) {
-            // make sure that the node in question has already been optimized
-            nearest_nodes.push_back(std::pair<Vertex, double>(i, distance));
-          }
-        }
-        // Sort according to distance
-        auto compareFunc = [](std::pair<Vertex, double>& a,
-                              std::pair<Vertex, double>& b) {
-          return a.second < b.second;
-        };
-        std::sort(nearest_nodes.begin(), nearest_nodes.end(), compareFunc);
+    // Query octree
+    std::vector<int> nearest_nodes_index;
+    std::vector<float> nearest_nodes_sq_dist;
+    vertices_octree_->nearestKSearch(
+        p_xyz, k + 1, nearest_nodes_index, nearest_nodes_sq_dist);
 
-        // Keep length at k + 1
-        if (nearest_nodes.size() > k + 1) {
-          nearest_nodes.erase(nearest_nodes.begin() + k + 1);
-        }
-      }
-    }
     // Calculate new point location from k points
     gtsam::Point3 new_point(0, 0, 0);
-    double d_max = std::sqrt(nearest_nodes.at(nearest_nodes.size() - 1).second);
+    double d_max =
+        std::sqrt(nearest_nodes_sq_dist[nearest_nodes_index.size() - 1]);
     double weight_sum = 0;
-    for (size_t j = 0; j < nearest_nodes.size() - 1; j++) {
-      const pcl::PointXYZ& p_g = vertices_.points.at(nearest_nodes[j].first);
+    for (size_t j = 0; j < nearest_nodes_index.size() - 1; j++) {
+      const pcl::PointXYZ& p_g = vertices_->points.at(nearest_nodes_index[j]);
       gtsam::Point3 gj(p_g.x, p_g.y, p_g.z);
-      double weight = (1 - std::sqrt(nearest_nodes[j].second) / d_max);
+      double weight = (1 - std::sqrt(nearest_nodes_sq_dist[j]) / d_max);
       if (weight_sum == 0 && weight == 0) weight = 1;
       weight_sum = weight_sum + weight;
       gtsam::Pose3 node_transform = values_.at<gtsam::Pose3>(
-          gtsam::Symbol(prefix, nearest_nodes[j].first));
+          gtsam::Symbol(prefix, nearest_nodes_index[j]));
       gtsam::Point3 add = node_transform.rotation().rotate(vi - gj) +
                           node_transform.translation();
       new_point = new_point + weight * add;
