@@ -336,6 +336,7 @@ pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
 
   // Iterate through the second set of vertices and remap indices
   size_t new_index = vertices1.points.size();
+  const size_t orig_num_vertices = vertices1.points.size();
   std::vector<size_t> new_indices;
   for (size_t i = 0; i < vertices2.points.size(); i++) {
     // check if point duplicated
@@ -363,10 +364,12 @@ pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
   // Now iterate throught the polygons in mesh two and combine using new indices
   for (pcl::Vertices tri : mesh2.polygons) {
     pcl::Vertices new_triangle;
+    bool to_add = false;
     for (size_t v : tri.vertices) {
       new_triangle.vertices.push_back(new_indices.at(v));
+      if (new_indices.at(v) >= orig_num_vertices) to_add = true;
     }
-    out_mesh.polygons.push_back(new_triangle);
+    if (to_add) out_mesh.polygons.push_back(new_triangle);
   }
   pcl::toPCLPointCloud2(vertices1, out_mesh.cloud);
   return out_mesh;
