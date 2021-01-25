@@ -233,7 +233,7 @@ void KimeraPgmo::incrementalPoseGraphCallback(
 
   // if first node initialize
   //// Note that we assume for all node ids that the keys start with 0
-  if (msg->nodes[0].key == 0 &&
+  if (msg->nodes.size() > 0 && msg->nodes[0].key == 0 &&
       trajectory_.find(msg->nodes[0].robot_id) == trajectory_.end()) {
     const size_t& robot_id = msg->nodes[0].robot_id;
     const gtsam::Symbol key_symb(GetRobotPrefix(robot_id), 0);
@@ -338,6 +338,13 @@ void KimeraPgmo::incrementalPoseGraphCallback(
     std::string log_file = output_prefix_ + std::string("/kimera_pgmo_log.csv");
     logStats(log_file);
   }
+
+  if (pose_graph_pub_.getNumSubscribers() > 0) {
+    // Publish pose graph
+    const GraphMsgPtr& pose_graph_ptr =
+        deformation_graph_.getPoseGraph(timestamps_);
+    pose_graph_pub_.publish(*pose_graph_ptr);
+  }
 }
 
 void KimeraPgmo::optimizedPathCallback(
@@ -398,12 +405,6 @@ void KimeraPgmo::fullMeshCallback(
   if (optimized_mesh_pub_.getNumSubscribers() > 0) {
     publishOptimizedMesh();
   }
-  if (pose_graph_pub_.getNumSubscribers() > 0) {
-    // Publish pose graph
-    const GraphMsgPtr& pose_graph_ptr =
-        deformation_graph_.getPoseGraph(timestamps_);
-    pose_graph_pub_.publish(*pose_graph_ptr);
-  }
 
   // Stop timer and save
   auto stop = std::chrono::high_resolution_clock::now();
@@ -457,7 +458,7 @@ void KimeraPgmo::incrementalMeshCallback(
   while (!unconnected_nodes_[robot_id].empty()) {
     const size_t node = unconnected_nodes_[robot_id].front();
     unconnected_nodes_[robot_id].pop();
-    if (timestamps_[robot_id][node].toSec() > msg_time - embed_delta_t_) {
+    if (abs(timestamps_[robot_id][node].toSec() - msg_time) < embed_delta_t_) {
       ROS_INFO("Connecting robot %d node %d to %d vertices. ",
                robot_id,
                node,
