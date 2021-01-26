@@ -220,17 +220,6 @@ void KimeraPgmo::incrementalPoseGraphCallback(
   // Start timer
   auto start = std::chrono::high_resolution_clock::now();
 
-  // Check if there are factors added
-  if (msg->edges.size() == 0) {
-    ROS_WARN("No edges in incremental pose graph msg. ");
-    // Stop timer and save
-    auto stop = std::chrono::high_resolution_clock::now();
-    auto spin_duration =
-        std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-    pg_cb_time_ = spin_duration.count();
-    return;
-  }
-
   // if first node initialize
   //// Note that we assume for all node ids that the keys start with 0
   if (msg->nodes.size() > 0 && msg->nodes[0].key == 0 &&
