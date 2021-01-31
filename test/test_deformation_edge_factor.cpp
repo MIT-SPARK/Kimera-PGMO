@@ -30,7 +30,7 @@ TEST(test_deformation_edge_factor, ZeroRotation) {
   gtsam::Matrix actualH1, actualH2;
   gtsam::Vector actual =
       factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
-  gtsam::Vector expected = Point3(-1, 0, 0).vector();
+  gtsam::Vector expected = Point3(-1, 0, 0);
 
   EXPECT_TRUE(gtsam::assert_equal(expected, actual));
 
@@ -77,7 +77,7 @@ TEST(test_deformation_edge_factor, ZeroTranslation1) {
   gtsam::Matrix actualH1, actualH2;
   gtsam::Vector actual =
       factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
-  gtsam::Vector expected = Point3(0, 0, 0).vector();
+  gtsam::Vector expected = Point3(0, 0, 0);
 
   EXPECT_TRUE(gtsam::assert_equal(expected, actual));
 
@@ -124,7 +124,7 @@ TEST(test_deformation_edge_factor, ZeroTranslation2) {
   gtsam::Matrix actualH1, actualH2;
   gtsam::Vector actual =
       factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
-  gtsam::Vector expected = Point3(-2, -2, 0).vector();
+  gtsam::Vector expected = Point3(-2, -2, 0);
 
   EXPECT_TRUE(gtsam::assert_equal(expected, actual));
 
@@ -219,7 +219,7 @@ TEST(test_deformation_edge_factor, Relative1) {
   gtsam::Matrix actualH1, actualH2;
   gtsam::Vector actual =
       factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
-  gtsam::Vector expected = Point3(0, 0, 0).vector();
+  gtsam::Vector expected = Point3(0, 0, 0);
 
   EXPECT_TRUE(gtsam::assert_equal(expected, actual));
 
@@ -266,7 +266,7 @@ TEST(test_deformation_edge_factor, Relative2) {
   gtsam::Matrix actualH1, actualH2;
   gtsam::Vector actual =
       factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
-  gtsam::Vector expected = Point3(0, -2, 0).vector();
+  gtsam::Vector expected = Point3(0, -2, 0);
 
   EXPECT_TRUE(gtsam::assert_equal(expected, actual));
 
