@@ -2,6 +2,7 @@
   <arg name="dataset" default="lamp" />
   <arg name="robot_id" default="0" />
   <arg name="robot_name" default="husky1" />
+  <arg name="base_name" default="base1" />
   <arg name="run_mode" default="0" /> 
   <arg name="use_msg_time" default="true" />
   <arg name="output_path" default="$(find kimera_pgmo)/log" />
@@ -16,7 +17,7 @@
     <param name="horizon" value="$(arg horizon)" />
     <param name="output_mesh_resolution" value="$(arg output_resolution)" />
     <param name="robot_id" value="$(arg robot_id)" />
-    <remap from="~voxblox_mesh" to="/husky4/voxblox_node/mesh" />
+    <remap from="~voxblox_mesh" to="/$(arg robot_name)/voxblox_node/mesh" />
   </node> 
 
   <node type="kimera_pgmo_node" name="kimera_pgmo_node" pkg="kimera_pgmo" output="screen" >
@@ -27,7 +28,7 @@
     <param name="log_output" value="$(arg log)" />
     <remap from="~incremental_mesh" to="voxblox_processing/partial_mesh" />
     <remap from="~full_mesh" to="voxblox_processing/full_mesh" />
-    <remap from="~pose_graph_incremental" to="/$(arg robot_name)/lamp_kimera_bridge/incremental_pose_graph" />
+    <remap from="~pose_graph_incremental" to="/$(arg base_name)/lamp_kimera_bridge/incremental_pose_graph" />
   </node>
 
   <include file="$(find pose_graph_tools)/launch/posegraph_view.launch" >
@@ -72,5 +73,5 @@
     <param name="update_mesh_every_n_sec" value="0.1" />
     <param name="mesh_filename"           value="$(find kimera_pgmo)/log/mesh_voxblox.ply" />
   </node>
-
+  
 </launch>
