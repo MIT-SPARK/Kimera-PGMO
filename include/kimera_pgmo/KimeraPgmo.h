@@ -64,7 +64,7 @@ class KimeraPgmo {
 
   /*! \brief Publish the optimized mesh (stored after deformation)
    */
-  bool publishOptimizedMesh();
+  bool publishOptimizedMesh(const size_t& robot_id) const;
 
   /*! \brief Publish optimized trajectory (Currently unused, as trajectory can
    * be visualized with published pose graph)
@@ -139,8 +139,9 @@ class KimeraPgmo {
   bool use_msg_time_;  // use msg time or call back time
 
   pcl::PolygonMesh input_mesh_;
-  pcl::PolygonMesh optimized_mesh_;
-  ros::Time last_mesh_stamp_;
+  // optimized mesh for each robot
+  std::map<size_t, pcl::PolygonMesh> optimized_mesh_;
+  std::map<size_t, ros::Time> last_mesh_stamp_;
 
   DeformationGraph deformation_graph_;
   OctreeCompressionPtr compression_;

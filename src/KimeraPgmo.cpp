@@ -137,13 +137,13 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
 }
 
 // To publish optimized mesh
-bool KimeraPgmo::publishOptimizedMesh() {
+bool KimeraPgmo::publishOptimizedMesh(const size_t& robot_id) const {
   mesh_msgs::TriangleMesh mesh_msg =
-      PolygonMeshToTriangleMeshMsg(optimized_mesh_);
+      PolygonMeshToTriangleMeshMsg(optimized_mesh_.at(robot_id));
 
   // Create msg
   mesh_msgs::TriangleMeshStamped new_msg;
-  new_msg.header.stamp = last_mesh_stamp_;
+  new_msg.header.stamp = last_mesh_stamp_.at(robot_id);
   new_msg.header.frame_id = frame_id_;
   new_msg.mesh = mesh_msg;
 
@@ -380,19 +380,19 @@ void KimeraPgmo::fullMeshCallback(
   auto start = std::chrono::high_resolution_clock::now();
 
   input_mesh_ = TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
-  last_mesh_stamp_ = mesh_msg->header.stamp;
   const size_t& robot_id = mesh_msg->id;
+  last_mesh_stamp_[robot_id] = mesh_msg->header.stamp;
 
   // Update optimized mesh
   try {
-    optimized_mesh_ =
+    optimized_mesh_[robot_id] =
         deformation_graph_.deformMesh(input_mesh_, GetVertexPrefix(robot_id));
   } catch (const std::out_of_range& e) {
     ROS_ERROR("Failed to deform mesh. Out of range error. ");
-    optimized_mesh_ = input_mesh_;
+    optimized_mesh_[robot_id] = input_mesh_;
   }
   if (optimized_mesh_pub_.getNumSubscribers() > 0) {
-    publishOptimizedMesh();
+    publishOptimizedMesh(robot_id);
   }
 
   // Stop timer and save
@@ -479,7 +479,7 @@ void KimeraPgmo::publishTransforms() {
     const size_t& robot_id = traj.first;
     const std::vector<gtsam::Pose3>& gtsam_path =
         deformation_graph_.getOptimizedTrajectory(GetRobotPrefix(robot_id));
-    const gtsam::Pose3& latest_pose = gtsam_path[traj.second.size() - 1];
+    const gtsam::Pose3& latest_pose = gtsam_path.at(traj.second.size() - 1);
 
     const gtsam::Point3& pos = latest_pose.translation();
     const gtsam::Quaternion& quat = latest_pose.rotation().toQuaternion();
@@ -505,8 +505,11 @@ void KimeraPgmo::publishTransforms() {
 bool KimeraPgmo::saveMeshCallback(std_srvs::Empty::Request&,
                                   std_srvs::Empty::Response&) {
   // Save mesh
-  std::string ply_name = output_prefix_ + std::string("/mesh_pgmo.ply");
-  WriteMeshToPly(ply_name, optimized_mesh_);
+  for (auto mesh : optimized_mesh_) {
+    std::string ply_name = output_prefix_ + std::string("/mesh_pgmo_") +
+                           std::to_string(mesh.first) + std::string(".ply");
+    WriteMeshToPly(ply_name, mesh.second);
+  }
   ROS_INFO("KimeraPgmo: Saved mesh to file.");
   return true;
 }
@@ -519,7 +522,8 @@ bool KimeraPgmo::saveTrajectoryCallback(std_srvs::Empty::Request&,
     const std::vector<gtsam::Pose3>& optimized_path =
         deformation_graph_.getOptimizedTrajectory(GetRobotPrefix(robot_id));
     std::ofstream csvfile;
-    std::string csv_name = output_prefix_ + std::string("/traj_pgmo.csv");
+    std::string csv_name = output_prefix_ + std::string("/traj_pgmo_") +
+                           std::to_string(robot_id) + std::string(".csv");
     csvfile.open(csv_name);
     csvfile << "timestamp[ns],x,y,z,qw,qx,qy,qz\n";
     for (size_t i = 0; i < optimized_path.size(); i++) {
@@ -554,16 +558,20 @@ void KimeraPgmo::logStats(const std::string filename) const {
     num_keyframes = num_keyframes + traj.second.size();
   }
 
+  // Number of vertices (total)
+  size_t num_vertices = 0;
+  for (auto mesh : optimized_mesh_) {
+    num_vertices =
+        num_vertices + mesh.second.cloud.width * mesh.second.cloud.height;
+  }
+
   file.open(filename, std::ofstream::out | std::ofstream::app);
   file << trajectory_.size() << "," << num_keyframes << ","
        << num_loop_closures_ << ","
-       << deformation_graph_.getGtsamFactors().size() << ","
-       << optimized_mesh_.cloud.width * optimized_mesh_.cloud.height << ","
-       << deformation_graph_.getVertices().points.size() << ","
+       << deformation_graph_.getGtsamFactors().size() << "," << num_vertices
+       << "," << deformation_graph_.getVertices().points.size() << ","
        << inc_mesh_cb_time_ << "," << full_mesh_cb_time_ << "," << pg_cb_time_
        << "," << path_cb_time_ << std::endl;
-  file.close();
-
   file.close();
 }
 
