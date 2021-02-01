@@ -71,8 +71,8 @@ class KimeraPgmoTest : public ::testing::Test {
     return pgmo_.deformation_graph_.getGtsamFactors();
   }
 
-  inline pcl::PolygonMesh getOptimizedMesh() const {
-    return pgmo_.optimized_mesh_;
+  inline pcl::PolygonMesh getOptimizedMesh(const size_t& robot_id) const {
+    return pgmo_.optimized_mesh_.at(robot_id);
   }
 
   pose_graph_tools::PoseGraph SingleOdomGraph(const ros::Time& stamp) {
@@ -553,7 +553,7 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
   full_mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(full_mesh);
   FullMeshCallback(full_mesh_msg);
 
-  pcl::PolygonMesh optimized_mesh = getOptimizedMesh();
+  pcl::PolygonMesh optimized_mesh = getOptimizedMesh(0);
 
   pcl::PointCloud<pcl::PointXYZRGBA> optimized_vertices;
   pcl::fromPCLPointCloud2(optimized_mesh.cloud, optimized_vertices);
@@ -578,7 +578,7 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
   IncrementalMeshCallback(mesh_msg);
 
   FullMeshCallback(full_mesh_msg);
-  optimized_mesh = getOptimizedMesh();
+  optimized_mesh = getOptimizedMesh(0);
   pcl::fromPCLPointCloud2(optimized_mesh.cloud, optimized_vertices);
 
   // Expect distortion
