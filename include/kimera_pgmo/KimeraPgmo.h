@@ -50,17 +50,17 @@ class KimeraPgmo {
   /*! \brief Load the parameters required by this class through ROS
    *  - n: ROS node handle
    */
-  bool loadParameters(const ros::NodeHandle& n);
+  virtual bool loadParameters(const ros::NodeHandle& n);
 
   /*! \brief Creates the ROS publishers used
    *  - n: ROS node handle
    */
-  bool createPublishers(const ros::NodeHandle& n);
+  virtual bool createPublishers(const ros::NodeHandle& n);
 
   /*! \brief Starts the callbacks in this class
    *  - n: ROS node handle
    */
-  bool registerCallbacks(const ros::NodeHandle& n);
+  virtual bool registerCallbacks(const ros::NodeHandle& n);
 
   /*! \brief Publish the optimized mesh (stored after deformation)
    */

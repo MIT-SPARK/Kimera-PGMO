@@ -29,6 +29,7 @@ src/utils/tinyply.cpp
 src/DeformationGraph.cpp
 src/KimeraPgmo.cpp
 src/VoxbloxProcessing.cpp
+src/KimeraPgmoMulti.cpp
 )
 target_link_libraries(${PROJECT_NAME} 
   ${catkin_LIBRARIES}
