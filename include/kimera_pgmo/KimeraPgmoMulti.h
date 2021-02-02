@@ -54,7 +54,7 @@ class KimeraPgmoMulti : public KimeraPgmo {
    */
   bool registerCallbacks(const ros::NodeHandle& n) override;
 
- private:
+ protected:
   int num_robots_;
 
   // Publishers
