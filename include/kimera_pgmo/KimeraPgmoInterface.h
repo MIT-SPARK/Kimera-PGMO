@@ -95,7 +95,8 @@ class KimeraPgmoInterface {
       const pose_graph_tools::PoseGraph::ConstPtr& msg,
       std::vector<gtsam::Pose3>* initial_trajectory,
       std::queue<size_t>* unconnected_nodes,
-      std::vector<ros::Time>* node_timestamps);
+      std::vector<ros::Time>* node_timestamps,
+      bool single_robot = false);
 
   /*! \brief Optimize the full mesh (and pose graph) using the deformation graph
    * then publish the deformed mesh
@@ -106,7 +107,8 @@ class KimeraPgmoInterface {
    */
   pcl::PolygonMesh optimizeAndPublishFullMesh(
       const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg,
-      const ros::Publisher* publisher);
+      const ros::Publisher* publisher,
+      bool single_robot = false);
 
   /*! \brief Process the partial mesh, which
    * corresponds to the latest partial mesh from Voxblox or Kimera-Semantics. We
@@ -122,7 +124,8 @@ class KimeraPgmoInterface {
       const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg,
       const OctreeCompressionPtr compressor,
       const std::vector<ros::Time>& node_timestamps,
-      std::queue<size_t>* unconnected_nodes);
+      std::queue<size_t>* unconnected_nodes,
+      bool single_robot = false);
 
   /*! \brief Given an optimized trajectory, adjust the mesh. The path should
    * correspond to the nodes of the pose graph received in the

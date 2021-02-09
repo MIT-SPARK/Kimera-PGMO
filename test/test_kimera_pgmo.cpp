@@ -51,16 +51,16 @@ class KimeraPgmoTest : public ::testing::Test {
     pgmo_.optimizedPathCallback(path_msg);
   }
 
-  inline std::vector<gtsam::Pose3> getTrajectory(const size_t& robot_id) const {
-    return pgmo_.trajectory_.at(robot_id);
+  inline std::vector<gtsam::Pose3> getTrajectory() const {
+    return pgmo_.trajectory_;
   }
 
-  inline std::queue<size_t> getUnconnectedNodes(const size_t& robot_id) const {
-    return pgmo_.unconnected_nodes_.at(robot_id);
+  inline std::queue<size_t> getUnconnectedNodes() const {
+    return pgmo_.unconnected_nodes_;
   }
 
-  inline std::vector<ros::Time> getTimestamps(const size_t& robot_id) const {
-    return pgmo_.timestamps_.at(robot_id);
+  inline std::vector<ros::Time> getTimestamps() const {
+    return pgmo_.timestamps_;
   }
 
   inline gtsam::Values getValues() const {
@@ -71,8 +71,8 @@ class KimeraPgmoTest : public ::testing::Test {
     return pgmo_.deformation_graph_.getGtsamFactors();
   }
 
-  inline pcl::PolygonMesh getOptimizedMesh(const size_t& robot_id) const {
-    return pgmo_.optimized_mesh_.at(robot_id);
+  inline pcl::PolygonMesh getOptimizedMesh() const {
+    return pgmo_.optimized_mesh_;
   }
 
   pose_graph_tools::PoseGraph SingleOdomGraph(const ros::Time& stamp) {
@@ -274,9 +274,9 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   *inc_graph = SingleOdomGraph(ros::Time(10.2));
   IncrementalPoseGraphCallback(inc_graph);
 
-  std::vector<gtsam::Pose3> traj = getTrajectory(0);
-  std::queue<size_t> unconnected_nodes = getUnconnectedNodes(0);
-  std::vector<ros::Time> stamps = getTimestamps(0);
+  std::vector<gtsam::Pose3> traj = getTrajectory();
+  std::queue<size_t> unconnected_nodes = getUnconnectedNodes();
+  std::vector<ros::Time> stamps = getTimestamps();
   gtsam::NonlinearFactorGraph factors = getFactors();
   gtsam::Values values = getValues();
 
@@ -314,9 +314,9 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   *inc_graph = OdomLoopclosureGraph(ros::Time(20.3));
   IncrementalPoseGraphCallback(inc_graph);
 
-  traj = getTrajectory(0);
-  unconnected_nodes = getUnconnectedNodes(0);
-  stamps = getTimestamps(0);
+  traj = getTrajectory();
+  unconnected_nodes = getUnconnectedNodes();
+  stamps = getTimestamps();
   factors = getFactors();
   values = getValues();
 
@@ -553,7 +553,7 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
   full_mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(full_mesh);
   FullMeshCallback(full_mesh_msg);
 
-  pcl::PolygonMesh optimized_mesh = getOptimizedMesh(0);
+  pcl::PolygonMesh optimized_mesh = getOptimizedMesh();
 
   pcl::PointCloud<pcl::PointXYZRGBA> optimized_vertices;
   pcl::fromPCLPointCloud2(optimized_mesh.cloud, optimized_vertices);
@@ -578,7 +578,7 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
   IncrementalMeshCallback(mesh_msg);
 
   FullMeshCallback(full_mesh_msg);
-  optimized_mesh = getOptimizedMesh(0);
+  optimized_mesh = getOptimizedMesh();
   pcl::fromPCLPointCloud2(optimized_mesh.cloud, optimized_vertices);
 
   // Expect distortion
@@ -618,9 +618,9 @@ TEST_F(KimeraPgmoTest, optimizedPathCallback) {
 
   OptimizedPathCallback(path_msg);
 
-  std::vector<gtsam::Pose3> traj = getTrajectory(0);
-  std::queue<size_t> unconnected_nodes = getUnconnectedNodes(0);
-  std::vector<ros::Time> stamps = getTimestamps(0);
+  std::vector<gtsam::Pose3> traj = getTrajectory();
+  std::queue<size_t> unconnected_nodes = getUnconnectedNodes();
+  std::vector<ros::Time> stamps = getTimestamps();
   gtsam::NonlinearFactorGraph factors = getFactors();
   gtsam::Values values = getValues();
 
@@ -676,9 +676,9 @@ TEST_F(KimeraPgmoTest, optimizedPathCallback) {
 
   OptimizedPathCallback(path_msg);
 
-  traj = getTrajectory(0);
-  unconnected_nodes = getUnconnectedNodes(0);
-  stamps = getTimestamps(0);
+  traj = getTrajectory();
+  unconnected_nodes = getUnconnectedNodes();
+  stamps = getTimestamps();
   factors = getFactors();
   values = getValues();
 

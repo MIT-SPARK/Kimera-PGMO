@@ -47,13 +47,13 @@ class KimeraPgmo : public KimeraPgmoInterface {
 
   /*! \brief Publish the optimized mesh (stored after deformation)
    */
-  bool publishOptimizedMesh(const size_t& robot_id) const;
+  bool publishOptimizedMesh() const;
 
   /*! \brief Publish optimized trajectory (Currently unused, as trajectory can
    * be visualized with published pose graph)
    *  - robot_id: the robot for which the trajectory is to be published
    */
-  bool publishOptimizedPath(const size_t& robot_id) const;
+  bool publishOptimizedPath() const;
 
   /*! \brief Recieves latest edges in the pose graph and add to deformation
    * graph. Also place the received node in a queue to connect them to the
@@ -112,8 +112,8 @@ class KimeraPgmo : public KimeraPgmoInterface {
 
  protected:
   // optimized mesh for each robot
-  std::map<size_t, pcl::PolygonMesh> optimized_mesh_;
-  std::map<size_t, ros::Time> last_mesh_stamp_;
+  pcl::PolygonMesh optimized_mesh_;
+  ros::Time last_mesh_stamp_;
 
   OctreeCompressionPtr compression_;
 
@@ -138,9 +138,9 @@ class KimeraPgmo : public KimeraPgmoInterface {
   ros::ServiceServer save_traj_srv_;
 
   // Trajectory
-  std::map<size_t, std::vector<gtsam::Pose3> > trajectory_;
-  std::map<size_t, std::queue<size_t> > unconnected_nodes_;
-  std::map<size_t, std::vector<ros::Time> > timestamps_;
+  std::vector<gtsam::Pose3> trajectory_;
+  std::queue<size_t> unconnected_nodes_;
+  std::vector<ros::Time> timestamps_;
 
   std::string frame_id_;
 
