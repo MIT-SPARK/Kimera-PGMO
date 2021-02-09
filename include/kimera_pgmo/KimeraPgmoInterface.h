@@ -162,8 +162,6 @@ class KimeraPgmoInterface {
   bool use_msg_time_;  // use msg time or call back time
 
   DeformationGraph deformation_graph_;
-  // Deformation graph resolution
-  double deformation_graph_resolution_;
   // maximum time allowed when associating node to mesh
   double embed_delta_t_;
   // time horizon when creating simplifed mesh

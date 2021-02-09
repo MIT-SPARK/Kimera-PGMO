@@ -242,7 +242,6 @@ class DeformationGraph {
   Graph graph_;
   pcl::PointCloud<pcl::PointXYZ>::Ptr vertices_;
   typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
-  Octree::Ptr vertices_octree_;
 
   // Keep track of vertices not part of mesh
   // for embedding trajectory, etc.
@@ -251,6 +250,8 @@ class DeformationGraph {
   std::vector<gtsam::Point3> vertex_positions_;
   // track the prefixes only important in multirobot case
   std::vector<char> vertex_prefixes_;
+  // Number of mesh vertices corresponding a particular prefix thus far
+  std::map<char, size_t> num_vertices_;
 
   std::unique_ptr<KimeraRPGO::RobustSolver> pgo_;
 

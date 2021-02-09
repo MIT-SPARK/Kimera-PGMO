@@ -5,31 +5,14 @@
  */
 #pragma once
 
-#include <map>
-#include <queue>
-#include <string>
-
-#include <nav_msgs/Odometry.h>
-#include <nav_msgs/Path.h>
-#include <pcl/PolygonMesh.h>
-#include <pcl_msgs/PolygonMesh.h>
-#include <pose_graph_tools/PoseGraph.h>
-#include <ros/ros.h>
-#include <std_msgs/String.h>
-#include <std_srvs/Empty.h>
-#include <tf2_ros/transform_broadcaster.h>
-
-#include <gtsam/geometry/Pose3.h>
-#include <gtsam/inference/Symbol.h>
-
 #include "kimera_pgmo/AbsolutePoseStamped.h"
-#include "kimera_pgmo/DeformationGraph.h"
+#include "kimera_pgmo/KimeraPgmoInterface.h"
 #include "kimera_pgmo/TriangleMeshIdStamped.h"
 #include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
 namespace kimera_pgmo {
-class KimeraPgmo {
+class KimeraPgmo : public KimeraPgmoInterface {
   friend class KimeraPgmoTest;
 
  public:
@@ -44,23 +27,23 @@ class KimeraPgmo {
   /*! \brief Initializes callbacks and publishers, and also parse the parameters
    *  - n: ROS node handle.
    */
-  bool initialize(const ros::NodeHandle& n);
+  bool initialize(const ros::NodeHandle& n) override;
 
  protected:
   /*! \brief Load the parameters required by this class through ROS
    *  - n: ROS node handle
    */
-  virtual bool loadParameters(const ros::NodeHandle& n);
+  bool loadParameters(const ros::NodeHandle& n) override;
 
   /*! \brief Creates the ROS publishers used
    *  - n: ROS node handle
    */
-  virtual bool createPublishers(const ros::NodeHandle& n);
+  bool createPublishers(const ros::NodeHandle& n) override;
 
   /*! \brief Starts the callbacks in this class
    *  - n: ROS node handle
    */
-  virtual bool registerCallbacks(const ros::NodeHandle& n);
+  bool registerCallbacks(const ros::NodeHandle& n) override;
 
   /*! \brief Publish the optimized mesh (stored after deformation)
    */
@@ -127,25 +110,14 @@ class KimeraPgmo {
    */
   void logStats(const std::string filename) const;
 
-  /*! \brief visualize the edges of the deformation graph  */
-  void visualizeDeformationGraph() const;
-
  protected:
-  enum class RunMode {
-    FULL = 0u,  // Optimize mesh and pose graph
-    MESH = 1u   // Optimize mesh based on given optimized trajectory
-  };
-  RunMode run_mode_;
-  bool use_msg_time_;  // use msg time or call back time
-
-  pcl::PolygonMesh input_mesh_;
   // optimized mesh for each robot
   std::map<size_t, pcl::PolygonMesh> optimized_mesh_;
   std::map<size_t, ros::Time> last_mesh_stamp_;
 
-  DeformationGraph deformation_graph_;
   OctreeCompressionPtr compression_;
-  double compression_time_horizon_;
+  // Deformation graph resolution
+  double deformation_graph_resolution_;
 
   // Publishers
   ros::Publisher optimized_mesh_pub_;
@@ -171,12 +143,8 @@ class KimeraPgmo {
   std::map<size_t, std::vector<gtsam::Pose3> > trajectory_;
   std::map<size_t, std::queue<size_t> > unconnected_nodes_;
   std::map<size_t, std::vector<ros::Time> > timestamps_;
-  double embed_delta_t_;
-  // maximum time allowed when associating node to mesh
 
   std::string frame_id_;
-
-  double timer_period_;
 
   // Track number of loop closures
   size_t num_loop_closures_;

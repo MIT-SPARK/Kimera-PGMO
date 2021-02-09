@@ -31,10 +31,6 @@ bool KimeraPgmoInterface::loadParameters(const ros::NodeHandle& n) {
 
   if (!n.getParam("embed_trajectory_delta_t", embed_delta_t_)) return false;
 
-  // start the mesh compression module for deformation graph
-  if (!n.getParam("d_graph_resolution", deformation_graph_resolution_))
-    return false;
-
   // start deformation graph module
   double pgo_trans_threshold, pgo_rot_threshold;
   if (!n.getParam("rpgo/translation_threshold", pgo_trans_threshold))
