@@ -30,6 +30,7 @@ src/DeformationGraph.cpp
 src/KimeraPgmo.cpp
 src/VoxbloxProcessing.cpp
 src/KimeraPgmoMulti.cpp
+src/KimeraPgmoInterface.cpp
 )
 target_link_libraries(${PROJECT_NAME} 
   ${catkin_LIBRARIES}
@@ -44,6 +45,11 @@ cs_add_executable(kimera_pgmo_node
   src/kimera_pgmo_node.cpp
 )
 target_link_libraries(kimera_pgmo_node ${PROJECT_NAME})
+
+cs_add_executable(kimera_pgmo_multi_node
+  src/kimera_pgmo_multi_node.cpp
+)
+target_link_libraries(kimera_pgmo_multi_node ${PROJECT_NAME})
 
 cs_add_executable(voxblox_processing_node
   src/voxblox_processing_node.cpp

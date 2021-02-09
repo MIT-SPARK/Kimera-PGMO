@@ -116,8 +116,6 @@ class KimeraPgmo : public KimeraPgmoInterface {
   std::map<size_t, ros::Time> last_mesh_stamp_;
 
   OctreeCompressionPtr compression_;
-  // Deformation graph resolution
-  double deformation_graph_resolution_;
 
   // Publishers
   ros::Publisher optimized_mesh_pub_;
