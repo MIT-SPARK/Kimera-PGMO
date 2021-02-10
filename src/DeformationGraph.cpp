@@ -60,8 +60,11 @@ void DeformationGraph::updateMesh(
   }
 
   // Add to graph
+  if (graph_.find(prefix) == graph_.end()) {
+    graph_[prefix] = Graph();
+  }
   const std::vector<Edge>& new_edges =
-      graph_.addPointsAndSurfaces(new_indices, new_surfaces);
+      graph_[prefix].addPointsAndSurfaces(new_indices, new_surfaces);
 
   // Update consistency factors with new vertices and new edges
   updateConsistencyFactors(new_indices, new_edges, prefix);

@@ -204,7 +204,7 @@ class DeformationGraph {
    * graph nodes not included)
    * - outputs graph
    */
-  inline Graph getGraph() const { return graph_; }
+  inline Graph getGraph(const char& prefix) const { return graph_.at(prefix); }
 
   /*! \brief Gets the estimated values since last optimization
    *  - outputs last estimated values as GTSAM Values
@@ -239,7 +239,7 @@ class DeformationGraph {
                                 const char& prefix);
 
  private:
-  Graph graph_;
+  std::map<char, Graph> graph_;
   pcl::PointCloud<pcl::PointXYZ>::Ptr vertices_;
   typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
 

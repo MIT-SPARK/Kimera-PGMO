@@ -210,6 +210,31 @@ class KimeraPgmoMultiTest : public ::testing::Test {
     return inc_graph;
   }
 
+  pose_graph_tools::PoseGraph InterRobotLoopClosureGraph(
+      const ros::Time& stamp,
+      const size_t& robot_1,
+      const size_t& robot_2) {
+    pose_graph_tools::PoseGraph inc_graph;
+
+    pose_graph_tools::PoseGraphEdge e1;
+
+    e1.header.stamp = stamp;
+    e1.key_from = 0;
+    e1.key_to = 0;
+    e1.robot_from = robot_1;
+    e1.robot_to = robot_2;
+    e1.pose.position.z = 1;
+    e1.pose.orientation.w = 1;
+    e1.type = pose_graph_tools::PoseGraphEdge::LOOPCLOSE;
+    e1.covariance = {3.1, 0, 0,   0, 0,   0, 0, 3.1, 0, 0,   0, 0,
+                     0,   0, 3.1, 0, 0,   0, 0, 0,   0, 0.1, 0, 0,
+                     0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
+
+    inc_graph.edges.push_back(e1);
+
+    return inc_graph;
+  }
+
   pcl::PolygonMesh createMesh(double t_x, double t_y, double t_z) {
     // Create simple pcl mesh
     pcl::PolygonMesh mesh;
@@ -391,6 +416,89 @@ TEST_F(KimeraPgmoMultiTest, incrementalPoseGraphCallback) {
   EXPECT_EQ(gtsam::Symbol('b', 2).key(), factor2.back());
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)), factor2.measured()));
+
+  //// Now try add another robot
+  *inc_graph = SingleOdomGraph(ros::Time(20.4), 0);
+  IncrementalPoseGraphCallback(inc_graph);
+
+  // Check robot 1
+  traj = getTrajectory(1);
+  unconnected_nodes = getUnconnectedNodes(1);
+  stamps = getTimestamps(1);
+  EXPECT_EQ(size_t(3), traj.size());
+  EXPECT_EQ(size_t(3), unconnected_nodes.size());
+  EXPECT_EQ(size_t(3), stamps.size());
+
+  // Check robot 0
+  traj = getTrajectory(0);
+  unconnected_nodes = getUnconnectedNodes(0);
+  stamps = getTimestamps(0);
+  EXPECT_EQ(size_t(2), traj.size());
+  EXPECT_EQ(size_t(2), unconnected_nodes.size());
+  EXPECT_EQ(size_t(2), stamps.size());
+
+  // Check factor graph
+  factors = getFactors();
+  values = getValues();
+
+  EXPECT_EQ(size_t(5), values.size());
+  EXPECT_EQ(size_t(4), factors.size());
+
+  // check values
+  EXPECT_TRUE(gtsam::assert_equal(
+      gtsam::Pose3(), values.at<gtsam::Pose3>(gtsam::Symbol('a', 0))));
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
+                          values.at<gtsam::Pose3>(gtsam::Symbol('a', 1))));
+
+  // check factors
+  EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(
+      factors[2]));
+
+  gtsam::BetweenFactor<gtsam::Pose3> factor3 =
+      *boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(
+          factors[2]);
+  EXPECT_TRUE(gtsam::assert_equal(
+      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)), factor3.measured()));
+
+  //// Try add an interrobot loop closure
+  *inc_graph = InterRobotLoopClosureGraph(ros::Time(21.0), 0, 1);
+  IncrementalPoseGraphCallback(inc_graph);
+
+  // Check robot 1
+  traj = getTrajectory(1);
+  unconnected_nodes = getUnconnectedNodes(1);
+  stamps = getTimestamps(1);
+  EXPECT_EQ(size_t(3), traj.size());
+  EXPECT_EQ(size_t(3), unconnected_nodes.size());
+  EXPECT_EQ(size_t(3), stamps.size());
+
+  // Check robot 0
+  traj = getTrajectory(0);
+  unconnected_nodes = getUnconnectedNodes(0);
+  stamps = getTimestamps(0);
+  EXPECT_EQ(size_t(2), traj.size());
+  EXPECT_EQ(size_t(2), unconnected_nodes.size());
+  EXPECT_EQ(size_t(2), stamps.size());
+
+  // Check factor graph
+  factors = getFactors();
+  values = getValues();
+
+  EXPECT_EQ(size_t(5), values.size());
+  EXPECT_EQ(size_t(5), factors.size());
+
+  // check factors
+  EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(
+      factors[3]));
+
+  gtsam::BetweenFactor<gtsam::Pose3> factor4 =
+      *boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(
+          factors[3]);
+  EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor4.front());
+  EXPECT_EQ(gtsam::Symbol('b', 0).key(), factor4.back());
+  EXPECT_TRUE(gtsam::assert_equal(
+      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, 1)), factor4.measured()));
 }
 
 TEST_F(KimeraPgmoMultiTest, incrementalMeshCallback) {
@@ -433,6 +541,7 @@ TEST_F(KimeraPgmoMultiTest, incrementalMeshCallback) {
   pcl::PolygonMesh mesh2 = createMesh(2, 0, 0);
   mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh2);
   mesh_msg->header.stamp = ros::Time(13.0);  // within 3 sec of pose graph msg
+  mesh_msg->id = 1;
   IncrementalMeshCallback(mesh_msg);
 
   // Now should have 13 values (3 nodes + 10 vertices)
@@ -471,6 +580,29 @@ TEST_F(KimeraPgmoMultiTest, incrementalMeshCallback) {
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(2, 0, 1), factor63.toPoint()));
   EXPECT_EQ(gtsam::Symbol('b', 2), factor63.front());
   EXPECT_EQ(gtsam::Symbol('t', 9), factor63.back());
+
+  // Add mesh from another robot
+  pcl::PolygonMesh mesh3 = createMesh(2, 0, 0);
+  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh3);
+  mesh_msg->header.stamp = ros::Time(13.0);  // within 3 sec of pose graph msg
+  mesh_msg->id = 0;
+  IncrementalMeshCallback(mesh_msg);
+
+  // Now should have 18 values (3 nodes + 15 vertices)
+  // And 81 factors (48 edges + 2 odom + 30 connections + 1 lc)
+  factors = getFactors();
+  values = getValues();
+  EXPECT_EQ(size_t(81), factors.size());
+  EXPECT_EQ(size_t(18), values.size());
+
+  // Check deformation edge factors
+  EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[65]));
+  DeformationEdgeFactor factor65 =
+      *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[65]);
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(), factor65.fromPose()));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor65.toPoint()));
+  EXPECT_EQ(gtsam::Symbol('s', 0), factor65.front());
+  EXPECT_EQ(gtsam::Symbol('s', 1), factor65.back());
 }
 
 TEST_F(KimeraPgmoMultiTest, nodeToMeshConnectionDeltaT) {
@@ -492,21 +624,28 @@ TEST_F(KimeraPgmoMultiTest, nodeToMeshConnectionDeltaT) {
   EXPECT_EQ(size_t(1), factors.size());
   EXPECT_EQ(size_t(2), values.size());
 
-  // Add mesh but after embed time so should not connect
-  pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
+  // Add mesh from other robot so should not connect
+  pcl::PolygonMesh mesh0 = createMesh(0, 0, 0);
   kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
       new kimera_pgmo::TriangleMeshIdStamped);
+  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh0);
+  mesh_msg->header.stamp = ros::Time(13.0);  // after 3 sec of pose graph msg
+  mesh_msg->id = 0;
+  IncrementalMeshCallback(mesh_msg);
+
+  // Add mesh but after embed time so should not connect
+  pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
   mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
   mesh_msg->header.stamp = ros::Time(13.5);  // after 3 sec of pose graph msg
   mesh_msg->id = 1;
   IncrementalMeshCallback(mesh_msg);
 
-  // Now should have 7 values (2 nodes + 5 vertices)
-  // And 17 factors (16 edges + 1 odom)
+  // Now should have 12 values (2 nodes + 10 vertices)
+  // And 33 factors (32 edges + 1 odom)
   factors = getFactors();
   values = getValues();
-  EXPECT_EQ(size_t(17), factors.size());
-  EXPECT_EQ(size_t(7), values.size());
+  EXPECT_EQ(size_t(33), factors.size());
+  EXPECT_EQ(size_t(12), values.size());
 }
 
 TEST_F(KimeraPgmoMultiTest, nodeToMeshConnectionDelay) {
@@ -553,6 +692,41 @@ TEST_F(KimeraPgmoMultiTest, nodeToMeshConnectionDelay) {
   values = getValues();
   EXPECT_EQ(size_t(49), factors.size());
   EXPECT_EQ(size_t(8), values.size());
+
+  //// Add another robot
+  // Check callback
+  *inc_graph = SingleOdomGraph(ros::Time(13.2), 0);
+  IncrementalPoseGraphCallback(inc_graph);
+  // At this point should add two nodes (0, 0, 0), (1, 0, 0) and a between
+  // factor
+  factors = getFactors();
+  values = getValues();
+  EXPECT_EQ(size_t(50), factors.size());
+  EXPECT_EQ(size_t(10), values.size());
+
+  // load second incremental pose graph
+  *inc_graph = OdomLoopclosureGraph(ros::Time(14.2), 0);
+  IncrementalPoseGraphCallback(inc_graph);
+
+  // At this point should add 1 node 2 between factors
+  factors = getFactors();
+  values = getValues();
+  EXPECT_EQ(size_t(52), factors.size());
+  EXPECT_EQ(size_t(11), values.size());
+
+  // Add mesh
+  pcl::PolygonMesh mesh2 = createMesh(0, 0, 0);
+  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
+  mesh_msg->id = 0;
+  mesh_msg->header.stamp = ros::Time(15.2);  // within 3 sec of pose graph msg
+  IncrementalMeshCallback(mesh_msg);
+
+  // Now should have 16 values (6 nodes + 10 vertices)
+  // And 98 factors (32 edges + 4 odom + 2 lc + 60 connections)
+  factors = getFactors();
+  values = getValues();
+  EXPECT_EQ(size_t(98), factors.size());
+  EXPECT_EQ(size_t(16), values.size());
 }
 
 TEST_F(KimeraPgmoMultiTest, fullMeshCallback) {
@@ -633,6 +807,46 @@ TEST_F(KimeraPgmoMultiTest, fullMeshCallback) {
   EXPECT_NE(2, optimized_vertices.points[4].x);
   EXPECT_NE(2, optimized_vertices.points[4].y);
   EXPECT_NE(3, optimized_vertices.points[4].z);
+
+  // Add other robot (with no loop closures)
+  *inc_graph = SingleOdomGraph(ros::Time(14.2), 0);
+  IncrementalPoseGraphCallback(inc_graph);
+
+  *inc_graph = InterRobotLoopClosureGraph(ros::Time(14.3), 0, 1);
+  IncrementalPoseGraphCallback(inc_graph);
+
+  // Add mesh
+  pcl::PolygonMesh mesh4 = createMesh(1, 1, 1);
+  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh4);
+  mesh_msg->header.stamp = ros::Time(14.5);
+  mesh_msg->id = 0;
+  IncrementalMeshCallback(mesh_msg);
+
+  pcl::PolygonMesh mesh5 = createMesh(2, 2, 2);
+  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh5);
+  mesh_msg->header.stamp = ros::Time(14.7);
+  mesh_msg->id = 0;
+  IncrementalMeshCallback(mesh_msg);
+
+  full_mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(full_mesh);
+  full_mesh_msg->id = 0;
+  FullMeshCallback(full_mesh_msg);
+
+  optimized_mesh = getOptimizedMesh(0);
+
+  pcl::PointCloud<pcl::PointXYZRGBA> full_vertices;
+
+  pcl::fromPCLPointCloud2(optimized_mesh.cloud, optimized_vertices);
+  pcl::fromPCLPointCloud2(full_mesh.cloud, full_vertices);
+
+  // Expect no distortion
+  EXPECT_EQ(size_t(5), optimized_vertices.points.size());
+  EXPECT_EQ(full_vertices.points[0].x - full_vertices.points[4].x,
+            optimized_vertices.points[0].x - optimized_vertices.points[4].x);
+  EXPECT_EQ(full_vertices.points[0].y - full_vertices.points[4].y,
+            optimized_vertices.points[0].y - optimized_vertices.points[4].y);
+  EXPECT_EQ(full_vertices.points[0].z - full_vertices.points[4].z,
+            optimized_vertices.points[0].z - optimized_vertices.points[4].z);
 }
 
 }  // namespace kimera_pgmo
