@@ -45,14 +45,16 @@ void DeformationGraph::updateMesh(
     const std::vector<pcl::Vertices> new_surfaces,
     const char& prefix) {
   // Check if prefix seen before
-  if (num_vertices_.find(prefix) == num_vertices_.end())
+  if (num_vertices_.find(prefix) == num_vertices_.end()) {
     num_vertices_[prefix] = 0;
+    vertex_positions_[prefix] = std::vector<gtsam::Point3>{};
+  }
   // Add new points to vertices
   const size_t& start_of_new_idx = num_vertices_[prefix];
   // Create vector of new indices
   Vertices new_indices;
   for (auto p : new_vertices.points) {
-    vertex_positions_.push_back(gtsam::Point3(p.x, p.y, p.z));
+    vertex_positions_[prefix].push_back(gtsam::Point3(p.x, p.y, p.z));
     vertex_prefixes_.push_back(prefix);
     vertices_->push_back(pcl::PointXYZ(p.x, p.y, p.z));
     new_indices.push_back(num_vertices_[prefix]);
@@ -81,7 +83,7 @@ void DeformationGraph::updateConsistencyFactors(
   for (Vertex v : new_vertices) {
     gtsam::Pose3 v_pose;
     gtsam::Symbol v_symb(prefix, v);
-    v_pose = gtsam::Pose3(gtsam::Rot3(), vertex_positions_.at(v));
+    v_pose = gtsam::Pose3(gtsam::Rot3(), vertex_positions_[prefix].at(v));
     new_values.insert(v_symb, v_pose);
   }
 
@@ -89,8 +91,9 @@ void DeformationGraph::updateConsistencyFactors(
   for (Edge e : new_edges) {
     Vertex from = e.first;
     Vertex to = e.second;
-    const gtsam::Pose3 from_pose(gtsam::Rot3(), vertex_positions_.at(from));
-    const gtsam::Point3& to_point = vertex_positions_.at(to);
+    const gtsam::Pose3 from_pose(gtsam::Rot3(),
+                                 vertex_positions_[prefix].at(from));
+    const gtsam::Point3& to_point = vertex_positions_[prefix].at(to);
     const gtsam::Symbol from_symb(prefix, from);
     const gtsam::Symbol to_symb(prefix, to);
 
@@ -119,7 +122,8 @@ void DeformationGraph::addNodeValence(const gtsam::Key& key,
   for (Vertex v : valences) {
     const gtsam::Symbol vertex(valence_prefix, v);
     const gtsam::Pose3& node_pose = pg_initial_poses_[prefix].at(idx);
-    const gtsam::Pose3 vertex_pose(gtsam::Rot3(), vertex_positions_.at(v));
+    const gtsam::Pose3 vertex_pose(gtsam::Rot3(),
+                                   vertex_positions_[valence_prefix].at(v));
 
     // Define noise. Hardcoded for now
     static const gtsam::SharedNoiseModel& noise =
@@ -334,6 +338,11 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
       search_octree->addPointFromCloud(search_cloud->points.size() - 1,
                                        nullptr);
     }
+  }
+
+  if (search_cloud->size() < k) {
+    ROS_WARN("Not enough vertices to deform mesh. ");
+    return original_mesh;
   }
 
   for (size_t ii = start_idx; ii < original_vertices.points.size(); ii++) {

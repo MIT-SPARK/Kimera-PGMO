@@ -599,8 +599,10 @@ TEST_F(KimeraPgmoMultiTest, incrementalMeshCallback) {
   EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[65]));
   DeformationEdgeFactor factor65 =
       *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[65]);
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(), factor65.fromPose()));
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor65.toPoint()));
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 0, 0)),
+                          factor65.fromPose()));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(3, 0, 0), factor65.toPoint()));
   EXPECT_EQ(gtsam::Symbol('s', 0), factor65.front());
   EXPECT_EQ(gtsam::Symbol('s', 1), factor65.back());
 }
@@ -847,6 +849,12 @@ TEST_F(KimeraPgmoMultiTest, fullMeshCallback) {
             optimized_vertices.points[0].y - optimized_vertices.points[4].y);
   EXPECT_EQ(full_vertices.points[0].z - full_vertices.points[4].z,
             optimized_vertices.points[0].z - optimized_vertices.points[4].z);
+  EXPECT_EQ(full_vertices.points[1].x - full_vertices.points[3].x,
+            optimized_vertices.points[1].x - optimized_vertices.points[3].x);
+  EXPECT_EQ(full_vertices.points[1].y - full_vertices.points[3].y,
+            optimized_vertices.points[1].y - optimized_vertices.points[3].y);
+  EXPECT_EQ(full_vertices.points[1].z - full_vertices.points[3].z,
+            optimized_vertices.points[1].z - optimized_vertices.points[3].z);
 }
 
 }  // namespace kimera_pgmo

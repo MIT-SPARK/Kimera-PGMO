@@ -234,6 +234,9 @@ pcl::PolygonMesh KimeraPgmoInterface::optimizeAndPublishFullMesh(
     bool single_robot) {
   const pcl::PolygonMesh& input_mesh =
       TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
+  // check if empty
+  if (input_mesh.cloud.height * input_mesh.cloud.width == 0) return input_mesh;
+
   size_t robot_id = mesh_msg->id;
   // Always use robot id of 0 if single robot
   if (single_robot) robot_id = 0;
@@ -266,6 +269,9 @@ void KimeraPgmoInterface::processIncrementalMesh(
 
   const pcl::PolygonMesh incremental_mesh =
       TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
+
+  // Check if mesh empty
+  if (incremental_mesh.cloud.height * incremental_mesh.cloud.width == 0) return;
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);

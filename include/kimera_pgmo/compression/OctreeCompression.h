@@ -92,6 +92,8 @@ class OctreeCompression {
     *timestamps = vertices_latest_time_;
   }
 
+  inline size_t getNumVertices() const { return all_vertices_->size(); }
+
  protected:
   PointCloud::Ptr active_vertices_;  // vertices in octree
   PointCloud::Ptr all_vertices_;     // all verices

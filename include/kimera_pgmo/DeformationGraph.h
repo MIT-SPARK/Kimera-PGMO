@@ -247,7 +247,7 @@ class DeformationGraph {
   // for embedding trajectory, etc.
   std::map<char, std::vector<gtsam::Pose3> > pg_initial_poses_;
 
-  std::vector<gtsam::Point3> vertex_positions_;
+  std::map<char, std::vector<gtsam::Point3> > vertex_positions_;
   // track the prefixes only important in multirobot case
   std::vector<char> vertex_prefixes_;
   // Number of mesh vertices corresponding a particular prefix thus far
