@@ -135,16 +135,16 @@ class KimeraPgmoMulti : public KimeraPgmoInterface {
   double deformation_graph_resolution_;
 
   // Publishers
-  std::vector<ros::Publisher> optimized_mesh_pub_;
-  std::vector<ros::Publisher> optimized_path_pub_;
+  std::map<size_t, ros::Publisher> optimized_mesh_pub_;
+  std::map<size_t, ros::Publisher> optimized_path_pub_;
   ros::Publisher pose_graph_pub_;
   ros::Publisher viz_deformation_graph_pub_;
 
   // Subscribers
-  std::vector<ros::Subscriber> pose_graph_incremental_sub_;
-  std::vector<ros::Subscriber> full_mesh_sub_;
-  std::vector<ros::Subscriber> incremental_mesh_sub_;
-  std::vector<ros::Subscriber> path_callback_sub_;
+  std::map<size_t, ros::Subscriber> pose_graph_incremental_sub_;
+  std::map<size_t, ros::Subscriber> full_mesh_sub_;
+  std::map<size_t, ros::Subscriber> incremental_mesh_sub_;
+  std::map<size_t, ros::Subscriber> path_callback_sub_;
 
   // Transform broadcaster
   tf2_ros::TransformBroadcaster tf_broadcast_;

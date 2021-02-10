@@ -83,12 +83,12 @@ bool KimeraPgmoMulti::createPublishers(const ros::NodeHandle& n) {
   for (auto id : robot_ids_) {
     std::string mesh_topic_name =
         "kimera" + std::to_string(id) + "/optimized_mesh";
-    optimized_mesh_pub_.push_back(nl.advertise<mesh_msgs::TriangleMeshStamped>(
-        mesh_topic_name, 1, false));
+    optimized_mesh_pub_[id] =
+        nl.advertise<mesh_msgs::TriangleMeshStamped>(mesh_topic_name, 1, false);
     std::string path_topic_name =
         "kimera" + std::to_string(id) + "/optimized_path";
-    optimized_path_pub_.push_back(
-        nl.advertise<nav_msgs::Path>(path_topic_name, 1, false));
+    optimized_path_pub_[id] =
+        nl.advertise<nav_msgs::Path>(path_topic_name, 1, false);
   }
   return true;
 }
@@ -100,21 +100,21 @@ bool KimeraPgmoMulti::registerCallbacks(const ros::NodeHandle& n) {
   for (auto id : robot_ids_) {
     std::string full_mesh_topic =
         "/kimera" + std::to_string(id) + "/voxblox_processing/full_mesh";
-    full_mesh_sub_.push_back(nl.subscribe(
-        full_mesh_topic, 1, &KimeraPgmoMulti::fullMeshCallback, this));
+    full_mesh_sub_[id] = nl.subscribe(
+        full_mesh_topic, 1, &KimeraPgmoMulti::fullMeshCallback, this);
 
     std::string inc_mesh_topic =
         "/kimera" + std::to_string(id) + "/voxblox_processing/partial_mesh";
-    incremental_mesh_sub_.push_back(nl.subscribe(
-        inc_mesh_topic, 5, &KimeraPgmoMulti::incrementalMeshCallback, this));
+    incremental_mesh_sub_[id] = nl.subscribe(
+        inc_mesh_topic, 5, &KimeraPgmoMulti::incrementalMeshCallback, this);
 
     std::string pose_graph_topic = "/kimera" + std::to_string(id) +
                                    "/kimera_vio_ros/pose_graph_incremental";
-    pose_graph_incremental_sub_.push_back(
+    pose_graph_incremental_sub_[id] =
         nl.subscribe(pose_graph_topic,
                      1000,
                      &KimeraPgmoMulti::incrementalPoseGraphCallback,
-                     this));
+                     this);
 
     // std::string path_topic = "/kimera" + std::to_string(i) + "/path";
     // TODO: Path callback
@@ -137,8 +137,9 @@ bool KimeraPgmoMulti::publishOptimizedMesh(const size_t& robot_id) const {
   std_msgs::Header msg_header;
   msg_header.stamp = last_mesh_stamp_.at(robot_id);
   msg_header.frame_id = frame_id_;
-  publishMesh(
-      optimized_mesh_.at(robot_id), msg_header, &optimized_mesh_pub_[robot_id]);
+  publishMesh(optimized_mesh_.at(robot_id),
+              msg_header,
+              &optimized_mesh_pub_.at(robot_id));
   return true;
 }
 
@@ -152,7 +153,7 @@ bool KimeraPgmoMulti::publishOptimizedPath(const size_t& robot_id) const {
   std_msgs::Header msg_header;
   msg_header.stamp = ros::Time::now();
   msg_header.frame_id = frame_id_;
-  return publishPath(gtsam_path, msg_header, &optimized_path_pub_[robot_id]);
+  return publishPath(gtsam_path, msg_header, &optimized_path_pub_.at(robot_id));
 }
 
 void KimeraPgmoMulti::incrementalPoseGraphCallback(

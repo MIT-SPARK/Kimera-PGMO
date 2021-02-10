@@ -74,7 +74,8 @@ class KimeraPgmoMultiTest : public ::testing::Test {
     return pgmo_.optimized_mesh_.at(robot_id);
   }
 
-  pose_graph_tools::PoseGraph SingleOdomGraph(const ros::Time& stamp) {
+  pose_graph_tools::PoseGraph SingleOdomGraph(const ros::Time& stamp,
+                                              const size_t& robot_id) {
     pose_graph_tools::PoseGraph inc_graph;
 
     pose_graph_tools::PoseGraphEdge e0;
@@ -82,6 +83,8 @@ class KimeraPgmoMultiTest : public ::testing::Test {
     e0.header.stamp = stamp;
     e0.key_from = 0;
     e0.key_to = 1;
+    e0.robot_from = robot_id;
+    e0.robot_to = robot_id;
     e0.pose.position.x = 1;
     e0.pose.orientation.w = 1;
     e0.type = pose_graph_tools::PoseGraphEdge::ODOM;
@@ -91,10 +94,12 @@ class KimeraPgmoMultiTest : public ::testing::Test {
 
     n0.header.stamp = stamp;
     n0.key = 0;
+    n0.robot_id = robot_id;
     n0.pose.orientation.w = 1;
 
     n1.header.stamp = stamp;
     n1.key = 0;
+    n1.robot_id = robot_id;
     n1.pose.position.x = 1;
     n1.pose.orientation.w = 1;
 
@@ -105,7 +110,8 @@ class KimeraPgmoMultiTest : public ::testing::Test {
     return inc_graph;
   }
 
-  pose_graph_tools::PoseGraph OdomLoopclosureGraph(const ros::Time& stamp) {
+  pose_graph_tools::PoseGraph OdomLoopclosureGraph(const ros::Time& stamp,
+                                                   const size_t& robot_id) {
     pose_graph_tools::PoseGraph inc_graph;
 
     pose_graph_tools::PoseGraphEdge e1, e2;
@@ -114,6 +120,8 @@ class KimeraPgmoMultiTest : public ::testing::Test {
     e1.header.stamp = stamp;
     e1.key_from = 1;
     e1.key_to = 2;
+    e1.robot_from = robot_id;
+    e1.robot_to = robot_id;
     e1.pose.position.y = 1;
     e1.pose.orientation.w = 1;
     e1.type = pose_graph_tools::PoseGraphEdge::ODOM;
@@ -124,6 +132,8 @@ class KimeraPgmoMultiTest : public ::testing::Test {
     e2.header.stamp = stamp;
     e2.key_from = 0;
     e2.key_to = 2;
+    e2.robot_from = robot_id;
+    e2.robot_to = robot_id;
     e2.pose.position.x = 1;
     e2.pose.position.y = 1;
     e2.pose.orientation.w = 1;
@@ -134,10 +144,12 @@ class KimeraPgmoMultiTest : public ::testing::Test {
 
     n1.header.stamp = stamp;
     n1.key = 0;
+    n1.robot_id = robot_id;
     n1.pose.orientation.w = 1;
 
     n2.header.stamp = stamp;
     n2.key = 2;
+    n2.robot_id = robot_id;
     n2.pose.orientation.w = 1;
 
     inc_graph.edges.push_back(e1);
@@ -148,7 +160,8 @@ class KimeraPgmoMultiTest : public ::testing::Test {
     return inc_graph;
   }
 
-  pose_graph_tools::PoseGraph OdomLoopclosureGraph2(const ros::Time& stamp) {
+  pose_graph_tools::PoseGraph OdomLoopclosureGraph2(const ros::Time& stamp,
+                                                    const size_t& robot_id) {
     pose_graph_tools::PoseGraph inc_graph;
 
     pose_graph_tools::PoseGraphEdge e1, e2;
@@ -157,6 +170,8 @@ class KimeraPgmoMultiTest : public ::testing::Test {
     e1.header.stamp = stamp;
     e1.key_from = 2;
     e1.key_to = 3;
+    e1.robot_from = robot_id;
+    e1.robot_to = robot_id;
     e1.pose.position.z = 1;
     e1.pose.orientation.w = 1;
     e1.type = pose_graph_tools::PoseGraphEdge::ODOM;
@@ -167,6 +182,8 @@ class KimeraPgmoMultiTest : public ::testing::Test {
     e2.header.stamp = stamp;
     e2.key_from = 0;
     e2.key_to = 3;
+    e2.robot_from = robot_id;
+    e2.robot_to = robot_id;
     e2.pose.position.z = -1;
     e2.pose.position.x = -1;
     e2.pose.orientation.w = 1;
@@ -177,10 +194,12 @@ class KimeraPgmoMultiTest : public ::testing::Test {
 
     n1.header.stamp = stamp;
     n1.key = 0;
+    n1.robot_id = robot_id;
     n1.pose.orientation.w = 1;
 
     n2.header.stamp = stamp;
     n2.key = 3;
+    n2.robot_id = robot_id;
     n2.pose.orientation.w = 1;
 
     inc_graph.edges.push_back(e1);
@@ -288,12 +307,12 @@ TEST_F(KimeraPgmoMultiTest, incrementalPoseGraphCallback) {
 
   // check callback
   pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
-  *inc_graph = SingleOdomGraph(ros::Time(10.2));
+  *inc_graph = SingleOdomGraph(ros::Time(10.2), 1);
   IncrementalPoseGraphCallback(inc_graph);
 
-  std::vector<gtsam::Pose3> traj = getTrajectory(0);
-  std::queue<size_t> unconnected_nodes = getUnconnectedNodes(0);
-  std::vector<ros::Time> stamps = getTimestamps(0);
+  std::vector<gtsam::Pose3> traj = getTrajectory(1);
+  std::queue<size_t> unconnected_nodes = getUnconnectedNodes(1);
+  std::vector<ros::Time> stamps = getTimestamps(1);
   gtsam::NonlinearFactorGraph factors = getFactors();
   gtsam::Values values = getValues();
 
@@ -312,10 +331,10 @@ TEST_F(KimeraPgmoMultiTest, incrementalPoseGraphCallback) {
 
   // check values
   EXPECT_TRUE(gtsam::assert_equal(
-      gtsam::Pose3(), values.at<gtsam::Pose3>(gtsam::Symbol('a', 0))));
+      gtsam::Pose3(), values.at<gtsam::Pose3>(gtsam::Symbol('b', 0))));
   EXPECT_TRUE(
       gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
-                          values.at<gtsam::Pose3>(gtsam::Symbol('a', 1))));
+                          values.at<gtsam::Pose3>(gtsam::Symbol('b', 1))));
 
   // check factors
   EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(
@@ -328,12 +347,12 @@ TEST_F(KimeraPgmoMultiTest, incrementalPoseGraphCallback) {
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)), factor0.measured()));
 
   // load second incremental pose graph
-  *inc_graph = OdomLoopclosureGraph(ros::Time(20.3));
+  *inc_graph = OdomLoopclosureGraph(ros::Time(20.3), 1);
   IncrementalPoseGraphCallback(inc_graph);
 
-  traj = getTrajectory(0);
-  unconnected_nodes = getUnconnectedNodes(0);
-  stamps = getTimestamps(0);
+  traj = getTrajectory(1);
+  unconnected_nodes = getUnconnectedNodes(1);
+  stamps = getTimestamps(1);
   factors = getFactors();
   values = getValues();
 
@@ -352,7 +371,7 @@ TEST_F(KimeraPgmoMultiTest, incrementalPoseGraphCallback) {
   // check values
   EXPECT_TRUE(
       gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
-                          values.at<gtsam::Pose3>(gtsam::Symbol('a', 2))));
+                          values.at<gtsam::Pose3>(gtsam::Symbol('b', 2))));
 
   // check factors
   EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(
@@ -368,8 +387,8 @@ TEST_F(KimeraPgmoMultiTest, incrementalPoseGraphCallback) {
           factors[2]);
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 0)), factor1.measured()));
-  EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor2.front());
-  EXPECT_EQ(gtsam::Symbol('a', 2).key(), factor2.back());
+  EXPECT_EQ(gtsam::Symbol('b', 0).key(), factor2.front());
+  EXPECT_EQ(gtsam::Symbol('b', 2).key(), factor2.back());
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)), factor2.measured()));
 }
@@ -381,7 +400,7 @@ TEST_F(KimeraPgmoMultiTest, incrementalMeshCallback) {
 
   // Check callback
   pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
-  *inc_graph = SingleOdomGraph(ros::Time(10.2));
+  *inc_graph = SingleOdomGraph(ros::Time(10.2), 1);
   IncrementalPoseGraphCallback(inc_graph);
   // At this point should have two nodes (0, 0, 0), (1, 0, 0) and a between
   // factor
@@ -396,6 +415,7 @@ TEST_F(KimeraPgmoMultiTest, incrementalMeshCallback) {
       new kimera_pgmo::TriangleMeshIdStamped);
   mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
   mesh_msg->header.stamp = ros::Time(12.5);  // within 3 sec of pose graph msg
+  mesh_msg->id = 1;
   IncrementalMeshCallback(mesh_msg);
 
   // Now should have 7 values (2 nodes + 5 vertices)
@@ -406,7 +426,7 @@ TEST_F(KimeraPgmoMultiTest, incrementalMeshCallback) {
   EXPECT_EQ(size_t(7), values.size());
 
   // load second incremental pose graph
-  *inc_graph = OdomLoopclosureGraph(ros::Time(12.8));
+  *inc_graph = OdomLoopclosureGraph(ros::Time(12.8), 1);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
@@ -430,8 +450,8 @@ TEST_F(KimeraPgmoMultiTest, incrementalMeshCallback) {
           factors[2]);
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)), factor2.measured()));
-  EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor2.front());
-  EXPECT_EQ(gtsam::Symbol('a', 2).key(), factor2.back());
+  EXPECT_EQ(gtsam::Symbol('b', 0).key(), factor2.front());
+  EXPECT_EQ(gtsam::Symbol('b', 2).key(), factor2.back());
 
   // Check deformation edge factors
   EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[3]));
@@ -439,8 +459,8 @@ TEST_F(KimeraPgmoMultiTest, incrementalMeshCallback) {
       *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[3]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(), factor3.fromPose()));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor3.toPoint()));
-  EXPECT_EQ(gtsam::Symbol('s', 0), factor3.front());
-  EXPECT_EQ(gtsam::Symbol('s', 1), factor3.back());
+  EXPECT_EQ(gtsam::Symbol('t', 0), factor3.front());
+  EXPECT_EQ(gtsam::Symbol('t', 1), factor3.back());
 
   EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[63]));
   DeformationEdgeFactor factor63 =
@@ -449,8 +469,8 @@ TEST_F(KimeraPgmoMultiTest, incrementalMeshCallback) {
       gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
                           factor63.fromPose()));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(2, 0, 1), factor63.toPoint()));
-  EXPECT_EQ(gtsam::Symbol('a', 2), factor63.front());
-  EXPECT_EQ(gtsam::Symbol('s', 9), factor63.back());
+  EXPECT_EQ(gtsam::Symbol('b', 2), factor63.front());
+  EXPECT_EQ(gtsam::Symbol('t', 9), factor63.back());
 }
 
 TEST_F(KimeraPgmoMultiTest, nodeToMeshConnectionDeltaT) {
@@ -463,7 +483,7 @@ TEST_F(KimeraPgmoMultiTest, nodeToMeshConnectionDeltaT) {
 
   // Check callback
   pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
-  *inc_graph = SingleOdomGraph(ros::Time(10.2));
+  *inc_graph = SingleOdomGraph(ros::Time(10.2), 1);
   IncrementalPoseGraphCallback(inc_graph);
   // At this point should have two nodes (0, 0, 0), (1, 0, 0) and a between
   // factor
@@ -478,6 +498,7 @@ TEST_F(KimeraPgmoMultiTest, nodeToMeshConnectionDeltaT) {
       new kimera_pgmo::TriangleMeshIdStamped);
   mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
   mesh_msg->header.stamp = ros::Time(13.5);  // after 3 sec of pose graph msg
+  mesh_msg->id = 1;
   IncrementalMeshCallback(mesh_msg);
 
   // Now should have 7 values (2 nodes + 5 vertices)
@@ -498,7 +519,7 @@ TEST_F(KimeraPgmoMultiTest, nodeToMeshConnectionDelay) {
 
   // Check callback
   pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
-  *inc_graph = SingleOdomGraph(ros::Time(10.2));
+  *inc_graph = SingleOdomGraph(ros::Time(10.2), 1);
   IncrementalPoseGraphCallback(inc_graph);
   // At this point should have two nodes (0, 0, 0), (1, 0, 0) and a between
   // factor
@@ -508,7 +529,7 @@ TEST_F(KimeraPgmoMultiTest, nodeToMeshConnectionDelay) {
   EXPECT_EQ(size_t(2), values.size());
 
   // load second incremental pose graph
-  *inc_graph = OdomLoopclosureGraph(ros::Time(11.2));
+  *inc_graph = OdomLoopclosureGraph(ros::Time(11.2), 1);
   IncrementalPoseGraphCallback(inc_graph);
 
   // At this point should have 3 nodes 3 between factors
@@ -522,6 +543,7 @@ TEST_F(KimeraPgmoMultiTest, nodeToMeshConnectionDelay) {
   kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
       new kimera_pgmo::TriangleMeshIdStamped);
   mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
+  mesh_msg->id = 1;
   mesh_msg->header.stamp = ros::Time(12.2);  // within 3 sec of pose graph msg
   IncrementalMeshCallback(mesh_msg);
 
@@ -542,7 +564,7 @@ TEST_F(KimeraPgmoMultiTest, fullMeshCallback) {
 
   // Check callback
   pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
-  *inc_graph = SingleOdomGraph(ros::Time(10.2));
+  *inc_graph = SingleOdomGraph(ros::Time(10.2), 1);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
@@ -551,16 +573,18 @@ TEST_F(KimeraPgmoMultiTest, fullMeshCallback) {
       new kimera_pgmo::TriangleMeshIdStamped);
   mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
   mesh_msg->header.stamp = ros::Time(12.5);
+  mesh_msg->id = 1;
   IncrementalMeshCallback(mesh_msg);
 
   // load second incremental pose graph
-  *inc_graph = OdomLoopclosureGraph(ros::Time(12.8));
+  *inc_graph = OdomLoopclosureGraph(ros::Time(12.8), 1);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
   pcl::PolygonMesh mesh2 = createMesh(2, 0, 0);
   mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh2);
   mesh_msg->header.stamp = ros::Time(13.0);
+  mesh_msg->id = 1;
   IncrementalMeshCallback(mesh_msg);
 
   // Add mesh to be deformed
@@ -568,9 +592,10 @@ TEST_F(KimeraPgmoMultiTest, fullMeshCallback) {
   kimera_pgmo::TriangleMeshIdStamped::Ptr full_mesh_msg(
       new kimera_pgmo::TriangleMeshIdStamped);
   full_mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(full_mesh);
+  full_mesh_msg->id = 1;
   FullMeshCallback(full_mesh_msg);
 
-  pcl::PolygonMesh optimized_mesh = getOptimizedMesh(0);
+  pcl::PolygonMesh optimized_mesh = getOptimizedMesh(1);
 
   pcl::PointCloud<pcl::PointXYZRGBA> optimized_vertices;
   pcl::fromPCLPointCloud2(optimized_mesh.cloud, optimized_vertices);
@@ -585,17 +610,18 @@ TEST_F(KimeraPgmoMultiTest, fullMeshCallback) {
   EXPECT_EQ(3, optimized_vertices.points[4].z);
 
   // load third incremental pose graph
-  *inc_graph = OdomLoopclosureGraph2(ros::Time(13.8));
+  *inc_graph = OdomLoopclosureGraph2(ros::Time(13.8), 1);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
   pcl::PolygonMesh mesh3 = createMesh(2, 2, 0);
   mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh3);
   mesh_msg->header.stamp = ros::Time(14.0);
+  mesh_msg->id = 1;
   IncrementalMeshCallback(mesh_msg);
 
   FullMeshCallback(full_mesh_msg);
-  optimized_mesh = getOptimizedMesh(0);
+  optimized_mesh = getOptimizedMesh(1);
   pcl::fromPCLPointCloud2(optimized_mesh.cloud, optimized_vertices);
 
   // Expect distortion
