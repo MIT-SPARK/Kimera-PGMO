@@ -26,11 +26,7 @@ namespace kimera_pgmo {
 DeformationGraph::DeformationGraph()
     : pgo_(nullptr),
       recalculate_vertices_(false),
-      vertices_(new pcl::PointCloud<pcl::PointXYZ>),
-      vertices_octree_(new Octree(1.0)) {
-  // Initialize octree
-  vertices_octree_->setInputCloud(vertices_);
-}
+      vertices_(new pcl::PointCloud<pcl::PointXYZ>) {}
 DeformationGraph::~DeformationGraph() {}
 
 bool DeformationGraph::initialize(double pgo_trans_threshold,
@@ -48,22 +44,29 @@ void DeformationGraph::updateMesh(
     const pcl::PointCloud<pcl::PointXYZRGBA>& new_vertices,
     const std::vector<pcl::Vertices> new_surfaces,
     const char& prefix) {
+  // Check if prefix seen before
+  if (num_vertices_.find(prefix) == num_vertices_.end()) {
+    num_vertices_[prefix] = 0;
+    vertex_positions_[prefix] = std::vector<gtsam::Point3>{};
+  }
   // Add new points to vertices
-  const size_t& start_of_new_idx = vertex_positions_.size();
+  const size_t& start_of_new_idx = num_vertices_[prefix];
+  // Create vector of new indices
+  Vertices new_indices;
   for (auto p : new_vertices.points) {
-    vertex_positions_.push_back(gtsam::Point3(p.x, p.y, p.z));
+    vertex_positions_[prefix].push_back(gtsam::Point3(p.x, p.y, p.z));
     vertex_prefixes_.push_back(prefix);
     vertices_->push_back(pcl::PointXYZ(p.x, p.y, p.z));
-    vertices_octree_->addPointFromCloud(vertices_->points.size() - 1, nullptr);
+    new_indices.push_back(num_vertices_[prefix]);
+    num_vertices_[prefix] = num_vertices_[prefix] + 1;
   }
 
-  // Create vector of new indices
-  Vertices new_indices(new_vertices.size());
-  std::iota(std::begin(new_indices), std::end(new_indices), start_of_new_idx);
-
   // Add to graph
+  if (graph_.find(prefix) == graph_.end()) {
+    graph_[prefix] = Graph();
+  }
   const std::vector<Edge>& new_edges =
-      graph_.addPointsAndSurfaces(new_indices, new_surfaces);
+      graph_[prefix].addPointsAndSurfaces(new_indices, new_surfaces);
 
   // Update consistency factors with new vertices and new edges
   updateConsistencyFactors(new_indices, new_edges, prefix);
@@ -80,7 +83,7 @@ void DeformationGraph::updateConsistencyFactors(
   for (Vertex v : new_vertices) {
     gtsam::Pose3 v_pose;
     gtsam::Symbol v_symb(prefix, v);
-    v_pose = gtsam::Pose3(gtsam::Rot3(), vertex_positions_.at(v));
+    v_pose = gtsam::Pose3(gtsam::Rot3(), vertex_positions_[prefix].at(v));
     new_values.insert(v_symb, v_pose);
   }
 
@@ -88,8 +91,9 @@ void DeformationGraph::updateConsistencyFactors(
   for (Edge e : new_edges) {
     Vertex from = e.first;
     Vertex to = e.second;
-    const gtsam::Pose3 from_pose(gtsam::Rot3(), vertex_positions_.at(from));
-    const gtsam::Point3& to_point = vertex_positions_.at(to);
+    const gtsam::Pose3 from_pose(gtsam::Rot3(),
+                                 vertex_positions_[prefix].at(from));
+    const gtsam::Point3& to_point = vertex_positions_[prefix].at(to);
     const gtsam::Symbol from_symb(prefix, from);
     const gtsam::Symbol to_symb(prefix, to);
 
@@ -118,7 +122,8 @@ void DeformationGraph::addNodeValence(const gtsam::Key& key,
   for (Vertex v : valences) {
     const gtsam::Symbol vertex(valence_prefix, v);
     const gtsam::Pose3& node_pose = pg_initial_poses_[prefix].at(idx);
-    const gtsam::Pose3 vertex_pose(gtsam::Rot3(), vertex_positions_.at(v));
+    const gtsam::Pose3 vertex_pose(gtsam::Rot3(),
+                                   vertex_positions_[valence_prefix].at(v));
 
     // Define noise. Hardcoded for now
     static const gtsam::SharedNoiseModel& noise =
@@ -322,6 +327,24 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
     new_vertices = last_calculated_vertices_;
   }
 
+  // Build Octree
+  Octree::Ptr search_octree(new Octree(1.0));
+  pcl::PointCloud<pcl::PointXYZ>::Ptr search_cloud(
+      new pcl::PointCloud<pcl::PointXYZ>);
+  search_octree->setInputCloud(search_cloud);
+  for (size_t i = 0; i < vertex_prefixes_.size(); i++) {
+    if (vertex_prefixes_[i] == prefix) {
+      search_cloud->push_back(vertices_->points[i]);
+      search_octree->addPointFromCloud(search_cloud->points.size() - 1,
+                                       nullptr);
+    }
+  }
+
+  if (search_cloud->size() < k) {
+    ROS_WARN("Not enough vertices to deform mesh. ");
+    return original_mesh;
+  }
+
   for (size_t ii = start_idx; ii < original_vertices.points.size(); ii++) {
     const pcl::PointXYZRGBA& p = original_vertices.points[ii];
     // search for k + 1 nearest nodes
@@ -331,7 +354,7 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
     // Query octree
     std::vector<int> nearest_nodes_index;
     std::vector<float> nearest_nodes_sq_dist;
-    vertices_octree_->nearestKSearch(
+    search_octree->nearestKSearch(
         p_xyz, k + 1, nearest_nodes_index, nearest_nodes_sq_dist);
 
     // Calculate new point location from k points
@@ -340,7 +363,8 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
         std::sqrt(nearest_nodes_sq_dist[nearest_nodes_index.size() - 1]);
     double weight_sum = 0;
     for (size_t j = 0; j < nearest_nodes_index.size() - 1; j++) {
-      const pcl::PointXYZ& p_g = vertices_->points.at(nearest_nodes_index[j]);
+      const pcl::PointXYZ& p_g =
+          search_cloud->points.at(nearest_nodes_index[j]);
       gtsam::Point3 gj(p_g.x, p_g.y, p_g.z);
       double weight = (1 - std::sqrt(nearest_nodes_sq_dist[j]) / d_max);
       if (weight_sum == 0 && weight == 0) weight = 1;

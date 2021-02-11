@@ -1,28 +1,42 @@
 /**
- * @file   KimeraPgmo.h
- * @brief  KimeraPgmo class: Main class and ROS interface
+ * @file   KimeraPgmoMulti.h
+ * @brief  KimeraPgmoMulti class: Derived multirobot class
  * @author Yun Chang
  */
 #pragma once
 
-#include "kimera_pgmo/AbsolutePoseStamped.h"
-#include "kimera_pgmo/KimeraPgmoInterface.h"
-#include "kimera_pgmo/TriangleMeshIdStamped.h"
-#include "kimera_pgmo/compression/OctreeCompression.h"
-#include "kimera_pgmo/utils/CommonFunctions.h"
+#include <map>
+#include <queue>
+#include <string>
+
+#include <nav_msgs/Odometry.h>
+#include <nav_msgs/Path.h>
+#include <pcl/PolygonMesh.h>
+#include <pcl_msgs/PolygonMesh.h>
+#include <pose_graph_tools/PoseGraph.h>
+#include <ros/ros.h>
+#include <std_msgs/String.h>
+#include <std_srvs/Empty.h>
+#include <tf2_ros/transform_broadcaster.h>
+
+#include <gtsam/geometry/Pose3.h>
+#include <gtsam/inference/Symbol.h>
+
+#include "kimera_pgmo/KimeraPgmo.h"
 
 namespace kimera_pgmo {
-class KimeraPgmo : public KimeraPgmoInterface {
-  friend class KimeraPgmoTest;
+
+class KimeraPgmoMulti : public KimeraPgmoInterface {
+  friend class KimeraPgmoMultiTest;
 
  public:
-  /*! \brief Constructor for Kimera Pgmo class. Which subscribes to the
-   * incremental mesh and pose graph to create the deformation graph and also
-   * the full mesh to perform distortions and publish the optimzed distored mesh
-   * and trajectory
+  /*! \brief Constructor for Kimera Pgmo Multi class. Which subscribes to the
+   * incremental mesh and pose graph from multiple robots to create the
+   * deformation graph and also the full mesh to perform distortions and publish
+   * the optimzed distored mesh and trajectory
    */
-  KimeraPgmo();
-  ~KimeraPgmo();
+  KimeraPgmoMulti(const std::vector<size_t>& robot_ids);
+  ~KimeraPgmoMulti();
 
   /*! \brief Initializes callbacks and publishers, and also parse the parameters
    *  - n: ROS node handle.
@@ -47,13 +61,13 @@ class KimeraPgmo : public KimeraPgmoInterface {
 
   /*! \brief Publish the optimized mesh (stored after deformation)
    */
-  bool publishOptimizedMesh() const;
+  bool publishOptimizedMesh(const size_t& robot_id) const;
 
   /*! \brief Publish optimized trajectory (Currently unused, as trajectory can
    * be visualized with published pose graph)
    *  - robot_id: the robot for which the trajectory is to be published
    */
-  bool publishOptimizedPath() const;
+  bool publishOptimizedPath(const size_t& robot_id) const;
 
   /*! \brief Recieves latest edges in the pose graph and add to deformation
    * graph. Also place the received node in a queue to connect them to the
@@ -112,35 +126,37 @@ class KimeraPgmo : public KimeraPgmoInterface {
 
  protected:
   // optimized mesh for each robot
-  pcl::PolygonMesh optimized_mesh_;
-  ros::Time last_mesh_stamp_;
+  std::map<size_t, pcl::PolygonMesh> optimized_mesh_;
+  std::map<size_t, ros::Time> last_mesh_stamp_;
+  std::map<size_t, OctreeCompressionPtr> compression_;
+  std::vector<size_t> robot_ids_;
 
-  OctreeCompressionPtr compression_;
+  // Deformation graph resolution
+  double deformation_graph_resolution_;
 
   // Publishers
-  ros::Publisher optimized_mesh_pub_;
-  ros::Publisher optimized_path_pub_;  // Unused for now (TODO)
-  ros::Publisher optimized_odom_pub_;  // Unused for now (TODO)
+  std::map<size_t, ros::Publisher> optimized_mesh_pub_;
+  std::map<size_t, ros::Publisher> optimized_path_pub_;
   ros::Publisher pose_graph_pub_;
   ros::Publisher viz_deformation_graph_pub_;
 
+  // Subscribers
+  std::map<size_t, ros::Subscriber> pose_graph_incremental_sub_;
+  std::map<size_t, ros::Subscriber> full_mesh_sub_;
+  std::map<size_t, ros::Subscriber> incremental_mesh_sub_;
+  std::map<size_t, ros::Subscriber> path_callback_sub_;
+
   // Transform broadcaster
   tf2_ros::TransformBroadcaster tf_broadcast_;
-
-  // Subscribers
-  ros::Subscriber pose_graph_incremental_sub_;
-  ros::Subscriber full_mesh_sub_;
-  ros::Subscriber incremental_mesh_sub_;
-  ros::Subscriber path_callback_sub_;
 
   // Service
   ros::ServiceServer save_mesh_srv_;
   ros::ServiceServer save_traj_srv_;
 
   // Trajectory
-  std::vector<gtsam::Pose3> trajectory_;
-  std::queue<size_t> unconnected_nodes_;
-  std::vector<ros::Time> timestamps_;
+  std::map<size_t, std::vector<gtsam::Pose3> > trajectory_;
+  std::map<size_t, std::queue<size_t> > unconnected_nodes_;
+  std::map<size_t, std::vector<ros::Time> > timestamps_;
 
   std::string frame_id_;
 

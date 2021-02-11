@@ -204,7 +204,7 @@ class DeformationGraph {
    * graph nodes not included)
    * - outputs graph
    */
-  inline Graph getGraph() const { return graph_; }
+  inline Graph getGraph(const char& prefix) const { return graph_.at(prefix); }
 
   /*! \brief Gets the estimated values since last optimization
    *  - outputs last estimated values as GTSAM Values
@@ -239,18 +239,19 @@ class DeformationGraph {
                                 const char& prefix);
 
  private:
-  Graph graph_;
+  std::map<char, Graph> graph_;
   pcl::PointCloud<pcl::PointXYZ>::Ptr vertices_;
   typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
-  Octree::Ptr vertices_octree_;
 
   // Keep track of vertices not part of mesh
   // for embedding trajectory, etc.
   std::map<char, std::vector<gtsam::Pose3> > pg_initial_poses_;
 
-  std::vector<gtsam::Point3> vertex_positions_;
+  std::map<char, std::vector<gtsam::Point3> > vertex_positions_;
   // track the prefixes only important in multirobot case
   std::vector<char> vertex_prefixes_;
+  // Number of mesh vertices corresponding a particular prefix thus far
+  std::map<char, size_t> num_vertices_;
 
   std::unique_ptr<KimeraRPGO::RobustSolver> pgo_;
 
