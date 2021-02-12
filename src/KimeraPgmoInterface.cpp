@@ -5,6 +5,7 @@
  */
 #include <chrono>
 #include <cmath>
+#include <limits>
 
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TransformStamped.h>
@@ -292,22 +293,36 @@ void KimeraPgmoInterface::processIncrementalMesh(
   if (new_indices.size() == 0) return;
   bool connection = false;
   // Associate nodes to mesh
-  while (!unconnected_nodes->empty()) {
-    const size_t node = unconnected_nodes->front();
-    unconnected_nodes->pop();
-    if (abs(node_timestamps[node].toSec() - msg_time) < embed_delta_t_) {
-      ROS_INFO("Connecting robot %d node %d to %d vertices. ",
-               robot_id,
-               node,
-               new_indices.size());
-      deformation_graph_.addNodeValence(
-          gtsam::Symbol(GetRobotPrefix(robot_id), node),
-          new_indices,
-          GetVertexPrefix(robot_id));
-      connection = true;
+  if (!unconnected_nodes->empty()) {
+    // find the closest
+    size_t closest_node = unconnected_nodes->front();
+    double min_difference = std::numeric_limits<double>::infinity();
+    while (!unconnected_nodes->empty()) {
+      const size_t node = unconnected_nodes->front();
+      if (abs(node_timestamps[node].toSec() - msg_time) < min_difference) {
+        min_difference = abs(node_timestamps[node].toSec());
+        closest_node = node;
+        unconnected_nodes->pop();
+      } else {
+        break;
+      }
     }
-    // termination guarantee
-    if (node_timestamps[node].toSec() > msg_time + embed_delta_t_) break;
+    ROS_INFO("Connecting robot %d node %d to %d vertices. ",
+             robot_id,
+             closest_node,
+             new_indices.size());
+    deformation_graph_.addNodeValence(
+        gtsam::Symbol(GetRobotPrefix(robot_id), closest_node),
+        new_indices,
+        GetVertexPrefix(robot_id));
+    connection = true;
+    if (abs(node_timestamps[closest_node].toSec() - msg_time) >
+        embed_delta_t_) {
+      ROS_WARN(
+          "Connection from robot node to vertices have a time difference "
+          "of %f",
+          abs(node_timestamps[closest_node].toSec() - msg_time));
+    }
   }
   if (!connection) {
     ROS_WARN("KimeraPgmo: Partial mesh not connected to pose graph. ");
