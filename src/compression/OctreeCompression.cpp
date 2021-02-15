@@ -49,70 +49,47 @@ void OctreeCompression::compressAndIntegrate(
     std::vector<pcl::Vertices>* new_triangles,
     std::vector<size_t>* new_indices,
     const double& stamp_in_sec) {
-  // Place vertices through octree for compression
-  double min_x, min_y, min_z, max_x, max_y, max_z;
-
-  bool is_in_box;
-  // Keep track of the new indices when redoing the connections
-  // for the mesh surfaces
-  std::map<size_t, size_t> remapping;
-  size_t original_size = all_vertices_->points.size();
-
-  for (size_t i = 0; i < input_vertices.points.size(); ++i) {
-    const pcl::PointXYZRGBA p = input_vertices.points[i];
-    try {
-      octree_->getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
-      is_in_box = (p.x >= min_x && p.x <= max_x) &&
-                  (p.y >= min_y && p.y <= max_y) &&
-                  (p.z >= min_z && p.z <= max_z);
-      if (!is_in_box || !octree_->isVoxelOccupiedAtPoint(p)) {
-        // New point
-        new_vertices->push_back(p);
-        adjacent_polygons_.push_back(std::vector<pcl::Vertices>());
-        active_vertices_->points.push_back(p);
-        // add to octree
-        octree_->addPointFromCloud(active_vertices_->points.size() - 1,
-                                   nullptr);
-        // Note that the other method to add to octree is addPointToCloud(point,
-        // inputcloud) but this method causes segmentation faults under certain
-        // conditions
-        all_vertices_->push_back(p);
-        // Add index
-        remapping[i] = all_vertices_->points.size() - 1;
-        // keep track of index
-        active_vertices_index_.push_back(all_vertices_->points.size() - 1);
-        new_indices->push_back(all_vertices_->points.size() - 1);
-        // Add latest observed time
-        vertices_latest_time_.push_back(stamp_in_sec);
-      } else {
-        // A nearby point exist, remap to nearby point
-        float unused = 0.f;
-        int result_idx;
-        octree_->approxNearestSearch(p, result_idx, unused);
-        // Add remapping index
-        remapping[i] = active_vertices_index_[result_idx];
-        // Push to new indices if does not already yet
-        if (std::find(new_indices->begin(),
-                      new_indices->end(),
-                      active_vertices_index_[result_idx]) == new_indices->end())
-          new_indices->push_back(active_vertices_index_[result_idx]);
-        if (result_idx < vertices_latest_time_.size())
-          vertices_latest_time_.at(result_idx) = stamp_in_sec;
-      }
-    } catch (...) {
-      ROS_ERROR("OctreeCompression: Failed to insert mesh vertex. ");
-    }
-  }
-
-  // Insert polygons
-  for (pcl::Vertices polygon : input_surfaces) {
-    pcl::Vertices new_polygon;
-    // Remap polygon while checking if polygon is new
-    // by checking to see if nay indices in new regime
+  for (auto polygon : input_surfaces) {
     bool new_surface = false;
-    for (size_t idx : polygon.vertices) {
-      new_polygon.vertices.push_back(remapping[idx]);
-      if (remapping[idx] >= original_size) new_surface = true;
+    pcl::Vertices new_polygon;
+    std::vector<pcl::PointXYZRGBA> new_polygon_vertices;
+    // Create temporary octree and cloud
+    Octree temp_octree(octree_resolution_);
+    PointCloud::Ptr temp_active_vertices(new PointCloud);
+    *temp_active_vertices = *active_vertices_;
+    temp_octree.setInputCloud(temp_active_vertices);
+    temp_octree.addPointsFromInputCloud();
+    size_t new_idx = temp_active_vertices->points.size();
+    for (auto idx : polygon.vertices) {
+      // Check / compress point using octree
+      const pcl::PointXYZRGBA p = input_vertices.points[idx];
+      new_polygon_vertices.push_back(p);
+      try {
+        double min_x, min_y, min_z, max_x, max_y, max_z;
+        bool is_in_box;
+        temp_octree.getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
+        is_in_box = (p.x >= min_x && p.x <= max_x) &&
+                    (p.y >= min_y && p.y <= max_y) &&
+                    (p.z >= min_z && p.z <= max_z);
+        if (!is_in_box || !temp_octree.isVoxelOccupiedAtPoint(p)) {
+          // New point
+          new_surface = true;  // Must be a new surface if new point detected
+          new_polygon.vertices.push_back(new_idx);
+          new_idx++;
+          temp_active_vertices->points.push_back(p);
+          temp_octree.addPointFromCloud(temp_active_vertices->points.size() - 1,
+                                        nullptr);
+        } else {
+          // A nearby point exists, remap to nearby point
+          float unused = 0.f;
+          int result_idx;
+          temp_octree.approxNearestSearch(p, result_idx, unused);
+          new_polygon.vertices.push_back(result_idx);
+        }
+      } catch (...) {
+        ROS_ERROR("OctreeCompression: Failed to insert mesh vertex. ");
+        return;
+      }
     }
 
     // Check if polygon has actual three diferent vertices
@@ -122,6 +99,38 @@ void OctreeCompression::compressAndIntegrate(
         new_polygon.vertices[1] == new_polygon.vertices[2] ||
         new_polygon.vertices[2] == new_polygon.vertices[0])
       continue;
+
+    // Add to actual octree
+    for (size_t i = 0; i < new_polygon_vertices.size(); i++) {
+      if (new_polygon.vertices[i] >= active_vertices_->size()) {
+        // new point
+        const pcl::PointXYZRGBA p = new_polygon_vertices[i];
+        new_vertices->push_back(p);
+        adjacent_polygons_.push_back(std::vector<pcl::Vertices>());
+        active_vertices_->points.push_back(p);
+        octree_->addPointFromCloud(active_vertices_->points.size() - 1,
+                                   nullptr);
+        // Note that the other method to add to octree is
+        // addPointToCloud(point, inputcloud) but this method causes
+        // segmentation faults sometimes
+        all_vertices_->push_back(p);
+        new_polygon.vertices[i] = active_vertices_->points.size() - 1;
+        active_vertices_index_.push_back(all_vertices_->points.size() - 1);
+        new_indices->push_back(all_vertices_->points.size() - 1);
+        vertices_latest_time_.push_back(stamp_in_sec);
+      } else {
+        // Not new point
+        size_t result_idx = new_polygon.vertices[i];
+        new_polygon.vertices[i] = active_vertices_index_[result_idx];
+        if (std::find(new_indices->begin(),
+                      new_indices->end(),
+                      active_vertices_index_[result_idx]) ==
+            new_indices->end()) {
+          new_indices->push_back(active_vertices_index_[result_idx]);
+        }
+        vertices_latest_time_[result_idx] = stamp_in_sec;
+      }
+    }
 
     // Check if it is a new surface constructed from existing points
     if (!new_surface) {
