@@ -311,7 +311,7 @@ TEST_F(VoxbloxProcessingTest, fullMesh) {
 TEST_F(VoxbloxProcessingTest, compression1) {
   // Test with higher resolution to see if compression works
   ros::NodeHandle nh;
-  system("rosparam set output_mesh_resolution 4.0");
+  system("rosparam set output_mesh_resolution 2.0");
   vp_.initialize(nh);
 
   voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
@@ -324,12 +324,8 @@ TEST_F(VoxbloxProcessingTest, compression1) {
   std::vector<pcl::Vertices> triangles;
   GetFullMesh(full_vertices, &triangles);
 
-  EXPECT_EQ(size_t(1), full_vertices->points.size());
+  EXPECT_EQ(size_t(0), full_vertices->points.size());
   EXPECT_EQ(size_t(0), triangles.size());
-  // Test points and triangles
-  EXPECT_NEAR(0, full_vertices->points[0].x, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].y, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].z, 1e-3);
 
   // Add second mesh
   voxblox_msgs::Mesh::Ptr mesh2(new voxblox_msgs::Mesh);
@@ -337,12 +333,8 @@ TEST_F(VoxbloxProcessingTest, compression1) {
   ProcessVoxbloxMesh(mesh2);
   GetFullMesh(full_vertices, &triangles);
 
-  EXPECT_EQ(size_t(1), full_vertices->points.size());
+  EXPECT_EQ(size_t(0), full_vertices->points.size());
   EXPECT_EQ(size_t(0), triangles.size());
-  // Test points and triangles
-  EXPECT_NEAR(0, full_vertices->points[0].x, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].y, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].z, 1e-3);
 
   // This last mesh has stamp 11.6 so last mesh is not within time horizon
   // meaning that for duplicated blocks, won't check if points duplicated
@@ -351,16 +343,8 @@ TEST_F(VoxbloxProcessingTest, compression1) {
   ProcessVoxbloxMesh(mesh3);
   GetFullMesh(full_vertices, &triangles);
 
-  EXPECT_EQ(size_t(2), full_vertices->points.size());
+  EXPECT_EQ(size_t(0), full_vertices->points.size());
   EXPECT_EQ(size_t(0), triangles.size());
-  // Test points and triangles
-  EXPECT_NEAR(0, full_vertices->points[0].x, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].y, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].z, 1e-3);
-
-  EXPECT_NEAR(0, full_vertices->points[1].x, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[1].y, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[1].z, 1e-3);
 }
 
 TEST_F(VoxbloxProcessingTest, compression2) {
@@ -379,12 +363,8 @@ TEST_F(VoxbloxProcessingTest, compression2) {
   std::vector<pcl::Vertices> triangles;
   GetFullMesh(full_vertices, &triangles);
 
-  EXPECT_EQ(size_t(1), full_vertices->points.size());
+  EXPECT_EQ(size_t(0), full_vertices->points.size());
   EXPECT_EQ(size_t(0), triangles.size());
-  // Test points and triangles
-  EXPECT_NEAR(0, full_vertices->points[0].x, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].y, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].z, 1e-3);
 
   // process another mesh
   voxblox_msgs::Mesh::Ptr mesh4(new voxblox_msgs::Mesh);
@@ -392,27 +372,24 @@ TEST_F(VoxbloxProcessingTest, compression2) {
   ProcessVoxbloxMesh(mesh4);
   GetFullMesh(full_vertices, &triangles);
 
-  EXPECT_EQ(size_t(5), full_vertices->points.size());
-  EXPECT_EQ(size_t(4), triangles.size());
+  EXPECT_EQ(size_t(3), full_vertices->points.size());
+  EXPECT_EQ(size_t(1), triangles.size());
   // Test points and triangles
-  EXPECT_NEAR(0, full_vertices->points[0].x, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].y, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].z, 1e-3);
+  EXPECT_NEAR(4.5, full_vertices->points[0].x, 1e-3);
+  EXPECT_NEAR(3.5, full_vertices->points[0].y, 1e-3);
+  EXPECT_NEAR(4.5, full_vertices->points[0].z, 1e-3);
 
-  EXPECT_NEAR(4.5, full_vertices->points[3].x, 1e-3);
-  EXPECT_NEAR(4.5, full_vertices->points[3].y, 1e-3);
-  EXPECT_NEAR(0.0, full_vertices->points[3].z, 1e-3);
+  EXPECT_NEAR(4.5, full_vertices->points[1].x, 1e-3);
+  EXPECT_NEAR(4.5, full_vertices->points[1].y, 1e-3);
+  EXPECT_NEAR(3.5, full_vertices->points[1].z, 1e-3);
 
-  EXPECT_NEAR(4.5, full_vertices->points[4].x, 1e-3);
-  EXPECT_NEAR(3.5, full_vertices->points[4].y, 1e-3);
-  EXPECT_NEAR(4.5, full_vertices->points[4].z, 1e-3);
+  EXPECT_NEAR(3.5, full_vertices->points[2].x, 1e-3);
+  EXPECT_NEAR(4.5, full_vertices->points[2].y, 1e-3);
+  EXPECT_NEAR(3.5, full_vertices->points[2].z, 1e-3);
 
   EXPECT_EQ(0, triangles[0].vertices[0]);
-  EXPECT_EQ(1, triangles[1].vertices[0]);
-
-  EXPECT_EQ(0, triangles[2].vertices[0]);
-  EXPECT_EQ(2, triangles[2].vertices[2]);
-  EXPECT_EQ(4, triangles[3].vertices[0]);
+  EXPECT_EQ(1, triangles[0].vertices[1]);
+  EXPECT_EQ(2, triangles[0].vertices[2]);
 }
 
 }  // namespace kimera_pgmo
