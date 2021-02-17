@@ -114,7 +114,7 @@ void OctreeCompression::compressAndIntegrate(
         // addPointToCloud(point, inputcloud) but this method causes
         // segmentation faults sometimes
         all_vertices_->push_back(p);
-        new_polygon.vertices[i] = active_vertices_->points.size() - 1;
+        new_polygon.vertices[i] = all_vertices_->points.size() - 1;
         active_vertices_index_.push_back(all_vertices_->points.size() - 1);
         new_indices->push_back(all_vertices_->points.size() - 1);
         vertices_latest_time_.push_back(stamp_in_sec);
