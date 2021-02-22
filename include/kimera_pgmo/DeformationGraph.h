@@ -268,6 +268,6 @@ class DeformationGraph {
 
   // Recalculate only if new measurements added
   bool recalculate_vertices_;
-  pcl::PointCloud<pcl::PointXYZRGBA> last_calculated_vertices_;
+  std::map<char, pcl::PointCloud<pcl::PointXYZRGBA> > last_calculated_vertices_;
 };
 }  // namespace kimera_pgmo
