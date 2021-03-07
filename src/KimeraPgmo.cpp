@@ -116,6 +116,10 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
   // Initialize save trajectory service
   save_traj_srv_ = nl.advertiseService(
       "save_trajectory", &KimeraPgmo::saveTrajectoryCallback, this);
+
+  // Initialize request mesh edges service
+  req_mesh_edges_srv_ = nl.advertiseService(
+      "get_mesh_edges", &KimeraPgmo::requestMeshEdgesCallback, this);
   return true;
 }
 
@@ -307,6 +311,15 @@ bool KimeraPgmo::saveTrajectoryCallback(std_srvs::Empty::Request&,
   saveTrajectory(optimized_path, timestamps_, csv_name);
   ROS_INFO("KimeraPgmo: Saved trajectories to file.");
   return true;
+}
+
+bool KimeraPgmo::requestMeshEdgesCallback(
+    kimera_pgmo::RequestMeshFactors::Request& request,
+    kimera_pgmo::RequestMeshFactors::Response& response) {
+  size_t offset_vertex_indices = 0;
+  if (request.reindex_vertices) offset_vertex_indices = trajectory_.size();
+  getConsistencyFactors(
+      request.robot_id, &response.mesh_factors, offset_vertex_indices);
 }
 
 void KimeraPgmo::logStats(const std::string filename) const {

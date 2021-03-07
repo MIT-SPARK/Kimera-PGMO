@@ -362,6 +362,122 @@ bool KimeraPgmoInterface::saveTrajectory(
   return true;
 }
 
+bool KimeraPgmoInterface::getConsistencyFactors(
+    const size_t& robot_id,
+    std::vector<pose_graph_tools::PoseGraphEdge>* edges,
+    const size_t& vertex_index_offset) {
+  assert(NULL != edges);
+  // Make sure that robot id is valid
+  if (robot_id_to_prefix.find(robot_id) == robot_id_to_prefix.end()) {
+    ROS_ERROR("Unexpected robot id. ");
+    return false;
+  }
+
+  // Get the edges from the deformation graph
+  gtsam::NonlinearFactorGraph edge_factors =
+      deformation_graph_.getConsistencyFactors();
+
+  // Get the prefixes
+  char vertex_prefix = robot_id_to_vertex_prefix.at(robot_id);
+  char robot_prefix = robot_id_to_prefix.at(robot_id);
+  // types of edges
+  enum class EdgeType {
+    VERTEXVERTEX = 0,
+    POSEVERTEX = 1,
+    VERTEXPOSE = 2,
+    POSEPOSE = 3
+  };
+
+  // Iterate and convert the edges to PoseGraphEdge type
+  for (auto factor : edge_factors) {
+    gtsam::Symbol from(factor->front());
+    gtsam::Symbol to(factor->back());
+    // Classify edge type
+    EdgeType edge_type;
+    if (from.chr() == vertex_prefix) {
+      if (to.chr() == vertex_prefix) {
+        edge_type = EdgeType::VERTEXVERTEX;
+      } else if (to.chr() == robot_prefix) {
+        edge_type == EdgeType::VERTEXPOSE;
+      } else {
+        ROS_WARN("Unexpected edge type. ");
+        continue;
+      }
+    } else if (from.chr() == robot_prefix) {
+      if (to.chr() == vertex_prefix) {
+        edge_type = EdgeType::POSEVERTEX;
+      } else if (to.chr() == robot_prefix) {
+        ROS_ERROR(
+            "Getting a pose-to-pose edge in deformation graph consistency "
+            "factors. Check for bug. ");
+        continue;
+      } else {
+        ROS_WARN("Unexpected edge type. ");
+        continue;
+      }
+    }
+
+    // Create edge
+    pose_graph_tools::PoseGraphEdge pg_edge;
+    pg_edge.robot_from = robot_id;
+    pg_edge.robot_to = robot_id;
+    pg_edge.key_from = from.index();
+    pg_edge.key_to = to.index();
+    // Covariance is infinite for rotation part
+    pg_edge.covariance[21] = 1.0 / 0.0;
+    pg_edge.covariance[28] = 1.0 / 0.0;
+    pg_edge.covariance[35] = 1.0 / 0.0;
+    // Pose should be [I , R_1^{-1} (t2 - t1)] *** these are all initial
+    // poses/positions
+    switch (edge_type) {
+      case EdgeType::VERTEXVERTEX: {
+        const gtsam::Point3& vertex_pos_from =
+            deformation_graph_.getInitialPositionVertex(vertex_prefix,
+                                                        pg_edge.key_from);
+        const gtsam::Point3& vertex_pos_to =
+            deformation_graph_.getInitialPositionVertex(vertex_prefix,
+                                                        pg_edge.key_to);
+        pg_edge.pose = GtsamToRos(
+            gtsam::Pose3(gtsam::Rot3(), vertex_pos_to - vertex_pos_from));
+
+        // Update key with offset
+        pg_edge.key_from = pg_edge.key_from + vertex_index_offset;
+        pg_edge.key_to = pg_edge.key_to + vertex_index_offset;
+        break;
+      }
+      case EdgeType::POSEVERTEX: {
+        const gtsam::Pose3& pose_from =
+            deformation_graph_.getInitialPose(robot_prefix, pg_edge.key_from);
+        const gtsam::Point3& vertex_pos_to =
+            deformation_graph_.getInitialPositionVertex(vertex_prefix,
+                                                        pg_edge.key_to);
+        pg_edge.pose = GtsamToRos(gtsam::Pose3(
+            gtsam::Rot3(),
+            pose_from.rotation().inverse().rotate(vertex_pos_to -
+                                                  pose_from.translation())));
+
+        // Update key with offset
+        pg_edge.key_to = pg_edge.key_to + vertex_index_offset;
+        break;
+      }
+      case EdgeType::VERTEXPOSE: {
+        const gtsam::Point3& vertex_pos_from =
+            deformation_graph_.getInitialPositionVertex(vertex_prefix,
+                                                        pg_edge.key_from);
+        const gtsam::Pose3& pose_to =
+            deformation_graph_.getInitialPose(robot_prefix, pg_edge.key_to);
+        pg_edge.pose = GtsamToRos(gtsam::Pose3(
+            gtsam::Rot3(), pose_to.translation() - vertex_pos_from));
+
+        // Update key with offset
+        pg_edge.key_from = pg_edge.key_from + vertex_index_offset;
+        break;
+      }
+    }
+    edges->push_back(pg_edge);
+  }
+}
+
 void KimeraPgmoInterface::visualizeDeformationGraph(
     const ros::Publisher* publisher) const {
   if (publisher->getNumSubscribers() > 0) {

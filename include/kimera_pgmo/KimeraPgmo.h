@@ -7,6 +7,7 @@
 
 #include "kimera_pgmo/AbsolutePoseStamped.h"
 #include "kimera_pgmo/KimeraPgmoInterface.h"
+#include "kimera_pgmo/RequestMeshFactors.h"
 #include "kimera_pgmo/TriangleMeshIdStamped.h"
 #include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
@@ -105,6 +106,12 @@ class KimeraPgmo : public KimeraPgmoInterface {
   bool saveTrajectoryCallback(std_srvs::Empty::Request&,
                               std_srvs::Empty::Response&);
 
+  /*! \brief Requests the mesh related edges (pose-vertex, vertex-vertex) in the
+   * deformation graph.
+   */
+  bool requestMeshEdgesCallback(kimera_pgmo::RequestMeshFactors::Request&,
+                                kimera_pgmo::RequestMeshFactors::Response&);
+
   /*! \brief log the run-time stats such as pose graph size, mesh size, and run
    * time
    */
@@ -136,6 +143,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
   // Service
   ros::ServiceServer save_mesh_srv_;
   ros::ServiceServer save_traj_srv_;
+  ros::ServiceServer req_mesh_edges_srv_;
 
   // Trajectory
   std::vector<gtsam::Pose3> trajectory_;

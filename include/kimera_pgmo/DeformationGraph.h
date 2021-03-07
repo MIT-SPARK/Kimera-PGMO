@@ -226,6 +226,26 @@ class DeformationGraph {
     return GtsamGraphToRos(nfg_, values_, timestamps);
   }
 
+  /*! \brief Get the consistency factors (ie. the deformation edge factors)
+   */
+  inline gtsam::NonlinearFactorGraph getConsistencyFactors() const {
+    return consistency_factors_;
+  }
+
+  /*! \brief Get the intial pose of a keyframe node
+   */
+  inline gtsam::Pose3 getInitialPose(const char& prefix,
+                                     const size_t& index) const {
+    return pg_initial_poses_.at(prefix).at(index);
+  }
+
+  /*! \brief Get the intial position of a vertex
+   */
+  inline gtsam::Point3 getInitialPositionVertex(const char& prefix,
+                                                const size_t& index) const {
+    return vertex_positions_.at(prefix).at(index);
+  }
+
  private:
   /*! \brief Called within updateMesh to create the DeformationEdgeFactors
    * created from the newly added mesh surfaces

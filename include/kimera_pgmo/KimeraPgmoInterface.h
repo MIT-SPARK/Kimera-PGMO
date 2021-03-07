@@ -153,6 +153,16 @@ class KimeraPgmoInterface {
                       const std::vector<ros::Time>& timestamps,
                       const std::string& csv_file);
 
+  /*! \brief Get the consistency factros as pose graph edges
+   * - robot_id: the id of the robot in question
+   * - edges: pointer to the factrs
+   * - vertex_index_offset start index for vertices from this index (default 0)
+   */
+  bool getConsistencyFactors(
+      const size_t& robot_id,
+      std::vector<pose_graph_tools::PoseGraphEdge>* edges,
+      const size_t& vertex_index_offset = 0);
+
   /*! \brief visualize the edges of the deformation graph  */
   void visualizeDeformationGraph(const ros::Publisher* publisher) const;
 
