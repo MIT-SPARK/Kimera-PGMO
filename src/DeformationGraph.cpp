@@ -322,9 +322,10 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
   pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
   // iterate through original vertices to create new vertices
   size_t start_idx = 0;
-  if (!recalculate_vertices_) {
-    start_idx = last_calculated_vertices_.points.size();
-    new_vertices = last_calculated_vertices_;
+  if (!recalculate_vertices_ && last_calculated_vertices_.find(prefix) !=
+                                    last_calculated_vertices_.end()) {
+    start_idx = last_calculated_vertices_[prefix].points.size();
+    new_vertices = last_calculated_vertices_[prefix];
   }
 
   // Build Octree
@@ -391,7 +392,7 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
   pcl::PolygonMesh new_mesh;
   new_mesh.polygons = original_mesh.polygons;
   pcl::toPCLPointCloud2(new_vertices, new_mesh.cloud);
-  last_calculated_vertices_ = new_vertices;
+  last_calculated_vertices_[prefix] = new_vertices;
   recalculate_vertices_ = false;
   return new_mesh;
 }
