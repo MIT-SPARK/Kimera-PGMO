@@ -85,6 +85,9 @@ target_link_libraries(${PROJECT_NAME}-test_octree_compression ${PROJECT_NAME})
 add_rostest_gtest(${PROJECT_NAME}-test_voxblox_processing test/test_voxblox_processing.test test/test_voxblox_processing.cpp)
 target_link_libraries(${PROJECT_NAME}-test_voxblox_processing ${PROJECT_NAME})
 
+add_rostest_gtest(${PROJECT_NAME}-test_kimera_pgmo_interface test/test_kimera_pgmo_interface.test test/test_kimera_pgmo_interface.cpp)
+target_link_libraries(${PROJECT_NAME}-test_kimera_pgmo_interface ${PROJECT_NAME})
+
 add_rostest_gtest(${PROJECT_NAME}-test_kimera_pgmo test/test_kimera_pgmo.test test/test_kimera_pgmo.cpp)
 target_link_libraries(${PROJECT_NAME}-test_kimera_pgmo ${PROJECT_NAME})
 
