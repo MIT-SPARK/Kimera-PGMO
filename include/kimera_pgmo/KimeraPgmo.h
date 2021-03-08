@@ -109,8 +109,9 @@ class KimeraPgmo : public KimeraPgmoInterface {
   /*! \brief Requests the mesh related edges (pose-vertex, vertex-vertex) in the
    * deformation graph.
    */
-  bool requestMeshEdgesCallback(kimera_pgmo::RequestMeshFactors::Request&,
-                                kimera_pgmo::RequestMeshFactors::Response&);
+  bool requestMeshEdgesCallback(
+      kimera_pgmo::RequestMeshFactors::Request& request,
+      kimera_pgmo::RequestMeshFactors::Response& response);
 
   /*! \brief log the run-time stats such as pose graph size, mesh size, and run
    * time

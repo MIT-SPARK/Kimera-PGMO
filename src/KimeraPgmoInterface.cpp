@@ -367,6 +367,7 @@ bool KimeraPgmoInterface::getConsistencyFactors(
     std::vector<pose_graph_tools::PoseGraphEdge>* edges,
     const size_t& vertex_index_offset) const {
   assert(NULL != edges);
+  edges->clear();
   // Make sure that robot id is valid
   if (robot_id_to_prefix.find(robot_id) == robot_id_to_prefix.end()) {
     ROS_ERROR("Unexpected robot id. ");
@@ -436,6 +437,7 @@ bool KimeraPgmoInterface::getConsistencyFactors(
         // Update key with offset
         pg_edge.key_from = pg_edge.key_from + vertex_index_offset;
         pg_edge.key_to = pg_edge.key_to + vertex_index_offset;
+        edges->push_back(pg_edge);
         break;
       }
       case pose_graph_tools::PoseGraphEdge::POSE_MESH: {
@@ -451,6 +453,7 @@ bool KimeraPgmoInterface::getConsistencyFactors(
 
         // Update key with offset
         pg_edge.key_to = pg_edge.key_to + vertex_index_offset;
+        edges->push_back(pg_edge);
         break;
       }
       case pose_graph_tools::PoseGraphEdge::MESH_POSE: {
@@ -464,11 +467,13 @@ bool KimeraPgmoInterface::getConsistencyFactors(
 
         // Update key with offset
         pg_edge.key_from = pg_edge.key_from + vertex_index_offset;
+        edges->push_back(pg_edge);
         break;
       }
     }
-    edges->push_back(pg_edge);
   }
+  if (edges->size() == 0) return false;
+  return true;
 }
 
 void KimeraPgmoInterface::visualizeDeformationGraph(

@@ -318,7 +318,7 @@ bool KimeraPgmo::requestMeshEdgesCallback(
     kimera_pgmo::RequestMeshFactors::Response& response) {
   size_t offset_vertex_indices = 0;
   if (request.reindex_vertices) offset_vertex_indices = trajectory_.size();
-  getConsistencyFactors(
+  return getConsistencyFactors(
       request.robot_id, &response.mesh_factors, offset_vertex_indices);
 }
 

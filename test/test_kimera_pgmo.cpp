@@ -51,6 +51,12 @@ class KimeraPgmoTest : public ::testing::Test {
     pgmo_.optimizedPathCallback(path_msg);
   }
 
+  bool RequestMeshEdgesCallback(
+      kimera_pgmo::RequestMeshFactors::Request& req,
+      kimera_pgmo::RequestMeshFactors::Response& res) {
+    return pgmo_.requestMeshEdgesCallback(req, res);
+  }
+
   inline std::vector<gtsam::Pose3> getTrajectory() const {
     return pgmo_.trajectory_;
   }
@@ -792,6 +798,244 @@ TEST_F(KimeraPgmoTest, getConsistencyFactors) {
       case pose_graph_tools::PoseGraphEdge::MESH_POSE: {
         front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from),
                               e.key_from);
+        back = gtsam::Symbol(robot_id_to_prefix.at(e.robot_to), e.key_to);
+        break;
+      }
+    }
+    gtsam::BetweenFactor<gtsam::Pose3> between_factor(
+        front, back, RosToGtsam(e.pose), between_noise);
+
+    // Create perturbed poses
+    gtsam::Pose3 pose_front = dedge_factor.fromPose() *
+                              gtsam::Pose3(gtsam::Rot3::Rodrigues(0.01, 0, 0),
+                                           gtsam::Point3(0, 0, 0.001));
+    gtsam::Pose3 pose_back =
+        gtsam::Pose3(gtsam::Rot3(), dedge_factor.toPoint()) *
+        gtsam::Pose3(gtsam::Rot3::Rodrigues(0, 0, 0.01),
+                     gtsam::Point3(-0.001, 0, 0));
+
+    // Check errors are equal
+    gtsam::Vector betweenError =
+        between_factor.evaluateError(pose_front, pose_back);
+
+    gtsam::Vector dedgeError =
+        dedge_factor.evaluateError(pose_front, pose_back);
+
+    EXPECT_NEAR(-dedgeError(0), betweenError(3), 1e-4);
+    EXPECT_NEAR(-dedgeError(1), betweenError(4), 1e-4);
+    EXPECT_NEAR(-dedgeError(2), betweenError(5), 1e-4);
+
+    // Check keys are equal
+    EXPECT_EQ(dedge_factor.front(), between_factor.front());
+    EXPECT_EQ(dedge_factor.back(), between_factor.back());
+
+    // Check Covariance
+    EXPECT_EQ(0, e.covariance[0]);
+    EXPECT_EQ(0, e.covariance[7]);
+    EXPECT_EQ(0, e.covariance[14]);
+    EXPECT_EQ(1.0 / 0.0, e.covariance[21]);
+    EXPECT_EQ(1.0 / 0.0, e.covariance[28]);
+    EXPECT_EQ(1.0 / 0.0, e.covariance[35]);
+  }
+}
+
+TEST_F(KimeraPgmoTest, RequestMeshEdgesCallback) {
+  // Test no reindex
+  // Here we should test if the mesh is added to the deformation graph correctly
+  ros::NodeHandle nh;
+  pgmo_.initialize(nh);
+
+  // Check callback
+  pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
+  *inc_graph = SingleOdomGraph(ros::Time(10.2));
+  IncrementalPoseGraphCallback(inc_graph);
+
+  // Add mesh
+  pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
+  kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
+      new kimera_pgmo::TriangleMeshIdStamped);
+  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
+  mesh_msg->header.stamp = ros::Time(12.5);  // within 3 sec of pose graph msg
+  IncrementalMeshCallback(mesh_msg);
+
+  // load second incremental pose graph
+  *inc_graph = OdomLoopclosureGraph(ros::Time(12.8));
+  IncrementalPoseGraphCallback(inc_graph);
+
+  // Add mesh
+  pcl::PolygonMesh mesh2 = createMesh(2, 0, 0);
+  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh2);
+  mesh_msg->header.stamp = ros::Time(13.0);  // within 3 sec of pose graph msg
+  IncrementalMeshCallback(mesh_msg);
+
+  kimera_pgmo::RequestMeshFactors::Request request;
+  kimera_pgmo::RequestMeshFactors::Response response;
+
+  request.robot_id = 1;  // first test with wrong robot id
+
+  EXPECT_FALSE(RequestMeshEdgesCallback(request, response));
+
+  request.robot_id = 0;              // test with correct robot id
+  request.reindex_vertices = false;  // do not reindex
+
+  EXPECT_TRUE(RequestMeshEdgesCallback(request, response));
+  gtsam::NonlinearFactorGraph consistency_factors =
+      getConsistencyFactorsGtsam();
+  std::vector<pose_graph_tools::PoseGraphEdge> consistency_edges =
+      response.mesh_factors;
+
+  // Arbitrary noise
+  gtsam::Vector6 precisions_6;
+  precisions_6.head<3>().setConstant(0.0);
+  precisions_6.tail<3>().setConstant(1e3);
+  static const gtsam::SharedNoiseModel& between_noise =
+      gtsam::noiseModel::Diagonal::Precisions(precisions_6);
+
+  // Iterate and check
+  for (size_t i = 0; i < consistency_factors.size(); i++) {
+    // Compare the two
+    DeformationEdgeFactor dedge_factor =
+        *boost::dynamic_pointer_cast<DeformationEdgeFactor>(
+            consistency_factors[i]);
+    // Create the between factor that is equivalent to the pose graph edge
+    pose_graph_tools::PoseGraphEdge e = consistency_edges[i];
+    gtsam::Key front, back;
+    switch (e.type) {
+      case pose_graph_tools::PoseGraphEdge::MESH: {
+        front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from),
+                              e.key_from);
+        back =
+            gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to), e.key_to);
+        break;
+      }
+      case pose_graph_tools::PoseGraphEdge::POSE_MESH: {
+        front = gtsam::Symbol(robot_id_to_prefix.at(e.robot_from), e.key_from);
+        back =
+            gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to), e.key_to);
+        break;
+      }
+      case pose_graph_tools::PoseGraphEdge::MESH_POSE: {
+        front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from),
+                              e.key_from);
+        back = gtsam::Symbol(robot_id_to_prefix.at(e.robot_to), e.key_to);
+        break;
+      }
+    }
+    gtsam::BetweenFactor<gtsam::Pose3> between_factor(
+        front, back, RosToGtsam(e.pose), between_noise);
+
+    // Create perturbed poses
+    gtsam::Pose3 pose_front = dedge_factor.fromPose() *
+                              gtsam::Pose3(gtsam::Rot3::Rodrigues(0.01, 0, 0),
+                                           gtsam::Point3(0, 0, 0.001));
+    gtsam::Pose3 pose_back =
+        gtsam::Pose3(gtsam::Rot3(), dedge_factor.toPoint()) *
+        gtsam::Pose3(gtsam::Rot3::Rodrigues(0, 0, 0.01),
+                     gtsam::Point3(-0.001, 0, 0));
+
+    // Check errors are equal
+    gtsam::Vector betweenError =
+        between_factor.evaluateError(pose_front, pose_back);
+
+    gtsam::Vector dedgeError =
+        dedge_factor.evaluateError(pose_front, pose_back);
+
+    EXPECT_NEAR(-dedgeError(0), betweenError(3), 1e-4);
+    EXPECT_NEAR(-dedgeError(1), betweenError(4), 1e-4);
+    EXPECT_NEAR(-dedgeError(2), betweenError(5), 1e-4);
+
+    // Check keys are equal
+    EXPECT_EQ(dedge_factor.front(), between_factor.front());
+    EXPECT_EQ(dedge_factor.back(), between_factor.back());
+
+    // Check Covariance
+    EXPECT_EQ(0, e.covariance[0]);
+    EXPECT_EQ(0, e.covariance[7]);
+    EXPECT_EQ(0, e.covariance[14]);
+    EXPECT_EQ(1.0 / 0.0, e.covariance[21]);
+    EXPECT_EQ(1.0 / 0.0, e.covariance[28]);
+    EXPECT_EQ(1.0 / 0.0, e.covariance[35]);
+  }
+}
+
+TEST_F(KimeraPgmoTest, RequestMeshEdgesCallbackReindex) {
+  // Test reindex
+  // Here we should test if the mesh is added to the deformation graph correctly
+  ros::NodeHandle nh;
+  pgmo_.initialize(nh);
+
+  // Check callback
+  pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
+  *inc_graph = SingleOdomGraph(ros::Time(10.2));
+  IncrementalPoseGraphCallback(inc_graph);
+
+  // Add mesh
+  pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
+  kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
+      new kimera_pgmo::TriangleMeshIdStamped);
+  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
+  mesh_msg->header.stamp = ros::Time(12.5);  // within 3 sec of pose graph msg
+  IncrementalMeshCallback(mesh_msg);
+
+  // load second incremental pose graph
+  *inc_graph = OdomLoopclosureGraph(ros::Time(12.8));
+  IncrementalPoseGraphCallback(inc_graph);
+
+  // Add mesh
+  pcl::PolygonMesh mesh2 = createMesh(2, 0, 0);
+  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh2);
+  mesh_msg->header.stamp = ros::Time(13.0);  // within 3 sec of pose graph msg
+  IncrementalMeshCallback(mesh_msg);
+
+  kimera_pgmo::RequestMeshFactors::Request request;
+  kimera_pgmo::RequestMeshFactors::Response response;
+
+  request.robot_id = 1;             // first test with wrong robot id
+  request.reindex_vertices = true;  // do not reindex
+
+  EXPECT_FALSE(RequestMeshEdgesCallback(request, response));
+
+  request.robot_id = 0;  // test with correct robot id
+
+  EXPECT_TRUE(RequestMeshEdgesCallback(request, response));
+  gtsam::NonlinearFactorGraph consistency_factors =
+      getConsistencyFactorsGtsam();
+  std::vector<pose_graph_tools::PoseGraphEdge> consistency_edges =
+      response.mesh_factors;
+
+  // Arbitrary noise
+  gtsam::Vector6 precisions_6;
+  precisions_6.head<3>().setConstant(0.0);
+  precisions_6.tail<3>().setConstant(1e3);
+  static const gtsam::SharedNoiseModel& between_noise =
+      gtsam::noiseModel::Diagonal::Precisions(precisions_6);
+  size_t num_poses = getTrajectory().size();
+  // Iterate and check
+  for (size_t i = 0; i < consistency_factors.size(); i++) {
+    // Compare the two
+    DeformationEdgeFactor dedge_factor =
+        *boost::dynamic_pointer_cast<DeformationEdgeFactor>(
+            consistency_factors[i]);
+    // Create the between factor that is equivalent to the pose graph edge
+    pose_graph_tools::PoseGraphEdge e = consistency_edges[i];
+    gtsam::Key front, back;
+    switch (e.type) {
+      case pose_graph_tools::PoseGraphEdge::MESH: {
+        front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from),
+                              e.key_from - num_poses);
+        back = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to),
+                             e.key_to - num_poses);
+        break;
+      }
+      case pose_graph_tools::PoseGraphEdge::POSE_MESH: {
+        front = gtsam::Symbol(robot_id_to_prefix.at(e.robot_from), e.key_from);
+        back = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to),
+                             e.key_to - num_poses);
+        break;
+      }
+      case pose_graph_tools::PoseGraphEdge::MESH_POSE: {
+        front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from),
+                              e.key_from - num_poses);
         back = gtsam::Symbol(robot_id_to_prefix.at(e.robot_to), e.key_to);
         break;
       }
