@@ -237,10 +237,6 @@ TEST(test_octree_compression, pruneStoredMesh) {
   compression.compressAndIntegrate(
       mesh, new_vertices, &new_triangles, &new_indices, 101.0);
 
-  EXPECT_EQ(0, new_triangles[0].vertices[0]);
-  EXPECT_EQ(7, new_triangles[1].vertices[1]);
-  EXPECT_EQ(6, new_triangles[3].vertices[2]);
-
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr active_vertices(
@@ -282,22 +278,6 @@ TEST(test_octree_compression, pruneStoredMesh) {
 
   compression.compressAndIntegrate(
       mesh, new_vertices, &new_triangles, &new_indices, 102.0);
-
-  // Test also the returned values
-  // Check the partial integration
-  EXPECT_EQ(size_t(4), new_vertices->size());
-  EXPECT_EQ(size_t(4), new_triangles.size());
-  EXPECT_EQ(size_t(5), new_indices.size());
-  std::vector<size_t> expected_indices = {0, 9, 10, 11, 12};
-
-  EXPECT_EQ(expected_indices, new_indices);
-  EXPECT_EQ(1, new_vertices->points[0].x);
-  EXPECT_EQ(1, new_vertices->points[2].y);
-  EXPECT_EQ(1, new_vertices->points[3].z);
-  EXPECT_EQ(0, new_triangles[0].vertices[0]);
-  EXPECT_EQ(11, new_triangles[1].vertices[1]);
-  EXPECT_EQ(10, new_triangles[3].vertices[2]);
-
   compression.pruneStoredMesh(100.9);
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);
@@ -317,6 +297,21 @@ TEST(test_octree_compression, pruneStoredMesh) {
   EXPECT_EQ(0, triangles[8].vertices[0]);
   EXPECT_EQ(10, triangles[11].vertices[2]);
   EXPECT_EQ(102.0, vertex_timestamps[8]);
+
+  // Test also the returned values
+  // Check the partial integration
+  EXPECT_EQ(size_t(4), new_vertices->size());
+  EXPECT_EQ(size_t(4), new_triangles.size());
+  EXPECT_EQ(size_t(5), new_indices.size());
+  std::vector<size_t> expected_indices = {0, 9, 10, 11, 12};
+
+  EXPECT_EQ(expected_indices, new_indices);
+  EXPECT_EQ(1, new_vertices->points[0].x);
+  EXPECT_EQ(1, new_vertices->points[2].y);
+  EXPECT_EQ(1, new_vertices->points[3].z);
+  EXPECT_EQ(0, new_triangles[0].vertices[0]);
+  EXPECT_EQ(11, new_triangles[1].vertices[1]);
+  EXPECT_EQ(10, new_triangles[3].vertices[2]);
 }
 
 TEST(test_octree_compression, returnedValuesCompressed) {
@@ -332,15 +327,18 @@ TEST(test_octree_compression, returnedValuesCompressed) {
       mesh, new_vertices, &new_triangles, &new_indices, 100.0);
 
   // Check the partial integration
-  EXPECT_EQ(size_t(0), new_vertices->size());
+  EXPECT_EQ(size_t(1), new_vertices->size());
   EXPECT_EQ(size_t(0), new_triangles.size());
-  EXPECT_EQ(size_t(0), new_indices.size());
-  std::vector<size_t> expected_indices = {};
+  EXPECT_EQ(size_t(1), new_indices.size());
+  std::vector<size_t> expected_indices = {0};
 
   EXPECT_EQ(expected_indices, new_indices);
+  EXPECT_EQ(0, new_vertices->points[0].x);
+  EXPECT_EQ(0, new_vertices->points[0].y);
+  EXPECT_EQ(0, new_vertices->points[0].z);
 
   // Insert another
-  mesh = createMesh(11.0);
+  mesh = createMesh(2.0);
   new_vertices->clear();
   new_indices.clear();
   new_triangles.clear();
@@ -349,18 +347,15 @@ TEST(test_octree_compression, returnedValuesCompressed) {
       mesh, new_vertices, &new_triangles, &new_indices, 101.0);
 
   // Check the partial integration
-  EXPECT_EQ(size_t(5), new_vertices->size());
-  EXPECT_EQ(size_t(4), new_triangles.size());
-  EXPECT_EQ(size_t(5), new_indices.size());
-  expected_indices = {0, 1, 2, 3, 4};
+  EXPECT_EQ(size_t(0), new_vertices->size());
+  EXPECT_EQ(size_t(0), new_triangles.size());
+  EXPECT_EQ(size_t(1), new_indices.size());
+  expected_indices = {0};
 
   EXPECT_EQ(expected_indices, new_indices);
   EXPECT_EQ(0, new_vertices->points[0].x);
   EXPECT_EQ(0, new_vertices->points[0].y);
   EXPECT_EQ(0, new_vertices->points[0].z);
-  EXPECT_EQ(0, new_vertices->points[4].x);
-  EXPECT_EQ(0, new_vertices->points[4].y);
-  EXPECT_EQ(11, new_vertices->points[4].z);
 }
 
 TEST(test_octree_compression, storedValuesCompressed) {
@@ -388,13 +383,21 @@ TEST(test_octree_compression, storedValuesCompressed) {
   compression.getActiveVerticesTimestamps(&vertex_timestamps);
 
   // Check the stored interated values
-  EXPECT_EQ(size_t(0), vertices->size());
-  EXPECT_EQ(size_t(0), active_vertices->size());
+  EXPECT_EQ(size_t(1), vertices->size());
+  EXPECT_EQ(size_t(1), active_vertices->size());
   EXPECT_EQ(size_t(0), triangles.size());
-  EXPECT_EQ(size_t(0), vertex_timestamps.size());
+  EXPECT_EQ(size_t(1), vertex_timestamps.size());
+
+  EXPECT_EQ(0, vertices->points[0].x);
+  EXPECT_EQ(0, vertices->points[0].y);
+  EXPECT_EQ(0, vertices->points[0].z);
+  EXPECT_EQ(0, active_vertices->points[0].x);
+  EXPECT_EQ(0, active_vertices->points[0].y);
+  EXPECT_EQ(0, active_vertices->points[0].z);
+  EXPECT_EQ(100.0, vertex_timestamps[0]);
 
   // Insert another
-  mesh = createMesh(11.0);
+  mesh = createMesh(2.0);
   new_vertices->clear();
   new_indices.clear();
   new_triangles.clear();
@@ -407,9 +410,9 @@ TEST(test_octree_compression, storedValuesCompressed) {
   compression.getStoredPolygons(&triangles);
   compression.getActiveVerticesTimestamps(&vertex_timestamps);
 
-  EXPECT_EQ(size_t(5), vertices->size());
-  EXPECT_EQ(size_t(5), active_vertices->size());
-  EXPECT_EQ(size_t(5), vertex_timestamps.size());
+  EXPECT_EQ(size_t(1), vertices->size());
+  EXPECT_EQ(size_t(1), active_vertices->size());
+  EXPECT_EQ(size_t(1), vertex_timestamps.size());
 
   EXPECT_EQ(0, vertices->points[0].x);
   EXPECT_EQ(0, vertices->points[0].y);
