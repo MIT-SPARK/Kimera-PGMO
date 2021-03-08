@@ -527,10 +527,10 @@ TEST_F(KimeraPgmoMultiTest, incrementalMeshCallback) {
   IncrementalMeshCallback(mesh_msg);
 
   // Now should have 7 values (2 nodes + 5 vertices)
-  // And 37 factors (16 edges + 1 odom + 20 connections)
+  // And 27 factors (16 edges + 1 odom + 10 connections)
   factors = getFactors();
   values = getValues();
-  EXPECT_EQ(size_t(37), factors.size());
+  EXPECT_EQ(size_t(27), factors.size());
   EXPECT_EQ(size_t(7), values.size());
 
   // load second incremental pose graph
@@ -545,10 +545,10 @@ TEST_F(KimeraPgmoMultiTest, incrementalMeshCallback) {
   IncrementalMeshCallback(mesh_msg);
 
   // Now should have 13 values (3 nodes + 10 vertices)
-  // And 65 factors (32 edges + 2 odom + 30 connections + 1 lc)
+  // And 65 factors (32 edges + 2 odom + 20 connections + 1 lc)
   factors = getFactors();
   values = getValues();
-  EXPECT_EQ(size_t(65), factors.size());
+  EXPECT_EQ(size_t(55), factors.size());
   EXPECT_EQ(size_t(13), values.size());
 
   // And also add the connection of nodes and vertices
@@ -571,15 +571,15 @@ TEST_F(KimeraPgmoMultiTest, incrementalMeshCallback) {
   EXPECT_EQ(gtsam::Symbol('t', 0), factor3.front());
   EXPECT_EQ(gtsam::Symbol('t', 1), factor3.back());
 
-  EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[63]));
-  DeformationEdgeFactor factor63 =
-      *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[63]);
+  EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[53]));
+  DeformationEdgeFactor factor53 =
+      *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[53]);
   EXPECT_TRUE(
       gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
-                          factor63.fromPose()));
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(2, 0, 1), factor63.toPoint()));
-  EXPECT_EQ(gtsam::Symbol('b', 2), factor63.front());
-  EXPECT_EQ(gtsam::Symbol('t', 9), factor63.back());
+                          factor53.fromPose()));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(2, 0, 1), factor53.toPoint()));
+  EXPECT_EQ(gtsam::Symbol('b', 2), factor53.front());
+  EXPECT_EQ(gtsam::Symbol('t', 9), factor53.back());
 
   // Add mesh from another robot
   pcl::PolygonMesh mesh3 = createMesh(2, 0, 0);
@@ -589,22 +589,23 @@ TEST_F(KimeraPgmoMultiTest, incrementalMeshCallback) {
   IncrementalMeshCallback(mesh_msg);
 
   // Now should have 18 values (3 nodes + 15 vertices)
-  // And 81 factors (48 edges + 2 odom + 30 connections + 1 lc)
+  // And 71 factors (48 edges + 2 odom + 20 connections + 1 lc)
   factors = getFactors();
   values = getValues();
-  EXPECT_EQ(size_t(81), factors.size());
+
+  EXPECT_EQ(size_t(71), factors.size());
   EXPECT_EQ(size_t(18), values.size());
 
   // Check deformation edge factors
-  EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[65]));
-  DeformationEdgeFactor factor65 =
-      *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[65]);
+  EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[55]));
+  DeformationEdgeFactor factor55 =
+      *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[55]);
   EXPECT_TRUE(
       gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 0, 0)),
-                          factor65.fromPose()));
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(3, 0, 0), factor65.toPoint()));
-  EXPECT_EQ(gtsam::Symbol('s', 0), factor65.front());
-  EXPECT_EQ(gtsam::Symbol('s', 1), factor65.back());
+                          factor55.fromPose()));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(3, 0, 0), factor55.toPoint()));
+  EXPECT_EQ(gtsam::Symbol('s', 0), factor55.front());
+  EXPECT_EQ(gtsam::Symbol('s', 1), factor55.back());
 }
 
 TEST_F(KimeraPgmoMultiTest, nodeToMeshConnectionDeltaT) {
@@ -635,7 +636,6 @@ TEST_F(KimeraPgmoMultiTest, nodeToMeshConnectionDeltaT) {
   mesh_msg->id = 0;
   IncrementalMeshCallback(mesh_msg);
 
-  // Add mesh but after embed time so should not connect
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
   mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
   mesh_msg->header.stamp = ros::Time(13.5);  // after 3 sec of pose graph msg
@@ -643,10 +643,10 @@ TEST_F(KimeraPgmoMultiTest, nodeToMeshConnectionDeltaT) {
   IncrementalMeshCallback(mesh_msg);
 
   // Now should have 12 values (2 nodes + 10 vertices)
-  // And 33 factors (32 edges + 1 odom)
+  // And 53 factors (32 edges + 1 odom + 10 connections)
   factors = getFactors();
   values = getValues();
-  EXPECT_EQ(size_t(33), factors.size());
+  EXPECT_EQ(size_t(43), factors.size());
   EXPECT_EQ(size_t(12), values.size());
 }
 
@@ -689,10 +689,10 @@ TEST_F(KimeraPgmoMultiTest, nodeToMeshConnectionDelay) {
   IncrementalMeshCallback(mesh_msg);
 
   // Now should have 8 values (3 nodes + 5 vertices)
-  // And 49 factors (16 edges + 2 odom + 1 lc + 30 connections)
+  // And 49 factors (16 edges + 2 odom + 1 lc + 10 connections)
   factors = getFactors();
   values = getValues();
-  EXPECT_EQ(size_t(49), factors.size());
+  EXPECT_EQ(size_t(29), factors.size());
   EXPECT_EQ(size_t(8), values.size());
 
   //// Add another robot
@@ -703,7 +703,7 @@ TEST_F(KimeraPgmoMultiTest, nodeToMeshConnectionDelay) {
   // factor
   factors = getFactors();
   values = getValues();
-  EXPECT_EQ(size_t(50), factors.size());
+  EXPECT_EQ(size_t(30), factors.size());
   EXPECT_EQ(size_t(10), values.size());
 
   // load second incremental pose graph
@@ -713,7 +713,7 @@ TEST_F(KimeraPgmoMultiTest, nodeToMeshConnectionDelay) {
   // At this point should add 1 node 2 between factors
   factors = getFactors();
   values = getValues();
-  EXPECT_EQ(size_t(52), factors.size());
+  EXPECT_EQ(size_t(32), factors.size());
   EXPECT_EQ(size_t(11), values.size());
 
   // Add mesh
@@ -724,10 +724,10 @@ TEST_F(KimeraPgmoMultiTest, nodeToMeshConnectionDelay) {
   IncrementalMeshCallback(mesh_msg);
 
   // Now should have 16 values (6 nodes + 10 vertices)
-  // And 98 factors (32 edges + 4 odom + 2 lc + 60 connections)
+  // And 98 factors (32 edges + 4 odom + 2 lc + 20 connections)
   factors = getFactors();
   values = getValues();
-  EXPECT_EQ(size_t(98), factors.size());
+  EXPECT_EQ(size_t(58), factors.size());
   EXPECT_EQ(size_t(16), values.size());
 }
 
