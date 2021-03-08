@@ -290,4 +290,6 @@ class DeformationGraph {
   bool recalculate_vertices_;
   std::map<char, pcl::PointCloud<pcl::PointXYZRGBA> > last_calculated_vertices_;
 };
+
+typedef std::shared_ptr<DeformationGraph> DeformationGraphPtr;
 }  // namespace kimera_pgmo

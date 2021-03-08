@@ -1,6 +1,0 @@
-<launch>
-	<test test-name="test_kimera_pgmo_interface"
-		  pkg="kimera_pgmo"
-		  type="kimera_pgmo-test_kimera_pgmo_interface"
-		  time-limit="300" />
-</launch>
