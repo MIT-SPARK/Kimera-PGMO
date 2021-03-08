@@ -365,7 +365,7 @@ bool KimeraPgmoInterface::saveTrajectory(
 bool KimeraPgmoInterface::getConsistencyFactors(
     const size_t& robot_id,
     std::vector<pose_graph_tools::PoseGraphEdge>* edges,
-    const size_t& vertex_index_offset) {
+    const size_t& vertex_index_offset) const {
   assert(NULL != edges);
   // Make sure that robot id is valid
   if (robot_id_to_prefix.find(robot_id) == robot_id_to_prefix.end()) {
@@ -380,32 +380,27 @@ bool KimeraPgmoInterface::getConsistencyFactors(
   // Get the prefixes
   char vertex_prefix = robot_id_to_vertex_prefix.at(robot_id);
   char robot_prefix = robot_id_to_prefix.at(robot_id);
-  // types of edges
-  enum class EdgeType {
-    VERTEXVERTEX = 0,
-    POSEVERTEX = 1,
-    VERTEXPOSE = 2,
-    POSEPOSE = 3
-  };
 
   // Iterate and convert the edges to PoseGraphEdge type
   for (auto factor : edge_factors) {
+    // Create edge
+    pose_graph_tools::PoseGraphEdge pg_edge;
+
     gtsam::Symbol from(factor->front());
     gtsam::Symbol to(factor->back());
-    // Classify edge type
-    EdgeType edge_type;
+
     if (from.chr() == vertex_prefix) {
       if (to.chr() == vertex_prefix) {
-        edge_type = EdgeType::VERTEXVERTEX;
+        pg_edge.type = pose_graph_tools::PoseGraphEdge::MESH;
       } else if (to.chr() == robot_prefix) {
-        edge_type == EdgeType::VERTEXPOSE;
+        pg_edge.type = pose_graph_tools::PoseGraphEdge::MESH_POSE;
       } else {
         ROS_WARN("Unexpected edge type. ");
         continue;
       }
     } else if (from.chr() == robot_prefix) {
       if (to.chr() == vertex_prefix) {
-        edge_type = EdgeType::POSEVERTEX;
+        pg_edge.type = pose_graph_tools::PoseGraphEdge::POSE_MESH;
       } else if (to.chr() == robot_prefix) {
         ROS_ERROR(
             "Getting a pose-to-pose edge in deformation graph consistency "
@@ -417,8 +412,6 @@ bool KimeraPgmoInterface::getConsistencyFactors(
       }
     }
 
-    // Create edge
-    pose_graph_tools::PoseGraphEdge pg_edge;
     pg_edge.robot_from = robot_id;
     pg_edge.robot_to = robot_id;
     pg_edge.key_from = from.index();
@@ -429,8 +422,8 @@ bool KimeraPgmoInterface::getConsistencyFactors(
     pg_edge.covariance[35] = 1.0 / 0.0;
     // Pose should be [I , R_1^{-1} (t2 - t1)] *** these are all initial
     // poses/positions
-    switch (edge_type) {
-      case EdgeType::VERTEXVERTEX: {
+    switch (pg_edge.type) {
+      case pose_graph_tools::PoseGraphEdge::MESH: {
         const gtsam::Point3& vertex_pos_from =
             deformation_graph_.getInitialPositionVertex(vertex_prefix,
                                                         pg_edge.key_from);
@@ -445,7 +438,7 @@ bool KimeraPgmoInterface::getConsistencyFactors(
         pg_edge.key_to = pg_edge.key_to + vertex_index_offset;
         break;
       }
-      case EdgeType::POSEVERTEX: {
+      case pose_graph_tools::PoseGraphEdge::POSE_MESH: {
         const gtsam::Pose3& pose_from =
             deformation_graph_.getInitialPose(robot_prefix, pg_edge.key_from);
         const gtsam::Point3& vertex_pos_to =
@@ -460,7 +453,7 @@ bool KimeraPgmoInterface::getConsistencyFactors(
         pg_edge.key_to = pg_edge.key_to + vertex_index_offset;
         break;
       }
-      case EdgeType::VERTEXPOSE: {
+      case pose_graph_tools::PoseGraphEdge::MESH_POSE: {
         const gtsam::Point3& vertex_pos_from =
             deformation_graph_.getInitialPositionVertex(vertex_prefix,
                                                         pg_edge.key_from);
