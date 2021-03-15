@@ -364,10 +364,11 @@ bool KimeraPgmoInterface::saveTrajectory(
 
 bool KimeraPgmoInterface::getConsistencyFactors(
     const size_t& robot_id,
-    std::vector<pose_graph_tools::PoseGraphEdge>* edges,
+    pose_graph_tools::PoseGraph* pg_mesh_msg,
     const size_t& vertex_index_offset) const {
   assert(NULL != edges);
-  edges->clear();
+  pg_mesh_msg->edges.clear();
+  pg_mesh_msg->nodes.clear();
   // Make sure that robot id is valid
   if (robot_id_to_prefix.find(robot_id) == robot_id_to_prefix.end()) {
     ROS_ERROR("Unexpected robot id. ");
@@ -437,7 +438,7 @@ bool KimeraPgmoInterface::getConsistencyFactors(
         // Update key with offset
         pg_edge.key_from = pg_edge.key_from + vertex_index_offset;
         pg_edge.key_to = pg_edge.key_to + vertex_index_offset;
-        edges->push_back(pg_edge);
+        pg_mesh_msg->edges.push_back(pg_edge);
         break;
       }
       case pose_graph_tools::PoseGraphEdge::POSE_MESH: {
@@ -453,7 +454,7 @@ bool KimeraPgmoInterface::getConsistencyFactors(
 
         // Update key with offset
         pg_edge.key_to = pg_edge.key_to + vertex_index_offset;
-        edges->push_back(pg_edge);
+        pg_mesh_msg->edges.push_back(pg_edge);
         break;
       }
       case pose_graph_tools::PoseGraphEdge::MESH_POSE: {
@@ -467,12 +468,25 @@ bool KimeraPgmoInterface::getConsistencyFactors(
 
         // Update key with offset
         pg_edge.key_from = pg_edge.key_from + vertex_index_offset;
-        edges->push_back(pg_edge);
+        pg_mesh_msg->edges.push_back(pg_edge);
         break;
       }
     }
   }
-  if (edges->size() == 0) return false;
+  if (pg_mesh_msg->edges.size() == 0) return false;
+
+  // Get the nodes from the deformation graph
+  const std::vector<gtsam::Point3>& initial_positions =
+      deformation_graph_.getInitialPositionsVertices(vertex_prefix);
+
+  for (size_t i = 0; i < initial_positions.size(); i++) {
+    pose_graph_tools::PoseGraphNode pg_node;
+    pg_node.robot_id = robot_id;
+    pg_node.key = i + vertex_index_offset;
+    pg_node.pose =
+        GtsamToRos(gtsam::Pose3(gtsam::Rot3(), initial_positions[i]));
+    pg_mesh_msg->nodes.push_back(pg_node);
+  }
   return true;
 }
 

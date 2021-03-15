@@ -87,9 +87,10 @@ class KimeraPgmoTest : public ::testing::Test {
 
   inline bool getConsistencyFactorsMsg(
       const size_t& robot_id,
-      std::vector<pose_graph_tools::PoseGraphEdge>* edges,
+      pose_graph_tools::PoseGraph* pg_mesh_msg,
       const size_t& vertex_index_offset) const {
-    return pgmo_.getConsistencyFactors(robot_id, edges, vertex_index_offset);
+    return pgmo_.getConsistencyFactors(
+        robot_id, pg_mesh_msg, vertex_index_offset);
   }
 
   pose_graph_tools::PoseGraph SingleOdomGraph(const ros::Time& stamp) {
@@ -760,10 +761,10 @@ TEST_F(KimeraPgmoTest, getConsistencyFactors) {
 
   gtsam::NonlinearFactorGraph consistency_factors =
       getConsistencyFactorsGtsam();
-  std::vector<pose_graph_tools::PoseGraphEdge> consistency_edges;
+  pose_graph_tools::PoseGraph consistency_edges_pg;
 
   // First test with no offset
-  getConsistencyFactorsMsg(0, &consistency_edges, 0);
+  getConsistencyFactorsMsg(0, &consistency_edges_pg, 0);
 
   // Arbitrary noise
   gtsam::Vector6 precisions_6;
@@ -779,7 +780,7 @@ TEST_F(KimeraPgmoTest, getConsistencyFactors) {
         *boost::dynamic_pointer_cast<DeformationEdgeFactor>(
             consistency_factors[i]);
     // Create the between factor that is equivalent to the pose graph edge
-    pose_graph_tools::PoseGraphEdge e = consistency_edges[i];
+    pose_graph_tools::PoseGraphEdge e = consistency_edges_pg.edges[i];
     gtsam::Key front, back;
     switch (e.type) {
       case pose_graph_tools::PoseGraphEdge::MESH: {
@@ -837,6 +838,19 @@ TEST_F(KimeraPgmoTest, getConsistencyFactors) {
     EXPECT_EQ(1.0 / 0.0, e.covariance[28]);
     EXPECT_EQ(1.0 / 0.0, e.covariance[35]);
   }
+
+  // Check nodes
+  EXPECT_EQ(10, consistency_edges_pg.nodes.size());
+  EXPECT_EQ(0, consistency_edges_pg.nodes[0].robot_id);
+  EXPECT_EQ(0, consistency_edges_pg.nodes[0].key);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, 0)),
+                          RosToGtsam(consistency_edges_pg.nodes[0].pose)));
+  EXPECT_EQ(0, consistency_edges_pg.nodes[9].robot_id);
+  EXPECT_EQ(9, consistency_edges_pg.nodes[9].key);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 0, 1)),
+                          RosToGtsam(consistency_edges_pg.nodes[9].pose)));
 }
 
 TEST_F(KimeraPgmoTest, RequestMeshEdgesCallback) {
@@ -882,7 +896,9 @@ TEST_F(KimeraPgmoTest, RequestMeshEdgesCallback) {
   gtsam::NonlinearFactorGraph consistency_factors =
       getConsistencyFactorsGtsam();
   std::vector<pose_graph_tools::PoseGraphEdge> consistency_edges =
-      response.mesh_factors;
+      response.mesh_factors.edges;
+  std::vector<pose_graph_tools::PoseGraphNode> consistency_nodes =
+      response.mesh_factors.nodes;
 
   // Arbitrary noise
   gtsam::Vector6 precisions_6;
@@ -891,7 +907,7 @@ TEST_F(KimeraPgmoTest, RequestMeshEdgesCallback) {
   static const gtsam::SharedNoiseModel& between_noise =
       gtsam::noiseModel::Diagonal::Precisions(precisions_6);
 
-  // Iterate and check
+  // Iterate and check edges
   for (size_t i = 0; i < consistency_factors.size(); i++) {
     // Compare the two
     DeformationEdgeFactor dedge_factor =
@@ -956,6 +972,19 @@ TEST_F(KimeraPgmoTest, RequestMeshEdgesCallback) {
     EXPECT_EQ(1.0 / 0.0, e.covariance[28]);
     EXPECT_EQ(1.0 / 0.0, e.covariance[35]);
   }
+
+  // Check nodes
+  EXPECT_EQ(10, consistency_nodes.size());
+  EXPECT_EQ(0, consistency_nodes[0].robot_id);
+  EXPECT_EQ(0, consistency_nodes[0].key);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, 0)),
+                          RosToGtsam(consistency_nodes[0].pose)));
+  EXPECT_EQ(0, consistency_nodes[9].robot_id);
+  EXPECT_EQ(9, consistency_nodes[9].key);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 0, 1)),
+                          RosToGtsam(consistency_nodes[9].pose)));
 }
 
 TEST_F(KimeraPgmoTest, RequestMeshEdgesCallbackReindex) {
@@ -1001,7 +1030,9 @@ TEST_F(KimeraPgmoTest, RequestMeshEdgesCallbackReindex) {
   gtsam::NonlinearFactorGraph consistency_factors =
       getConsistencyFactorsGtsam();
   std::vector<pose_graph_tools::PoseGraphEdge> consistency_edges =
-      response.mesh_factors;
+      response.mesh_factors.edges;
+  std::vector<pose_graph_tools::PoseGraphNode> consistency_nodes =
+      response.mesh_factors.nodes;
 
   // Arbitrary noise
   gtsam::Vector6 precisions_6;
@@ -1075,6 +1106,19 @@ TEST_F(KimeraPgmoTest, RequestMeshEdgesCallbackReindex) {
     EXPECT_EQ(1.0 / 0.0, e.covariance[28]);
     EXPECT_EQ(1.0 / 0.0, e.covariance[35]);
   }
+
+  // Check nodes
+  EXPECT_EQ(10, consistency_nodes.size());
+  EXPECT_EQ(0, consistency_nodes[0].robot_id);
+  EXPECT_EQ(num_poses, consistency_nodes[0].key);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, 0)),
+                          RosToGtsam(consistency_nodes[0].pose)));
+  EXPECT_EQ(0, consistency_nodes[9].robot_id);
+  EXPECT_EQ(num_poses + 9, consistency_nodes[9].key);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 0, 1)),
+                          RosToGtsam(consistency_nodes[9].pose)));
 }
 
 }  // namespace kimera_pgmo

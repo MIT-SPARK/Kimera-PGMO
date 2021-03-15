@@ -246,6 +246,13 @@ class DeformationGraph {
     return vertex_positions_.at(prefix).at(index);
   }
 
+  /*! \brief Get the intial positions of the vertices corresponding to prefix
+   */
+  inline std::vector<gtsam::Point3> getInitialPositionsVertices(
+      const char& prefix) const {
+    return vertex_positions_.at(prefix);
+  }
+
  private:
   /*! \brief Called within updateMesh to create the DeformationEdgeFactors
    * created from the newly added mesh surfaces
