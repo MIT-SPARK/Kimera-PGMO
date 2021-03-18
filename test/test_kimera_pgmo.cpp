@@ -14,6 +14,7 @@
 #include "gtest/gtest.h"
 
 #include "kimera_pgmo/KimeraPgmo.h"
+#include "test_artifacts.h"
 
 namespace kimera_pgmo {
 
@@ -94,186 +95,6 @@ class KimeraPgmoTest : public ::testing::Test {
         robot_id, pg_mesh_msg, vertex_index_offset);
   }
 
-  pose_graph_tools::PoseGraph SingleOdomGraph(const ros::Time& stamp) {
-    pose_graph_tools::PoseGraph inc_graph;
-
-    pose_graph_tools::PoseGraphEdge e0;
-    pose_graph_tools::PoseGraphNode n0, n1;
-    e0.header.stamp = stamp;
-    e0.key_from = 0;
-    e0.key_to = 1;
-    e0.pose.position.x = 1;
-    e0.pose.orientation.w = 1;
-    e0.type = pose_graph_tools::PoseGraphEdge::ODOM;
-    e0.covariance = {3.1, 0, 0,   0, 0,   0, 0, 3.1, 0, 0,   0, 0,
-                     0,   0, 3.1, 0, 0,   0, 0, 0,   0, 0.1, 0, 0,
-                     0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
-
-    n0.header.stamp = stamp;
-    n0.key = 0;
-    n0.pose.orientation.w = 1;
-
-    n1.header.stamp = stamp;
-    n1.key = 0;
-    n1.pose.position.x = 1;
-    n1.pose.orientation.w = 1;
-
-    inc_graph.edges.push_back(e0);
-    inc_graph.nodes.push_back(n0);
-    inc_graph.nodes.push_back(n1);
-
-    return inc_graph;
-  }
-
-  pose_graph_tools::PoseGraph OdomLoopclosureGraph(const ros::Time& stamp) {
-    pose_graph_tools::PoseGraph inc_graph;
-
-    pose_graph_tools::PoseGraphEdge e1, e2;
-    pose_graph_tools::PoseGraphNode n1, n2;
-
-    e1.header.stamp = stamp;
-    e1.key_from = 1;
-    e1.key_to = 2;
-    e1.pose.position.y = 1;
-    e1.pose.orientation.w = 1;
-    e1.type = pose_graph_tools::PoseGraphEdge::ODOM;
-    e1.covariance = {3.1, 0, 0,   0, 0,   0, 0, 3.1, 0, 0,   0, 0,
-                     0,   0, 3.1, 0, 0,   0, 0, 0,   0, 0.1, 0, 0,
-                     0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
-
-    e2.header.stamp = stamp;
-    e2.key_from = 0;
-    e2.key_to = 2;
-    e2.pose.position.x = 1;
-    e2.pose.position.y = 1;
-    e2.pose.orientation.w = 1;
-    e2.type = pose_graph_tools::PoseGraphEdge::LOOPCLOSE;
-    e2.covariance = {0.1, 0, 0,   0, 0,   0, 0, 0.1, 0, 0,   0, 0,
-                     0,   0, 0.1, 0, 0,   0, 0, 0,   0, 0.1, 0, 0,
-                     0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
-
-    n1.header.stamp = stamp;
-    n1.key = 0;
-    n1.pose.orientation.w = 1;
-
-    n2.header.stamp = stamp;
-    n2.key = 2;
-    n2.pose.orientation.w = 1;
-
-    inc_graph.edges.push_back(e1);
-    inc_graph.edges.push_back(e2);
-    inc_graph.nodes.push_back(n1);
-    inc_graph.nodes.push_back(n2);
-
-    return inc_graph;
-  }
-
-  pose_graph_tools::PoseGraph OdomLoopclosureGraph2(const ros::Time& stamp) {
-    pose_graph_tools::PoseGraph inc_graph;
-
-    pose_graph_tools::PoseGraphEdge e1, e2;
-    pose_graph_tools::PoseGraphNode n1, n2;
-
-    e1.header.stamp = stamp;
-    e1.key_from = 2;
-    e1.key_to = 3;
-    e1.pose.position.z = 1;
-    e1.pose.orientation.w = 1;
-    e1.type = pose_graph_tools::PoseGraphEdge::ODOM;
-    e1.covariance = {3.1, 0, 0,   0, 0,   0, 0, 3.1, 0, 0,   0, 0,
-                     0,   0, 3.1, 0, 0,   0, 0, 0,   0, 0.1, 0, 0,
-                     0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
-
-    e2.header.stamp = stamp;
-    e2.key_from = 0;
-    e2.key_to = 3;
-    e2.pose.position.z = -1;
-    e2.pose.position.x = -1;
-    e2.pose.orientation.w = 1;
-    e2.type = pose_graph_tools::PoseGraphEdge::LOOPCLOSE;
-    e2.covariance = {0.1, 0, 0,   0, 0,   0, 0, 0.1, 0, 0,   0, 0,
-                     0,   0, 0.1, 0, 0,   0, 0, 0,   0, 0.1, 0, 0,
-                     0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
-
-    n1.header.stamp = stamp;
-    n1.key = 0;
-    n1.pose.orientation.w = 1;
-
-    n2.header.stamp = stamp;
-    n2.key = 3;
-    n2.pose.orientation.w = 1;
-
-    inc_graph.edges.push_back(e1);
-    inc_graph.edges.push_back(e2);
-    inc_graph.nodes.push_back(n1);
-    inc_graph.nodes.push_back(n2);
-
-    return inc_graph;
-  }
-
-  pcl::PolygonMesh createMesh(double t_x, double t_y, double t_z) {
-    // Create simple pcl mesh
-    pcl::PolygonMesh mesh;
-
-    pcl::PointCloud<pcl::PointXYZRGBA> ptcld;
-    pcl::PointXYZRGBA v0, v1, v2, v3, v4;
-    v0.x = 0 + t_x;
-    v0.y = 0 + t_y;
-    v0.z = 0 + t_z;
-    v0.r = 23;
-    v0.g = 24;
-    v0.b = 122;
-    v0.a = 255;
-
-    v1.x = 1 + t_x;
-    v1.y = 0 + t_y;
-    v1.z = 0 + t_z;
-    v1.r = 33;
-    v1.g = 34;
-    v1.b = 52;
-    v1.a = 255;
-
-    v2.x = 0 + t_x;
-    v2.y = 1 + t_y;
-    v2.z = 0 + t_z;
-    v2.r = 12;
-    v2.g = 144;
-    v2.b = 22;
-    v2.a = 255;
-
-    v3.x = 1 + t_x;
-    v3.y = 1 + t_y;
-    v3.z = 0 + t_z;
-    v3.r = 0;
-    v3.g = 14;
-    v3.b = 0;
-    v3.a = 255;
-
-    v4.x = 0 + t_x;
-    v4.y = 0 + t_y;
-    v4.z = 1 + t_z;
-    v4.r = 144;
-    v4.g = 0;
-    v4.b = 12;
-    v4.a = 255;
-
-    ptcld.points.push_back(v0);
-    ptcld.points.push_back(v1);
-    ptcld.points.push_back(v2);
-    ptcld.points.push_back(v3);
-    ptcld.points.push_back(v4);
-    pcl::toPCLPointCloud2(ptcld, mesh.cloud);
-
-    pcl::Vertices tri_1, tri_2, tri_3, tri_4;
-    tri_1.vertices = std::vector<uint>{0, 1, 2};
-    tri_2.vertices = std::vector<uint>{1, 3, 2};
-    tri_3.vertices = std::vector<uint>{0, 1, 4};
-    tri_4.vertices = std::vector<uint>{0, 4, 2};
-    mesh.polygons = std::vector<pcl::Vertices>{tri_1, tri_2, tri_3, tri_4};
-
-    return mesh;
-  }
-
   KimeraPgmo pgmo_;
 };
 
@@ -290,7 +111,7 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
 
   // check callback
   pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
-  *inc_graph = SingleOdomGraph(ros::Time(10.2));
+  *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
 
   std::vector<gtsam::Pose3> traj = getTrajectory();
@@ -330,7 +151,7 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)), factor0.measured()));
 
   // load second incremental pose graph
-  *inc_graph = OdomLoopclosureGraph(ros::Time(20.3));
+  *inc_graph = OdomLoopclosureGraph(ros::Time(20.3), 0);
   IncrementalPoseGraphCallback(inc_graph);
 
   traj = getTrajectory();
@@ -383,7 +204,7 @@ TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
 
   // Check callback
   pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
-  *inc_graph = SingleOdomGraph(ros::Time(10.2));
+  *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
   // At this point should have two nodes (0, 0, 0), (1, 0, 0) and a between
   // factor
@@ -408,7 +229,7 @@ TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
   EXPECT_EQ(size_t(7), values.size());
 
   // load second incremental pose graph
-  *inc_graph = OdomLoopclosureGraph(ros::Time(12.8));
+  *inc_graph = OdomLoopclosureGraph(ros::Time(12.8), 0);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
@@ -465,7 +286,7 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnectionDeltaT) {
 
   // Check callback
   pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
-  *inc_graph = SingleOdomGraph(ros::Time(10.2));
+  *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
   // At this point should have two nodes (0, 0, 0), (1, 0, 0) and a between
   // factor
@@ -499,7 +320,7 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnectionDelay) {
 
   // Check callback
   pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
-  *inc_graph = SingleOdomGraph(ros::Time(10.2));
+  *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
   // At this point should have two nodes (0, 0, 0), (1, 0, 0) and a between
   // factor
@@ -509,7 +330,7 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnectionDelay) {
   EXPECT_EQ(size_t(2), values.size());
 
   // load second incremental pose graph
-  *inc_graph = OdomLoopclosureGraph(ros::Time(11.2));
+  *inc_graph = OdomLoopclosureGraph(ros::Time(11.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
 
   // At this point should have 3 nodes 3 between factors
@@ -543,7 +364,7 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
 
   // Check callback
   pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
-  *inc_graph = SingleOdomGraph(ros::Time(10.2));
+  *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
@@ -555,7 +376,7 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
   IncrementalMeshCallback(mesh_msg);
 
   // load second incremental pose graph
-  *inc_graph = OdomLoopclosureGraph(ros::Time(12.8));
+  *inc_graph = OdomLoopclosureGraph(ros::Time(12.8), 0);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
@@ -586,7 +407,7 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
   EXPECT_EQ(3, optimized_vertices.points[4].z);
 
   // load third incremental pose graph
-  *inc_graph = OdomLoopclosureGraph2(ros::Time(13.8));
+  *inc_graph = OdomLoopclosureGraph2(ros::Time(13.8), 0);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
@@ -616,7 +437,7 @@ TEST_F(KimeraPgmoTest, optimizedPathCallback) {
 
   // check callback
   pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
-  *inc_graph = SingleOdomGraph(ros::Time(10.2));
+  *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Create a Path
@@ -739,7 +560,7 @@ TEST_F(KimeraPgmoTest, getConsistencyFactors) {
 
   // Check callback
   pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
-  *inc_graph = SingleOdomGraph(ros::Time(10.2));
+  *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
@@ -751,7 +572,7 @@ TEST_F(KimeraPgmoTest, getConsistencyFactors) {
   IncrementalMeshCallback(mesh_msg);
 
   // load second incremental pose graph
-  *inc_graph = OdomLoopclosureGraph(ros::Time(12.8));
+  *inc_graph = OdomLoopclosureGraph(ros::Time(12.8), 0);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
@@ -862,7 +683,7 @@ TEST_F(KimeraPgmoTest, RequestMeshEdgesCallback) {
 
   // Check callback
   pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
-  *inc_graph = SingleOdomGraph(ros::Time(10.2));
+  *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
@@ -874,7 +695,7 @@ TEST_F(KimeraPgmoTest, RequestMeshEdgesCallback) {
   IncrementalMeshCallback(mesh_msg);
 
   // load second incremental pose graph
-  *inc_graph = OdomLoopclosureGraph(ros::Time(12.8));
+  *inc_graph = OdomLoopclosureGraph(ros::Time(12.8), 0);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
@@ -996,7 +817,7 @@ TEST_F(KimeraPgmoTest, RequestMeshEdgesCallbackReindex) {
 
   // Check callback
   pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
-  *inc_graph = SingleOdomGraph(ros::Time(10.2));
+  *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
@@ -1008,7 +829,7 @@ TEST_F(KimeraPgmoTest, RequestMeshEdgesCallbackReindex) {
   IncrementalMeshCallback(mesh_msg);
 
   // load second incremental pose graph
-  *inc_graph = OdomLoopclosureGraph(ros::Time(12.8));
+  *inc_graph = OdomLoopclosureGraph(ros::Time(12.8), 0);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
