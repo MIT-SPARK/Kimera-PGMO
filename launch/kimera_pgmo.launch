@@ -19,6 +19,7 @@
   <node type="kimera_pgmo_node" name="kimera_pgmo_node" pkg="kimera_pgmo" output="screen" >
     <rosparam file="$(find kimera_pgmo)/params/$(arg dataset)/parameters.yaml" />
     <param name="output_prefix" value="$(arg output_path)" />
+    <param name="robot_id" value="$(arg robot_id)" />
     <param name="run_mode" value="$(arg run_mode)" />
     <param name="use_msg_time" value="$(arg use_msg_time)" />
     <param name="log_output" value="$(arg log)" />
