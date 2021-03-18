@@ -54,6 +54,7 @@ bool KimeraPgmo::loadParameters(const ros::NodeHandle& n) {
   if (!KimeraPgmoInterface::loadParameters(n)) return false;
 
   if (!n.getParam("frame_id", frame_id_)) return false;
+  if (!n.getParam("robot_id", robot_id_)) return false;
   if (n.getParam("output_prefix", output_prefix_)) {
     ROS_INFO("Saving optimized data to: %s/ mesh_pgmo.ply and traj_pgmo.csv",
              output_prefix_.c_str());
@@ -135,7 +136,8 @@ bool KimeraPgmo::publishOptimizedMesh() const {
 // To publish optimized trajectory
 bool KimeraPgmo::publishOptimizedPath() const {
   std::vector<gtsam::Pose3> gtsam_path =
-      deformation_graph_.getOptimizedTrajectory('a');
+      deformation_graph_.getOptimizedTrajectory(
+          robot_id_to_prefix.at(robot_id_));
 
   if (gtsam_path.size() == 0) return false;
 
@@ -178,7 +180,7 @@ void KimeraPgmo::incrementalPoseGraphCallback(
   auto start = std::chrono::high_resolution_clock::now();
 
   processIncrementalPoseGraph(
-      msg, &trajectory_, &unconnected_nodes_, &timestamps_, true);
+      msg, &trajectory_, &unconnected_nodes_, &timestamps_);
 
   // Update transforms
   publishTransforms();
@@ -215,7 +217,7 @@ void KimeraPgmo::optimizedPathCallback(
         "KimeraPgmo: Path subscriber does not support centralized multirobot "
         "scenario. ");
   }
-  processOptimizedPath(path_msg, 0);
+  processOptimizedPath(path_msg, robot_id_);
 
   // Stop timer and save
   auto stop = std::chrono::high_resolution_clock::now();
@@ -235,8 +237,7 @@ void KimeraPgmo::fullMeshCallback(
   // Start timer
   auto start = std::chrono::high_resolution_clock::now();
 
-  optimized_mesh_ =
-      optimizeAndPublishFullMesh(mesh_msg, &optimized_mesh_pub_, true);
+  optimized_mesh_ = optimizeAndPublishFullMesh(mesh_msg, &optimized_mesh_pub_);
 
   // Stop timer and save
   auto stop = std::chrono::high_resolution_clock::now();
@@ -253,7 +254,7 @@ void KimeraPgmo::incrementalMeshCallback(
   auto start = std::chrono::high_resolution_clock::now();
 
   processIncrementalMesh(
-      mesh_msg, compression_, timestamps_, &unconnected_nodes_, true);
+      mesh_msg, compression_, timestamps_, &unconnected_nodes_);
 
   // Stop timer and save
   auto stop = std::chrono::high_resolution_clock::now();
@@ -269,7 +270,8 @@ void KimeraPgmo::incrementalMeshCallback(
 
 void KimeraPgmo::publishTransforms() {
   const std::vector<gtsam::Pose3>& gtsam_path =
-      deformation_graph_.getOptimizedTrajectory('a');
+      deformation_graph_.getOptimizedTrajectory(
+          robot_id_to_prefix.at(robot_id_));
   const gtsam::Pose3& latest_pose = gtsam_path.at(trajectory_.size() - 1);
 
   const gtsam::Point3& pos = latest_pose.translation();
@@ -305,7 +307,8 @@ bool KimeraPgmo::saveTrajectoryCallback(std_srvs::Empty::Request&,
                                         std_srvs::Empty::Response&) {
   // Save trajectory
   const std::vector<gtsam::Pose3>& optimized_path =
-      deformation_graph_.getOptimizedTrajectory('a');
+      deformation_graph_.getOptimizedTrajectory(
+          robot_id_to_prefix.at(robot_id_));
   std::ofstream csvfile;
   std::string csv_name = output_prefix_ + std::string("/traj_pgmo.csv");
   saveTrajectory(optimized_path, timestamps_, csv_name);

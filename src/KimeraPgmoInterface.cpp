@@ -103,15 +103,12 @@ void KimeraPgmoInterface::processIncrementalPoseGraph(
     const pose_graph_tools::PoseGraph::ConstPtr& msg,
     std::vector<gtsam::Pose3>* initial_trajectory,
     std::queue<size_t>* unconnected_nodes,
-    std::vector<ros::Time>* node_timestamps,
-    bool single_robot) {
+    std::vector<ros::Time>* node_timestamps) {
   // if first node initialize
   //// Note that we assume for all node ids that the keys start with 0
   if (msg->nodes.size() > 0 && msg->nodes[0].key == 0 &&
       initial_trajectory->size() == 0) {
     size_t robot_id = msg->nodes[0].robot_id;
-    // Always use robot id of 0 if single robot
-    if (single_robot) robot_id = 0;
 
     const gtsam::Symbol key_symb(GetRobotPrefix(robot_id), 0);
     const gtsam::Pose3& init_pose = RosToGtsam(msg->nodes[0].pose);
@@ -138,15 +135,6 @@ void KimeraPgmoInterface::processIncrementalPoseGraph(
 
       size_t robot_from = pg_edge.robot_from;
       size_t robot_to = pg_edge.robot_to;
-      // Always use robot id of 0 if single robot
-      if (single_robot) {
-        if (robot_from != robot_to)
-          ROS_ERROR(
-              "Receiving inter-robot loop closures in single robot "
-              "Kimera-PGMO. ");
-        robot_from = 0;
-        robot_to = 0;
-      }
 
       const gtsam::Symbol from_key(GetRobotPrefix(robot_from), prev_node);
       const gtsam::Symbol to_key(GetRobotPrefix(robot_to), current_node);
@@ -231,16 +219,13 @@ void KimeraPgmoInterface::processOptimizedPath(
 
 pcl::PolygonMesh KimeraPgmoInterface::optimizeAndPublishFullMesh(
     const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg,
-    const ros::Publisher* publisher,
-    bool single_robot) {
+    const ros::Publisher* publisher) {
   const pcl::PolygonMesh& input_mesh =
       TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
   // check if empty
   if (input_mesh.cloud.height * input_mesh.cloud.width == 0) return input_mesh;
 
   size_t robot_id = mesh_msg->id;
-  // Always use robot id of 0 if single robot
-  if (single_robot) robot_id = 0;
 
   std_msgs::Header mesh_header = mesh_msg->header;
 
@@ -262,11 +247,8 @@ void KimeraPgmoInterface::processIncrementalMesh(
     const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg,
     const OctreeCompressionPtr compressor,
     const std::vector<ros::Time>& node_timestamps,
-    std::queue<size_t>* unconnected_nodes,
-    bool single_robot) {
+    std::queue<size_t>* unconnected_nodes) {
   size_t robot_id = mesh_msg->id;
-  // Always use robot id of 0 if single robot
-  if (single_robot) robot_id = 0;
 
   const pcl::PolygonMesh incremental_mesh =
       TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);

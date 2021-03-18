@@ -21,6 +21,7 @@ class KimeraPgmoTest : public ::testing::Test {
  protected:
   KimeraPgmoTest() {
     system("rosparam set frame_id world");
+    system("rosparam set robot_id 0");
     system("rosparam set compression_time_horizon 10.0");
     system("rosparam set run_mode 0");
     system("rosparam set use_msg_time true");

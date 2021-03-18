@@ -152,6 +152,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
   std::vector<ros::Time> timestamps_;
 
   std::string frame_id_;
+  int robot_id_;
 
   // Track number of loop closures
   size_t num_loop_closures_;
