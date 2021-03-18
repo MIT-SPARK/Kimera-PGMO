@@ -712,7 +712,7 @@ TEST_F(KimeraPgmoTest, RequestMeshEdgesCallback) {
   EXPECT_FALSE(RequestMeshEdgesCallback(request, response));
 
   request.robot_id = 0;              // test with correct robot id
-  request.reindex_vertices = false;  // do not reindex
+  request.reindex_vertices = false;  // reindex
 
   EXPECT_TRUE(RequestMeshEdgesCallback(request, response));
   gtsam::NonlinearFactorGraph consistency_factors =
@@ -943,6 +943,223 @@ TEST_F(KimeraPgmoTest, RequestMeshEdgesCallbackReindex) {
                           RosToGtsam(consistency_nodes[9].pose)));
 }
 
+TEST_F(KimeraPgmoTest, checkRobotIdMeshCallback) {
+  // Here we should test if the mesh is added to the deformation graph correctly
+  ros::NodeHandle nh;
+  system("rosparam set robot_id 2");
+  pgmo_.initialize(nh);
+
+  // Check callback
+  pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
+  *inc_graph = SingleOdomGraph(ros::Time(10.2), 2);
+  IncrementalPoseGraphCallback(inc_graph);
+  // At this point should have two nodes (0, 0, 0), (1, 0, 0) and a between
+  // factor
+  gtsam::NonlinearFactorGraph factors = getFactors();
+  gtsam::Values values = getValues();
+  EXPECT_EQ(size_t(1), factors.size());
+  EXPECT_EQ(size_t(2), values.size());
+
+  // Add mesh
+  pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
+  kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
+      new kimera_pgmo::TriangleMeshIdStamped);
+  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
+  mesh_msg->header.stamp = ros::Time(12.5);  // within 3 sec of pose graph msg
+  mesh_msg->id = 2;
+  IncrementalMeshCallback(mesh_msg);
+
+  // Now should have 7 values (2 nodes + 5 vertices)
+  // And 27 factors (16 edges + 1 odom + 10 connections)
+  factors = getFactors();
+  values = getValues();
+  EXPECT_EQ(size_t(27), factors.size());
+  EXPECT_EQ(size_t(7), values.size());
+
+  // load second incremental pose graph
+  *inc_graph = OdomLoopclosureGraph(ros::Time(12.8), 2);
+  IncrementalPoseGraphCallback(inc_graph);
+
+  // Add mesh
+  pcl::PolygonMesh mesh2 = createMesh(2, 0, 0);
+  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh2);
+  mesh_msg->header.stamp = ros::Time(13.0);  // within 3 sec of pose graph msg
+  IncrementalMeshCallback(mesh_msg);
+
+  // Now should have 13 values (3 nodes + 10 vertices)
+  // And 55 factors (32 edges + 2 odom + 20 connections + 1 lc)
+  factors = getFactors();
+  values = getValues();
+  EXPECT_EQ(size_t(55), factors.size());
+  EXPECT_EQ(size_t(13), values.size());
+
+  // And also add the connection of nodes and vertices
+  EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(
+      factors[2]));
+  gtsam::BetweenFactor<gtsam::Pose3> factor2 =
+      *boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(
+          factors[2]);
+  EXPECT_TRUE(gtsam::assert_equal(
+      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)), factor2.measured()));
+  EXPECT_EQ(gtsam::Symbol('c', 0).key(), factor2.front());
+  EXPECT_EQ(gtsam::Symbol('c', 2).key(), factor2.back());
+
+  // Check deformation edge factors
+  EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[3]));
+  DeformationEdgeFactor factor3 =
+      *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[3]);
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(), factor3.fromPose()));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor3.toPoint()));
+  EXPECT_EQ(gtsam::Symbol('u', 0), factor3.front());
+  EXPECT_EQ(gtsam::Symbol('u', 1), factor3.back());
+
+  EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[53]));
+  DeformationEdgeFactor factor53 =
+      *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[53]);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
+                          factor53.fromPose()));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(2, 0, 1), factor53.toPoint()));
+  EXPECT_EQ(gtsam::Symbol('c', 2), factor53.front());
+  EXPECT_EQ(gtsam::Symbol('u', 9), factor53.back());
+}
+
+TEST_F(KimeraPgmoTest, CheckRobotIdRequestMeshEdgesCallback) {
+  // Test reindex
+  // Here we should test if the mesh is added to the deformation graph correctly
+  ros::NodeHandle nh;
+  system("rosparam set robot_id 2");
+  pgmo_.initialize(nh);
+
+  // Check callback
+  pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
+  *inc_graph = SingleOdomGraph(ros::Time(10.2), 2);
+  IncrementalPoseGraphCallback(inc_graph);
+
+  // Add mesh
+  pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
+  kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
+      new kimera_pgmo::TriangleMeshIdStamped);
+  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
+  mesh_msg->header.stamp = ros::Time(12.5);  // within 3 sec of pose graph msg
+  mesh_msg->id = 2;
+  IncrementalMeshCallback(mesh_msg);
+
+  // load second incremental pose graph
+  *inc_graph = OdomLoopclosureGraph(ros::Time(12.8), 2);
+  IncrementalPoseGraphCallback(inc_graph);
+
+  // Add mesh
+  pcl::PolygonMesh mesh2 = createMesh(2, 0, 0);
+  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh2);
+  mesh_msg->header.stamp = ros::Time(13.0);  // within 3 sec of pose graph msg
+  mesh_msg->id = 2;
+  IncrementalMeshCallback(mesh_msg);
+
+  kimera_pgmo::RequestMeshFactors::Request request;
+  kimera_pgmo::RequestMeshFactors::Response response;
+
+  request.robot_id = 0;             // first test with wrong robot id
+  request.reindex_vertices = true;  // reindex
+
+  EXPECT_FALSE(RequestMeshEdgesCallback(request, response));
+
+  request.robot_id = 2;  // test with correct robot id
+
+  EXPECT_TRUE(RequestMeshEdgesCallback(request, response));
+  gtsam::NonlinearFactorGraph consistency_factors =
+      getConsistencyFactorsGtsam();
+  std::vector<pose_graph_tools::PoseGraphEdge> consistency_edges =
+      response.mesh_factors.edges;
+  std::vector<pose_graph_tools::PoseGraphNode> consistency_nodes =
+      response.mesh_factors.nodes;
+
+  // Arbitrary noise
+  gtsam::Vector6 precisions_6;
+  precisions_6.head<3>().setConstant(0.0);
+  precisions_6.tail<3>().setConstant(1e3);
+  static const gtsam::SharedNoiseModel& between_noise =
+      gtsam::noiseModel::Diagonal::Precisions(precisions_6);
+  size_t num_poses = getTrajectory().size();
+  // Iterate and check
+  for (size_t i = 0; i < consistency_factors.size(); i++) {
+    // Compare the two
+    DeformationEdgeFactor dedge_factor =
+        *boost::dynamic_pointer_cast<DeformationEdgeFactor>(
+            consistency_factors[i]);
+    // Create the between factor that is equivalent to the pose graph edge
+    pose_graph_tools::PoseGraphEdge e = consistency_edges[i];
+    gtsam::Key front, back;
+    switch (e.type) {
+      case pose_graph_tools::PoseGraphEdge::MESH: {
+        front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from),
+                              e.key_from - num_poses);
+        back = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to),
+                             e.key_to - num_poses);
+        break;
+      }
+      case pose_graph_tools::PoseGraphEdge::POSE_MESH: {
+        front = gtsam::Symbol(robot_id_to_prefix.at(e.robot_from), e.key_from);
+        back = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to),
+                             e.key_to - num_poses);
+        break;
+      }
+      case pose_graph_tools::PoseGraphEdge::MESH_POSE: {
+        front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from),
+                              e.key_from - num_poses);
+        back = gtsam::Symbol(robot_id_to_prefix.at(e.robot_to), e.key_to);
+        break;
+      }
+    }
+    gtsam::BetweenFactor<gtsam::Pose3> between_factor(
+        front, back, RosToGtsam(e.pose), between_noise);
+
+    // Create perturbed poses
+    gtsam::Pose3 pose_front = dedge_factor.fromPose() *
+                              gtsam::Pose3(gtsam::Rot3::Rodrigues(0.01, 0, 0),
+                                           gtsam::Point3(0, 0, 0.001));
+    gtsam::Pose3 pose_back =
+        gtsam::Pose3(gtsam::Rot3(), dedge_factor.toPoint()) *
+        gtsam::Pose3(gtsam::Rot3::Rodrigues(0, 0, 0.01),
+                     gtsam::Point3(-0.001, 0, 0));
+
+    // Check errors are equal
+    gtsam::Vector betweenError =
+        between_factor.evaluateError(pose_front, pose_back);
+
+    gtsam::Vector dedgeError =
+        dedge_factor.evaluateError(pose_front, pose_back);
+
+    EXPECT_NEAR(-dedgeError(0), betweenError(3), 1e-4);
+    EXPECT_NEAR(-dedgeError(1), betweenError(4), 1e-4);
+    EXPECT_NEAR(-dedgeError(2), betweenError(5), 1e-4);
+
+    // Check keys are equal
+    EXPECT_EQ(dedge_factor.front(), between_factor.front());
+    EXPECT_EQ(dedge_factor.back(), between_factor.back());
+
+    // Check Covariance
+    EXPECT_EQ(0, e.covariance[0]);
+    EXPECT_EQ(0, e.covariance[7]);
+    EXPECT_EQ(0, e.covariance[14]);
+    EXPECT_EQ(1.0 / 0.0, e.covariance[21]);
+    EXPECT_EQ(1.0 / 0.0, e.covariance[28]);
+    EXPECT_EQ(1.0 / 0.0, e.covariance[35]);
+  }
+
+  // Check nodes
+  EXPECT_EQ(10, consistency_nodes.size());
+  EXPECT_EQ(2, consistency_nodes[0].robot_id);
+  EXPECT_EQ(num_poses, consistency_nodes[0].key);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, 0)),
+                          RosToGtsam(consistency_nodes[0].pose)));
+  EXPECT_EQ(2, consistency_nodes[9].robot_id);
+  EXPECT_EQ(num_poses + 9, consistency_nodes[9].key);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 0, 1)),
+                          RosToGtsam(consistency_nodes[9].pose)));
+}
 }  // namespace kimera_pgmo
 
 int main(int argc, char** argv) {

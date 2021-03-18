@@ -200,7 +200,7 @@ void KimeraPgmo::incrementalPoseGraphCallback(
   if (pose_graph_pub_.getNumSubscribers() > 0) {
     // Publish pose graph
     std::map<size_t, std::vector<ros::Time> > id_timestamps;
-    id_timestamps[0] = timestamps_;
+    id_timestamps[robot_id_] = timestamps_;
     const GraphMsgPtr& pose_graph_ptr =
         deformation_graph_.getPoseGraph(id_timestamps);
     pose_graph_pub_.publish(*pose_graph_ptr);
