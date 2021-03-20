@@ -135,21 +135,17 @@ bool KimeraPgmo::publishOptimizedMesh() const {
 
 // To publish optimized trajectory
 bool KimeraPgmo::publishOptimizedPath() const {
-  std::vector<gtsam::Pose3> gtsam_path =
-      deformation_graph_.getOptimizedTrajectory(
-          robot_id_to_prefix.at(robot_id_));
-
-  if (gtsam_path.size() == 0) return false;
+  if (optimized_path_.size() == 0) return false;
 
   std_msgs::Header msg_header;
   msg_header.stamp = ros::Time::now();
   msg_header.frame_id = frame_id_;
-  publishPath(gtsam_path, msg_header, &optimized_path_pub_);
+  publishPath(optimized_path_, msg_header, &optimized_path_pub_);
 
   if (optimized_odom_pub_.getNumSubscribers() > 0) {
     // Publish also the optimized odometry
     nav_msgs::Odometry odometry_msg;
-    const gtsam::Pose3 last_pose = gtsam_path[gtsam_path.size() - 1];
+    const gtsam::Pose3 last_pose = optimized_path_[optimized_path_.size() - 1];
     const gtsam::Rot3& rotation = last_pose.rotation();
     const gtsam::Quaternion& quaternion = rotation.toQuaternion();
 
@@ -184,6 +180,10 @@ void KimeraPgmo::incrementalPoseGraphCallback(
 
   // Update transforms
   publishTransforms();
+
+  // Update optimized path
+  optimized_path_ = deformation_graph_.getOptimizedTrajectory(
+      robot_id_to_prefix.at(robot_id_));
 
   // Stop timer and save
   auto stop = std::chrono::high_resolution_clock::now();
@@ -269,11 +269,10 @@ void KimeraPgmo::incrementalMeshCallback(
 }
 
 void KimeraPgmo::publishTransforms() {
-  const std::vector<gtsam::Pose3>& gtsam_path =
-      deformation_graph_.getOptimizedTrajectory(
-          robot_id_to_prefix.at(robot_id_));
-  const gtsam::Pose3& latest_pose = gtsam_path.at(trajectory_.size() - 1);
+  if (optimized_path_.size() == 0) return;
 
+  const gtsam::Pose3& latest_pose =
+      optimized_path_.at(optimized_path_.size() - 1);
   const gtsam::Point3& pos = latest_pose.translation();
   const gtsam::Quaternion& quat = latest_pose.rotation().toQuaternion();
   // Create transfomr message
@@ -306,12 +305,9 @@ bool KimeraPgmo::saveMeshCallback(std_srvs::Empty::Request&,
 bool KimeraPgmo::saveTrajectoryCallback(std_srvs::Empty::Request&,
                                         std_srvs::Empty::Response&) {
   // Save trajectory
-  const std::vector<gtsam::Pose3>& optimized_path =
-      deformation_graph_.getOptimizedTrajectory(
-          robot_id_to_prefix.at(robot_id_));
   std::ofstream csvfile;
   std::string csv_name = output_prefix_ + std::string("/traj_pgmo.csv");
-  saveTrajectory(optimized_path, timestamps_, csv_name);
+  saveTrajectory(optimized_path_, timestamps_, csv_name);
   ROS_INFO("KimeraPgmo: Saved trajectories to file.");
   return true;
 }

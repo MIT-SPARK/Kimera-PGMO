@@ -121,6 +121,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
  protected:
   // optimized mesh for each robot
   pcl::PolygonMesh optimized_mesh_;
+  std::vector<gtsam::Pose3> optimized_path_;
   ros::Time last_mesh_stamp_;
 
   OctreeCompressionPtr compression_;
