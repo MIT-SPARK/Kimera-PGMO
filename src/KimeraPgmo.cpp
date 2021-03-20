@@ -178,12 +178,11 @@ void KimeraPgmo::incrementalPoseGraphCallback(
   processIncrementalPoseGraph(
       msg, &trajectory_, &unconnected_nodes_, &timestamps_);
 
+  // Update optimized path
+  optimized_path_ = getOptimizedTrajectory(robot_id_);
+
   // Update transforms
   publishTransforms();
-
-  // Update optimized path
-  optimized_path_ = deformation_graph_.getOptimizedTrajectory(
-      robot_id_to_prefix.at(robot_id_));
 
   // Stop timer and save
   auto stop = std::chrono::high_resolution_clock::now();

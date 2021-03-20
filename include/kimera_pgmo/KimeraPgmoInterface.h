@@ -134,6 +134,12 @@ class KimeraPgmoInterface {
   void processOptimizedPath(const nav_msgs::Path::ConstPtr& path_msg,
                             const size_t& robot_id = 0);
 
+  /*! \brief Get the optimized trajectory of a robot
+   * - robot_id: id of the robot referred to in query
+   */
+  std::vector<gtsam::Pose3> getOptimizedTrajectory(
+      const size_t& robot_id) const;
+
   /*! \brief Saves mesh as a ply file. Triggers through a rosservice call
    * and saves to file [output_prefix_][id].ply
    * - mesh: mesh to save
@@ -165,7 +171,8 @@ class KimeraPgmoInterface {
  protected:
   enum class RunMode {
     FULL = 0u,  // Optimize mesh and pose graph
-    MESH = 1u   // Optimize mesh based on given optimized trajectory
+    MESH = 1u,  // Optimize mesh based on given optimized trajectory
+    DPGMO = 2u  // DPGO does the optimization
   };
   RunMode run_mode_;
   bool use_msg_time_;  // use msg time or call back time
@@ -178,5 +185,7 @@ class KimeraPgmoInterface {
 
   // Track number of loop closures
   size_t num_loop_closures_;
+
+  gtsam::Values dpgmo_values_;
 };
 }  // namespace kimera_pgmo

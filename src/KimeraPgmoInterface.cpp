@@ -232,8 +232,13 @@ pcl::PolygonMesh KimeraPgmoInterface::optimizeAndPublishFullMesh(
   // Optimize mesh
   pcl::PolygonMesh optimized_mesh;
   try {
-    optimized_mesh =
-        deformation_graph_.deformMesh(input_mesh, GetVertexPrefix(robot_id));
+    if (run_mode_ == RunMode::DPGMO) {
+      optimized_mesh = deformation_graph_.deformMesh(
+          input_mesh, GetVertexPrefix(robot_id), dpgmo_values_);
+    } else {
+      optimized_mesh =
+          deformation_graph_.deformMesh(input_mesh, GetVertexPrefix(robot_id));
+    }
   } catch (const std::out_of_range& e) {
     ROS_ERROR("Failed to deform mesh. Out of range error. ");
   }
@@ -533,6 +538,26 @@ void KimeraPgmoInterface::visualizeDeformationGraph(
 
     publisher->publish(graph_viz);
   }
+}
+
+std::vector<gtsam::Pose3> KimeraPgmoInterface::getOptimizedTrajectory(
+    const size_t& robot_id) const {
+  // return the optimized trajectory (pose graph)
+  const char& robot_prefix = robot_id_to_prefix.at(robot_id);
+  std::vector<gtsam::Pose3> optimized_traj =
+      deformation_graph_.getOptimizedTrajectory(robot_prefix);
+  if (run_mode_ == RunMode::DPGMO) {
+    try {
+      for (size_t i = 0; i < optimized_traj.size(); i++) {
+        gtsam::Symbol node(robot_prefix, i);
+        optimized_traj[i] = dpgmo_values_.at<gtsam::Pose3>(node);
+      }
+    } catch (const std::exception& e) {
+      ROS_ERROR("Error in KimeraPgmo getOptimizedTrajectory. ");
+      ROS_ERROR(e.what());
+    }
+  }
+  return optimized_traj;
 }
 
 }  // namespace kimera_pgmo
