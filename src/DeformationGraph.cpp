@@ -310,6 +310,14 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
     const pcl::PolygonMesh& original_mesh,
     const char& prefix,
     size_t k) {
+  return deformMesh(original_mesh, prefix, values_, k);
+}
+
+pcl::PolygonMesh DeformationGraph::deformMesh(
+    const pcl::PolygonMesh& original_mesh,
+    const char& prefix,
+    const gtsam::Values& optimized_values,
+    size_t k) {
   // Cannot deform if no nodes in the deformation graph
   if (vertices_->points.size() == 0) {
     ROS_DEBUG("Deformable mesh empty. No deformation. ");
@@ -370,7 +378,7 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
       double weight = (1 - std::sqrt(nearest_nodes_sq_dist[j]) / d_max);
       if (weight_sum == 0 && weight == 0) weight = 1;
       weight_sum = weight_sum + weight;
-      gtsam::Pose3 node_transform = values_.at<gtsam::Pose3>(
+      gtsam::Pose3 node_transform = optimized_values.at<gtsam::Pose3>(
           gtsam::Symbol(prefix, nearest_nodes_index[j]));
       gtsam::Point3 add = node_transform.rotation().rotate(vi - gj) +
                           node_transform.translation();
