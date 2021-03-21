@@ -266,6 +266,10 @@ class DeformationGraph {
     return vertex_positions_.at(prefix);
   }
 
+  /*! \brief Never optimize graph, store factors only
+   */
+  inline void storeOnlyNoOptimization() { do_not_optimize_ = true; }
+
  private:
   /*! \brief Called within updateMesh to create the DeformationEdgeFactors
    * created from the newly added mesh surfaces
@@ -305,6 +309,9 @@ class DeformationGraph {
   gtsam::NonlinearFactorGraph consistency_factors_;
   // factor graph for pose graph related factors
   gtsam::NonlinearFactorGraph pg_factors_;
+
+  // Just store and not optimize
+  bool do_not_optimize_;
 
   // Recalculate only if new measurements added
   bool recalculate_vertices_;

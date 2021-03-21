@@ -26,7 +26,8 @@ namespace kimera_pgmo {
 DeformationGraph::DeformationGraph()
     : pgo_(nullptr),
       recalculate_vertices_(false),
-      vertices_(new pcl::PointCloud<pcl::PointXYZ>) {}
+      vertices_(new pcl::PointCloud<pcl::PointXYZ>),
+      do_not_optimize_(false) {}
 DeformationGraph::~DeformationGraph() {}
 
 bool DeformationGraph::initialize(double pgo_trans_threshold,
@@ -106,7 +107,7 @@ void DeformationGraph::updateConsistencyFactors(
     consistency_factors_.add(new_edge);
     new_factors.add(new_edge);
   }
-  pgo_->update(new_factors, new_values);
+  pgo_->update(new_factors, new_values, !do_not_optimize_);
   values_ = pgo_->calculateEstimate();
   nfg_ = pgo_->getFactorsUnsafe();
 }
@@ -138,7 +139,7 @@ void DeformationGraph::addNodeValence(const gtsam::Key& key,
     new_factors.add(new_edge_1);
     new_factors.add(new_edge_2);
   }
-  pgo_->update(new_factors, new_values);
+  pgo_->update(new_factors, new_values, !do_not_optimize_);
   values_ = pgo_->calculateEstimate();
   nfg_ = pgo_->getFactorsUnsafe();
 }
@@ -158,7 +159,7 @@ void DeformationGraph::addMeasurement(const Vertex& v,
   gtsam::PriorFactor<gtsam::Pose3> absolute_meas(v_symb, meas, noise);
   new_factors.add(absolute_meas);
 
-  pgo_->update(new_factors, new_values);
+  pgo_->update(new_factors, new_values, !do_not_optimize_);
   values_ = pgo_->calculateEstimate();
   nfg_ = pgo_->getFactorsUnsafe();
   recalculate_vertices_ = true;
@@ -183,7 +184,7 @@ void DeformationGraph::addNodeMeasurement(const gtsam::Key& key,
     new_values.insert(key, pose);
   }
 
-  pgo_->update(new_factors, new_values);
+  pgo_->update(new_factors, new_values, !do_not_optimize_);
   values_ = pgo_->calculateEstimate();
   nfg_ = pgo_->getFactorsUnsafe();
   recalculate_vertices_ = true;
@@ -210,7 +211,7 @@ void DeformationGraph::addNodeMeasurements(
     }
   }
 
-  pgo_->update(new_factors, new_values);
+  pgo_->update(new_factors, new_values, !do_not_optimize_);
   values_ = pgo_->calculateEstimate();
   nfg_ = pgo_->getFactorsUnsafe();
   recalculate_vertices_ = true;
@@ -251,7 +252,7 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
   new_factors.add(
       gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
 
-  pgo_->update(new_factors, new_values);
+  pgo_->update(new_factors, new_values, !do_not_optimize_);
   values_ = pgo_->calculateEstimate();
   nfg_ = pgo_->getFactorsUnsafe();
 
@@ -292,7 +293,7 @@ void DeformationGraph::addNewNode(const gtsam::Key& key,
     new_factors.add(gtsam::PriorFactor<gtsam::Pose3>(key, initial_pose, noise));
   }
 
-  pgo_->update(new_factors, new_values);
+  pgo_->update(new_factors, new_values, !do_not_optimize_);
   values_ = pgo_->calculateEstimate();
   nfg_ = pgo_->getFactorsUnsafe();
   return;

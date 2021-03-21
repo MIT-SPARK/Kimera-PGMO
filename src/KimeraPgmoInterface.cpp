@@ -42,6 +42,8 @@ bool KimeraPgmoInterface::loadParameters(const ros::NodeHandle& n) {
     ROS_ERROR("KimeraPgmo: Failed to initialize deformation graph.");
     return false;
   }
+
+  if (run_mode_ == RunMode::DPGMO) deformation_graph_.storeOnlyNoOptimization();
   return true;
 }
 
@@ -169,7 +171,7 @@ void KimeraPgmoInterface::processIncrementalPoseGraph(
         // Add new node to queue to be connected to mesh later
         unconnected_nodes->push(current_node);
         // Add to deformation graph
-        if (run_mode_ == RunMode::FULL) {
+        if (run_mode_ == RunMode::FULL || run_mode_ == RunMode::DPGMO) {
           // Add the pose estimate of new node and between factor (odometry)
           deformation_graph_.addNewBetween(from_key, to_key, measure, new_pose);
         } else if (run_mode_ == RunMode::MESH) {
