@@ -267,6 +267,32 @@ void KimeraPgmo::incrementalMeshCallback(
   return;
 }
 
+void KimeraPgmo::dpgmoCallback(
+    const pose_graph_tools::PoseGraph::ConstPtr& msg) {
+  if (dpgmo_num_poses_last_req_.empty()) {
+    ROS_ERROR("Mesh factors request queue empty.");
+    return;
+  }
+  size_t num_poses = dpgmo_num_poses_last_req_.front();
+  dpgmo_num_poses_last_req_.pop();
+  for (auto node : msg->nodes) {
+    if (node.robot_id != robot_id_) {
+      ROS_WARN(
+          "Unexpected robot id in pose graph received in dpgmo callback. ");
+      continue;
+    }
+    char prefix = robot_id_to_prefix.at(robot_id_);
+    size_t index = node.key;
+    if (node.key >= num_poses) {
+      prefix = robot_id_to_vertex_prefix.at(robot_id_);
+      index = node.key - num_poses;  // account for offset
+    }
+    gtsam::Symbol key = gtsam::Symbol(prefix, index);
+    gtsam::Pose3 pose = RosToGtsam(node.pose);
+    dpgmo_values_.insert(key, pose);
+  }
+}
+
 void KimeraPgmo::publishTransforms() {
   if (optimized_path_.size() == 0) return;
 
@@ -316,8 +342,12 @@ bool KimeraPgmo::requestMeshEdgesCallback(
     kimera_pgmo::RequestMeshFactors::Response& response) {
   size_t offset_vertex_indices = 0;
   if (request.reindex_vertices) offset_vertex_indices = trajectory_.size();
-  return getConsistencyFactors(
-      request.robot_id, &response.mesh_factors, offset_vertex_indices);
+  if (getConsistencyFactors(
+          request.robot_id, &response.mesh_factors, offset_vertex_indices)) {
+    dpgmo_num_poses_last_req_.push(trajectory_.size());
+    return true;
+  }
+  return false;
 }
 
 void KimeraPgmo::logStats(const std::string filename) const {

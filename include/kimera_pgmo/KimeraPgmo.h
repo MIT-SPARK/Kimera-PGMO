@@ -95,6 +95,11 @@ class KimeraPgmo : public KimeraPgmoInterface {
    */
   void optimizedPathCallback(const nav_msgs::Path::ConstPtr& path_msg);
 
+  /*! \brief Subscribes to an optimized values published by dpgmo
+   *  - msg: optimized pose graph published as a pose graph msg
+   */
+  void dpgmoCallback(const pose_graph_tools::PoseGraph::ConstPtr& msg);
+
   /*! \brief Saves mesh as a ply file. Triggers through a rosservice call
    * and saves to file [output_prefix_].ply
    */
@@ -151,6 +156,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
   std::vector<gtsam::Pose3> trajectory_;
   std::queue<size_t> unconnected_nodes_;
   std::vector<ros::Time> timestamps_;
+  std::queue<size_t> dpgmo_num_poses_last_req_;
 
   std::string frame_id_;
   int robot_id_;
