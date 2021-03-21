@@ -165,6 +165,14 @@ class KimeraPgmoInterface {
                              pose_graph_tools::PoseGraph* pg_mesh_msg,
                              const size_t& vertex_index_offset = 0) const;
 
+  void inline insertDpgmoValues(const gtsam::Key& key,
+                                const gtsam::Pose3& pose) {
+    dpgmo_values_.insert(key, pose);
+  }
+  /*! \brief Get the DPGMO optimized values
+   */
+  gtsam::Values inline getDpgmoValues() const { return dpgmo_values_; }
+
   /*! \brief visualize the edges of the deformation graph  */
   void visualizeDeformationGraph(const ros::Publisher* publisher) const;
 
@@ -186,6 +194,7 @@ class KimeraPgmoInterface {
   // Track number of loop closures
   size_t num_loop_closures_;
 
+  // DPGMO optimized values
   gtsam::Values dpgmo_values_;
 };
 }  // namespace kimera_pgmo

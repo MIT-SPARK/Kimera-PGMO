@@ -345,7 +345,6 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
   for (auto v : optimized_values.keys()) {
     gtsam::Symbol v_key = gtsam::Symbol(v);
     if (v_key.chr() == prefix) {
-      std::cout << gtsam::DefaultKeyFormatter(v) << std::endl;
       // Gtsam Keylist should be ordered
       gtsam::Point3 position = vertex_positions_[prefix].at(v_key.index());
       search_cloud->push_back(

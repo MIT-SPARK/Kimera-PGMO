@@ -40,7 +40,7 @@ pose_graph_tools::PoseGraph SingleOdomGraph(const ros::Time& stamp,
   n0.pose.orientation.w = 1;
 
   n1.header.stamp = stamp;
-  n1.key = 0;
+  n1.key = 1;
   n1.robot_id = robot_id;
   n1.pose.position.x = 1;
   n1.pose.orientation.w = 1;
@@ -85,13 +85,15 @@ pose_graph_tools::PoseGraph OdomLoopclosureGraph(const ros::Time& stamp,
                    0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
 
   n1.header.stamp = stamp;
-  n1.key = 0;
+  n1.key = 1;
   n1.robot_id = robot_id;
   n1.pose.orientation.w = 1;
 
   n2.header.stamp = stamp;
   n2.key = 2;
   n2.robot_id = robot_id;
+  n2.pose.position.x = 1;
+  n2.pose.position.y = 1;
   n2.pose.orientation.w = 1;
 
   inc_graph.edges.push_back(e1);

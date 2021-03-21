@@ -82,6 +82,10 @@ class KimeraDpgmoTest : public ::testing::Test {
     return pgmo_.optimized_mesh_;
   }
 
+  inline std::vector<gtsam::Pose3> getOptimizedPath() const {
+    return pgmo_.optimized_path_;
+  }
+
   inline gtsam::NonlinearFactorGraph getConsistencyFactorsGtsam() const {
     return pgmo_.deformation_graph_.getConsistencyFactors();
   }
@@ -93,6 +97,8 @@ class KimeraDpgmoTest : public ::testing::Test {
     return pgmo_.getConsistencyFactors(
         robot_id, pg_mesh_msg, vertex_index_offset);
   }
+
+  inline gtsam::Values getDpgmoValues() const { return pgmo_.getDpgmoValues(); }
 
   KimeraPgmo pgmo_;
 };
@@ -791,6 +797,177 @@ TEST_F(KimeraDpgmoTest, CheckRobotIdRequestMeshEdgesCallback) {
       gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 0, 1)),
                           RosToGtsam(consistency_nodes[9].pose)));
 }
+
+TEST_F(KimeraDpgmoTest, dpgmoCallbackValues) {
+  // Test reindex
+  // Here we should test if the mesh is added to the deformation graph correctly
+  ros::NodeHandle nh;
+  pgmo_.initialize(nh);
+
+  // Check callback
+  pose_graph_tools::PoseGraph::Ptr inc_graph_1(new pose_graph_tools::PoseGraph);
+  *inc_graph_1 = SingleOdomGraph(ros::Time(10.2), 0);
+  IncrementalPoseGraphCallback(inc_graph_1);
+
+  // Add mesh
+  pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
+  kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
+      new kimera_pgmo::TriangleMeshIdStamped);
+  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
+  mesh_msg->header.stamp = ros::Time(12.5);  // within 3 sec of pose graph msg
+  IncrementalMeshCallback(mesh_msg);
+
+  // load second incremental pose graph
+  pose_graph_tools::PoseGraph::Ptr inc_graph_2(new pose_graph_tools::PoseGraph);
+  *inc_graph_2 = OdomLoopclosureGraph(ros::Time(12.8), 0);
+  IncrementalPoseGraphCallback(inc_graph_2);
+
+  // Add mesh
+  pcl::PolygonMesh mesh2 = createMesh(2, 0, 0);
+  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh2);
+  mesh_msg->header.stamp = ros::Time(13.0);  // within 3 sec of pose graph msg
+  IncrementalMeshCallback(mesh_msg);
+
+  kimera_pgmo::RequestMeshFactors::Request request;
+  kimera_pgmo::RequestMeshFactors::Response response;
+
+  request.robot_id = 0;             // first test with wrong robot id
+  request.reindex_vertices = true;  // do not reindex
+  RequestMeshEdgesCallback(request, response);
+
+  // Create DPGMO message
+  pose_graph_tools::PoseGraph::Ptr dpgmo_msg(new pose_graph_tools::PoseGraph);
+  for (auto node : inc_graph_1->nodes) {
+    pose_graph_tools::PoseGraphNode optimized_node = node;
+    dpgmo_msg->nodes.push_back(optimized_node);
+  }
+  pose_graph_tools::PoseGraphNode optimized_node = inc_graph_2->nodes[1];
+  dpgmo_msg->nodes.push_back(optimized_node);
+
+  for (auto node : response.mesh_factors.nodes) {
+    pose_graph_tools::PoseGraphNode optimized_node = node;
+    dpgmo_msg->nodes.push_back(optimized_node);
+  }
+
+  DpgmoCallback(dpgmo_msg);
+
+  gtsam::Values dpgmo_values = getDpgmoValues();
+  size_t num_poses = getTrajectory().size();
+  EXPECT_EQ(num_poses + 10, dpgmo_values.size());
+  for (auto node : inc_graph_1->nodes) {
+    gtsam::Key key =
+        gtsam::Symbol(robot_id_to_prefix.at(node.robot_id), node.key);
+    EXPECT_TRUE(gtsam::assert_equal(RosToGtsam(node.pose),
+                                    dpgmo_values.at<gtsam::Pose3>(key)));
+  }
+  pose_graph_tools::PoseGraphNode node = inc_graph_2->nodes[1];
+  gtsam::Key key =
+      gtsam::Symbol(robot_id_to_prefix.at(node.robot_id), node.key);
+  EXPECT_TRUE(gtsam::assert_equal(RosToGtsam(node.pose),
+                                  dpgmo_values.at<gtsam::Pose3>(key)));
+
+  for (auto node : response.mesh_factors.nodes) {
+    gtsam::Key key = gtsam::Symbol(robot_id_to_vertex_prefix.at(node.robot_id),
+                                   node.key - num_poses);
+    EXPECT_TRUE(gtsam::assert_equal(RosToGtsam(node.pose),
+                                    dpgmo_values.at<gtsam::Pose3>(key)));
+  }
+}
+
+TEST_F(KimeraDpgmoTest, dpgmoCallbackDeform) {
+  // Test reindex
+  // Here we should test if the mesh is added to the deformation graph correctly
+  ros::NodeHandle nh;
+  pgmo_.initialize(nh);
+
+  // Check callback
+  pose_graph_tools::PoseGraph::Ptr inc_graph_1(new pose_graph_tools::PoseGraph);
+  *inc_graph_1 = SingleOdomGraph(ros::Time(10.2), 0);
+  IncrementalPoseGraphCallback(inc_graph_1);
+
+  // Add mesh
+  pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
+  kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
+      new kimera_pgmo::TriangleMeshIdStamped);
+  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
+  mesh_msg->header.stamp = ros::Time(12.5);  // within 3 sec of pose graph msg
+  IncrementalMeshCallback(mesh_msg);
+
+  // load second incremental pose graph
+  pose_graph_tools::PoseGraph::Ptr inc_graph_2(new pose_graph_tools::PoseGraph);
+  *inc_graph_2 = OdomLoopclosureGraph(ros::Time(12.8), 0);
+  IncrementalPoseGraphCallback(inc_graph_2);
+
+  // Add mesh
+  pcl::PolygonMesh mesh2 = createMesh(2, 0, 0);
+  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh2);
+  mesh_msg->header.stamp = ros::Time(13.0);  // within 3 sec of pose graph msg
+  IncrementalMeshCallback(mesh_msg);
+
+  kimera_pgmo::RequestMeshFactors::Request request;
+  kimera_pgmo::RequestMeshFactors::Response response;
+
+  request.robot_id = 0;             // first test with wrong robot id
+  request.reindex_vertices = true;  // do not reindex
+  RequestMeshEdgesCallback(request, response);
+
+  // Create DPGMO message
+  pose_graph_tools::PoseGraph::Ptr dpgmo_msg(new pose_graph_tools::PoseGraph);
+  for (auto node : inc_graph_1->nodes) {
+    pose_graph_tools::PoseGraphNode optimized_node = node;
+    optimized_node.pose.position.x += 1;
+    dpgmo_msg->nodes.push_back(optimized_node);
+  }
+  pose_graph_tools::PoseGraphNode optimized_node = inc_graph_2->nodes[1];
+  optimized_node.pose.position.x += 1;
+  dpgmo_msg->nodes.push_back(optimized_node);
+
+  for (auto node : response.mesh_factors.nodes) {
+    pose_graph_tools::PoseGraphNode optimized_node = node;
+    optimized_node.pose.position.x += 1;
+    dpgmo_msg->nodes.push_back(optimized_node);
+  }
+
+  DpgmoCallback(dpgmo_msg);
+
+  pcl::PolygonMesh full_mesh = createMesh(1, 0, 0);
+  kimera_pgmo::TriangleMeshIdStamped::Ptr full_mesh_msg(
+      new kimera_pgmo::TriangleMeshIdStamped);
+  full_mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(full_mesh);
+  FullMeshCallback(full_mesh_msg);
+
+  pcl::PolygonMesh opt_mesh = getOptimizedMesh();
+  std::vector<gtsam::Pose3> opt_path = getOptimizedPath();
+
+  // Check optimized path
+  std::vector<gtsam::Pose3> init_path = getTrajectory();
+  for (size_t i = 0; i < init_path.size(); i++) {
+    gtsam::Rot3 init_rot = init_path[i].rotation();
+    gtsam::Point3 init_pos = init_path[i].translation();
+    gtsam::Pose3 expected_pose = gtsam::Pose3(
+        init_rot,
+        gtsam::Point3(init_pos.x() + 1.0, init_pos.y(), init_pos.z()));
+    EXPECT_TRUE(gtsam::assert_equal(expected_pose, opt_path[i]));
+  }
+
+  // Check optimized vertices
+  pcl::PointCloud<pcl::PointXYZRGBA> optimized_vertices;
+  pcl::fromPCLPointCloud2(opt_mesh.cloud, optimized_vertices);
+
+  EXPECT_EQ(size_t(5), optimized_vertices.points.size());
+  EXPECT_EQ(2, optimized_vertices.points[0].x);
+  EXPECT_EQ(0, optimized_vertices.points[0].y);
+  EXPECT_EQ(0, optimized_vertices.points[0].z);
+
+  EXPECT_EQ(2, optimized_vertices.points[2].x);
+  EXPECT_EQ(1, optimized_vertices.points[2].y);
+  EXPECT_EQ(0, optimized_vertices.points[2].z);
+
+  EXPECT_EQ(2, optimized_vertices.points[4].x);
+  EXPECT_EQ(0, optimized_vertices.points[4].y);
+  EXPECT_EQ(1, optimized_vertices.points[4].z);
+}
+
 }  // namespace kimera_pgmo
 
 int main(int argc, char** argv) {

@@ -289,8 +289,11 @@ void KimeraPgmo::dpgmoCallback(
     }
     gtsam::Symbol key = gtsam::Symbol(prefix, index);
     gtsam::Pose3 pose = RosToGtsam(node.pose);
-    dpgmo_values_.insert(key, pose);
+    insertDpgmoValues(key, pose);
   }
+
+  // Update optimized path
+  optimized_path_ = getOptimizedTrajectory(robot_id_);
 }
 
 void KimeraPgmo::publishTransforms() {
