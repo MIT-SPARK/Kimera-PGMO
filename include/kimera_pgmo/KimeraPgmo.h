@@ -15,6 +15,7 @@
 namespace kimera_pgmo {
 class KimeraPgmo : public KimeraPgmoInterface {
   friend class KimeraPgmoTest;
+  friend class KimeraDpgmoTest;
 
  public:
   /*! \brief Constructor for Kimera Pgmo class. Which subscribes to the

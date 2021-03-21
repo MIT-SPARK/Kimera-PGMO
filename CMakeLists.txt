@@ -88,6 +88,9 @@ target_link_libraries(${PROJECT_NAME}-test_voxblox_processing ${PROJECT_NAME})
 add_rostest_gtest(${PROJECT_NAME}-test_kimera_pgmo test/test_kimera_pgmo.test test/test_kimera_pgmo.cpp)
 target_link_libraries(${PROJECT_NAME}-test_kimera_pgmo ${PROJECT_NAME})
 
+add_rostest_gtest(${PROJECT_NAME}-test_kimera_dpgmo test/test_kimera_dpgmo.test test/test_kimera_dpgmo.cpp)
+target_link_libraries(${PROJECT_NAME}-test_kimera_dpgmo ${PROJECT_NAME})
+
 add_rostest_gtest(${PROJECT_NAME}-test_kimera_pgmo_multi test/test_kimera_pgmo_multi.test test/test_kimera_pgmo_multi.cpp)
 target_link_libraries(${PROJECT_NAME}-test_kimera_pgmo_multi ${PROJECT_NAME})
 

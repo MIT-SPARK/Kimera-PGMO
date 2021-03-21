@@ -342,9 +342,14 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
   pcl::PointCloud<pcl::PointXYZ>::Ptr search_cloud(
       new pcl::PointCloud<pcl::PointXYZ>);
   search_octree->setInputCloud(search_cloud);
-  for (size_t i = 0; i < vertex_prefixes_.size(); i++) {
-    if (vertex_prefixes_[i] == prefix) {
-      search_cloud->push_back(vertices_->points[i]);
+  for (auto v : optimized_values.keys()) {
+    gtsam::Symbol v_key = gtsam::Symbol(v);
+    if (v_key.chr() == prefix) {
+      std::cout << gtsam::DefaultKeyFormatter(v) << std::endl;
+      // Gtsam Keylist should be ordered
+      gtsam::Point3 position = vertex_positions_[prefix].at(v_key.index());
+      search_cloud->push_back(
+          pcl::PointXYZ(position.x(), position.y(), position.z()));
       search_octree->addPointFromCloud(search_cloud->points.size() - 1,
                                        nullptr);
     }
