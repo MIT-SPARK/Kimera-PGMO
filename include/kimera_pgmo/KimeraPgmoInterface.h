@@ -167,6 +167,10 @@ class KimeraPgmoInterface {
 
   void inline insertDpgmoValues(const gtsam::Key& key,
                                 const gtsam::Pose3& pose) {
+    if (dpgmo_values_.exists(key)) {
+      ROS_ERROR("Attempting to insert existing key to dpgmo values. ");
+      return;
+    }
     dpgmo_values_.insert(key, pose);
   }
   /*! \brief Get the DPGMO optimized values
