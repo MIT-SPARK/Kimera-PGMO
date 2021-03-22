@@ -110,6 +110,9 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
   path_callback_sub_ =
       nl.subscribe("input_path", 2, &KimeraPgmo::optimizedPathCallback, this);
 
+  dpgmo_callback_sub_ =
+      nl.subscribe("optimized_values", 1, &KimeraPgmo::dpgmoCallback, this);
+
   // Initialize save mesh service
   save_mesh_srv_ =
       nl.advertiseService("save_mesh", &KimeraPgmo::saveMeshCallback, this);
@@ -236,7 +239,10 @@ void KimeraPgmo::fullMeshCallback(
   // Start timer
   auto start = std::chrono::high_resolution_clock::now();
 
-  optimized_mesh_ = optimizeAndPublishFullMesh(mesh_msg, &optimized_mesh_pub_);
+  if (optimizeFullMesh(mesh_msg, &optimized_mesh_) &&
+      optimized_mesh_pub_.getNumSubscribers() > 0) {
+    publishMesh(optimized_mesh_, mesh_msg->header, &optimized_mesh_pub_);
+  }
 
   // Stop timer and save
   auto stop = std::chrono::high_resolution_clock::now();

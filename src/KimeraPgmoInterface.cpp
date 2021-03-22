@@ -219,35 +219,32 @@ void KimeraPgmoInterface::processOptimizedPath(
   deformation_graph_.addNodeMeasurements(node_estimates);
 }
 
-pcl::PolygonMesh KimeraPgmoInterface::optimizeAndPublishFullMesh(
+bool KimeraPgmoInterface::optimizeFullMesh(
     const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg,
-    const ros::Publisher* publisher) {
+    pcl::PolygonMesh* optimized_mesh) {
   const pcl::PolygonMesh& input_mesh =
       TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
   // check if empty
-  if (input_mesh.cloud.height * input_mesh.cloud.width == 0) return input_mesh;
+  if (input_mesh.cloud.height * input_mesh.cloud.width == 0) return false;
 
   size_t robot_id = mesh_msg->id;
 
   std_msgs::Header mesh_header = mesh_msg->header;
 
   // Optimize mesh
-  pcl::PolygonMesh optimized_mesh;
   try {
     if (run_mode_ == RunMode::DPGMO) {
-      optimized_mesh = deformation_graph_.deformMesh(
+      *optimized_mesh = deformation_graph_.deformMesh(
           input_mesh, GetVertexPrefix(robot_id), dpgmo_values_);
     } else {
-      optimized_mesh =
+      *optimized_mesh =
           deformation_graph_.deformMesh(input_mesh, GetVertexPrefix(robot_id));
     }
   } catch (const std::out_of_range& e) {
     ROS_ERROR("Failed to deform mesh. Out of range error. ");
+    return false;
   }
-  if (publisher->getNumSubscribers() > 0) {
-    publishMesh(optimized_mesh, mesh_header, publisher);
-  }
-  return optimized_mesh;
+  return true;
 }
 
 void KimeraPgmoInterface::processIncrementalMesh(

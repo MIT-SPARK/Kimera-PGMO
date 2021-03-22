@@ -147,6 +147,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
   ros::Subscriber full_mesh_sub_;
   ros::Subscriber incremental_mesh_sub_;
   ros::Subscriber path_callback_sub_;
+  ros::Subscriber dpgmo_callback_sub_;
 
   // Service
   ros::ServiceServer save_mesh_srv_;

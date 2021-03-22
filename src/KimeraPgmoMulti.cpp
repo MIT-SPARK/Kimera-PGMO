@@ -238,9 +238,12 @@ void KimeraPgmoMulti::fullMeshCallback(
   // Start timer
   auto start = std::chrono::high_resolution_clock::now();
 
-  optimized_mesh_[mesh_msg->id] =
-      optimizeAndPublishFullMesh(mesh_msg, &optimized_mesh_pub_[mesh_msg->id]);
-
+  if (optimizeFullMesh(mesh_msg, &optimized_mesh_[mesh_msg->id]) &&
+      optimized_mesh_pub_[mesh_msg->id].getNumSubscribers() > 0) {
+    publishMesh(optimized_mesh_[mesh_msg->id],
+                mesh_msg->header,
+                &optimized_mesh_pub_[mesh_msg->id]);
+  }
   // Stop timer and save
   auto stop = std::chrono::high_resolution_clock::now();
   auto spin_duration =

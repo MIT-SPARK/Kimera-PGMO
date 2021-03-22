@@ -104,9 +104,9 @@ class KimeraPgmoInterface {
    * - publisher: associated publisher
    * returns the optimized mesh
    */
-  pcl::PolygonMesh optimizeAndPublishFullMesh(
+  bool optimizeFullMesh(
       const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg,
-      const ros::Publisher* publisher);
+      pcl::PolygonMesh* optimized_mesh);
 
   /*! \brief Process the partial mesh, which
    * corresponds to the latest partial mesh from Voxblox or Kimera-Semantics. We
