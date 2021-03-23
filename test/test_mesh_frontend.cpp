@@ -1,5 +1,5 @@
 /**
- * @file   test_voxblox_processing.cpp
+ * @file   test_mesh_frontend.cpp
  * @brief  Unit-tests for the graph structure
  * @author Yun Chang
  */
@@ -12,19 +12,19 @@
 
 #include "gtest/gtest.h"
 
-#include "kimera_pgmo/VoxbloxProcessing.h"
+#include "kimera_pgmo/MeshFrontend.h"
 #include "kimera_pgmo/utils/VoxbloxUtils.h"
 
 namespace kimera_pgmo {
 
-class VoxbloxProcessingTest : public ::testing::Test {
+class MeshFrontendTest : public ::testing::Test {
  protected:
-  VoxbloxProcessingTest() {
+  MeshFrontendTest() {
     system("rosparam set horizon 1.0");
     system("rosparam set robot_id 0");
   }
 
-  ~VoxbloxProcessingTest() {}
+  ~MeshFrontendTest() {}
 
   // Test update called in timer event
   pcl::PolygonMesh ProcessVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
@@ -164,10 +164,10 @@ class VoxbloxProcessingTest : public ::testing::Test {
     *triangles = vp_.triangles_;
   }
 
-  VoxbloxProcessing vp_;
+  MeshFrontend vp_;
 };
 
-TEST_F(VoxbloxProcessingTest, initialize) {
+TEST_F(MeshFrontendTest, initialize) {
   // Test initialization
   ros::NodeHandle nh;
   system("rosparam set output_mesh_resolution 0.1");
@@ -175,7 +175,7 @@ TEST_F(VoxbloxProcessingTest, initialize) {
   ASSERT_TRUE(init);
 }
 
-TEST_F(VoxbloxProcessingTest, partialMesh) {
+TEST_F(MeshFrontendTest, partialMesh) {
   // Test the construction of the martial mesh during callback
   ros::NodeHandle nh;
   system("rosparam set output_mesh_resolution 0.1");
@@ -240,7 +240,7 @@ TEST_F(VoxbloxProcessingTest, partialMesh) {
   EXPECT_EQ(5, partial.polygons[3].vertices[0]);
 }
 
-TEST_F(VoxbloxProcessingTest, fullMesh) {
+TEST_F(MeshFrontendTest, fullMesh) {
   // Test the updated full mesh after callback
   ros::NodeHandle nh;
   system("rosparam set output_mesh_resolution 0.1");
@@ -308,7 +308,7 @@ TEST_F(VoxbloxProcessingTest, fullMesh) {
   EXPECT_EQ(17, triangles[9].vertices[0]);
 }
 
-TEST_F(VoxbloxProcessingTest, compression1) {
+TEST_F(MeshFrontendTest, compression1) {
   // Test with higher resolution to see if compression works
   ros::NodeHandle nh;
   system("rosparam set output_mesh_resolution 4.0");
@@ -363,7 +363,7 @@ TEST_F(VoxbloxProcessingTest, compression1) {
   EXPECT_NEAR(0, full_vertices->points[1].z, 1e-3);
 }
 
-TEST_F(VoxbloxProcessingTest, compression2) {
+TEST_F(MeshFrontendTest, compression2) {
   // Test with higher resolution to see if compression works
   ros::NodeHandle nh;
   system("rosparam set output_mesh_resolution 4.0");
@@ -419,6 +419,6 @@ TEST_F(VoxbloxProcessingTest, compression2) {
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
-  ros::init(argc, argv, "kimera_pgmo_test_voxblox_processing");
+  ros::init(argc, argv, "kimera_pgmo_test_mesh_frontend");
   return RUN_ALL_TESTS();
 }

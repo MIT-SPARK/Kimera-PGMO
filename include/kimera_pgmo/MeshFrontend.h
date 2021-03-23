@@ -1,6 +1,6 @@
 /**
- * @file   VoxbloxProcessing.h
- * @brief  VoxbloxProcessing class: process incoming voxblox meshes
+ * @file   MeshFrontend.h
+ * @brief  MeshFrontend class: process incoming voxblox meshes
  * @author Yun Chang
  */
 #pragma once
@@ -21,16 +21,16 @@
 
 namespace kimera_pgmo {
 
-class VoxbloxProcessing {
-  friend class VoxbloxProcessingTest;
+class MeshFrontend {
+  friend class MeshFrontendTest;
 
  public:
-  /*! \brief Constructor for VoxbloxProcessing class, which is in charge of
+  /*! \brief Constructor for MeshFrontend class, which is in charge of
    * converting from Voxblox msg type to our mesh type while storing and
    * compressing the full unoptimized mesh
    */
-  VoxbloxProcessing();
-  ~VoxbloxProcessing();
+  MeshFrontend();
+  ~MeshFrontend();
 
   /*! \brief Initializes callbacks and publishers, and also parse the parameters
    *  - n: ROS node handle.

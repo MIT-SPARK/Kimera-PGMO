@@ -1,39 +1,39 @@
 /**
- * @file   VoxbloxProcessing.cpp
- * @brief  VoxbloxProcessing class: process incoming voxblox meshes
+ * @file   MeshFrontend.cpp
+ * @brief  MeshFrontend class: process incoming voxblox meshes
  * @author Yun Chang
  */
 #include "kimera_pgmo/TriangleMeshIdStamped.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
-#include "kimera_pgmo/VoxbloxProcessing.h"
+#include "kimera_pgmo/MeshFrontend.h"
 
 namespace kimera_pgmo {
 
-VoxbloxProcessing::VoxbloxProcessing()
+MeshFrontend::MeshFrontend()
     : vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>) {}
-VoxbloxProcessing::~VoxbloxProcessing() {}
+MeshFrontend::~MeshFrontend() {}
 
 // Initialize parameters, publishers, and subscribers
-bool VoxbloxProcessing::initialize(const ros::NodeHandle& n) {
+bool MeshFrontend::initialize(const ros::NodeHandle& n) {
   if (!loadParameters(n)) {
-    ROS_ERROR("VoxbloxProcessing: Failed to load parameters.");
+    ROS_ERROR("MeshFrontend: Failed to load parameters.");
   }
 
   if (!createPublishers(n)) {
-    ROS_ERROR("VoxbloxProcessing: Failed to create publishers.");
+    ROS_ERROR("MeshFrontend: Failed to create publishers.");
   }
 
   if (!registerCallbacks(n)) {
-    ROS_ERROR("VoxbloxProcessing: Failed to register callbacks.");
+    ROS_ERROR("MeshFrontend: Failed to register callbacks.");
   }
 
-  ROS_INFO("Initialized VoxbloxProcessing.");
+  ROS_INFO("Initialized MeshFrontend.");
 
   return true;
 }
 
-bool VoxbloxProcessing::loadParameters(const ros::NodeHandle& n) {
+bool MeshFrontend::loadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("horizon", time_horizon_)) return false;
   if (!n.getParam("robot_id", robot_id_)) return false;
 
@@ -45,7 +45,7 @@ bool VoxbloxProcessing::loadParameters(const ros::NodeHandle& n) {
   return true;
 }
 
-bool VoxbloxProcessing::createPublishers(const ros::NodeHandle& n) {
+bool MeshFrontend::createPublishers(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
   full_mesh_pub_ =
       nl.advertise<kimera_pgmo::TriangleMeshIdStamped>("full_mesh", 1, false);
@@ -54,14 +54,14 @@ bool VoxbloxProcessing::createPublishers(const ros::NodeHandle& n) {
   return true;
 }
 
-bool VoxbloxProcessing::registerCallbacks(const ros::NodeHandle& n) {
+bool MeshFrontend::registerCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
   voxblox_sub_ = nl.subscribe(
-      "voxblox_mesh", 20, &VoxbloxProcessing::voxbloxCallback, this);
+      "voxblox_mesh", 20, &MeshFrontend::voxbloxCallback, this);
   return true;
 }
 
-void VoxbloxProcessing::voxbloxCallback(
+void MeshFrontend::voxbloxCallback(
     const voxblox_msgs::Mesh::ConstPtr& msg) {
   pcl::PolygonMesh partial_mesh = processVoxbloxMesh(msg);
 
@@ -74,7 +74,7 @@ void VoxbloxProcessing::voxbloxCallback(
 
 // Creates partial mesh while updating the full mesh and also the last detected
 // mesh blocks
-pcl::PolygonMesh VoxbloxProcessing::processVoxbloxMesh(
+pcl::PolygonMesh MeshFrontend::processVoxbloxMesh(
     const voxblox_msgs::Mesh::ConstPtr& msg) {
   // Initiate the partial mesh to be returned
   pcl::PolygonMesh partial_mesh;
@@ -133,7 +133,7 @@ pcl::PolygonMesh VoxbloxProcessing::processVoxbloxMesh(
   return partial_mesh;
 }
 
-void VoxbloxProcessing::publishPartialMesh(const pcl::PolygonMesh& mesh,
+void MeshFrontend::publishPartialMesh(const pcl::PolygonMesh& mesh,
                                            const ros::Time& stamp) const {  
   // publish
   kimera_pgmo::TriangleMeshIdStamped new_msg;
@@ -145,7 +145,7 @@ void VoxbloxProcessing::publishPartialMesh(const pcl::PolygonMesh& mesh,
   partial_mesh_pub_.publish(new_msg);
 }
 
-void VoxbloxProcessing::publishFullMesh(const ros::Time& stamp) const {
+void MeshFrontend::publishFullMesh(const ros::Time& stamp) const {
   // convert to triangle mesh msg
   mesh_msgs::TriangleMesh mesh_msg =
       kimera_pgmo::PolygonMeshToTriangleMeshMsg(*vertices_, triangles_);

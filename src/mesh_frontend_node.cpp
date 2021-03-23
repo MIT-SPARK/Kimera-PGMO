@@ -11,15 +11,15 @@
 #include <pcl/PolygonMesh.h>
 #include <voxblox_msgs/Mesh.h>
 
-#include "kimera_pgmo/VoxbloxProcessing.h"
+#include "kimera_pgmo/MeshFrontend.h"
 
 int main(int argc, char* argv[]) {
   // Initialize ROS node.
-  ros::init(argc, argv, "voxblox_processing");
+  ros::init(argc, argv, "mesh_frontend");
   ros::NodeHandle n("~");
 
-  kimera_pgmo::VoxbloxProcessing voxblox_processing;
-  if (!voxblox_processing.initialize(n)) {
+  kimera_pgmo::MeshFrontend mesh_frontend;
+  if (!mesh_frontend.initialize(n)) {
     ROS_ERROR("Failed to initialize Voxblox Processing node.");
     return EXIT_FAILURE;
   }

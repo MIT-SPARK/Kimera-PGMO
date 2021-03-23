@@ -90,7 +90,7 @@ class KimeraPgmoMulti : public KimeraPgmoInterface {
    */
   void publishTransforms();
 
-  /*! \brief Subscribes to the partial mesh from VoxbloxProcessing, which
+  /*! \brief Subscribes to the partial mesh from MeshFrontend, which
    * corresponds to the latest partial mesh from Voxblox or Kimera-Semantics. We
    * sample this partial mesh to add to the deformation graph and also connect
    * the nodes stored in the waiting queue to the vertices of the sampled mesh,

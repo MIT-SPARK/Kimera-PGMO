@@ -99,12 +99,12 @@ bool KimeraPgmoMulti::registerCallbacks(const ros::NodeHandle& n) {
 
   for (auto id : robot_ids_) {
     std::string full_mesh_topic =
-        "/kimera" + std::to_string(id) + "/voxblox_processing/full_mesh";
+        "/kimera" + std::to_string(id) + "/mesh_frontend/full_mesh";
     full_mesh_sub_[id] = nl.subscribe(
         full_mesh_topic, 1, &KimeraPgmoMulti::fullMeshCallback, this);
 
     std::string inc_mesh_topic =
-        "/kimera" + std::to_string(id) + "/voxblox_processing/partial_mesh";
+        "/kimera" + std::to_string(id) + "/mesh_frontend/partial_mesh";
     incremental_mesh_sub_[id] = nl.subscribe(
         inc_mesh_topic, 5, &KimeraPgmoMulti::incrementalMeshCallback, this);
 

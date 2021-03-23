@@ -264,7 +264,7 @@ Visualization Manager:
             Value: false
             Wireframe Alpha: 1
             Wireframe Color: 0; 0; 0
-          Topic: /voxblox_processing/partial_mesh
+          Topic: /mesh_frontend/partial_mesh
           Value: true
         - Class: rviz_mesh_plugin/TriangleMesh
           Display Type:
@@ -283,7 +283,7 @@ Visualization Manager:
             Value: false
             Wireframe Alpha: 1
             Wireframe Color: 0; 0; 0
-          Topic: /voxblox_processing/full_mesh
+          Topic: /mesh_frontend/full_mesh
           Value: true
       Enabled: false
       Name: debug
