@@ -11,7 +11,8 @@
 namespace kimera_pgmo {
 
 MeshFrontend::MeshFrontend()
-    : vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>) {}
+    : vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>),
+      graph_vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>) {}
 MeshFrontend::~MeshFrontend() {}
 
 // Initialize parameters, publishers, and subscribers
@@ -37,10 +38,12 @@ bool MeshFrontend::loadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("horizon", time_horizon_)) return false;
   if (!n.getParam("robot_id", robot_id_)) return false;
 
-  double mesh_resolution;
+  double mesh_resolution, d_graph_resolution;
   if (!n.getParam("output_mesh_resolution", mesh_resolution)) return false;
+  if (!n.getParam("d_graph_resolution", d_graph_resolution)) return false;
 
-  compression_.reset(new OctreeCompression(mesh_resolution));
+  full_mesh_compression_.reset(new OctreeCompression(mesh_resolution));
+  d_graph_compression_.reset(new OctreeCompression(d_graph_resolution));
 
   return true;
 }
@@ -56,13 +59,12 @@ bool MeshFrontend::createPublishers(const ros::NodeHandle& n) {
 
 bool MeshFrontend::registerCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
-  voxblox_sub_ = nl.subscribe(
-      "voxblox_mesh", 20, &MeshFrontend::voxbloxCallback, this);
+  voxblox_sub_ =
+      nl.subscribe("voxblox_mesh", 20, &MeshFrontend::voxbloxCallback, this);
   return true;
 }
 
-void MeshFrontend::voxbloxCallback(
-    const voxblox_msgs::Mesh::ConstPtr& msg) {
+void MeshFrontend::voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg) {
   pcl::PolygonMesh partial_mesh = processVoxbloxMesh(msg);
 
   // Publish partial and full mesh
@@ -81,7 +83,8 @@ pcl::PolygonMesh MeshFrontend::processVoxbloxMesh(
 
   // First prune the mesh blocks
   const double msg_time = msg->header.stamp.toSec();
-  compression_->pruneStoredMesh(msg_time - time_horizon_);
+  full_mesh_compression_->pruneStoredMesh(msg_time - time_horizon_);
+  d_graph_compression_->pruneStoredMesh(msg_time - time_horizon_);
 
   // Iterate through the mesh blocks
   for (const voxblox_msgs::MeshBlock& mesh_block : msg->mesh_blocks) {
@@ -100,21 +103,31 @@ pcl::PolygonMesh MeshFrontend::processVoxbloxMesh(
                                     mesh_block_vertices,
                                     &mesh_block_surfaces);
 
-      // Add to compressor
-
-      // Note these following values are arguments compress method
-      // but unsued
+      // Add to full mesh compressor
       pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
           new pcl::PointCloud<pcl::PointXYZRGBA>);
       std::vector<pcl::Vertices> new_triangles;
       std::vector<size_t> new_indices;
       // Pass for mesh compression
-      compression_->compressAndIntegrate(*mesh_block_vertices,
-                                         mesh_block_surfaces,
-                                         new_vertices,
-                                         &new_triangles,
-                                         &new_indices,
-                                         msg_time);
+      full_mesh_compression_->compressAndIntegrate(*mesh_block_vertices,
+                                                   mesh_block_surfaces,
+                                                   new_vertices,
+                                                   &new_triangles,
+                                                   &new_indices,
+                                                   msg_time);
+
+      // Add to deformation graph mesh compressor
+      pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_graph_vertices(
+          new pcl::PointCloud<pcl::PointXYZRGBA>);
+      std::vector<pcl::Vertices> new_graph_triangles;
+      std::vector<size_t> new_graph_indices;
+
+      d_graph_compression_->compressAndIntegrate(*new_vertices,
+                                                 new_triangles,
+                                                 new_graph_vertices,
+                                                 &new_graph_triangles,
+                                                 &new_graph_indices,
+                                                 msg_time);
 
       // Mesh block mesh
       pcl::toPCLPointCloud2(*mesh_block_vertices, meshblock_mesh.cloud);
@@ -125,16 +138,18 @@ pcl::PolygonMesh MeshFrontend::processVoxbloxMesh(
     }
   }
 
-  // Update the full mesh vertices and surfaces
-  compression_->getVertices(vertices_);
-  compression_->getStoredPolygons(&triangles_);
+  // Update the mesh vertices and surfaces
+  full_mesh_compression_->getVertices(vertices_);
+  full_mesh_compression_->getStoredPolygons(&triangles_);
+  d_graph_compression_->getVertices(graph_vertices_);
+  d_graph_compression_->getStoredPolygons(&graph_triangles_);
 
   // Return partial mesh
   return partial_mesh;
 }
 
 void MeshFrontend::publishPartialMesh(const pcl::PolygonMesh& mesh,
-                                           const ros::Time& stamp) const {  
+                                      const ros::Time& stamp) const {
   // publish
   kimera_pgmo::TriangleMeshIdStamped new_msg;
   new_msg.header.stamp = stamp;

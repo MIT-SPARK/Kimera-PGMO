@@ -88,7 +88,11 @@ class MeshFrontend {
   double time_horizon_;  // only merge meshes for the blocks detected
                          // within defined time horizon (secs)
 
-  OctreeCompressionPtr compression_;  // Allow compression of full mesh
+  OctreeCompressionPtr
+      full_mesh_compression_;  // Allow compression of full mesh
+
+  OctreeCompressionPtr d_graph_compression_;  // Compression to get simplified
+                                              // mesh for deformation graph
 
   int robot_id_;
 
@@ -96,6 +100,10 @@ class MeshFrontend {
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices_;
   // Triangles (connections) of full mesh
   std::vector<pcl::Vertices> triangles_;
+  // Vertices of simplified mesh used for the deformation graph
+  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr graph_vertices_;
+  // Triangles of the simplified mesh used for the deformation graph
+  std::vector<pcl::Vertices> graph_triangles_;
 };
 
 }  // namespace kimera_pgmo

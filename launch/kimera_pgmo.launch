@@ -11,6 +11,7 @@
   <arg name="log" default="true" />
 
   <node name="mesh_frontend" pkg="kimera_pgmo" type="mesh_frontend_node" >
+    <rosparam file="$(find kimera_pgmo)/params/$(arg dataset)/parameters.yaml" />
     <param name="horizon" value="$(arg horizon)" />
     <param name="output_mesh_resolution" value="$(arg output_resolution)" />
     <param name="robot_id" value="$(arg robot_id)" />
