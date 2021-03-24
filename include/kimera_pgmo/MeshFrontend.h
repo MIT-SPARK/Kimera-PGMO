@@ -80,9 +80,16 @@ class MeshFrontend {
    */
   void publishFullMesh(const ros::Time& stamp) const;
 
+  /*! \brief Publish the simplified mesh (used as the mesh part of deformation
+   * graph)
+   *  - stamp: timestamp
+   */
+  void publishSimplifiedMesh(const ros::Time& stamp) const;
+
   // Class arguments
   ros::Subscriber voxblox_sub_;
   ros::Publisher full_mesh_pub_;
+  ros::Publisher simplified_mesh_pub_;
   ros::Publisher partial_mesh_pub_;
 
   double time_horizon_;  // only merge meshes for the blocks detected

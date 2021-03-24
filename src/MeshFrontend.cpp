@@ -52,6 +52,8 @@ bool MeshFrontend::createPublishers(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
   full_mesh_pub_ =
       nl.advertise<kimera_pgmo::TriangleMeshIdStamped>("full_mesh", 1, false);
+  simplified_mesh_pub_ = nl.advertise<mesh_msgs::TriangleMeshStamped>(
+      "deformation_graph_mesh", 10, false);
   partial_mesh_pub_ = nl.advertise<kimera_pgmo::TriangleMeshIdStamped>(
       "partial_mesh", 10, false);
   return true;
@@ -68,10 +70,9 @@ void MeshFrontend::voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg) {
   pcl::PolygonMesh partial_mesh = processVoxbloxMesh(msg);
 
   // Publish partial and full mesh
-  if (partial_mesh_pub_.getNumSubscribers() > 0)
-    publishPartialMesh(partial_mesh, msg->header.stamp);
-  if (full_mesh_pub_.getNumSubscribers() > 0)
-    publishFullMesh(msg->header.stamp);
+  publishPartialMesh(partial_mesh, msg->header.stamp);
+  publishFullMesh(msg->header.stamp);
+  publishSimplifiedMesh(msg->header.stamp);
 }
 
 // Creates partial mesh while updating the full mesh and also the last detected
@@ -122,8 +123,8 @@ pcl::PolygonMesh MeshFrontend::processVoxbloxMesh(
       std::vector<pcl::Vertices> new_graph_triangles;
       std::vector<size_t> new_graph_indices;
 
-      d_graph_compression_->compressAndIntegrate(*new_vertices,
-                                                 new_triangles,
+      d_graph_compression_->compressAndIntegrate(*mesh_block_vertices,
+                                                 mesh_block_surfaces,
                                                  new_graph_vertices,
                                                  &new_graph_triangles,
                                                  &new_graph_indices,
@@ -150,6 +151,7 @@ pcl::PolygonMesh MeshFrontend::processVoxbloxMesh(
 
 void MeshFrontend::publishPartialMesh(const pcl::PolygonMesh& mesh,
                                       const ros::Time& stamp) const {
+  if (partial_mesh_pub_.getNumSubscribers() == 0) return;
   // publish
   kimera_pgmo::TriangleMeshIdStamped new_msg;
   new_msg.header.stamp = stamp;
@@ -161,6 +163,7 @@ void MeshFrontend::publishPartialMesh(const pcl::PolygonMesh& mesh,
 }
 
 void MeshFrontend::publishFullMesh(const ros::Time& stamp) const {
+  if (full_mesh_pub_.getNumSubscribers() == 0) return;
   // convert to triangle mesh msg
   mesh_msgs::TriangleMesh mesh_msg =
       kimera_pgmo::PolygonMeshToTriangleMeshMsg(*vertices_, triangles_);
@@ -171,6 +174,20 @@ void MeshFrontend::publishFullMesh(const ros::Time& stamp) const {
   new_msg.mesh = mesh_msg;
   new_msg.id = robot_id_;
   full_mesh_pub_.publish(new_msg);
+}
+
+void MeshFrontend::publishSimplifiedMesh(const ros::Time& stamp) const {
+  if (simplified_mesh_pub_.getNumSubscribers() == 0) return;
+  // convert to triangle mesh msg
+  mesh_msgs::TriangleMesh mesh_msg = kimera_pgmo::PolygonMeshToTriangleMeshMsg(
+      *graph_vertices_, graph_triangles_);
+
+  // Create msg
+  mesh_msgs::TriangleMeshStamped new_msg;
+  new_msg.header.stamp = stamp;
+  new_msg.header.frame_id = "world";
+  new_msg.mesh = mesh_msg;
+  simplified_mesh_pub_.publish(new_msg);
 }
 
 }  // namespace kimera_pgmo
