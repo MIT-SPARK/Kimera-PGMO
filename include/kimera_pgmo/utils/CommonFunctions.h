@@ -140,7 +140,9 @@ geometry_msgs::Pose GtsamToRos(const gtsam::Pose3& pose);
  */
 template <class point_type>
 inline gtsam::Point3 PclToGtsam(const point_type& point) {
-  return gtsam::Point3(point.x, point.y, point.z);
+  return gtsam::Point3(static_cast<double>(point.x),
+                       static_cast<double>(point.y),
+                       static_cast<double>(point.z));
 }
 
 /*! \brief Combine two meshes into one

@@ -131,6 +131,30 @@ TEST(test_common_functions, GtsamPoseToRos) {
   EXPECT_NEAR(0.707, ros_pose.orientation.w, 0.001);
 }
 
+TEST(test_common_functions, PclPointToGtsam) {
+  pcl::PointXYZRGBA point_rgb;
+  point_rgb.x = 1.0;
+  point_rgb.y = 2.0;
+  point_rgb.z = -0.3;
+  point_rgb.r = 22;
+  point_rgb.g = 132;
+  point_rgb.b = 255;
+  point_rgb.a = 255;
+  gtsam::Point3 gtsam_rgb_pt = PclToGtsam<pcl::PointXYZRGBA>(point_rgb);
+
+  EXPECT_TRUE(gtsam::assert_equal(
+      gtsam::Point3(point_rgb.x, point_rgb.y, point_rgb.z), gtsam_rgb_pt));
+
+  pcl::PointXYZ point;
+  point.x = -1.0;
+  point.y = 20.0;
+  point.z = 0.35;
+  gtsam::Point3 gtsam_pt = PclToGtsam<pcl::PointXYZ>(point);
+
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Point3(point.x, point.y, point.z), gtsam_pt));
+}
+
 // Combine Meshes
 TEST(test_common_functions, CombineMeshesNoCheck) {
   pcl::PolygonMeshPtr sphere_mesh(new pcl::PolygonMesh());
