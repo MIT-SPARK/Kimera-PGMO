@@ -14,9 +14,11 @@
 #include <pcl/common/io.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <pose_graph_tools/PoseGraph.h>
 #include <voxblox_msgs/Mesh.h>
 
 #include "kimera_pgmo/compression/OctreeCompression.h"
+#include "kimera_pgmo/utils/CommonStructs.h"
 #include "kimera_pgmo/utils/VoxbloxUtils.h"
 
 namespace kimera_pgmo {
@@ -59,21 +61,11 @@ class MeshFrontend {
    */
   void voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg);
 
-  // Creates partial mesh while updating the full mesh and also the last
-  // detected mesh blocks
-  /*! \brief Creates a partial mesh from the latest incremental mesh from the
+  /*! \brief Process the latest incremental mesh from the
    * callback and add the partial mesh to the full mesh and compress
    *  - msg: mesh msg from Voxblox or Kimera Semantics
    */
-  pcl::PolygonMesh processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg);
-
-  /*! \brief Publish a mesh (used in callback to publish the partial mesh
-   * created from the incremental mesh converted from latest msg from callback)
-   *  - mesh: mesh to publish in pcl PolygonMesh format
-   *  - stamp: timestamp
-   */
-  void publishPartialMesh(const pcl::PolygonMesh& mesh,
-                          const ros::Time& stamp) const;
+  void processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg);
 
   /*! \brief Publish the full (compressed) mesh stored
    *  - stamp: timestamp
@@ -86,11 +78,31 @@ class MeshFrontend {
    */
   void publishSimplifiedMesh(const ros::Time& stamp) const;
 
+  /*! \brief Publish the factors corresponding to the new edges added to the
+   * simplified mesh / deformation graph and also the initial values (positions
+   * of the new vertices added to the simplified mesh)
+   *  - new_edges: new edges of type Edge (std::pair<Vertex, Vertex>)
+   *  - new_indices: new vertices of type Vertex
+   *  returns: published pose graph
+   */
+  pose_graph_tools::PoseGraph publishMeshGraph(
+      const std::vector<Edge>& new_edges,
+      const std::vector<Vertex>& new_indices,
+      const std_msgs::Header& header) const;
+
+  /*! \brief Get last mesh graph created in voxblox callback for testing
+   * purposes.
+   */
+  inline pose_graph_tools::PoseGraph getLastProcessedMeshGraph() const {
+    return last_mesh_graph_;
+  }
+
   // Class arguments
   ros::Subscriber voxblox_sub_;
   ros::Publisher full_mesh_pub_;
   ros::Publisher simplified_mesh_pub_;
-  ros::Publisher partial_mesh_pub_;
+  ros::Publisher mesh_graph_pub_;  // publish the factors corresponding to the
+                                   // edges of the simplified mesh
 
   double time_horizon_;  // only merge meshes for the blocks detected
                          // within defined time horizon (secs)
@@ -100,6 +112,9 @@ class MeshFrontend {
 
   OctreeCompressionPtr d_graph_compression_;  // Compression to get simplified
                                               // mesh for deformation graph
+
+  Graph simplified_mesh_graph_;  // Graph of simplified mesh (edges are the
+                                 // factors in deformation graph)
 
   int robot_id_;
 
@@ -111,6 +126,9 @@ class MeshFrontend {
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr graph_vertices_;
   // Triangles of the simplified mesh used for the deformation graph
   std::vector<pcl::Vertices> graph_triangles_;
+
+  // Last pose graph msg created for testing purposes
+  pose_graph_tools::PoseGraph last_mesh_graph_;
 };
 
 }  // namespace kimera_pgmo

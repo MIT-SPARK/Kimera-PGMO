@@ -134,6 +134,15 @@ gtsam::Pose3 RosToGtsam(const geometry_msgs::Pose& transform);
  */
 geometry_msgs::Pose GtsamToRos(const gtsam::Pose3& pose);
 
+/*! \brief Converts a pcl point to gtsam point3
+ *  - point: pcl point
+ *  - outputs gtsam point3 position
+ */
+template <class point_type>
+inline gtsam::Point3 PclToGtsam(const point_type& point) {
+  return gtsam::Point3(point.x, point.y, point.z);
+}
+
 /*! \brief Combine two meshes into one
  *  - mesh1: partial mesh represented as pcl PolygonMesh
  *  - mesh2: partial mesh represented as pcl PolygonMesh

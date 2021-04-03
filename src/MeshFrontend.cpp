@@ -54,8 +54,8 @@ bool MeshFrontend::createPublishers(const ros::NodeHandle& n) {
       nl.advertise<kimera_pgmo::TriangleMeshIdStamped>("full_mesh", 1, false);
   simplified_mesh_pub_ = nl.advertise<mesh_msgs::TriangleMeshStamped>(
       "deformation_graph_mesh", 10, false);
-  partial_mesh_pub_ = nl.advertise<kimera_pgmo::TriangleMeshIdStamped>(
-      "partial_mesh", 10, false);
+  mesh_graph_pub_ =
+      nl.advertise<pose_graph_tools::PoseGraph>("mesh_graph", 10, false);
   return true;
 }
 
@@ -67,18 +67,16 @@ bool MeshFrontend::registerCallbacks(const ros::NodeHandle& n) {
 }
 
 void MeshFrontend::voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg) {
-  pcl::PolygonMesh partial_mesh = processVoxbloxMesh(msg);
+  processVoxbloxMesh(msg);
 
   // Publish partial and full mesh
-  publishPartialMesh(partial_mesh, msg->header.stamp);
   publishFullMesh(msg->header.stamp);
   publishSimplifiedMesh(msg->header.stamp);
 }
 
 // Creates partial mesh while updating the full mesh and also the last detected
 // mesh blocks
-pcl::PolygonMesh MeshFrontend::processVoxbloxMesh(
-    const voxblox_msgs::Mesh::ConstPtr& msg) {
+void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
   // Initiate the partial mesh to be returned
   pcl::PolygonMesh partial_mesh;
 
@@ -86,6 +84,9 @@ pcl::PolygonMesh MeshFrontend::processVoxbloxMesh(
   const double msg_time = msg->header.stamp.toSec();
   full_mesh_compression_->pruneStoredMesh(msg_time - time_horizon_);
   d_graph_compression_->pruneStoredMesh(msg_time - time_horizon_);
+
+  std::vector<Edge> new_edges;
+  std::vector<size_t> new_indices;
 
   // Iterate through the mesh blocks
   for (const voxblox_msgs::MeshBlock& mesh_block : msg->mesh_blocks) {
@@ -130,12 +131,14 @@ pcl::PolygonMesh MeshFrontend::processVoxbloxMesh(
                                                  &new_graph_indices,
                                                  msg_time);
 
-      // Mesh block mesh
-      pcl::toPCLPointCloud2(*mesh_block_vertices, meshblock_mesh.cloud);
-      meshblock_mesh.polygons = mesh_block_surfaces;
-
-      // Add to partial mesh
-      partial_mesh = CombineMeshes(partial_mesh, meshblock_mesh);
+      const std::vector<Edge>& block_new_edges =
+          simplified_mesh_graph_.addPointsAndSurfaces(new_graph_indices,
+                                                      new_graph_triangles);
+      new_edges.insert(
+          new_edges.end(), block_new_edges.begin(), block_new_edges.end());
+      new_indices.insert(new_indices.end(),
+                         new_graph_indices.begin(),
+                         new_graph_indices.end());
     }
   }
 
@@ -145,21 +148,9 @@ pcl::PolygonMesh MeshFrontend::processVoxbloxMesh(
   d_graph_compression_->getVertices(graph_vertices_);
   d_graph_compression_->getStoredPolygons(&graph_triangles_);
 
-  // Return partial mesh
-  return partial_mesh;
-}
+  last_mesh_graph_ = publishMeshGraph(new_edges, new_indices, msg->header);
 
-void MeshFrontend::publishPartialMesh(const pcl::PolygonMesh& mesh,
-                                      const ros::Time& stamp) const {
-  if (partial_mesh_pub_.getNumSubscribers() == 0) return;
-  // publish
-  kimera_pgmo::TriangleMeshIdStamped new_msg;
-  new_msg.header.stamp = stamp;
-  new_msg.header.frame_id = "world";
-  // convert to triangle mesh msg
-  new_msg.mesh = kimera_pgmo::PolygonMeshToTriangleMeshMsg(mesh);
-  new_msg.id = robot_id_;
-  partial_mesh_pub_.publish(new_msg);
+  return;
 }
 
 void MeshFrontend::publishFullMesh(const ros::Time& stamp) const {
@@ -188,6 +179,54 @@ void MeshFrontend::publishSimplifiedMesh(const ros::Time& stamp) const {
   new_msg.header.frame_id = "world";
   new_msg.mesh = mesh_msg;
   simplified_mesh_pub_.publish(new_msg);
+}
+
+pose_graph_tools::PoseGraph MeshFrontend::publishMeshGraph(
+    const std::vector<Edge>& new_edges,
+    const std::vector<Vertex>& new_indices,
+    const std_msgs::Header& header) const {
+  // Create message
+  pose_graph_tools::PoseGraph pose_graph_msg;
+  pose_graph_msg.header = header;
+
+  // Encode the edges as factors
+  for (auto e : new_edges) {
+    pose_graph_tools::PoseGraphEdge pg_edge;
+    pg_edge.header = header;
+    const size_t& to_node = e.first;
+    const size_t& from_node = e.second;
+    pg_edge.robot_from = robot_id_;
+    pg_edge.robot_to = robot_id_;
+    pg_edge.key_from = from_node;
+    pg_edge.key_to = to_node;
+    gtsam::Point3 to_node_pos =
+        PclToGtsam<pcl::PointXYZRGBA>(graph_vertices_->at(to_node));
+    gtsam::Point3 from_node_pos =
+        PclToGtsam<pcl::PointXYZRGBA>(graph_vertices_->at(from_node));
+    pg_edge.pose =
+        GtsamToRos(gtsam::Pose3(gtsam::Rot3(), from_node_pos - to_node_pos));
+    pg_edge.type = pose_graph_tools::PoseGraphEdge::MESH;
+    // Add edge to pose graph
+    pose_graph_msg.edges.push_back(pg_edge);
+  }
+
+  // Encode the new vertices as nodes
+  for (auto n : new_indices) {
+    pose_graph_tools::PoseGraphNode pg_node;
+    pg_node.header = header;
+    pg_node.robot_id = robot_id_;
+    pg_node.key = n;
+    gtsam::Point3 node_pos =
+        PclToGtsam<pcl::PointXYZRGBA>(graph_vertices_->at(n));
+    pg_node.pose = GtsamToRos(gtsam::Pose3(gtsam::Rot3(), node_pos));
+    // Add node to pose graph
+    pose_graph_msg.nodes.push_back(pg_node);
+  }
+
+  // Publish if subscribed
+  if (mesh_graph_pub_.getNumSubscribers() > 0) {
+    mesh_graph_pub_.publish(pose_graph_msg);
+  }
 }
 
 }  // namespace kimera_pgmo
