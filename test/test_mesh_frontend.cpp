@@ -22,13 +22,14 @@ class MeshFrontendTest : public ::testing::Test {
   MeshFrontendTest() {
     system("rosparam set horizon 1.0");
     system("rosparam set robot_id 0");
+    system("rosparam set d_graph_resolution 0.5");
   }
 
   ~MeshFrontendTest() {}
 
   // Test update called in timer event
-  pcl::PolygonMesh ProcessVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
-    return vp_.processVoxbloxMesh(msg);
+  void ProcessVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
+    vp_.processVoxbloxMesh(msg);
   }
 
   voxblox_msgs::MeshBlock CreateMeshBlock(
@@ -164,6 +165,12 @@ class MeshFrontendTest : public ::testing::Test {
     *triangles = vp_.triangles_;
   }
 
+  void GetSimplifiedMesh(pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
+                         std::vector<pcl::Vertices>* triangles) {
+    *vertices = *(vp_.graph_vertices_);
+    *triangles = vp_.graph_triangles_;
+  }
+
   MeshFrontend vp_;
 };
 
@@ -175,8 +182,9 @@ TEST_F(MeshFrontendTest, initialize) {
   ASSERT_TRUE(init);
 }
 
-TEST_F(MeshFrontendTest, partialMesh) {
-  // Test the construction of the martial mesh during callback
+TEST_F(MeshFrontendTest, simplifiedMesh_high_res) {
+  // Test the construction of the simplified mesh during callback
+  // Case where graph resolution is higher than input mesh
   ros::NodeHandle nh;
   system("rosparam set output_mesh_resolution 0.1");
   vp_.initialize(nh);
@@ -184,60 +192,104 @@ TEST_F(MeshFrontendTest, partialMesh) {
   voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
   *mesh1 = CreateSimpleMesh1();
 
-  pcl::PolygonMesh partial = ProcessVoxbloxMesh(mesh1);
-  pcl::PointCloud<pcl::PointXYZRGBA> partial_vertices;
-  pcl::fromPCLPointCloud2(partial.cloud, partial_vertices);
+  ProcessVoxbloxMesh(mesh1);
 
-  EXPECT_EQ(size_t(4), partial_vertices.points.size());
-  EXPECT_EQ(size_t(2), partial.polygons.size());
+  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr simplified_vertices(
+      new pcl::PointCloud<pcl::PointXYZRGBA>);
+  std::vector<pcl::Vertices> triangles;
+  GetSimplifiedMesh(simplified_vertices, &triangles);
+
+  EXPECT_EQ(size_t(4), simplified_vertices->points.size());
+  EXPECT_EQ(size_t(2), triangles.size());
   // Test points and triangles
-  EXPECT_NEAR(1, partial_vertices.points[1].x, 1e-3);
-  EXPECT_NEAR(1, partial_vertices.points[3].x, 1e-3);
-  EXPECT_NEAR(1, partial_vertices.points[3].y, 1e-3);
-  EXPECT_EQ(2, partial.polygons[0].vertices[2]);
-  EXPECT_EQ(1, partial.polygons[1].vertices[0]);
+  EXPECT_NEAR(1, simplified_vertices->points[1].x, 1e-3);
+  EXPECT_NEAR(1, simplified_vertices->points[3].x, 1e-3);
+  EXPECT_NEAR(1, simplified_vertices->points[3].y, 1e-3);
+  EXPECT_EQ(2, triangles[0].vertices[2]);
+  EXPECT_EQ(1, triangles[1].vertices[0]);
 
   // Add second mesh
   voxblox_msgs::Mesh::Ptr mesh2(new voxblox_msgs::Mesh);
   *mesh2 = CreateSimpleMesh2();
-  partial = ProcessVoxbloxMesh(mesh2);
-  pcl::fromPCLPointCloud2(partial.cloud, partial_vertices);
+  ProcessVoxbloxMesh(mesh2);
+  GetSimplifiedMesh(simplified_vertices, &triangles);
 
-  EXPECT_EQ(size_t(12), partial_vertices.points.size());
-  EXPECT_EQ(size_t(6), partial.polygons.size());
+  EXPECT_EQ(size_t(12), simplified_vertices->points.size());
+  EXPECT_EQ(size_t(6), triangles.size());
   // Test points and triangles
-  EXPECT_NEAR(3, partial_vertices.points[5].x, 1e-3);
-  EXPECT_NEAR(3, partial_vertices.points[7].x, 1e-3);
-  EXPECT_NEAR(1, partial_vertices.points[7].y, 1e-3);
-  EXPECT_EQ(6, partial.polygons[2].vertices[2]);
-  EXPECT_EQ(5, partial.polygons[3].vertices[0]);
+  EXPECT_NEAR(3, simplified_vertices->points[5].x, 1e-3);
+  EXPECT_NEAR(3, simplified_vertices->points[7].x, 1e-3);
+  EXPECT_NEAR(1, simplified_vertices->points[7].y, 1e-3);
+  EXPECT_EQ(6, triangles[2].vertices[2]);
+  EXPECT_EQ(5, triangles[3].vertices[0]);
 
-  EXPECT_NEAR(2, partial_vertices.points[9].y, 1e-3);
-  EXPECT_NEAR(3, partial_vertices.points[11].x, 1e-3);
-  EXPECT_NEAR(3, partial_vertices.points[11].y, 1e-3);
-  EXPECT_EQ(10, partial.polygons[4].vertices[2]);
-  EXPECT_EQ(9, partial.polygons[5].vertices[0]);
+  EXPECT_NEAR(2, simplified_vertices->points[9].y, 1e-3);
+  EXPECT_NEAR(3, simplified_vertices->points[11].x, 1e-3);
+  EXPECT_NEAR(3, simplified_vertices->points[11].y, 1e-3);
+  EXPECT_EQ(10, triangles[4].vertices[2]);
 
-  // Add third mesh
+  // This last mesh has stamp 11.6 so last mesh is not within time horizon
+  // meaning that for duplicated blocks, won't check if points duplicated
   voxblox_msgs::Mesh::Ptr mesh3(new voxblox_msgs::Mesh);
   *mesh3 = CreateSimpleMesh3();
-  partial = ProcessVoxbloxMesh(mesh3);
-  pcl::fromPCLPointCloud2(partial.cloud, partial_vertices);
+  ProcessVoxbloxMesh(mesh3);
+  GetSimplifiedMesh(simplified_vertices, &triangles);
 
-  EXPECT_EQ(size_t(8), partial_vertices.points.size());
-  EXPECT_EQ(size_t(4), partial.polygons.size());
+  EXPECT_EQ(size_t(20), simplified_vertices->points.size());
+  EXPECT_EQ(size_t(10), triangles.size());
   // Test points and triangles
-  EXPECT_NEAR(1, partial_vertices.points[1].x, 1e-3);
-  EXPECT_NEAR(1, partial_vertices.points[3].x, 1e-3);
-  EXPECT_NEAR(1, partial_vertices.points[3].y, 1e-3);
-  EXPECT_EQ(2, partial.polygons[0].vertices[2]);
-  EXPECT_EQ(1, partial.polygons[1].vertices[0]);
+  EXPECT_NEAR(1, simplified_vertices->points[13].x, 1e-3);
+  EXPECT_NEAR(1, simplified_vertices->points[15].x, 1e-3);
+  EXPECT_NEAR(1, simplified_vertices->points[15].y, 1e-3);
+  EXPECT_EQ(14, triangles[6].vertices[2]);
+  EXPECT_EQ(13, triangles[7].vertices[0]);
 
-  EXPECT_NEAR(3, partial_vertices.points[5].x, 1e-3);
-  EXPECT_NEAR(2, partial_vertices.points[7].z, 1e-3);
-  EXPECT_NEAR(1, partial_vertices.points[7].y, 1e-3);
-  EXPECT_EQ(6, partial.polygons[2].vertices[2]);
-  EXPECT_EQ(5, partial.polygons[3].vertices[0]);
+  EXPECT_NEAR(3, simplified_vertices->points[17].x, 1e-3);
+  EXPECT_NEAR(2, simplified_vertices->points[19].z, 1e-3);
+  EXPECT_NEAR(1, simplified_vertices->points[19].y, 1e-3);
+  EXPECT_EQ(18, triangles[8].vertices[2]);
+  EXPECT_EQ(17, triangles[9].vertices[0]);
+}
+
+TEST_F(MeshFrontendTest, simplifiedMesh_low_res) {
+  // Test the construction of the simplified mesh during callback
+  // Case where graph resolution is lower than input mesh
+  ros::NodeHandle nh;
+  system("rosparam set output_mesh_resolution 0.1");
+  system("rosparam set d_graph_resolution 1.5");
+  vp_.initialize(nh);
+
+  voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
+  *mesh1 = CreateSimpleMesh1();
+
+  ProcessVoxbloxMesh(mesh1);
+
+  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr simplified_vertices(
+      new pcl::PointCloud<pcl::PointXYZRGBA>);
+  std::vector<pcl::Vertices> triangles;
+  GetSimplifiedMesh(simplified_vertices, &triangles);
+
+  EXPECT_EQ(size_t(1), simplified_vertices->points.size());
+  EXPECT_EQ(size_t(0), triangles.size());
+
+  // Add second mesh
+  voxblox_msgs::Mesh::Ptr mesh2(new voxblox_msgs::Mesh);
+  *mesh2 = CreateSimpleMesh2();
+  ProcessVoxbloxMesh(mesh2);
+  GetSimplifiedMesh(simplified_vertices, &triangles);
+
+  EXPECT_EQ(size_t(3), simplified_vertices->points.size());
+  EXPECT_EQ(size_t(0), triangles.size());
+
+  // This last mesh has stamp 11.6 so last mesh is not within time horizon
+  // meaning that for duplicated blocks, won't check if points duplicated
+  voxblox_msgs::Mesh::Ptr mesh3(new voxblox_msgs::Mesh);
+  *mesh3 = CreateSimpleMesh3();
+  ProcessVoxbloxMesh(mesh3);
+  GetSimplifiedMesh(simplified_vertices, &triangles);
+
+  EXPECT_EQ(size_t(5), simplified_vertices->points.size());
+  EXPECT_EQ(size_t(0), triangles.size());
 }
 
 TEST_F(MeshFrontendTest, fullMesh) {

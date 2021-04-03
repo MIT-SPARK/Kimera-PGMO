@@ -227,6 +227,8 @@ pose_graph_tools::PoseGraph MeshFrontend::publishMeshGraph(
   if (mesh_graph_pub_.getNumSubscribers() > 0) {
     mesh_graph_pub_.publish(pose_graph_msg);
   }
+
+  return pose_graph_msg;
 }
 
 }  // namespace kimera_pgmo
