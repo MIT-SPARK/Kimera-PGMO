@@ -13,6 +13,7 @@
 #include "gtest/gtest.h"
 
 #include "kimera_pgmo/MeshFrontend.h"
+#include "kimera_pgmo/utils/CommonFunctions.h"
 #include "kimera_pgmo/utils/VoxbloxUtils.h"
 
 namespace kimera_pgmo {
@@ -26,6 +27,11 @@ class MeshFrontendTest : public ::testing::Test {
   }
 
   ~MeshFrontendTest() {}
+
+  // Test the created mesh graph
+  inline pose_graph_tools::PoseGraph GetLastProcessedMeshGraph() const {
+    return vp_.getLastProcessedMeshGraph();
+  }
 
   // Test update called in timer event
   void ProcessVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
@@ -465,6 +471,100 @@ TEST_F(MeshFrontendTest, compression2) {
   EXPECT_EQ(0, triangles[2].vertices[0]);
   EXPECT_EQ(2, triangles[2].vertices[2]);
   EXPECT_EQ(4, triangles[3].vertices[0]);
+}
+
+TEST_F(MeshFrontendTest, meshGraph) {
+  // Test with higher resolution to see if compression works
+  ros::NodeHandle nh;
+  system("rosparam set output_mesh_resolution 4.0");
+  vp_.initialize(nh);
+
+  voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
+  *mesh1 = CreateSimpleMesh1();
+
+  ProcessVoxbloxMesh(mesh1);
+
+  pose_graph_tools::PoseGraph last_mesh_graph = GetLastProcessedMeshGraph();
+
+  // Check size
+  EXPECT_EQ(4, last_mesh_graph.nodes.size());
+  EXPECT_EQ(10, last_mesh_graph.edges.size());
+
+  // Check first and last edge
+  EXPECT_EQ(0, last_mesh_graph.edges[0].robot_from);
+  EXPECT_EQ(0, last_mesh_graph.edges[0].robot_to);
+  EXPECT_EQ(0, last_mesh_graph.edges[0].key_from);
+  EXPECT_EQ(1, last_mesh_graph.edges[0].key_to);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
+                          RosToGtsam(last_mesh_graph.edges[0].pose),
+                          1e-4));
+  EXPECT_EQ(0, last_mesh_graph.edges[9].robot_from);
+  EXPECT_EQ(0, last_mesh_graph.edges[9].robot_to);
+  EXPECT_EQ(2, last_mesh_graph.edges[9].key_from);
+  EXPECT_EQ(3, last_mesh_graph.edges[9].key_to);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
+                          RosToGtsam(last_mesh_graph.edges[9].pose),
+                          1e-4));
+
+  // Check first and last node
+  EXPECT_EQ(0, last_mesh_graph.nodes[0].robot_id);
+  EXPECT_EQ(0, last_mesh_graph.nodes[0].key);
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3()),
+                                  RosToGtsam(last_mesh_graph.nodes[0].pose),
+                                  1e-4));
+
+  EXPECT_EQ(0, last_mesh_graph.nodes[3].robot_id);
+  EXPECT_EQ(3, last_mesh_graph.nodes[3].key);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
+                          RosToGtsam(last_mesh_graph.nodes[3].pose),
+                          1e-4));
+
+  // process another mesh
+  voxblox_msgs::Mesh::Ptr mesh4(new voxblox_msgs::Mesh);
+  *mesh4 = CreateSimpleMesh4();
+  ProcessVoxbloxMesh(mesh4);
+
+  last_mesh_graph = GetLastProcessedMeshGraph();
+
+  // Check size
+  EXPECT_EQ(8, last_mesh_graph.nodes.size());
+  EXPECT_EQ(20, last_mesh_graph.edges.size());
+
+  // Check first and last edge
+  EXPECT_EQ(0, last_mesh_graph.edges[0].robot_from);
+  EXPECT_EQ(0, last_mesh_graph.edges[0].robot_to);
+  EXPECT_EQ(4, last_mesh_graph.edges[0].key_from);
+  EXPECT_EQ(5, last_mesh_graph.edges[0].key_to);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
+                          RosToGtsam(last_mesh_graph.edges[0].pose),
+                          1e-4));
+  EXPECT_EQ(0, last_mesh_graph.edges[19].robot_from);
+  EXPECT_EQ(0, last_mesh_graph.edges[19].robot_to);
+  EXPECT_EQ(10, last_mesh_graph.edges[19].key_from);
+  EXPECT_EQ(11, last_mesh_graph.edges[19].key_to);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
+                          RosToGtsam(last_mesh_graph.edges[9].pose),
+                          1e-4));
+
+  // Check first and last node
+  EXPECT_EQ(0, last_mesh_graph.nodes[0].robot_id);
+  EXPECT_EQ(4, last_mesh_graph.nodes[0].key);
+  EXPECT_TRUE(gtsam::assert_equal(
+      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3.5, 3.5, 0)),
+      RosToGtsam(last_mesh_graph.nodes[0].pose),
+      1e-4));
+
+  EXPECT_EQ(0, last_mesh_graph.nodes[7].robot_id);
+  EXPECT_EQ(11, last_mesh_graph.nodes[7].key);
+  EXPECT_TRUE(gtsam::assert_equal(
+      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(4.5, 4.5, 3.5)),
+      RosToGtsam(last_mesh_graph.nodes[7].pose),
+      1e-4));
 }
 
 }  // namespace kimera_pgmo

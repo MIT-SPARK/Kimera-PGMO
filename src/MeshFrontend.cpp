@@ -85,8 +85,8 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
   full_mesh_compression_->pruneStoredMesh(msg_time - time_horizon_);
   d_graph_compression_->pruneStoredMesh(msg_time - time_horizon_);
 
-  std::vector<Edge> new_edges;
-  std::vector<size_t> new_indices;
+  std::vector<Edge> graph_edges;
+  std::vector<size_t> graph_indices;
 
   // Iterate through the mesh blocks
   for (const voxblox_msgs::MeshBlock& mesh_block : msg->mesh_blocks) {
@@ -134,11 +134,11 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
       const std::vector<Edge>& block_new_edges =
           simplified_mesh_graph_.addPointsAndSurfaces(new_graph_indices,
                                                       new_graph_triangles);
-      new_edges.insert(
-          new_edges.end(), block_new_edges.begin(), block_new_edges.end());
-      new_indices.insert(new_indices.end(),
-                         new_graph_indices.begin(),
-                         new_graph_indices.end());
+      graph_edges.insert(
+          graph_edges.end(), block_new_edges.begin(), block_new_edges.end());
+      graph_indices.insert(graph_indices.end(),
+                           new_graph_indices.begin(),
+                           new_graph_indices.end());
     }
   }
 
@@ -148,7 +148,7 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
   d_graph_compression_->getVertices(graph_vertices_);
   d_graph_compression_->getStoredPolygons(&graph_triangles_);
 
-  last_mesh_graph_ = publishMeshGraph(new_edges, new_indices, msg->header);
+  last_mesh_graph_ = publishMeshGraph(graph_edges, graph_indices, msg->header);
 
   return;
 }
@@ -183,7 +183,7 @@ void MeshFrontend::publishSimplifiedMesh(const ros::Time& stamp) const {
 
 pose_graph_tools::PoseGraph MeshFrontend::publishMeshGraph(
     const std::vector<Edge>& new_edges,
-    const std::vector<Vertex>& new_indices,
+    const std::vector<size_t>& new_indices,
     const std_msgs::Header& header) const {
   // Create message
   pose_graph_tools::PoseGraph pose_graph_msg;
@@ -193,19 +193,24 @@ pose_graph_tools::PoseGraph MeshFrontend::publishMeshGraph(
   for (auto e : new_edges) {
     pose_graph_tools::PoseGraphEdge pg_edge;
     pg_edge.header = header;
-    const size_t& to_node = e.first;
-    const size_t& from_node = e.second;
+
+    const size_t& from_node = e.first;
+    const size_t& to_node = e.second;
+
     pg_edge.robot_from = robot_id_;
     pg_edge.robot_to = robot_id_;
     pg_edge.key_from = from_node;
     pg_edge.key_to = to_node;
-    gtsam::Point3 to_node_pos =
-        PclToGtsam<pcl::PointXYZRGBA>(graph_vertices_->at(to_node));
+
     gtsam::Point3 from_node_pos =
         PclToGtsam<pcl::PointXYZRGBA>(graph_vertices_->at(from_node));
+    gtsam::Point3 to_node_pos =
+        PclToGtsam<pcl::PointXYZRGBA>(graph_vertices_->at(to_node));
     pg_edge.pose =
-        GtsamToRos(gtsam::Pose3(gtsam::Rot3(), from_node_pos - to_node_pos));
+        GtsamToRos(gtsam::Pose3(gtsam::Rot3(), to_node_pos - from_node_pos));
+
     pg_edge.type = pose_graph_tools::PoseGraphEdge::MESH;
+
     // Add edge to pose graph
     pose_graph_msg.edges.push_back(pg_edge);
   }
@@ -215,10 +220,13 @@ pose_graph_tools::PoseGraph MeshFrontend::publishMeshGraph(
     pose_graph_tools::PoseGraphNode pg_node;
     pg_node.header = header;
     pg_node.robot_id = robot_id_;
+
     pg_node.key = n;
+
     gtsam::Point3 node_pos =
         PclToGtsam<pcl::PointXYZRGBA>(graph_vertices_->at(n));
     pg_node.pose = GtsamToRos(gtsam::Pose3(gtsam::Rot3(), node_pos));
+
     // Add node to pose graph
     pose_graph_msg.nodes.push_back(pg_node);
   }

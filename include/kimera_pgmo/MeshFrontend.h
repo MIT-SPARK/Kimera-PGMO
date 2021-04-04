@@ -87,7 +87,7 @@ class MeshFrontend {
    */
   pose_graph_tools::PoseGraph publishMeshGraph(
       const std::vector<Edge>& new_edges,
-      const std::vector<Vertex>& new_indices,
+      const std::vector<size_t>& new_indices,
       const std_msgs::Header& header) const;
 
   /*! \brief Get last mesh graph created in voxblox callback for testing
