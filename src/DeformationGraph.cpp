@@ -296,12 +296,15 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
       if (vertex_positions_.at(node_prefix).size() <= node_idx) {
         // Only add nodes that has not previously been added
         vertex_positions_[node_prefix].push_back(node_pose.translation());
+        vertices_->push_back(
+            GtsamToPcl<pcl::PointXYZ>(node_pose.translation()));
         new_mesh_nodes.insert(k, node_pose);
       }
     } catch (const std::out_of_range& e) {
       ROS_INFO("New prefix detected when adding new mesh edges and nodes. ");
       vertex_positions_[node_prefix] = std::vector<gtsam::Point3>{};
       vertex_positions_[node_prefix].push_back(node_pose.translation());
+      vertices_->push_back(GtsamToPcl<pcl::PointXYZ>(node_pose.translation()));
       new_mesh_nodes.insert(k, node_pose);
     }
   }

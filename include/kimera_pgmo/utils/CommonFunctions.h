@@ -145,6 +145,17 @@ inline gtsam::Point3 PclToGtsam(const point_type& point) {
                        static_cast<double>(point.z));
 }
 
+/*! \brief Converts a gtsam point3 to a pcl point
+ *  - point: gtsam point3
+ *  - outputs pcl point
+ */
+template <class point_type>
+inline point_type GtsamToPcl(const gtsam::Point3& point) {
+  return point_type(static_cast<double>(point.x()),
+                    static_cast<double>(point.y()),
+                    static_cast<double>(point.z()));
+}
+
 /*! \brief Combine two meshes into one
  *  - mesh1: partial mesh represented as pcl PolygonMesh
  *  - mesh2: partial mesh represented as pcl PolygonMesh

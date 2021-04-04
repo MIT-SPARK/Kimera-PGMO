@@ -12,6 +12,7 @@
 
 #include "kimera_pgmo/DeformationGraph.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
+#include "kimera_pgmo/utils/CommonStructs.h"
 #include "test_config.h"
 
 namespace kimera_pgmo {
@@ -199,6 +200,53 @@ TEST(test_deformation_graph, deformMeshtranslation) {
   EXPECT_TRUE(ComparePointcloud(expected_vertices, actual_vertices, 1e-6));
   EXPECT_EQ(original_mesh.polygons[0].vertices, new_mesh.polygons[0].vertices);
   EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
+}
+
+TEST(test_deformation_graph, addNewMeshEdgesAndNodes) {
+  DeformationGraph graph;
+  graph.initialize(100, 100);
+
+  pcl::PolygonMesh simple_mesh = createMeshTriangle();
+  pcl::PointCloud<pcl::PointXYZRGBA> simple_vertices;
+  pcl::fromPCLPointCloud2(simple_mesh.cloud, simple_vertices);
+  std::vector<size_t> simple_mesh_indices(simple_vertices.size());
+  std::iota(std::begin(simple_mesh_indices), std::end(simple_mesh_indices), 0);
+
+  Graph graph_struct;
+  std::vector<Edge> simple_mesh_edges = graph_struct.addPointsAndSurfaces(
+      simple_mesh_indices, simple_mesh.polygons);
+
+  gtsam::Values mesh_nodes;
+  for (auto i : simple_mesh_indices) {
+    mesh_nodes.insert(
+        gtsam::Symbol('s', i),
+        gtsam::Pose3(gtsam::Rot3(), PclToGtsam(simple_vertices.at(i))));
+  }
+
+  std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
+  for (auto e : simple_mesh_edges) {
+    mesh_edges.push_back(std::pair<gtsam::Key, gtsam::Key>(
+        gtsam::Symbol('s', e.first), gtsam::Symbol('s', e.second)));
+  }
+
+  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes);
+
+  // Check sizes
+  EXPECT_EQ(3, graph.getNumVertices());
+  EXPECT_EQ(0, graph.getVertices().points[0].x);
+  EXPECT_EQ(1, graph.getVertices().points[2].y);
+
+  // Check that the factors are added
+  gtsam::Values values = graph.getGtsamValues();
+  gtsam::NonlinearFactorGraph factors = graph.getGtsamFactors();
+
+  EXPECT_EQ(size_t(6), factors.size());
+  EXPECT_EQ(size_t(3), values.size());
+  EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[0]));
+  DeformationEdgeFactor factor =
+      *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[0]);
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(), factor.fromPose()));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor.toPoint()));
 }
 
 TEST(test_deformation_graph, deformMesh) {
