@@ -156,6 +156,14 @@ class DeformationGraph {
                      const gtsam::Pose3& meas,
                      const gtsam::Pose3& initial_pose = gtsam::Pose3());
 
+  /*! \brief Add a new mesh edge to deformation graph
+   *  - mesh_edges: edges storing key-key pairs
+   *  - mesh_nodes: gtsam values encoding key value pairs of new nodes
+   */
+  void addNewMeshEdgesAndNodes(
+      const std::vector<std::pair<gtsam::Key, gtsam::Key> >& mesh_edges,
+      const gtsam::Values& mesh_nodes);
+
   /*! \brief Add connections from a pose graph node to mesh vertices nodes
    *  - key: Key of pose graph node
    *  - valences: The mesh vertices nodes to connect to
@@ -292,8 +300,6 @@ class DeformationGraph {
   std::map<char, std::vector<gtsam::Pose3> > pg_initial_poses_;
 
   std::map<char, std::vector<gtsam::Point3> > vertex_positions_;
-  // track the prefixes only important in multirobot case
-  std::vector<char> vertex_prefixes_;
   // Number of mesh vertices corresponding a particular prefix thus far
   std::map<char, size_t> num_vertices_;
 

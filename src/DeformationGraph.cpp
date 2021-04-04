@@ -56,7 +56,6 @@ void DeformationGraph::updateMesh(
   Vertices new_indices;
   for (auto p : new_vertices.points) {
     vertex_positions_[prefix].push_back(gtsam::Point3(p.x, p.y, p.z));
-    vertex_prefixes_.push_back(prefix);
     vertices_->push_back(pcl::PointXYZ(p.x, p.y, p.z));
     new_indices.push_back(num_vertices_[prefix]);
     num_vertices_[prefix] = num_vertices_[prefix] + 1;
@@ -264,6 +263,53 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
     recalculate_vertices_ = true;
   }
   return;
+}
+
+void DeformationGraph::addNewMeshEdgesAndNodes(
+    const std::vector<std::pair<gtsam::Key, gtsam::Key>>& mesh_edges,
+    const gtsam::Values& mesh_nodes) {
+  // New mesh edge factors
+  gtsam::NonlinearFactorGraph new_mesh_factors;
+  // New mesh node factors
+  gtsam::Values new_mesh_nodes;
+  // Define noise. Hardcoded for now
+  static const gtsam::SharedNoiseModel& edge_noise =
+      gtsam::noiseModel::Isotropic::Variance(3, 1e-3);
+  // Iterate and add the new edges
+  for (auto e : mesh_edges) {
+    const gtsam::Key& from = e.first;
+    const gtsam::Key& to = e.second;
+    const gtsam::Pose3& pose_from = mesh_nodes.at<gtsam::Pose3>(from);
+    const gtsam::Pose3& pose_to = mesh_nodes.at<gtsam::Pose3>(to);
+    // Create new edge as deformation edge factor
+    const DeformationEdgeFactor new_edge(
+        from, to, pose_from, pose_to.translation(), edge_noise);
+    new_mesh_factors.add(new_edge);
+  }
+  // Iterate and add the new mesh nodes not yet in graph
+  // Note that the keys are in increasing order by construction from gtsam
+  for (auto k : mesh_nodes.keys()) {
+    char node_prefix = gtsam::Symbol(k).chr();
+    size_t node_idx = gtsam::Symbol(k).index();
+    const gtsam::Pose3& node_pose = mesh_nodes.at<gtsam::Pose3>(k);
+    try {
+      if (vertex_positions_.at(node_prefix).size() <= node_idx) {
+        // Only add nodes that has not previously been added
+        vertex_positions_[node_prefix].push_back(node_pose.translation());
+        new_mesh_nodes.insert(k, node_pose);
+      }
+    } catch (const std::out_of_range& e) {
+      ROS_INFO("New prefix detected when adding new mesh edges and nodes. ");
+      vertex_positions_[node_prefix] = std::vector<gtsam::Point3>{};
+      vertex_positions_[node_prefix].push_back(node_pose.translation());
+      new_mesh_nodes.insert(k, node_pose);
+    }
+  }
+
+  // Update rpgo
+  pgo_->update(new_mesh_factors, new_mesh_nodes, !do_not_optimize_);
+  values_ = pgo_->calculateEstimate();
+  nfg_ = pgo_->getFactorsUnsafe();
 }
 
 void DeformationGraph::addNewNode(const gtsam::Key& key,
