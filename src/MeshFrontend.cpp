@@ -151,7 +151,9 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
   d_graph_compression_->getVertices(graph_vertices_);
   d_graph_compression_->getStoredPolygons(&graph_triangles_);
 
-  last_mesh_graph_ = publishMeshGraph(graph_edges, graph_indices, msg->header);
+  if (graph_indices.size() > 0)
+    last_mesh_graph_ =
+        publishMeshGraph(graph_edges, graph_indices, msg->header);
 
   return;
 }
