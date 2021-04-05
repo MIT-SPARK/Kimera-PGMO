@@ -99,18 +99,6 @@ class DeformationGraph {
    */
   bool initialize(double pgo_trans_threshold, double pgo_rot_threshold);
 
-  /*! \brief Add new vertices as nodes in deformation graph and the sides of the
-   * new surfaces as edges in deformation graph.
-   *  - new_vertices: new vertices of sampled mesh that makes up most of
-   * deformation graph
-   *  - new_surfaces: new surfaces of sampled mesh
-   *  - prefix: the prefixes of the key of the nodes corresponding to mesh
-   * vertices
-   */
-  void updateMesh(const pcl::PointCloud<pcl::PointXYZRGBA>& new_vertices,
-                  const std::vector<pcl::Vertices> new_surfaces,
-                  const char& prefix);
-
   /*! \brief Fix the transform of a node corresponding to a sampled mesh vertex
    * in deformation graph. Note that all vertices has an original rotation of
    * identity.
@@ -277,18 +265,6 @@ class DeformationGraph {
   /*! \brief Never optimize graph, store factors only
    */
   inline void storeOnlyNoOptimization() { do_not_optimize_ = true; }
-
- private:
-  /*! \brief Called within updateMesh to create the DeformationEdgeFactors
-   * created from the newly added mesh surfaces
-   *  - new_vertices: vertices of the newly added mesh (in updateMesh)
-   *  - new_edges: edges created from the sides of the new mesh surfaces
-   *  - prefix: the prefixes of the key of the nodes corresponding to mesh
-   * vertices
-   */
-  void updateConsistencyFactors(const Vertices& new_vertices,
-                                const std::vector<Edge>& new_edges,
-                                const char& prefix);
 
  private:
   std::map<char, Graph> graph_;

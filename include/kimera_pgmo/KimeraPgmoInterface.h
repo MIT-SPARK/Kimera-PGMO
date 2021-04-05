@@ -108,22 +108,6 @@ class KimeraPgmoInterface {
       const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg,
       pcl::PolygonMesh* optimized_mesh);
 
-  /*! \brief Process the partial mesh, which
-   * corresponds to the latest partial mesh from Voxblox or Kimera-Semantics. We
-   * sample this partial mesh to add to the deformation graph and also connect
-   * the nodes stored in the waiting queue to the vertices of the sampled mesh,
-   * provided that the time difference is within the threshold
-   *  - mesh_msg: partial mesh in mesh_msgs TriangleMeshStamped format
-   *  - compressor: mesh simplification modules
-   * - unconnected_nodes: odometric nodes not yet connected to the mesh and
-   * still within the embed time window
-   */
-  void processIncrementalMesh(
-      const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg,
-      const OctreeCompressionPtr compressor,
-      const std::vector<ros::Time>& node_timestamps,
-      std::queue<size_t>* unconnected_nodes);
-
   /*! \brief Process the mesh graph that consists of the new mesh edges and mesh
    * nodes to be added to the deformation graph
    * - mesh_msg: partial mesh in mesh_msgs TriangleMeshStamped format

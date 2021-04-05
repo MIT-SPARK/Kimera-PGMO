@@ -64,14 +64,6 @@ bool KimeraPgmo::loadParameters(const ros::NodeHandle& n) {
                output_prefix_.c_str());
     }
   }
-
-  // start the mesh compression module for deformation graph
-  double deformation_graph_resolution;
-  if (!n.getParam("d_graph_resolution", deformation_graph_resolution))
-    return false;
-
-  compression_.reset(new OctreeCompression(deformation_graph_resolution));
-
   return true;
 }
 
@@ -97,9 +89,6 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
 
   full_mesh_sub_ =
       nl.subscribe("full_mesh", 1, &KimeraPgmo::fullMeshCallback, this);
-
-  incremental_mesh_sub_ = nl.subscribe(
-      "incremental_mesh", 5, &KimeraPgmo::incrementalMeshCallback, this);
 
   incremental_mesh_graph_sub_ =
       nl.subscribe("mesh_graph_incremental",
@@ -255,26 +244,6 @@ void KimeraPgmo::fullMeshCallback(
   auto spin_duration =
       std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
   full_mesh_cb_time_ = spin_duration.count();
-
-  return;
-}
-
-void KimeraPgmo::incrementalMeshCallback(
-    const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
-  // Start timer
-  auto start = std::chrono::high_resolution_clock::now();
-
-  processIncrementalMesh(
-      mesh_msg, compression_, timestamps_, &unconnected_nodes_);
-
-  // Stop timer and save
-  auto stop = std::chrono::high_resolution_clock::now();
-  auto spin_duration =
-      std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-  inc_mesh_cb_time_ = spin_duration.count();
-
-  // Publish deformation graph visualization
-  visualizeDeformationGraph(&viz_deformation_graph_pub_);
 
   return;
 }

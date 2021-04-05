@@ -24,12 +24,10 @@ class KimeraPgmoTest : public ::testing::Test {
   KimeraPgmoTest() {
     system("rosparam set frame_id world");
     system("rosparam set robot_id 0");
-    system("rosparam set compression_time_horizon 10.0");
     system("rosparam set run_mode 0");
     system("rosparam set use_msg_time true");
     system("rosparam set output_prefix test");
     system("rosparam set embed_trajectory_delta_t 3.0");
-    system("rosparam set d_graph_resolution 0.1");
     system("rosparam set rpgo/translation_threshold 10.0");
     system("rosparam set rpgo/rotation_threshold 10.0");
   }
@@ -43,11 +41,6 @@ class KimeraPgmoTest : public ::testing::Test {
   void FullMeshCallback(
       const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
     pgmo_.fullMeshCallback(mesh_msg);
-  }
-
-  void IncrementalMeshCallback(
-      const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
-    pgmo_.incrementalMeshCallback(mesh_msg);
   }
 
   void IncrementalMeshGraphCallback(

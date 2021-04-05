@@ -137,11 +137,7 @@ class KimeraPgmoMulti : public KimeraPgmoInterface {
   // optimized mesh for each robot
   std::map<size_t, pcl::PolygonMesh> optimized_mesh_;
   std::map<size_t, ros::Time> last_mesh_stamp_;
-  std::map<size_t, OctreeCompressionPtr> compression_;
   std::vector<size_t> robot_ids_;
-
-  // Deformation graph resolution
-  double deformation_graph_resolution_;
 
   // Publishers
   std::map<size_t, ros::Publisher> optimized_mesh_pub_;
@@ -152,7 +148,6 @@ class KimeraPgmoMulti : public KimeraPgmoInterface {
   // Subscribers
   std::map<size_t, ros::Subscriber> pose_graph_incremental_sub_;
   std::map<size_t, ros::Subscriber> full_mesh_sub_;
-  std::map<size_t, ros::Subscriber> incremental_mesh_sub_;
   std::map<size_t, ros::Subscriber> incremental_mesh_graph_sub_;
   std::map<size_t, ros::Subscriber> path_callback_sub_;
 

@@ -78,16 +78,6 @@ class KimeraPgmo : public KimeraPgmoInterface {
    */
   void publishTransforms();
 
-  /*! \brief Subscribes to the partial mesh from MeshFrontend, which
-   * corresponds to the latest partial mesh from Voxblox or Kimera-Semantics. We
-   * sample this partial mesh to add to the deformation graph and also connect
-   * the nodes stored in the waiting queue to the vertices of the sampled mesh,
-   * provided that the time difference is within the threshold
-   *  - mesh_msg: partial mesh in mesh_msgs TriangleMeshStamped format
-   */
-  void incrementalMeshCallback(
-      const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg);
-
   /*! \brief Subscribes to the mesh factors from MeshFrontend, which
    * corresponds to the latest simplified partial mesh from Voxblox or
    * Kimera-Semantics. We add to the deformation graph and also connect the
@@ -139,8 +129,6 @@ class KimeraPgmo : public KimeraPgmoInterface {
   std::vector<gtsam::Pose3> optimized_path_;
   ros::Time last_mesh_stamp_;
 
-  OctreeCompressionPtr compression_;
-
   // Publishers
   ros::Publisher optimized_mesh_pub_;
   ros::Publisher optimized_path_pub_;  // Unused for now (TODO)
@@ -154,7 +142,6 @@ class KimeraPgmo : public KimeraPgmoInterface {
   // Subscribers
   ros::Subscriber pose_graph_incremental_sub_;
   ros::Subscriber full_mesh_sub_;
-  ros::Subscriber incremental_mesh_sub_;
   ros::Subscriber incremental_mesh_graph_sub_;
   ros::Subscriber path_callback_sub_;
   ros::Subscriber dpgmo_callback_sub_;

@@ -65,10 +65,6 @@ bool KimeraPgmoMulti::loadParameters(const ros::NodeHandle& n) {
     }
   }
 
-  // start the mesh compression module for deformation graph
-  if (!n.getParam("d_graph_resolution", deformation_graph_resolution_))
-    return false;
-
   return true;
 }
 
@@ -102,11 +98,6 @@ bool KimeraPgmoMulti::registerCallbacks(const ros::NodeHandle& n) {
         "/kimera" + std::to_string(id) + "/mesh_frontend/full_mesh";
     full_mesh_sub_[id] = nl.subscribe(
         full_mesh_topic, 1, &KimeraPgmoMulti::fullMeshCallback, this);
-
-    std::string inc_mesh_topic =
-        "/kimera" + std::to_string(id) + "/mesh_frontend/partial_mesh";
-    incremental_mesh_sub_[id] = nl.subscribe(
-        inc_mesh_topic, 5, &KimeraPgmoMulti::incrementalMeshCallback, this);
 
     std::string mesh_graph_topic = "/kimera" + std::to_string(id) +
                                    "/mesh_frontend/mesh_graph_incremental";
@@ -257,35 +248,6 @@ void KimeraPgmoMulti::fullMeshCallback(
   auto spin_duration =
       std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
   full_mesh_cb_time_ = spin_duration.count();
-
-  return;
-}
-
-void KimeraPgmoMulti::incrementalMeshCallback(
-    const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
-  // Start timer
-  auto start = std::chrono::high_resolution_clock::now();
-
-  const size_t& robot_id = mesh_msg->id;
-
-  // Check if the compressor is already initialized
-  if (compression_.find(robot_id) == compression_.end()) {
-    compression_[robot_id] = OctreeCompressionPtr(
-        new OctreeCompression(deformation_graph_resolution_));
-  }
-  processIncrementalMesh(mesh_msg,
-                         compression_[robot_id],
-                         timestamps_[robot_id],
-                         &unconnected_nodes_[robot_id]);
-
-  // Stop timer and save
-  auto stop = std::chrono::high_resolution_clock::now();
-  auto spin_duration =
-      std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-  inc_mesh_cb_time_ = spin_duration.count();
-
-  // Publish deformation graph visualization
-  visualizeDeformationGraph(&viz_deformation_graph_pub_);
 
   return;
 }

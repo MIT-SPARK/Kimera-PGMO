@@ -27,8 +27,6 @@ bool KimeraPgmoInterface::loadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("run_mode", run_mode_num)) return false;
   run_mode_ = static_cast<RunMode>(run_mode_num);
   if (!n.getParam("use_msg_time", use_msg_time_)) return false;
-  if (!n.getParam("compression_time_horizon", compression_time_horizon_))
-    return false;
 
   if (!n.getParam("embed_trajectory_delta_t", embed_delta_t_)) return false;
 
@@ -245,76 +243,6 @@ bool KimeraPgmoInterface::optimizeFullMesh(
     return false;
   }
   return true;
-}
-
-void KimeraPgmoInterface::processIncrementalMesh(
-    const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg,
-    const OctreeCompressionPtr compressor,
-    const std::vector<ros::Time>& node_timestamps,
-    std::queue<size_t>* unconnected_nodes) {
-  size_t robot_id = mesh_msg->id;
-
-  const pcl::PolygonMesh incremental_mesh =
-      TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
-
-  // Check if mesh empty
-  if (incremental_mesh.cloud.height * incremental_mesh.cloud.width == 0) return;
-
-  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
-      new pcl::PointCloud<pcl::PointXYZRGBA>);
-  std::vector<pcl::Vertices> new_triangles;
-  std::vector<size_t> new_indices;
-
-  double msg_time;
-  if (use_msg_time_) {
-    msg_time = mesh_msg->header.stamp.toSec();
-  } else {
-    msg_time = ros::Time::now().toSec();
-  }
-  compressor->pruneStoredMesh(msg_time - compression_time_horizon_);
-  compressor->compressAndIntegrate(
-      incremental_mesh, new_vertices, &new_triangles, &new_indices, msg_time);
-  deformation_graph_.updateMesh(
-      *new_vertices, new_triangles, GetVertexPrefix(robot_id));
-  if (new_indices.size() == 0) return;
-  bool connection = false;
-  // Associate nodes to mesh
-  if (!unconnected_nodes->empty()) {
-    // find the closest
-    size_t closest_node = unconnected_nodes->front();
-    double min_difference = std::numeric_limits<double>::infinity();
-    while (!unconnected_nodes->empty()) {
-      const size_t node = unconnected_nodes->front();
-      if (abs(node_timestamps[node].toSec() - msg_time) < min_difference) {
-        min_difference = abs(node_timestamps[node].toSec());
-        closest_node = node;
-        unconnected_nodes->pop();
-      } else {
-        break;
-      }
-    }
-    ROS_INFO("Connecting robot %d node %d to %d vertices. ",
-             robot_id,
-             closest_node,
-             new_indices.size());
-    deformation_graph_.addNodeValence(
-        gtsam::Symbol(GetRobotPrefix(robot_id), closest_node),
-        new_indices,
-        GetVertexPrefix(robot_id));
-    connection = true;
-    if (abs(node_timestamps[closest_node].toSec() - msg_time) >
-        embed_delta_t_) {
-      ROS_WARN(
-          "Connection from robot node to vertices have a time difference "
-          "of %f",
-          abs(node_timestamps[closest_node].toSec() - msg_time));
-    }
-  }
-  if (!connection) {
-    ROS_WARN("KimeraPgmo: Partial mesh not connected to pose graph. ");
-  }
-
-  return;
 }
 
 void KimeraPgmoInterface::processIncrementalMeshGraph(
