@@ -108,6 +108,14 @@ bool KimeraPgmoMulti::registerCallbacks(const ros::NodeHandle& n) {
     incremental_mesh_sub_[id] = nl.subscribe(
         inc_mesh_topic, 5, &KimeraPgmoMulti::incrementalMeshCallback, this);
 
+    std::string mesh_graph_topic = "/kimera" + std::to_string(id) +
+                                   "/mesh_frontend/mesh_graph_incremental";
+    incremental_mesh_graph_sub_[id] =
+        nl.subscribe(mesh_graph_topic,
+                     5,
+                     &KimeraPgmoMulti::incrementalMeshGraphCallback,
+                     this);
+
     std::string pose_graph_topic = "/kimera" + std::to_string(id) +
                                    "/kimera_vio_ros/pose_graph_incremental";
     pose_graph_incremental_sub_[id] =
@@ -269,6 +277,34 @@ void KimeraPgmoMulti::incrementalMeshCallback(
                          compression_[robot_id],
                          timestamps_[robot_id],
                          &unconnected_nodes_[robot_id]);
+
+  // Stop timer and save
+  auto stop = std::chrono::high_resolution_clock::now();
+  auto spin_duration =
+      std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+  inc_mesh_cb_time_ = spin_duration.count();
+
+  // Publish deformation graph visualization
+  visualizeDeformationGraph(&viz_deformation_graph_pub_);
+
+  return;
+}
+
+void KimeraPgmoMulti::incrementalMeshGraphCallback(
+    const pose_graph_tools::PoseGraph::ConstPtr& mesh_graph_msg) {
+  // Start timer
+  auto start = std::chrono::high_resolution_clock::now();
+
+  if (mesh_graph_msg->edges.size() == 0 || mesh_graph_msg->nodes.size() == 0) {
+    ROS_WARN(
+        "incrementalMeshGraphCallback: 0 nodes or 0 edges in mesh graph msg. ");
+    return;
+  }
+
+  const size_t& robot_id = mesh_graph_msg->nodes[0].robot_id;
+
+  processIncrementalMeshGraph(
+      mesh_graph_msg, timestamps_[robot_id], &unconnected_nodes_[robot_id]);
 
   // Stop timer and save
   auto stop = std::chrono::high_resolution_clock::now();

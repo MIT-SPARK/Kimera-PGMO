@@ -88,6 +88,15 @@ class KimeraPgmo : public KimeraPgmoInterface {
   void incrementalMeshCallback(
       const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg);
 
+  /*! \brief Subscribes to the mesh factors from MeshFrontend, which
+   * corresponds to the latest simplified partial mesh from Voxblox or
+   * Kimera-Semantics. We add to the deformation graph and also connect the
+   * nodes stored in the waiting queue to the vertices of the sampled mesh,
+   *  - mesh_graph_msg: mesh factors to add to deformation graph and mesh nodes.
+   */
+  void incrementalMeshGraphCallback(
+      const pose_graph_tools::PoseGraph::ConstPtr& mesh_graph_msg);
+
   /*! \brief Subscribes to an optimized trajectory. The path should correspond
    * to the nodes of the pose graph received in the
    * incrementalPoseGraphCallback. Note that this should only be used in the
@@ -146,6 +155,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
   ros::Subscriber pose_graph_incremental_sub_;
   ros::Subscriber full_mesh_sub_;
   ros::Subscriber incremental_mesh_sub_;
+  ros::Subscriber incremental_mesh_graph_sub_;
   ros::Subscriber path_callback_sub_;
   ros::Subscriber dpgmo_callback_sub_;
 

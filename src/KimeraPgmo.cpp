@@ -101,6 +101,12 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
   incremental_mesh_sub_ = nl.subscribe(
       "incremental_mesh", 5, &KimeraPgmo::incrementalMeshCallback, this);
 
+  incremental_mesh_graph_sub_ =
+      nl.subscribe("mesh_graph_incremental",
+                   5,
+                   &KimeraPgmo::incrementalMeshGraphCallback,
+                   this);
+
   pose_graph_incremental_sub_ =
       nl.subscribe("pose_graph_incremental",
                    1000,
@@ -260,6 +266,25 @@ void KimeraPgmo::incrementalMeshCallback(
 
   processIncrementalMesh(
       mesh_msg, compression_, timestamps_, &unconnected_nodes_);
+
+  // Stop timer and save
+  auto stop = std::chrono::high_resolution_clock::now();
+  auto spin_duration =
+      std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+  inc_mesh_cb_time_ = spin_duration.count();
+
+  // Publish deformation graph visualization
+  visualizeDeformationGraph(&viz_deformation_graph_pub_);
+
+  return;
+}
+
+void KimeraPgmo::incrementalMeshGraphCallback(
+    const pose_graph_tools::PoseGraph::ConstPtr& mesh_graph_msg) {
+  // Start timer
+  auto start = std::chrono::high_resolution_clock::now();
+
+  processIncrementalMeshGraph(mesh_graph_msg, timestamps_, &unconnected_nodes_);
 
   // Stop timer and save
   auto stop = std::chrono::high_resolution_clock::now();
