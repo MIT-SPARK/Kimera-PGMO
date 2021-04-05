@@ -136,9 +136,12 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
                                                       new_graph_triangles);
       graph_edges.insert(
           graph_edges.end(), block_new_edges.begin(), block_new_edges.end());
-      graph_indices.insert(graph_indices.end(),
-                           new_graph_indices.begin(),
-                           new_graph_indices.end());
+      for (auto idx : new_graph_indices) {
+        if (std::find(graph_indices.begin(), graph_indices.end(), idx) ==
+            graph_indices.end()) {
+          graph_indices.push_back(idx);
+        }
+      }
     }
   }
 
