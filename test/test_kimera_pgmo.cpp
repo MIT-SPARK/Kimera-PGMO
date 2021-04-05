@@ -223,8 +223,6 @@ TEST_F(KimeraPgmoTest, incrementalMeshGraphCallback) {
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
-      new kimera_pgmo::TriangleMeshIdStamped);
 
   pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(
       new pose_graph_tools::PoseGraph);
