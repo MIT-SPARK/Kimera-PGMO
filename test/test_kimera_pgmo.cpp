@@ -14,6 +14,7 @@
 #include "gtest/gtest.h"
 
 #include "kimera_pgmo/KimeraPgmo.h"
+#include "kimera_pgmo/utils/CommonStructs.h"
 #include "test_artifacts.h"
 
 namespace kimera_pgmo {
@@ -47,6 +48,11 @@ class KimeraPgmoTest : public ::testing::Test {
   void IncrementalMeshCallback(
       const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
     pgmo_.incrementalMeshCallback(mesh_msg);
+  }
+
+  void IncrementalMeshGraphCallback(
+      const pose_graph_tools::PoseGraph::ConstPtr& mesh_graph_msg) {
+    pgmo_.incrementalMeshGraphCallback(mesh_graph_msg);
   }
 
   void OptimizedPathCallback(const nav_msgs::Path::ConstPtr& path_msg) {
@@ -197,10 +203,12 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)), factor2.measured()));
 }
 
-TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
+TEST_F(KimeraPgmoTest, incrementalMeshGraphCallback) {
   // Here we should test if the mesh is added to the deformation graph correctly
   ros::NodeHandle nh;
   pgmo_.initialize(nh);
+  OctreeCompressionPtr compression_(new OctreeCompression(0.5));
+  Graph graph_struct;
 
   // Check callback
   pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
@@ -217,9 +225,12 @@ TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
   kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
       new kimera_pgmo::TriangleMeshIdStamped);
-  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
-  mesh_msg->header.stamp = ros::Time(12.5);  // within 3 sec of pose graph msg
-  IncrementalMeshCallback(mesh_msg);
+
+  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(
+      new pose_graph_tools::PoseGraph);
+  *mesh_graph_msg = processMeshToGraph(
+      mesh1, 0, ros::Time(12.5), compression_, &graph_struct);
+  IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // Now should have 7 values (2 nodes + 5 vertices)
   // And 27 factors (16 edges + 1 odom + 10 connections)
@@ -234,9 +245,9 @@ TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
 
   // Add mesh
   pcl::PolygonMesh mesh2 = createMesh(2, 0, 0);
-  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh2);
-  mesh_msg->header.stamp = ros::Time(13.0);  // within 3 sec of pose graph msg
-  IncrementalMeshCallback(mesh_msg);
+  *mesh_graph_msg = processMeshToGraph(
+      mesh2, 0, ros::Time(13.0), compression_, &graph_struct);
+  IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // Now should have 13 values (3 nodes + 10 vertices)
   // And 55 factors (32 edges + 2 odom + 20 connections + 1 lc)
@@ -283,6 +294,8 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnectionDeltaT) {
   // Here we should test if the mesh is added to the deformation graph correctly
   ros::NodeHandle nh;
   pgmo_.initialize(nh);
+  OctreeCompressionPtr compression_(new OctreeCompression(0.5));
+  Graph graph_struct;
 
   // Check callback
   pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
@@ -296,11 +309,11 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnectionDeltaT) {
   EXPECT_EQ(size_t(2), values.size());
 
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
-      new kimera_pgmo::TriangleMeshIdStamped);
-  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
-  mesh_msg->header.stamp = ros::Time(13.5);  // after 3 sec of pose graph msg
-  IncrementalMeshCallback(mesh_msg);
+  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(
+      new pose_graph_tools::PoseGraph);
+  *mesh_graph_msg = processMeshToGraph(
+      mesh1, 0, ros::Time(13.5), compression_, &graph_struct);
+  IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // Now should have 7 values (2 nodes + 5 vertices)
   // And 27 factors (16 edges + 1 odom + 10 connections)
@@ -317,6 +330,8 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnectionDelay) {
   // Here we should test if the mesh is added to the deformation graph correctly
   ros::NodeHandle nh;
   pgmo_.initialize(nh);
+  OctreeCompressionPtr compression_(new OctreeCompression(0.5));
+  Graph graph_struct;
 
   // Check callback
   pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
@@ -341,11 +356,11 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnectionDelay) {
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
-      new kimera_pgmo::TriangleMeshIdStamped);
-  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
-  mesh_msg->header.stamp = ros::Time(12.2);  // within 3 sec of pose graph msg
-  IncrementalMeshCallback(mesh_msg);
+  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(
+      new pose_graph_tools::PoseGraph);
+  *mesh_graph_msg = processMeshToGraph(
+      mesh1, 0, ros::Time(12.2), compression_, &graph_struct);
+  IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // Now should have 8 values (3 nodes + 5 vertices)
   // And 29 factors (16 edges + 2 odom + 1 lc + 10 connections)
@@ -361,6 +376,8 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
   // Here we should test if the mesh is added to the deformation graph correctly
   ros::NodeHandle nh;
   pgmo_.initialize(nh);
+  OctreeCompressionPtr compression_(new OctreeCompression(0.5));
+  Graph graph_struct;
 
   // Check callback
   pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
@@ -369,11 +386,11 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
-      new kimera_pgmo::TriangleMeshIdStamped);
-  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
-  mesh_msg->header.stamp = ros::Time(12.5);
-  IncrementalMeshCallback(mesh_msg);
+  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(
+      new pose_graph_tools::PoseGraph);
+  *mesh_graph_msg = processMeshToGraph(
+      mesh1, 0, ros::Time(12.5), compression_, &graph_struct);
+  IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // load second incremental pose graph
   *inc_graph = OdomLoopclosureGraph(ros::Time(12.8), 0);
@@ -381,9 +398,9 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
 
   // Add mesh
   pcl::PolygonMesh mesh2 = createMesh(2, 0, 0);
-  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh2);
-  mesh_msg->header.stamp = ros::Time(13.0);
-  IncrementalMeshCallback(mesh_msg);
+  *mesh_graph_msg = processMeshToGraph(
+      mesh2, 0, ros::Time(13.0), compression_, &graph_struct);
+  IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // Add mesh to be deformed
   pcl::PolygonMesh full_mesh = createMesh(2, 2, 2);
@@ -412,9 +429,9 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
 
   // Add mesh
   pcl::PolygonMesh mesh3 = createMesh(2, 2, 0);
-  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh3);
-  mesh_msg->header.stamp = ros::Time(14.0);
-  IncrementalMeshCallback(mesh_msg);
+  *mesh_graph_msg = processMeshToGraph(
+      mesh3, 0, ros::Time(14.0), compression_, &graph_struct);
+  IncrementalMeshGraphCallback(mesh_graph_msg);
 
   FullMeshCallback(full_mesh_msg);
   optimized_mesh = getOptimizedMesh();
@@ -558,6 +575,8 @@ TEST_F(KimeraPgmoTest, checkRobotIdMeshCallback) {
   ros::NodeHandle nh;
   system("rosparam set robot_id 2");
   pgmo_.initialize(nh);
+  OctreeCompressionPtr compression_(new OctreeCompression(0.5));
+  Graph graph_struct;
 
   // Check callback
   pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
@@ -572,12 +591,11 @@ TEST_F(KimeraPgmoTest, checkRobotIdMeshCallback) {
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  kimera_pgmo::TriangleMeshIdStamped::Ptr mesh_msg(
-      new kimera_pgmo::TriangleMeshIdStamped);
-  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh1);
-  mesh_msg->header.stamp = ros::Time(12.5);  // within 3 sec of pose graph msg
-  mesh_msg->id = 2;
-  IncrementalMeshCallback(mesh_msg);
+  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(
+      new pose_graph_tools::PoseGraph);
+  *mesh_graph_msg = processMeshToGraph(
+      mesh1, 2, ros::Time(12.5), compression_, &graph_struct);
+  IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // Now should have 7 values (2 nodes + 5 vertices)
   // And 27 factors (16 edges + 1 odom + 10 connections)
@@ -592,9 +610,9 @@ TEST_F(KimeraPgmoTest, checkRobotIdMeshCallback) {
 
   // Add mesh
   pcl::PolygonMesh mesh2 = createMesh(2, 0, 0);
-  mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(mesh2);
-  mesh_msg->header.stamp = ros::Time(13.0);  // within 3 sec of pose graph msg
-  IncrementalMeshCallback(mesh_msg);
+  *mesh_graph_msg = processMeshToGraph(
+      mesh2, 2, ros::Time(13.0), compression_, &graph_struct);
+  IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // Now should have 13 values (3 nodes + 10 vertices)
   // And 55 factors (32 edges + 2 odom + 20 connections + 1 lc)

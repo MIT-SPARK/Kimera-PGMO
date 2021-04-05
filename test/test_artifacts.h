@@ -10,12 +10,16 @@
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/inference/Symbol.h>
 #include <pcl/PolygonMesh.h>
+#include <pcl_conversions/pcl_conversions.h>
 #include <pcl_msgs/PolygonMesh.h>
 #include <pose_graph_tools/PoseGraph.h>
 
 #include "kimera_pgmo/TriangleMeshIdStamped.h"
+#include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
+#include "kimera_pgmo/utils/CommonStructs.h"
 
+namespace kimera_pgmo {
 pose_graph_tools::PoseGraph SingleOdomGraph(const ros::Time& stamp,
                                             const size_t& robot_id) {
   pose_graph_tools::PoseGraph inc_graph;
@@ -240,3 +244,79 @@ pcl::PolygonMesh createMesh(double t_x, double t_y, double t_z) {
 
   return mesh;
 }
+
+pose_graph_tools::PoseGraph processMeshToGraph(
+    const pcl::PolygonMesh& mesh,
+    const size_t& robot_id,
+    const ros::Time& msg_time,
+    const OctreeCompressionPtr compressor,
+    Graph* graph) {
+  // Add to deformation graph mesh compressor
+  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr mesh_vertices(
+      new pcl::PointCloud<pcl::PointXYZRGBA>);
+  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr graph_vertices(
+      new pcl::PointCloud<pcl::PointXYZRGBA>);
+  pcl::fromPCLPointCloud2(mesh.cloud, *mesh_vertices);
+  std::vector<pcl::Vertices> graph_triangles;
+  std::vector<size_t> graph_indices;
+
+  compressor->compressAndIntegrate(*mesh_vertices,
+                                   mesh.polygons,
+                                   graph_vertices,
+                                   &graph_triangles,
+                                   &graph_indices,
+                                   msg_time.toSec());
+
+  const std::vector<Edge>& new_edges =
+      graph->addPointsAndSurfaces(graph_indices, graph_triangles);
+  compressor->getVertices(graph_vertices);
+
+  // Create message
+  pose_graph_tools::PoseGraph pose_graph_msg;
+  pose_graph_msg.header.stamp = msg_time;
+
+  // Encode the edges as factors
+  for (auto e : new_edges) {
+    pose_graph_tools::PoseGraphEdge pg_edge;
+    pg_edge.header.stamp = msg_time;
+
+    const size_t& from_node = e.first;
+    const size_t& to_node = e.second;
+
+    pg_edge.robot_from = robot_id;
+    pg_edge.robot_to = robot_id;
+    pg_edge.key_from = from_node;
+    pg_edge.key_to = to_node;
+
+    gtsam::Point3 from_node_pos =
+        PclToGtsam<pcl::PointXYZRGBA>(graph_vertices->at(from_node));
+    gtsam::Point3 to_node_pos =
+        PclToGtsam<pcl::PointXYZRGBA>(graph_vertices->at(to_node));
+    pg_edge.pose =
+        GtsamToRos(gtsam::Pose3(gtsam::Rot3(), to_node_pos - from_node_pos));
+
+    pg_edge.type = pose_graph_tools::PoseGraphEdge::MESH;
+
+    // Add edge to pose graph
+    pose_graph_msg.edges.push_back(pg_edge);
+  }
+
+  // Encode the new vertices as nodes
+  for (auto n : graph_indices) {
+    pose_graph_tools::PoseGraphNode pg_node;
+    pg_node.header.stamp = msg_time;
+    pg_node.robot_id = robot_id;
+
+    pg_node.key = n;
+
+    gtsam::Point3 node_pos =
+        PclToGtsam<pcl::PointXYZRGBA>(graph_vertices->at(n));
+    pg_node.pose = GtsamToRos(gtsam::Pose3(gtsam::Rot3(), node_pos));
+
+    // Add node to pose graph
+    pose_graph_msg.nodes.push_back(pg_node);
+  }
+
+  return pose_graph_msg;
+}
+}  // namespace kimera_pgmo
