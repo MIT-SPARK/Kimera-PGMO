@@ -360,6 +360,9 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
     new_indices.push_back(n.key);
   }
 
+  // Add to deformation graph
+  deformation_graph_.addNewMeshEdgesAndNodes(new_mesh_edges, new_mesh_nodes);
+
   double msg_time;
   if (use_msg_time_) {
     msg_time = mesh_graph_msg->header.stamp.toSec();
