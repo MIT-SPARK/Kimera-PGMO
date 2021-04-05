@@ -317,6 +317,96 @@ void KimeraPgmoInterface::processIncrementalMesh(
   return;
 }
 
+void KimeraPgmoInterface::processIncrementalMeshGraph(
+    const pose_graph_tools::PoseGraph::ConstPtr& mesh_graph_msg,
+    const std::vector<ros::Time>& node_timestamps,
+    std::queue<size_t>* unconnected_nodes) {
+  if (mesh_graph_msg->edges.size() == 0 || mesh_graph_msg->nodes.size() == 0) {
+    ROS_WARN(
+        "processIncrementalMeshGraph: 0 nodes or 0 edges in mesh graph msg. ");
+    return;
+  }
+  // Assume graph only contains message from one robot
+  size_t robot_id = mesh_graph_msg->nodes[0].robot_id;
+  // Mesh edges and nodes
+  std::vector<std::pair<gtsam::Key, gtsam::Key> > new_mesh_edges;
+  gtsam::Values new_mesh_nodes;
+  std::vector<size_t>
+      new_indices;  // TODO: this can be cleaned up by changing the defomration
+                    // graph addNodeValence interface
+
+  // Convert and add edges
+  for (auto e : mesh_graph_msg->edges) {
+    if (e.robot_from != robot_id || e.robot_to != robot_id) {
+      ROS_WARN(
+          "processIncrementalMeshGraph: detect different robot ids in single "
+          "mesh graph msg. ");
+    }
+    gtsam::Key from = gtsam::Symbol(GetVertexPrefix(e.robot_from), e.key_from);
+    gtsam::Key to = gtsam::Symbol(GetVertexPrefix(e.robot_to), e.key_to);
+    new_mesh_edges.push_back(std::pair<gtsam::Key, gtsam::Key>(from, to));
+  }
+
+  // Convert and add nodes
+  for (auto n : mesh_graph_msg->nodes) {
+    if (n.robot_id != robot_id) {
+      ROS_WARN(
+          "processIncrementalMeshGraph: detect different robot ids in single "
+          "mesh graph msg. ");
+    }
+    gtsam::Key key = gtsam::Symbol(GetVertexPrefix(n.robot_id), n.key);
+    gtsam::Pose3 node_pose = RosToGtsam(n.pose);
+    new_mesh_nodes.insert(key, node_pose);
+    new_indices.push_back(n.key);
+  }
+
+  double msg_time;
+  if (use_msg_time_) {
+    msg_time = mesh_graph_msg->header.stamp.toSec();
+  } else {
+    msg_time = ros::Time::now().toSec();
+  }
+
+  bool connection = false;
+  // Associate nodes to mesh
+  if (!unconnected_nodes->empty()) {
+    // find the closest
+    size_t closest_node = unconnected_nodes->front();
+    double min_difference = std::numeric_limits<double>::infinity();
+    while (!unconnected_nodes->empty()) {
+      const size_t node = unconnected_nodes->front();
+      if (abs(node_timestamps[node].toSec() - msg_time) < min_difference) {
+        min_difference = abs(node_timestamps[node].toSec());
+        closest_node = node;
+        unconnected_nodes->pop();
+      } else {
+        break;
+      }
+    }
+    ROS_INFO("Connecting robot %d node %d to %d vertices. ",
+             robot_id,
+             closest_node,
+             new_indices.size());
+    deformation_graph_.addNodeValence(
+        gtsam::Symbol(GetRobotPrefix(robot_id), closest_node),
+        new_indices,
+        GetVertexPrefix(robot_id));
+    connection = true;
+    if (abs(node_timestamps[closest_node].toSec() - msg_time) >
+        embed_delta_t_) {
+      ROS_WARN(
+          "Connection from robot node to vertices have a time difference "
+          "of %f",
+          abs(node_timestamps[closest_node].toSec() - msg_time));
+    }
+  }
+  if (!connection) {
+    ROS_WARN("KimeraPgmo: Partial mesh not connected to pose graph. ");
+  }
+
+  return;
+}
+
 bool KimeraPgmoInterface::saveMesh(const pcl::PolygonMesh& mesh,
                                    const std::string& ply_name) {
   // Save mesh

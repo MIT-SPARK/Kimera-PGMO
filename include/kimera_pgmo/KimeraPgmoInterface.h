@@ -124,6 +124,18 @@ class KimeraPgmoInterface {
       const std::vector<ros::Time>& node_timestamps,
       std::queue<size_t>* unconnected_nodes);
 
+  /*! \brief Process the mesh graph that consists of the new mesh edges and mesh
+   * nodes to be added to the deformation graph
+   * - mesh_msg: partial mesh in mesh_msgs TriangleMeshStamped format
+   * - node_timestamps: vector of the timestamps of each odometric node
+   * - unconnected_nodes: odometric nodes not yet connected to the mesh and
+   * still within the embed time window
+   */
+  void processIncrementalMeshGraph(
+      const pose_graph_tools::PoseGraph::ConstPtr& mesh_graph_msg,
+      const std::vector<ros::Time>& node_timestamps,
+      std::queue<size_t>* unconnected_nodes);
+
   /*! \brief Given an optimized trajectory, adjust the mesh. The path should
    * correspond to the nodes of the pose graph received in the
    * incrementalPoseGraphCallback. Note that this is currently only supported in
