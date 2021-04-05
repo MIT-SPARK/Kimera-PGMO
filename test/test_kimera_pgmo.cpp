@@ -203,11 +203,11 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)), factor2.measured()));
 }
 
-TEST_F(KimeraPgmoTest, incrementalMeshGraphCallback) {
+TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
   // Here we should test if the mesh is added to the deformation graph correctly
   ros::NodeHandle nh;
   pgmo_.initialize(nh);
-  OctreeCompressionPtr compression_(new OctreeCompression(0.5));
+  OctreeCompressionPtr compression(new OctreeCompression(0.5));
   Graph graph_struct;
 
   // Check callback
@@ -226,8 +226,8 @@ TEST_F(KimeraPgmoTest, incrementalMeshGraphCallback) {
 
   pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(
       new pose_graph_tools::PoseGraph);
-  *mesh_graph_msg = processMeshToGraph(
-      mesh1, 0, ros::Time(12.5), compression_, &graph_struct);
+  *mesh_graph_msg =
+      processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // Now should have 7 values (2 nodes + 5 vertices)
@@ -243,8 +243,8 @@ TEST_F(KimeraPgmoTest, incrementalMeshGraphCallback) {
 
   // Add mesh
   pcl::PolygonMesh mesh2 = createMesh(2, 0, 0);
-  *mesh_graph_msg = processMeshToGraph(
-      mesh2, 0, ros::Time(13.0), compression_, &graph_struct);
+  *mesh_graph_msg =
+      processMeshToGraph(mesh2, 0, ros::Time(13.0), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // Now should have 13 values (3 nodes + 10 vertices)
@@ -292,7 +292,7 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnectionDeltaT) {
   // Here we should test if the mesh is added to the deformation graph correctly
   ros::NodeHandle nh;
   pgmo_.initialize(nh);
-  OctreeCompressionPtr compression_(new OctreeCompression(0.5));
+  OctreeCompressionPtr compression(new OctreeCompression(0.5));
   Graph graph_struct;
 
   // Check callback
@@ -309,8 +309,8 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnectionDeltaT) {
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
   pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(
       new pose_graph_tools::PoseGraph);
-  *mesh_graph_msg = processMeshToGraph(
-      mesh1, 0, ros::Time(13.5), compression_, &graph_struct);
+  *mesh_graph_msg =
+      processMeshToGraph(mesh1, 0, ros::Time(13.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // Now should have 7 values (2 nodes + 5 vertices)
@@ -328,7 +328,7 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnectionDelay) {
   // Here we should test if the mesh is added to the deformation graph correctly
   ros::NodeHandle nh;
   pgmo_.initialize(nh);
-  OctreeCompressionPtr compression_(new OctreeCompression(0.5));
+  OctreeCompressionPtr compression(new OctreeCompression(0.5));
   Graph graph_struct;
 
   // Check callback
@@ -356,8 +356,8 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnectionDelay) {
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
   pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(
       new pose_graph_tools::PoseGraph);
-  *mesh_graph_msg = processMeshToGraph(
-      mesh1, 0, ros::Time(12.2), compression_, &graph_struct);
+  *mesh_graph_msg =
+      processMeshToGraph(mesh1, 0, ros::Time(12.2), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // Now should have 8 values (3 nodes + 5 vertices)
@@ -374,7 +374,7 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
   // Here we should test if the mesh is added to the deformation graph correctly
   ros::NodeHandle nh;
   pgmo_.initialize(nh);
-  OctreeCompressionPtr compression_(new OctreeCompression(0.5));
+  OctreeCompressionPtr compression(new OctreeCompression(0.5));
   Graph graph_struct;
 
   // Check callback
@@ -386,8 +386,8 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
   pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(
       new pose_graph_tools::PoseGraph);
-  *mesh_graph_msg = processMeshToGraph(
-      mesh1, 0, ros::Time(12.5), compression_, &graph_struct);
+  *mesh_graph_msg =
+      processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // load second incremental pose graph
@@ -396,8 +396,8 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
 
   // Add mesh
   pcl::PolygonMesh mesh2 = createMesh(2, 0, 0);
-  *mesh_graph_msg = processMeshToGraph(
-      mesh2, 0, ros::Time(13.0), compression_, &graph_struct);
+  *mesh_graph_msg =
+      processMeshToGraph(mesh2, 0, ros::Time(13.0), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // Add mesh to be deformed
@@ -427,8 +427,8 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
 
   // Add mesh
   pcl::PolygonMesh mesh3 = createMesh(2, 2, 0);
-  *mesh_graph_msg = processMeshToGraph(
-      mesh3, 0, ros::Time(14.0), compression_, &graph_struct);
+  *mesh_graph_msg =
+      processMeshToGraph(mesh3, 0, ros::Time(14.0), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
 
   FullMeshCallback(full_mesh_msg);
@@ -573,7 +573,7 @@ TEST_F(KimeraPgmoTest, checkRobotIdMeshCallback) {
   ros::NodeHandle nh;
   system("rosparam set robot_id 2");
   pgmo_.initialize(nh);
-  OctreeCompressionPtr compression_(new OctreeCompression(0.5));
+  OctreeCompressionPtr compression(new OctreeCompression(0.5));
   Graph graph_struct;
 
   // Check callback
@@ -591,8 +591,8 @@ TEST_F(KimeraPgmoTest, checkRobotIdMeshCallback) {
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
   pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(
       new pose_graph_tools::PoseGraph);
-  *mesh_graph_msg = processMeshToGraph(
-      mesh1, 2, ros::Time(12.5), compression_, &graph_struct);
+  *mesh_graph_msg =
+      processMeshToGraph(mesh1, 2, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // Now should have 7 values (2 nodes + 5 vertices)
@@ -608,8 +608,8 @@ TEST_F(KimeraPgmoTest, checkRobotIdMeshCallback) {
 
   // Add mesh
   pcl::PolygonMesh mesh2 = createMesh(2, 0, 0);
-  *mesh_graph_msg = processMeshToGraph(
-      mesh2, 2, ros::Time(13.0), compression_, &graph_struct);
+  *mesh_graph_msg =
+      processMeshToGraph(mesh2, 2, ros::Time(13.0), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // Now should have 13 values (3 nodes + 10 vertices)
