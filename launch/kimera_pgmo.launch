@@ -2,11 +2,11 @@
   <arg name="dataset" default="uHumans2" />
   <arg name="robot_id" default="0" />
   <arg name="run_mode" default="0" /> 
-  <arg name="use_msg_time" default="true" />
+  <arg name="use_msg_time" default="false" />
   <arg name="optimized_path_topic" default="kimera_vio_ros/optimized_path" />
   <arg name="dpgmo_topic" default="dpgo_ros_node/optimized_pose_graph" />
   <arg name="output_path" default="$(find kimera_pgmo)/log" />
-  <arg name="horizon" default="1000" />
+  <arg name="horizon" default="60" />
   <arg name="output_resolution" default="0.02" />
   <arg name="d_graph_resolution" default="1.0" />
   <arg name="log" default="true" />

@@ -223,12 +223,19 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
     size_t node_idx = gtsam::Symbol(k).index();
     const gtsam::Pose3& node_pose = mesh_nodes.at<gtsam::Pose3>(k);
     try {
-      if (vertex_positions_.at(node_prefix).size() <= node_idx) {
+      if (node_idx == vertex_positions_.at(node_prefix).size()) {
         // Only add nodes that has not previously been added
         vertex_positions_[node_prefix].push_back(node_pose.translation());
         vertices_->push_back(
             GtsamToPcl<pcl::PointXYZ>(node_pose.translation()));
         new_mesh_nodes.insert(k, node_pose);
+      } else if (node_idx > vertex_positions_.at(node_prefix).size()) {
+        ROS_ERROR_STREAM(
+            "Adding new mesh edges and nodes: node index does not match index "
+            "in vertex position vector. Likely to have dropped packets from "
+            "frontend. "
+            << node_idx << " vs. " << vertex_positions_.at(node_prefix).size());
+        exit(EXIT_FAILURE);
       }
     } catch (const std::out_of_range& e) {
       ROS_INFO("New prefix detected when adding new mesh edges and nodes. ");

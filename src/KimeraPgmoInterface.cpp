@@ -152,8 +152,8 @@ void KimeraPgmoInterface::processIncrementalPoseGraph(
           ROS_WARN(
               "New current node does not match current trajectory length. %d "
               "vs %d",
-              initial_trajectory->size(),
-              current_node);
+              static_cast<int>(initial_trajectory->size()),
+              static_cast<int>(current_node));
         }
         // Calculate pose of new node
         const gtsam::Pose3& new_pose =
@@ -187,16 +187,15 @@ void KimeraPgmoInterface::processIncrementalPoseGraph(
         ROS_INFO(
             "KimeraPgmo: Loop closure detected between robot %d node %d and "
             "robot %d node %d.",
-            robot_from,
-            prev_node,
-            robot_to,
-            current_node);
+            static_cast<int>(robot_from),
+            static_cast<int>(prev_node),
+            static_cast<int>(robot_to),
+            static_cast<int>(current_node));
         num_loop_closures_++;
       }
     }
   } catch (const std::exception& e) {
     ROS_ERROR("Error in KimeraPgmo incrementalPoseGraphCallback. ");
-    ROS_ERROR(e.what());
   }
 }
 
@@ -315,9 +314,9 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
       }
     }
     ROS_INFO("Connecting robot %d node %d to %d vertices. ",
-             robot_id,
-             closest_node,
-             new_indices.size());
+             static_cast<int>(robot_id),
+             static_cast<int>(closest_node),
+             static_cast<int>(new_indices.size()));
     deformation_graph_.addNodeValence(
         gtsam::Symbol(GetRobotPrefix(robot_id), closest_node),
         new_indices,
@@ -574,7 +573,6 @@ std::vector<gtsam::Pose3> KimeraPgmoInterface::getOptimizedTrajectory(
       }
     } catch (const std::exception& e) {
       ROS_ERROR("Error in KimeraPgmo getOptimizedTrajectory. ");
-      ROS_ERROR(e.what());
     }
   }
   return optimized_traj;
