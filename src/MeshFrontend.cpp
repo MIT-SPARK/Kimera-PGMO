@@ -1,8 +1,11 @@
 /**
  * @file   MeshFrontend.cpp
- * @brief  MeshFrontend class: process incoming voxblox meshes
+ * @brief  MeshFrontend class: process incoming voxblox meshes and sample it for
+ * the mesh parts of the deformation graph
  * @author Yun Chang
  */
+#include <chrono>
+
 #include "kimera_pgmo/TriangleMeshIdStamped.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
@@ -12,7 +15,8 @@ namespace kimera_pgmo {
 
 MeshFrontend::MeshFrontend()
     : vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>),
-      graph_vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>) {}
+      graph_vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>),
+      initilized_log_(false) {}
 MeshFrontend::~MeshFrontend() {}
 
 // Initialize parameters, publishers, and subscribers
@@ -27,6 +31,13 @@ bool MeshFrontend::initialize(const ros::NodeHandle& n) {
 
   if (!registerCallbacks(n)) {
     ROS_ERROR("MeshFrontend: Failed to register callbacks.");
+  }
+
+  // Log header to file
+  if (log_output_) {
+    std::string log_file = log_path_ + std::string("/mesh_frontend_log.csv");
+    logTiming(log_file);
+    initilized_log_ = true;
   }
 
   ROS_INFO("Initialized MeshFrontend.");
@@ -44,6 +55,14 @@ bool MeshFrontend::loadParameters(const ros::NodeHandle& n) {
 
   full_mesh_compression_.reset(new OctreeCompression(mesh_resolution));
   d_graph_compression_.reset(new OctreeCompression(d_graph_resolution));
+
+  if (n.getParam("log_path", log_path_)) {
+    n.getParam("log_output", log_output_);
+    if (log_output_) {
+      ROS_INFO("Logging output to: %s/mesh_frontend_log.csv",
+               log_path_.c_str());
+    }
+  }
 
   return true;
 }
@@ -77,6 +96,9 @@ void MeshFrontend::voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg) {
 // Creates partial mesh while updating the full mesh and also the last detected
 // mesh blocks
 void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
+  // Start timer
+  auto start = std::chrono::high_resolution_clock::now();
+
   // Initiate the partial mesh to be returned
   pcl::PolygonMesh partial_mesh;
 
@@ -154,6 +176,19 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
   if (graph_indices.size() > 0)
     last_mesh_graph_ =
         publishMeshGraph(graph_edges, graph_indices, msg->header);
+
+  // Stop timer and save
+  auto stop = std::chrono::high_resolution_clock::now();
+  auto spin_duration =
+      std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+  // Log to file
+  if (log_output_) {
+    std::string log_file = log_path_ + std::string("/mesh_frontend_log.csv");
+    logTiming(log_file,
+              spin_duration.count(),
+              graph_indices.size(),
+              graph_edges.size());
+  }
 
   return;
 }
@@ -242,6 +277,27 @@ pose_graph_tools::PoseGraph MeshFrontend::publishMeshGraph(
   }
 
   return pose_graph_msg;
+}
+
+void MeshFrontend::logTiming(const std::string& filename,
+                             const int& callback_duration,
+                             const size_t& num_indices,
+                             const size_t& num_edges) const {
+  std::ofstream file;
+
+  if (!initilized_log_) {
+    file.open(filename);
+    // file format
+    file << "num-vertices,num-vertices-simplified,num-vertices-new,num-edges-"
+            "new,cb-time(mu-s)\n";
+    return;
+  }
+
+  file.open(filename, std::ofstream::out | std::ofstream::app);
+  file << vertices_->size() << "," << graph_vertices_->size() << ","
+       << num_indices << "," << num_edges << "," << callback_duration
+       << std::endl;
+  file.close();
 }
 
 }  // namespace kimera_pgmo

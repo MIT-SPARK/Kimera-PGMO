@@ -97,6 +97,17 @@ class MeshFrontend {
     return last_mesh_graph_;
   }
 
+  /*! \brief Log the stats and the timing
+   *  - filename: file to log to
+   *  - callback_duration: callback time (mu-s)
+   *  - num_indices: number of new indices to add to deformation graph
+   *  - num_edges: number of new edges to add to deformation graph
+   */
+  void logTiming(const std::string& filename,
+                 const int& callback_duration = 0,
+                 const size_t& num_indices = 0,
+                 const size_t& num_edges = 0) const;
+
   // Class arguments
   ros::Subscriber voxblox_sub_;
   ros::Publisher full_mesh_pub_;
@@ -118,6 +129,8 @@ class MeshFrontend {
 
   int robot_id_;
 
+  bool initilized_log_;
+
   // Vertices of full mesh
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices_;
   // Triangles (connections) of full mesh
@@ -129,6 +142,11 @@ class MeshFrontend {
 
   // Last pose graph msg created for testing purposes
   pose_graph_tools::PoseGraph last_mesh_graph_;
+
+  // Save output
+  std::string log_path_;
+  // Log output to output_prefix_ folder
+  bool log_output_;
 };
 
 }  // namespace kimera_pgmo
