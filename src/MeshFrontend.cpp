@@ -107,9 +107,6 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
   full_mesh_compression_->pruneStoredMesh(msg_time - time_horizon_);
   d_graph_compression_->pruneStoredMesh(msg_time - time_horizon_);
 
-  std::vector<Edge> graph_edges;
-  std::vector<size_t> graph_indices;
-
   // Iterate through the mesh blocks
   for (const voxblox_msgs::MeshBlock& mesh_block : msg->mesh_blocks) {
     // For each mesh block
@@ -140,32 +137,30 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
                                                    &new_indices,
                                                    msg_time);
 
-      // Add to deformation graph mesh compressor
-      pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_graph_vertices(
-          new pcl::PointCloud<pcl::PointXYZRGBA>);
-      std::vector<pcl::Vertices> new_graph_triangles;
-      std::vector<size_t> new_graph_indices;
+      // Mesh block mesh
+      pcl::toPCLPointCloud2(*mesh_block_vertices, meshblock_mesh.cloud);
+      meshblock_mesh.polygons = mesh_block_surfaces;
 
-      d_graph_compression_->compressAndIntegrate(*mesh_block_vertices,
-                                                 mesh_block_surfaces,
-                                                 new_graph_vertices,
-                                                 &new_graph_triangles,
-                                                 &new_graph_indices,
-                                                 msg_time);
-
-      const std::vector<Edge>& block_new_edges =
-          simplified_mesh_graph_.addPointsAndSurfaces(new_graph_indices,
-                                                      new_graph_triangles);
-      graph_edges.insert(
-          graph_edges.end(), block_new_edges.begin(), block_new_edges.end());
-      for (auto idx : new_graph_indices) {
-        if (std::find(graph_indices.begin(), graph_indices.end(), idx) ==
-            graph_indices.end()) {
-          graph_indices.push_back(idx);
-        }
-      }
+      // Add to partial mesh
+      partial_mesh = CombineMeshes(partial_mesh, meshblock_mesh);
     }
   }
+
+  // Add to deformation graph mesh compressor
+  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_graph_vertices(
+      new pcl::PointCloud<pcl::PointXYZRGBA>);
+  std::vector<pcl::Vertices> new_graph_triangles;
+  std::vector<size_t> new_graph_indices;
+
+  d_graph_compression_->compressAndIntegrate(partial_mesh,
+                                             new_graph_vertices,
+                                             &new_graph_triangles,
+                                             &new_graph_indices,
+                                             msg_time);
+
+  const std::vector<Edge>& new_graph_edges =
+      simplified_mesh_graph_.addPointsAndSurfaces(new_graph_indices,
+                                                  new_graph_triangles);
 
   // Update the mesh vertices and surfaces
   full_mesh_compression_->getVertices(vertices_);
@@ -173,9 +168,9 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
   d_graph_compression_->getVertices(graph_vertices_);
   d_graph_compression_->getStoredPolygons(&graph_triangles_);
 
-  if (graph_indices.size() > 0)
+  if (new_graph_indices.size() > 0)
     last_mesh_graph_ =
-        publishMeshGraph(graph_edges, graph_indices, msg->header);
+        publishMeshGraph(new_graph_edges, new_graph_indices, msg->header);
 
   // Stop timer and save
   auto stop = std::chrono::high_resolution_clock::now();
@@ -186,8 +181,8 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
     std::string log_file = log_path_ + std::string("/mesh_frontend_log.csv");
     logTiming(log_file,
               spin_duration.count(),
-              graph_indices.size(),
-              graph_edges.size());
+              new_graph_indices.size(),
+              new_graph_edges.size());
   }
 
   return;
