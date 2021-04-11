@@ -49,6 +49,19 @@ void OctreeCompression::compressAndIntegrate(
     std::vector<pcl::Vertices>* new_triangles,
     std::vector<size_t>* new_indices,
     const double& stamp_in_sec) {
+  // If there are no surfaces, return
+  if (input_vertices.size() < 3 || input_surfaces.size() == 0) {
+    return;
+  }
+
+  // Avoid null pointers
+  assert(NULL != new_vertices);
+  assert(NULL != new_triangles);
+  assert(NULL != new_indices);
+  assert(NULL != active_vertices_);
+  assert(NULL != all_vertices_);
+  assert(NULL != octree_);
+
   // Place vertices through octree for compression
   double min_x, min_y, min_z, max_x, max_y, max_z;
 
@@ -60,45 +73,44 @@ void OctreeCompression::compressAndIntegrate(
 
   // Create temporary octree and active cloud and other temp structures
   PointCloud::Ptr temp_active_vertices(new PointCloud(*active_vertices_));
-  PointCloud temp_all_vertices(*all_vertices_);
-  Octree temp_octree(*octree_);
-  temp_octree.setInputCloud(temp_active_vertices);
+  PointCloud::Ptr temp_all_vertices(new PointCloud(*all_vertices_));
+  Octree::Ptr temp_octree(new Octree(*octree_));
+  temp_octree->setInputCloud(temp_active_vertices);
   std::vector<size_t> temp_active_vertices_index(active_vertices_index_);
   std::vector<size_t> temp_new_indices;
   std::vector<std::vector<pcl::Vertices> > temp_adjacent_polygons(
       adjacent_polygons_);
   std::vector<pcl::Vertices> temp_new_triangles;
-
   //// First pass through with temporary variables
   for (size_t i = 0; i < input_vertices.points.size(); ++i) {
     const pcl::PointXYZRGBA p = input_vertices.points[i];
     try {
-      temp_octree.getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
+      temp_octree->getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
       is_in_box = (p.x >= min_x && p.x <= max_x) &&
                   (p.y >= min_y && p.y <= max_y) &&
                   (p.z >= min_z && p.z <= max_z);
-      if (!is_in_box || !temp_octree.isVoxelOccupiedAtPoint(p)) {
+      if (!is_in_box || !temp_octree->isVoxelOccupiedAtPoint(p)) {
         // New point. Update temp structures
         temp_adjacent_polygons.push_back(std::vector<pcl::Vertices>());  // help
         temp_active_vertices->points.push_back(p);
         // Add to (temp) octree
-        temp_octree.addPointFromCloud(temp_active_vertices->points.size() - 1,
-                                      nullptr);
+        temp_octree->addPointFromCloud(temp_active_vertices->points.size() - 1,
+                                       nullptr);
         // Note that the other method to add to octree is addPointToCloud(point,
         // inputcloud) but this method causes segmentation faults under certain
         // conditions
-        temp_all_vertices.push_back(p);
+        temp_all_vertices->push_back(p);
         // Track index for (first) remapping
-        remapping[i] = temp_all_vertices.points.size() - 1;
+        remapping[i] = temp_all_vertices->points.size() - 1;
         // Add (temp) index (temp active index to temp all index mapping)
-        temp_active_vertices_index.push_back(temp_all_vertices.points.size() -
+        temp_active_vertices_index.push_back(temp_all_vertices->points.size() -
                                              1);
-        temp_new_indices.push_back(temp_all_vertices.points.size() - 1);
+        temp_new_indices.push_back(temp_all_vertices->points.size() - 1);
       } else {
         // A nearby point exist, remap to nearby point
         float unused = 0.f;
         int result_idx;
-        temp_octree.approxNearestSearch(p, result_idx, unused);
+        temp_octree->approxNearestSearch(p, result_idx, unused);
         // Add remapping index
         remapping[i] = temp_active_vertices_index[result_idx];
         // Push to new indices if does not already yet
@@ -147,6 +159,8 @@ void OctreeCompression::compressAndIntegrate(
       }
     }
   }
+
+  if (temp_new_triangles.size() == 0) return;  // No new surfaces
   //// Second pass through to clean up
   // Second remapping to clean up the points that are not vertices (do not
   // belong to a face)
@@ -154,13 +168,13 @@ void OctreeCompression::compressAndIntegrate(
     // Check if point belongs to any surface of mesh
     if (temp_adjacent_polygons.at(idx).size() > 0) {
       if (idx >= original_size) {  // Check if a new point
-        new_vertices->push_back(temp_all_vertices.points[idx]);
+        new_vertices->push_back(temp_all_vertices->points[idx]);
         adjacent_polygons_.push_back(std::vector<pcl::Vertices>());
-        active_vertices_->points.push_back(temp_all_vertices.points[idx]);
+        active_vertices_->points.push_back(temp_all_vertices->points[idx]);
         // Add to octree
         octree_->addPointFromCloud(active_vertices_->points.size() - 1,
                                    nullptr);
-        all_vertices_->push_back(temp_all_vertices.points[idx]);
+        all_vertices_->push_back(temp_all_vertices->points[idx]);
         // Create remapping (second remapping to not include the non-vertex
         // points)
         second_remapping[idx] = all_vertices_->points.size() - 1;
@@ -177,6 +191,9 @@ void OctreeCompression::compressAndIntegrate(
       }
     }
   }
+
+  if (new_indices->size() == 0) return;  // no new indices so no new surfaces
+
   // Reindex the new surfaces using the second remapping
   for (auto t : temp_new_triangles) {
     pcl::Vertices reindexed_t;

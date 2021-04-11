@@ -113,7 +113,7 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
     // Convert it into a vertices - surfaces format and input to compressor
     // Full mesh will then be extracted from compressor
     // While mesh blocks are combined to build a partial mesh to be returned
-    if (mesh_block.x.size() > 0) {
+    if (mesh_block.x.size() > 3) {
       pcl::PolygonMesh meshblock_mesh;
       // Convert to vertices and surfaces
       pcl::PointCloud<pcl::PointXYZRGBA>::Ptr mesh_block_vertices(
