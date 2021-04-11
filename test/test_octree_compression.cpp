@@ -327,15 +327,12 @@ TEST(test_octree_compression, returnedValuesCompressed) {
       mesh, new_vertices, &new_triangles, &new_indices, 100.0);
 
   // Check the partial integration
-  EXPECT_EQ(size_t(1), new_vertices->size());
+  EXPECT_EQ(size_t(0), new_vertices->size());
   EXPECT_EQ(size_t(0), new_triangles.size());
-  EXPECT_EQ(size_t(1), new_indices.size());
-  std::vector<size_t> expected_indices = {0};
+  EXPECT_EQ(size_t(0), new_indices.size());
+  std::vector<size_t> expected_indices = {};
 
   EXPECT_EQ(expected_indices, new_indices);
-  EXPECT_EQ(0, new_vertices->points[0].x);
-  EXPECT_EQ(0, new_vertices->points[0].y);
-  EXPECT_EQ(0, new_vertices->points[0].z);
 
   // Insert another
   mesh = createMesh(2.0);
@@ -349,13 +346,10 @@ TEST(test_octree_compression, returnedValuesCompressed) {
   // Check the partial integration
   EXPECT_EQ(size_t(0), new_vertices->size());
   EXPECT_EQ(size_t(0), new_triangles.size());
-  EXPECT_EQ(size_t(1), new_indices.size());
-  expected_indices = {0};
+  EXPECT_EQ(size_t(0), new_indices.size());
+  expected_indices = {};
 
   EXPECT_EQ(expected_indices, new_indices);
-  EXPECT_EQ(0, new_vertices->points[0].x);
-  EXPECT_EQ(0, new_vertices->points[0].y);
-  EXPECT_EQ(0, new_vertices->points[0].z);
 }
 
 TEST(test_octree_compression, storedValuesCompressed) {
@@ -383,18 +377,10 @@ TEST(test_octree_compression, storedValuesCompressed) {
   compression.getActiveVerticesTimestamps(&vertex_timestamps);
 
   // Check the stored interated values
-  EXPECT_EQ(size_t(1), vertices->size());
-  EXPECT_EQ(size_t(1), active_vertices->size());
+  EXPECT_EQ(size_t(0), vertices->size());
+  EXPECT_EQ(size_t(0), active_vertices->size());
   EXPECT_EQ(size_t(0), triangles.size());
-  EXPECT_EQ(size_t(1), vertex_timestamps.size());
-
-  EXPECT_EQ(0, vertices->points[0].x);
-  EXPECT_EQ(0, vertices->points[0].y);
-  EXPECT_EQ(0, vertices->points[0].z);
-  EXPECT_EQ(0, active_vertices->points[0].x);
-  EXPECT_EQ(0, active_vertices->points[0].y);
-  EXPECT_EQ(0, active_vertices->points[0].z);
-  EXPECT_EQ(100.0, vertex_timestamps[0]);
+  EXPECT_EQ(size_t(0), vertex_timestamps.size());
 
   // Insert another
   mesh = createMesh(2.0);
@@ -410,17 +396,9 @@ TEST(test_octree_compression, storedValuesCompressed) {
   compression.getStoredPolygons(&triangles);
   compression.getActiveVerticesTimestamps(&vertex_timestamps);
 
-  EXPECT_EQ(size_t(1), vertices->size());
-  EXPECT_EQ(size_t(1), active_vertices->size());
-  EXPECT_EQ(size_t(1), vertex_timestamps.size());
-
-  EXPECT_EQ(0, vertices->points[0].x);
-  EXPECT_EQ(0, vertices->points[0].y);
-  EXPECT_EQ(0, vertices->points[0].z);
-  EXPECT_EQ(0, active_vertices->points[0].x);
-  EXPECT_EQ(0, active_vertices->points[0].y);
-  EXPECT_EQ(0, active_vertices->points[0].z);
-  EXPECT_EQ(101.0, vertex_timestamps[0]);
+  EXPECT_EQ(size_t(0), vertices->size());
+  EXPECT_EQ(size_t(0), active_vertices->size());
+  EXPECT_EQ(size_t(0), vertex_timestamps.size());
 }
 
 }  // namespace kimera_pgmo
