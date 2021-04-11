@@ -257,18 +257,20 @@ pose_graph_tools::PoseGraph processMeshToGraph(
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr graph_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
   pcl::fromPCLPointCloud2(mesh.cloud, *mesh_vertices);
-  std::vector<pcl::Vertices> graph_triangles;
-  std::vector<size_t> graph_indices;
+  boost::shared_ptr<std::vector<pcl::Vertices> > graph_triangles(
+      new std::vector<pcl::Vertices>);
+  boost::shared_ptr<std::vector<size_t> > graph_indices(
+      new std::vector<size_t>);
 
   compressor->compressAndIntegrate(*mesh_vertices,
                                    mesh.polygons,
                                    graph_vertices,
-                                   &graph_triangles,
-                                   &graph_indices,
+                                   graph_triangles,
+                                   graph_indices,
                                    msg_time.toSec());
 
   const std::vector<Edge>& new_edges =
-      graph->addPointsAndSurfaces(graph_indices, graph_triangles);
+      graph->addPointsAndSurfaces(*graph_indices, *graph_triangles);
   compressor->getVertices(graph_vertices);
 
   // Create message
@@ -302,7 +304,7 @@ pose_graph_tools::PoseGraph processMeshToGraph(
   }
 
   // Encode the new vertices as nodes
-  for (auto n : graph_indices) {
+  for (auto n : *graph_indices) {
     pose_graph_tools::PoseGraphNode pg_node;
     pg_node.header.stamp = msg_time;
     pg_node.robot_id = robot_id;

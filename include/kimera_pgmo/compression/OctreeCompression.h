@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <boost/shared_ptr.hpp>
 #include <string>
 #include <vector>
 
@@ -35,8 +36,8 @@ class OctreeCompression {
   void compressAndIntegrate(
       const pcl::PolygonMesh& input,
       pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
-      std::vector<pcl::Vertices>* new_triangles,
-      std::vector<size_t>* new_indices,
+      boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
+      boost::shared_ptr<std::vector<size_t> > new_indices,
       const double& stamp_in_sec = ros::Time::now().toSec());
 
   /*! \brief Compress and integrate with the full compressed mesh
@@ -51,8 +52,8 @@ class OctreeCompression {
       const pcl::PointCloud<pcl::PointXYZRGBA>& input_vertices,
       const std::vector<pcl::Vertices>& input_surfaces,
       pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
-      std::vector<pcl::Vertices>* new_triangles,
-      std::vector<size_t>* new_indices,
+      boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
+      boost::shared_ptr<std::vector<size_t> > new_indices,
       const double& stamp_in_sec = ros::Time::now().toSec());
 
   /*! \brief Discard parts of the stored compressed full mesh by detection time
@@ -109,5 +110,5 @@ class OctreeCompression {
   double octree_resolution_;
 };
 
-typedef std::shared_ptr<OctreeCompression> OctreeCompressionPtr;
+typedef boost::shared_ptr<OctreeCompression> OctreeCompressionPtr;
 }  // namespace kimera_pgmo

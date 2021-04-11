@@ -27,8 +27,8 @@ OctreeCompression::~OctreeCompression() {}
 void OctreeCompression::compressAndIntegrate(
     const pcl::PolygonMesh& input,
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
-    std::vector<pcl::Vertices>* new_triangles,
-    std::vector<size_t>* new_indices,
+    boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
+    boost::shared_ptr<std::vector<size_t> > new_indices,
     const double& stamp_in_sec) {
   // Extract vertices from input mesh
   PointCloud input_vertices;
@@ -46,21 +46,21 @@ void OctreeCompression::compressAndIntegrate(
     const pcl::PointCloud<pcl::PointXYZRGBA>& input_vertices,
     const std::vector<pcl::Vertices>& input_surfaces,
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
-    std::vector<pcl::Vertices>* new_triangles,
-    std::vector<size_t>* new_indices,
+    boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
+    boost::shared_ptr<std::vector<size_t> > new_indices,
     const double& stamp_in_sec) {
   // If there are no surfaces, return
   if (input_vertices.size() < 3 || input_surfaces.size() == 0) {
     return;
   }
 
-  // Avoid null pointers
-  assert(NULL != new_vertices);
-  assert(NULL != new_triangles);
-  assert(NULL != new_indices);
-  assert(NULL != active_vertices_);
-  assert(NULL != all_vertices_);
-  assert(NULL != octree_);
+  // Avoid nullptr pointers
+  assert(nullptr != new_vertices);
+  assert(nullptr != new_triangles);
+  assert(nullptr != new_indices);
+  assert(nullptr != active_vertices_);
+  assert(nullptr != all_vertices_);
+  assert(nullptr != octree_);
 
   // Place vertices through octree for compression
   double min_x, min_y, min_z, max_x, max_y, max_z;
@@ -69,7 +69,8 @@ void OctreeCompression::compressAndIntegrate(
   // Keep track of the new indices when redoing the connections
   // for the mesh surfaces
   std::map<size_t, size_t> remapping, second_remapping;
-  size_t original_size = all_vertices_->points.size();
+  size_t original_size_all = all_vertices_->size();
+  size_t original_size_active = active_vertices_->size();
 
   // Create temporary octree and active cloud and other temp structures
   PointCloud::Ptr temp_active_vertices(new PointCloud(*active_vertices_));
@@ -114,10 +115,11 @@ void OctreeCompression::compressAndIntegrate(
         // Add remapping index
         remapping[i] = temp_active_vertices_index[result_idx];
         // Push to new indices if does not already yet
-        if (std::find(temp_new_indices.begin(),
+        if (result_idx < original_size_active &&
+            std::find(temp_new_indices.begin(),
                       temp_new_indices.end(),
                       temp_active_vertices_index[result_idx]) ==
-            temp_new_indices.end())
+                temp_new_indices.end())
           temp_new_indices.push_back(temp_active_vertices_index[result_idx]);
       }
     } catch (...) {
@@ -133,7 +135,7 @@ void OctreeCompression::compressAndIntegrate(
     bool new_surface = false;
     for (size_t idx : polygon.vertices) {
       new_polygon.vertices.push_back(remapping[idx]);
-      if (remapping[idx] >= original_size) new_surface = true;
+      if (remapping[idx] >= original_size_all) new_surface = true;
     }
 
     // Check if polygon has actual three diferent vertices
@@ -167,7 +169,7 @@ void OctreeCompression::compressAndIntegrate(
   for (auto idx : temp_new_indices) {
     // Check if point belongs to any surface of mesh
     if (temp_adjacent_polygons.at(idx).size() > 0) {
-      if (idx >= original_size) {  // Check if a new point
+      if (idx >= original_size_all) {  // Check if a new point
         new_vertices->push_back(temp_all_vertices->points[idx]);
         adjacent_polygons_.push_back(std::vector<pcl::Vertices>());
         active_vertices_->points.push_back(temp_all_vertices->points[idx]);

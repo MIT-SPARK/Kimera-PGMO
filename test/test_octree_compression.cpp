@@ -103,47 +103,48 @@ TEST(test_octree_compression, returnedValues) {
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  std::vector<pcl::Vertices> new_triangles;
-  std::vector<size_t> new_indices;
+  boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles(
+      new std::vector<pcl::Vertices>);
+  boost::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
 
   pcl::PolygonMesh mesh = createMesh(1.0);
   compression.compressAndIntegrate(
-      mesh, new_vertices, &new_triangles, &new_indices, 100.0);
+      mesh, new_vertices, new_triangles, new_indices, 100.0);
 
   // Check the partial integration
   EXPECT_EQ(size_t(5), new_vertices->size());
-  EXPECT_EQ(size_t(4), new_triangles.size());
-  EXPECT_EQ(size_t(5), new_indices.size());
+  EXPECT_EQ(size_t(4), new_triangles->size());
+  EXPECT_EQ(size_t(5), new_indices->size());
   std::vector<size_t> expected_indices = {0, 1, 2, 3, 4};
 
-  EXPECT_EQ(expected_indices, new_indices);
+  EXPECT_EQ(expected_indices, *new_indices);
   EXPECT_EQ(1, new_vertices->points[1].x);
   EXPECT_EQ(1, new_vertices->points[2].y);
   EXPECT_EQ(1, new_vertices->points[4].z);
-  EXPECT_EQ(0, new_triangles[0].vertices[0]);
-  EXPECT_EQ(2, new_triangles[3].vertices[2]);
+  EXPECT_EQ(0, new_triangles->at(0).vertices[0]);
+  EXPECT_EQ(2, new_triangles->at(3).vertices[2]);
 
   // Insert another
   mesh = createMesh(2.0);
   new_vertices->clear();
-  new_indices.clear();
-  new_triangles.clear();
+  new_indices->clear();
+  new_triangles->clear();
 
   compression.compressAndIntegrate(
-      mesh, new_vertices, &new_triangles, &new_indices, 101.0);
+      mesh, new_vertices, new_triangles, new_indices, 101.0);
 
   // Check the partial integration
   EXPECT_EQ(size_t(4), new_vertices->size());
-  EXPECT_EQ(size_t(4), new_triangles.size());
-  EXPECT_EQ(size_t(5), new_indices.size());
+  EXPECT_EQ(size_t(4), new_triangles->size());
+  EXPECT_EQ(size_t(5), new_indices->size());
   expected_indices = {0, 5, 6, 7, 8};
 
-  EXPECT_EQ(expected_indices, new_indices);
+  EXPECT_EQ(expected_indices, *new_indices);
   EXPECT_EQ(2, new_vertices->points[0].x);
   EXPECT_EQ(2, new_vertices->points[2].y);
   EXPECT_EQ(2, new_vertices->points[3].z);
-  EXPECT_EQ(0, new_triangles[0].vertices[0]);
-  EXPECT_EQ(6, new_triangles[3].vertices[2]);
+  EXPECT_EQ(0, new_triangles->at(0).vertices[0]);
+  EXPECT_EQ(6, new_triangles->at(3).vertices[2]);
 }
 
 TEST(test_octree_compression, storedValues) {
@@ -151,12 +152,13 @@ TEST(test_octree_compression, storedValues) {
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  std::vector<pcl::Vertices> new_triangles;
-  std::vector<size_t> new_indices;
+  boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles(
+      new std::vector<pcl::Vertices>);
+  boost::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
 
   pcl::PolygonMesh mesh = createMesh(1.0);
   compression.compressAndIntegrate(
-      mesh, new_vertices, &new_triangles, &new_indices, 100.0);
+      mesh, new_vertices, new_triangles, new_indices, 100.0);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -189,11 +191,11 @@ TEST(test_octree_compression, storedValues) {
   // Insert another
   mesh = createMesh(2.0);
   new_vertices->clear();
-  new_indices.clear();
-  new_triangles.clear();
+  new_indices->clear();
+  new_triangles->clear();
 
   compression.compressAndIntegrate(
-      mesh, new_vertices, &new_triangles, &new_indices, 101.0);
+      mesh, new_vertices, new_triangles, new_indices, 101.0);
 
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);
@@ -221,21 +223,22 @@ TEST(test_octree_compression, pruneStoredMesh) {
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  std::vector<pcl::Vertices> new_triangles;
-  std::vector<size_t> new_indices;
+  boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles(
+      new std::vector<pcl::Vertices>);
+  boost::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
 
   pcl::PolygonMesh mesh = createMesh(1.0);
   compression.compressAndIntegrate(
-      mesh, new_vertices, &new_triangles, &new_indices, 100.0);
+      mesh, new_vertices, new_triangles, new_indices, 100.0);
 
   // Insert another
   mesh = createMesh(2.0);
   new_vertices->clear();
-  new_indices.clear();
-  new_triangles.clear();
+  new_indices->clear();
+  new_triangles->clear();
 
   compression.compressAndIntegrate(
-      mesh, new_vertices, &new_triangles, &new_indices, 101.0);
+      mesh, new_vertices, new_triangles, new_indices, 101.0);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -273,11 +276,11 @@ TEST(test_octree_compression, pruneStoredMesh) {
   // Try insert after pruning
   mesh = createMesh(1.0);
   new_vertices->clear();
-  new_indices.clear();
-  new_triangles.clear();
+  new_indices->clear();
+  new_triangles->clear();
 
   compression.compressAndIntegrate(
-      mesh, new_vertices, &new_triangles, &new_indices, 102.0);
+      mesh, new_vertices, new_triangles, new_indices, 102.0);
   compression.pruneStoredMesh(100.9);
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);
@@ -301,17 +304,17 @@ TEST(test_octree_compression, pruneStoredMesh) {
   // Test also the returned values
   // Check the partial integration
   EXPECT_EQ(size_t(4), new_vertices->size());
-  EXPECT_EQ(size_t(4), new_triangles.size());
-  EXPECT_EQ(size_t(5), new_indices.size());
+  EXPECT_EQ(size_t(4), new_triangles->size());
+  EXPECT_EQ(size_t(5), new_indices->size());
   std::vector<size_t> expected_indices = {0, 9, 10, 11, 12};
 
-  EXPECT_EQ(expected_indices, new_indices);
+  EXPECT_EQ(expected_indices, *new_indices);
   EXPECT_EQ(1, new_vertices->points[0].x);
   EXPECT_EQ(1, new_vertices->points[2].y);
   EXPECT_EQ(1, new_vertices->points[3].z);
-  EXPECT_EQ(0, new_triangles[0].vertices[0]);
-  EXPECT_EQ(11, new_triangles[1].vertices[1]);
-  EXPECT_EQ(10, new_triangles[3].vertices[2]);
+  EXPECT_EQ(0, new_triangles->at(0).vertices[0]);
+  EXPECT_EQ(11, new_triangles->at(1).vertices[1]);
+  EXPECT_EQ(10, new_triangles->at(3).vertices[2]);
 }
 
 TEST(test_octree_compression, returnedValuesCompressed) {
@@ -319,37 +322,38 @@ TEST(test_octree_compression, returnedValuesCompressed) {
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  std::vector<pcl::Vertices> new_triangles;
-  std::vector<size_t> new_indices;
+  boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles(
+      new std::vector<pcl::Vertices>);
+  boost::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
 
   pcl::PolygonMesh mesh = createMesh(1.0);
   compression.compressAndIntegrate(
-      mesh, new_vertices, &new_triangles, &new_indices, 100.0);
+      mesh, new_vertices, new_triangles, new_indices, 100.0);
 
   // Check the partial integration
   EXPECT_EQ(size_t(0), new_vertices->size());
-  EXPECT_EQ(size_t(0), new_triangles.size());
-  EXPECT_EQ(size_t(0), new_indices.size());
+  EXPECT_EQ(size_t(0), new_triangles->size());
+  EXPECT_EQ(size_t(0), new_indices->size());
   std::vector<size_t> expected_indices = {};
 
-  EXPECT_EQ(expected_indices, new_indices);
+  EXPECT_EQ(expected_indices, *new_indices);
 
   // Insert another
   mesh = createMesh(2.0);
   new_vertices->clear();
-  new_indices.clear();
-  new_triangles.clear();
+  new_indices->clear();
+  new_triangles->clear();
 
   compression.compressAndIntegrate(
-      mesh, new_vertices, &new_triangles, &new_indices, 101.0);
+      mesh, new_vertices, new_triangles, new_indices, 101.0);
 
   // Check the partial integration
   EXPECT_EQ(size_t(0), new_vertices->size());
-  EXPECT_EQ(size_t(0), new_triangles.size());
-  EXPECT_EQ(size_t(0), new_indices.size());
+  EXPECT_EQ(size_t(0), new_triangles->size());
+  EXPECT_EQ(size_t(0), new_indices->size());
   expected_indices = {};
 
-  EXPECT_EQ(expected_indices, new_indices);
+  EXPECT_EQ(expected_indices, *new_indices);
 }
 
 TEST(test_octree_compression, storedValuesCompressed) {
@@ -357,12 +361,13 @@ TEST(test_octree_compression, storedValuesCompressed) {
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  std::vector<pcl::Vertices> new_triangles;
-  std::vector<size_t> new_indices;
+  boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles(
+      new std::vector<pcl::Vertices>);
+  boost::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
 
   pcl::PolygonMesh mesh = createMesh(1.0);
   compression.compressAndIntegrate(
-      mesh, new_vertices, &new_triangles, &new_indices, 100.0);
+      mesh, new_vertices, new_triangles, new_indices, 100.0);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -385,11 +390,11 @@ TEST(test_octree_compression, storedValuesCompressed) {
   // Insert another
   mesh = createMesh(2.0);
   new_vertices->clear();
-  new_indices.clear();
-  new_triangles.clear();
+  new_indices->clear();
+  new_triangles->clear();
 
   compression.compressAndIntegrate(
-      mesh, new_vertices, &new_triangles, &new_indices, 101.0);
+      mesh, new_vertices, new_triangles, new_indices, 101.0);
 
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);
