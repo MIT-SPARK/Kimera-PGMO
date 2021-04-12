@@ -86,6 +86,7 @@ void OctreeCompression::compressAndIntegrate(
             adjacent_polygons_.end(),
             back_inserter(temp_adjacent_polygons));
   std::vector<pcl::Vertices> temp_new_triangles;
+
   //// First pass through with temporary variables
   for (size_t i = 0; i < input_vertices.points.size(); ++i) {
     const pcl::PointXYZRGBA p = input_vertices.points[i];
@@ -130,6 +131,8 @@ void OctreeCompression::compressAndIntegrate(
       ROS_ERROR("OctreeCompression: Failed to insert mesh vertex. ");
     }
   }
+
+  if (temp_new_indices.size() < 3) return;  // no surface after compression
 
   // Check polygons
   for (pcl::Vertices polygon : input_surfaces) {
