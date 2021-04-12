@@ -4,6 +4,7 @@
  * @author Yun Chang
  */
 #include <algorithm>
+#include <iterator>
 #include <map>
 
 #include <ros/ros.h>
@@ -40,6 +41,7 @@ void OctreeCompression::compressAndIntegrate(
                        new_triangles,
                        new_indices,
                        stamp_in_sec);
+  return;
 }
 
 void OctreeCompression::compressAndIntegrate(
@@ -79,8 +81,10 @@ void OctreeCompression::compressAndIntegrate(
   temp_octree->setInputCloud(temp_active_vertices);
   std::vector<size_t> temp_active_vertices_index(active_vertices_index_);
   std::vector<size_t> temp_new_indices;
-  std::vector<std::vector<pcl::Vertices> > temp_adjacent_polygons(
-      adjacent_polygons_);
+  std::vector<std::vector<pcl::Vertices> > temp_adjacent_polygons;
+  std::copy(adjacent_polygons_.begin(),
+            adjacent_polygons_.end(),
+            back_inserter(temp_adjacent_polygons));
   std::vector<pcl::Vertices> temp_new_triangles;
   //// First pass through with temporary variables
   for (size_t i = 0; i < input_vertices.points.size(); ++i) {
@@ -210,6 +214,7 @@ void OctreeCompression::compressAndIntegrate(
       adjacent_polygons_[v].push_back(reindexed_t);
     }
   }
+  return;
 }
 
 void OctreeCompression::pruneStoredMesh(const double& earliest_time_sec) {
@@ -254,6 +259,7 @@ void OctreeCompression::pruneStoredMesh(const double& earliest_time_sec) {
   } catch (...) {
     ROS_ERROR("OctreeCompression: Failed to prune active mesh. ");
   }
+  return;
 }
 
 }  // namespace kimera_pgmo

@@ -91,6 +91,7 @@ void MeshFrontend::voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg) {
   // Publish partial and full mesh
   publishFullMesh(msg->header.stamp);
   publishSimplifiedMesh(msg->header.stamp);
+  return;
 }
 
 // Creates partial mesh while updating the full mesh and also the last detected
@@ -194,6 +195,7 @@ void MeshFrontend::publishFullMesh(const ros::Time& stamp) const {
   new_msg.mesh = mesh_msg;
   new_msg.id = robot_id_;
   full_mesh_pub_.publish(new_msg);
+  return;
 }
 
 void MeshFrontend::publishSimplifiedMesh(const ros::Time& stamp) const {
@@ -208,6 +210,7 @@ void MeshFrontend::publishSimplifiedMesh(const ros::Time& stamp) const {
   new_msg.header.frame_id = "world";
   new_msg.mesh = mesh_msg;
   simplified_mesh_pub_.publish(new_msg);
+  return;
 }
 
 pose_graph_tools::PoseGraph MeshFrontend::publishMeshGraph(
@@ -287,6 +290,7 @@ void MeshFrontend::logTiming(const std::string& filename,
        << num_indices << "," << num_edges << "," << callback_duration
        << std::endl;
   file.close();
+  return;
 }
 
 }  // namespace kimera_pgmo
