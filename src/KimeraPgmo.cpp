@@ -202,6 +202,9 @@ void KimeraPgmo::incrementalPoseGraphCallback(
         deformation_graph_.getPoseGraph(id_timestamps);
     pose_graph_pub_.publish(*pose_graph_ptr);
   }
+
+  // Publish optimized trajectory
+  publishOptimizedPath();
 }
 
 void KimeraPgmo::optimizedPathCallback(
