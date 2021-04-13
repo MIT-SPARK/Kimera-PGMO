@@ -29,7 +29,6 @@ src/utils/tinyply.cpp
 src/DeformationGraph.cpp
 src/KimeraPgmo.cpp
 src/MeshFrontend.cpp
-src/KimeraPgmoMulti.cpp
 src/KimeraPgmoInterface.cpp
 )
 target_link_libraries(${PROJECT_NAME} 
@@ -45,11 +44,6 @@ cs_add_executable(kimera_pgmo_node
   src/kimera_pgmo_node.cpp
 )
 target_link_libraries(kimera_pgmo_node ${PROJECT_NAME})
-
-cs_add_executable(kimera_pgmo_multi_node
-  src/kimera_pgmo_multi_node.cpp
-)
-target_link_libraries(kimera_pgmo_multi_node ${PROJECT_NAME})
 
 cs_add_executable(mesh_frontend_node
   src/mesh_frontend_node.cpp
@@ -90,9 +84,6 @@ target_link_libraries(${PROJECT_NAME}-test_kimera_pgmo ${PROJECT_NAME})
 
 add_rostest_gtest(${PROJECT_NAME}-test_kimera_dpgmo test/test_kimera_dpgmo.test test/test_kimera_dpgmo.cpp)
 target_link_libraries(${PROJECT_NAME}-test_kimera_dpgmo ${PROJECT_NAME})
-
-add_rostest_gtest(${PROJECT_NAME}-test_kimera_pgmo_multi test/test_kimera_pgmo_multi.test test/test_kimera_pgmo_multi.cpp)
-target_link_libraries(${PROJECT_NAME}-test_kimera_pgmo_multi ${PROJECT_NAME})
 
 cs_install()
 
