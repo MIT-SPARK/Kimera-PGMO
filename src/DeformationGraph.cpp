@@ -101,7 +101,7 @@ void DeformationGraph::addNodeMeasurement(const gtsam::Key& key,
   gtsam::NonlinearFactorGraph new_factors;
 
   static const gtsam::SharedNoiseModel& noise =
-      gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
+      gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
   gtsam::PriorFactor<gtsam::Pose3> measurement(key, pose, noise);
   new_factors.add(measurement);
 
@@ -126,7 +126,7 @@ void DeformationGraph::addNodeMeasurements(
 
   for (auto keyed_pose : measurements) {
     static const gtsam::SharedNoiseModel& noise =
-        gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
+        gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
     gtsam::PriorFactor<gtsam::Pose3> measurement(
         keyed_pose.first, keyed_pose.second, noise);
     new_factors.add(measurement);
@@ -177,7 +177,7 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
   }
 
   static const gtsam::SharedNoiseModel& noise =
-      gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
+      gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
   new_factors.add(
       gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
 
@@ -273,7 +273,7 @@ void DeformationGraph::addNewNode(const gtsam::Key& key,
   }
 
   static const gtsam::SharedNoiseModel& noise =
-      gtsam::noiseModel::Isotropic::Variance(6, 1e-15);
+      gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
   new_values.insert(key, initial_pose);
   if (add_prior) {
     new_factors.add(gtsam::PriorFactor<gtsam::Pose3>(key, initial_pose, noise));
