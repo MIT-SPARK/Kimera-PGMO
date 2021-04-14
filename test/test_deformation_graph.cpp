@@ -720,7 +720,7 @@ TEST(test_deformation_graph, addNewBetween) {
   traj = graph.getOptimizedTrajectory('a');
   EXPECT_EQ(3, traj.size());
   EXPECT_TRUE(gtsam::assert_equal(
-      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2, 2)), traj[2], 0.05));
+      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.05, 2.05)), traj[2], 0.05));
 }
 
 }  // namespace kimera_pgmo

@@ -57,7 +57,7 @@ void DeformationGraph::addNodeValence(const gtsam::Key& key,
 
     // Define noise. Hardcoded for now
     static const gtsam::SharedNoiseModel& noise =
-        gtsam::noiseModel::Isotropic::Variance(3, 1e-3);
+        gtsam::noiseModel::Isotropic::Variance(3, 1e-4);
     // Create deformation edge factor
     const DeformationEdgeFactor new_edge_1(
         key, vertex, node_pose, vertex_pose.translation(), noise);
@@ -204,7 +204,7 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
   gtsam::Values new_mesh_nodes;
   // Define noise. Hardcoded for now
   static const gtsam::SharedNoiseModel& edge_noise =
-      gtsam::noiseModel::Isotropic::Variance(3, 1e-3);
+      gtsam::noiseModel::Isotropic::Variance(3, 1e-4);
   // Iterate and add the new edges
   for (auto e : mesh_edges) {
     const gtsam::Key& from = e.first;
@@ -215,6 +215,7 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
     const DeformationEdgeFactor new_edge(
         from, to, pose_from, pose_to.translation(), edge_noise);
     new_mesh_factors.add(new_edge);
+    consistency_factors_.add(new_edge);
   }
   // Iterate and add the new mesh nodes not yet in graph
   // Note that the keys are in increasing order by construction from gtsam
