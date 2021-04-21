@@ -3,6 +3,8 @@
  * @brief  Deforms mesh based on lates optimized trajectory
  * @author Yun Chang
  */
+#define SLOW_BUT_CORRECT_BETWEENFACTOR
+
 #include <algorithm>
 #include <cmath>
 
@@ -11,8 +13,6 @@
 #include <pcl/PCLPointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <ros/console.h>
-
-#define SLOW_BUT_CORRECT_BETWEENFACTOR
 
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
