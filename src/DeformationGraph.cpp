@@ -173,7 +173,12 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
     Vertices valences;
     pg_initial_poses_[to_prefix].push_back(initial_pose);
 
-    new_values.insert(key_to, initial_pose);
+    gtsam::Pose3 initial_estimate = initial_pose;
+    if (to_idx > 0) {
+      initial_estimate =
+          pg_initial_poses_[to_prefix].at(to_idx - 1).compose(meas);
+    }
+    new_values.insert(key_to, initial_estimate);
   }
 
   static const gtsam::SharedNoiseModel& noise =
