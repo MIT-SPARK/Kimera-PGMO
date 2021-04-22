@@ -73,8 +73,8 @@ bool MeshFrontend::createPublishers(const ros::NodeHandle& n) {
       nl.advertise<kimera_pgmo::TriangleMeshIdStamped>("full_mesh", 1, false);
   simplified_mesh_pub_ = nl.advertise<mesh_msgs::TriangleMeshStamped>(
       "deformation_graph_mesh", 10, false);
-  mesh_graph_pub_ =
-      nl.advertise<pose_graph_tools::PoseGraph>("mesh_graph_incremental", 30, false);
+  mesh_graph_pub_ = nl.advertise<pose_graph_tools::PoseGraph>(
+      "mesh_graph_incremental", 30, false);
   return true;
 }
 
@@ -123,6 +123,8 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
     }
   }
 
+  if (mesh_vertices->size() < 3 || mesh_surfaces->size() == 0) return;
+
   // Add to full mesh compressor
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -131,9 +133,9 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
   boost::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
   full_mesh_compression_->compressAndIntegrate(*mesh_vertices,
                                                *mesh_surfaces,
-                                               new_vertices,
-                                               new_triangles,
-                                               new_indices,
+                                               std::move(new_vertices),
+                                               std::move(new_triangles),
+                                               std::move(new_indices),
                                                msg_time);
 
   // Add to deformation graph mesh compressor
@@ -161,10 +163,10 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
   if (new_graph_indices->size() > 0) {
     // Add nodes and edges to graph
     new_graph_edges = simplified_mesh_graph_.addPointsAndSurfaces(
-        *new_graph_indices, *new_graph_triangles);
+        *new_graph_indices.get(), *new_graph_triangles.get());
     // Publish edges and nodes
-    last_mesh_graph_ =
-        publishMeshGraph(new_graph_edges, *new_graph_indices, msg->header);
+    last_mesh_graph_ = publishMeshGraph(
+        new_graph_edges, *new_graph_indices.get(), msg->header);
   }
 
   // Stop timer and save
