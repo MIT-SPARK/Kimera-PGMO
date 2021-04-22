@@ -17,7 +17,6 @@ namespace kimera_pgmo {
 OctreeCompression::OctreeCompression(double resolution)
     : octree_resolution_(resolution) {
   active_vertices_.reset(new PointCloud);
-  all_vertices_.reset(new PointCloud);
   // Initialize octree
   octree_.reset(new Octree(octree_resolution_));
   octree_->setInputCloud(active_vertices_);
@@ -60,9 +59,6 @@ void OctreeCompression::compressAndIntegrate(
   assert(nullptr != new_vertices);
   assert(nullptr != new_triangles);
   assert(nullptr != new_indices);
-  assert(nullptr != active_vertices_);
-  assert(nullptr != all_vertices_);
-  assert(nullptr != octree_);
 
   // Place vertices through octree for compression
   double min_x, min_y, min_z, max_x, max_y, max_z;
@@ -71,12 +67,12 @@ void OctreeCompression::compressAndIntegrate(
   // Keep track of the new indices when redoing the connections
   // for the mesh surfaces
   std::map<size_t, size_t> remapping, second_remapping;
-  size_t original_size_all = all_vertices_->size();
+  size_t original_size_all = all_vertices_.size();
   size_t original_size_active = active_vertices_->size();
 
   // Create temporary octree and active cloud and other temp structures
   PointCloud::Ptr temp_active_vertices(new PointCloud(*active_vertices_));
-  PointCloud::Ptr temp_all_vertices(new PointCloud(*all_vertices_));
+  PointCloud temp_all_vertices(all_vertices_);
   Octree::Ptr temp_octree(new Octree(*octree_));
   temp_octree->setInputCloud(temp_active_vertices);
   std::vector<size_t> temp_active_vertices_index(active_vertices_index_);
@@ -105,13 +101,12 @@ void OctreeCompression::compressAndIntegrate(
         // Note that the other method to add to octree is addPointToCloud(point,
         // inputcloud) but this method causes segmentation faults under certain
         // conditions
-        temp_all_vertices->push_back(p);
+        temp_all_vertices.push_back(p);
         // Track index for (first) remapping
-        remapping[i] = temp_all_vertices->points.size() - 1;
+        remapping[i] = temp_all_vertices.size() - 1;
         // Add (temp) index (temp active index to temp all index mapping)
-        temp_active_vertices_index.push_back(temp_all_vertices->points.size() -
-                                             1);
-        temp_new_indices.push_back(temp_all_vertices->points.size() - 1);
+        temp_active_vertices_index.push_back(temp_all_vertices.size() - 1);
+        temp_new_indices.push_back(temp_all_vertices.size() - 1);
       } else {
         // A nearby point exist, remap to nearby point
         float unused = 0.f;
@@ -177,19 +172,19 @@ void OctreeCompression::compressAndIntegrate(
     // Check if point belongs to any surface of mesh
     if (temp_adjacent_polygons.at(idx).size() > 0) {
       if (idx >= original_size_all) {  // Check if a new point
-        new_vertices->push_back(temp_all_vertices->points[idx]);
+        new_vertices->push_back(temp_all_vertices.points[idx]);
         adjacent_polygons_.push_back(std::vector<pcl::Vertices>());
-        active_vertices_->points.push_back(temp_all_vertices->points[idx]);
+        active_vertices_->points.push_back(temp_all_vertices.points[idx]);
         // Add to octree
         octree_->addPointFromCloud(active_vertices_->points.size() - 1,
                                    nullptr);
-        all_vertices_->push_back(temp_all_vertices->points[idx]);
+        all_vertices_.push_back(temp_all_vertices.points[idx]);
         // Create remapping (second remapping to not include the non-vertex
         // points)
-        second_remapping[idx] = all_vertices_->points.size() - 1;
+        second_remapping[idx] = all_vertices_.size() - 1;
         // keep track of index (index in active -> index in all)
-        active_vertices_index_.push_back(all_vertices_->points.size() - 1);
-        new_indices->push_back(all_vertices_->points.size() - 1);
+        active_vertices_index_.push_back(all_vertices_.size() - 1);
+        new_indices->push_back(all_vertices_.size() - 1);
         // Add latest observed time
         vertices_latest_time_.push_back(stamp_in_sec);
       } else {

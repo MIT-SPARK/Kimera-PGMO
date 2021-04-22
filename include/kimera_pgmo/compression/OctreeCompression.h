@@ -66,7 +66,7 @@ class OctreeCompression {
    *  - vertices: pointer to vertices of full compressed mesh
    */
   inline void getVertices(PointCloud::Ptr vertices) {
-    *vertices = *all_vertices_;
+    *vertices = all_vertices_;
   }
 
   /*! \brief Get the vertices currently in the octree (actively being checked
@@ -93,11 +93,11 @@ class OctreeCompression {
     *timestamps = vertices_latest_time_;
   }
 
-  inline size_t getNumVertices() const { return all_vertices_->size(); }
+  inline size_t getNumVertices() const { return all_vertices_.size(); }
 
  protected:
   PointCloud::Ptr active_vertices_;  // vertices in octree
-  PointCloud::Ptr all_vertices_;     // all verices
+  PointCloud all_vertices_;          // all verices
   std::vector<size_t> active_vertices_index_;
   // Index of active vertices in all vertices
   std::vector<pcl::Vertices> polygons_;
