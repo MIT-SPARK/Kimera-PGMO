@@ -15,11 +15,10 @@
 namespace kimera_pgmo {
 
 OctreeCompression::OctreeCompression(double resolution)
-    : octree_resolution_(resolution) {
+    : octree_resolution_(resolution), octree_(resolution) {
   active_vertices_.reset(new PointCloud);
   // Initialize octree
-  octree_.reset(new Octree(octree_resolution_));
-  octree_->setInputCloud(active_vertices_);
+  octree_.setInputCloud(active_vertices_);
 }
 
 OctreeCompression::~OctreeCompression() {}
@@ -73,8 +72,8 @@ void OctreeCompression::compressAndIntegrate(
   // Create temporary octree and active cloud and other temp structures
   PointCloud::Ptr temp_active_vertices(new PointCloud(*active_vertices_));
   PointCloud temp_all_vertices(all_vertices_);
-  Octree::Ptr temp_octree(new Octree(*octree_));
-  temp_octree->setInputCloud(temp_active_vertices);
+  Octree temp_octree(octree_);
+  temp_octree.setInputCloud(temp_active_vertices);
   std::vector<size_t> temp_active_vertices_index(active_vertices_index_);
   std::vector<size_t> temp_new_indices;
   std::vector<std::vector<pcl::Vertices> > temp_adjacent_polygons;
@@ -87,17 +86,17 @@ void OctreeCompression::compressAndIntegrate(
   for (size_t i = 0; i < input_vertices.points.size(); ++i) {
     const pcl::PointXYZRGBA p = input_vertices.points[i];
     try {
-      temp_octree->getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
+      temp_octree.getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
       is_in_box = (p.x >= min_x && p.x <= max_x) &&
                   (p.y >= min_y && p.y <= max_y) &&
                   (p.z >= min_z && p.z <= max_z);
-      if (!is_in_box || !temp_octree->isVoxelOccupiedAtPoint(p)) {
+      if (!is_in_box || !temp_octree.isVoxelOccupiedAtPoint(p)) {
         // New point. Update temp structures
         temp_adjacent_polygons.push_back(std::vector<pcl::Vertices>());  // help
         temp_active_vertices->points.push_back(p);
         // Add to (temp) octree
-        temp_octree->addPointFromCloud(temp_active_vertices->points.size() - 1,
-                                       nullptr);
+        temp_octree.addPointFromCloud(temp_active_vertices->points.size() - 1,
+                                      nullptr);
         // Note that the other method to add to octree is addPointToCloud(point,
         // inputcloud) but this method causes segmentation faults under certain
         // conditions
@@ -111,7 +110,7 @@ void OctreeCompression::compressAndIntegrate(
         // A nearby point exist, remap to nearby point
         float unused = 0.f;
         int result_idx;
-        temp_octree->approxNearestSearch(p, result_idx, unused);
+        temp_octree.approxNearestSearch(p, result_idx, unused);
         // Add remapping index
         remapping[i] = temp_active_vertices_index[result_idx];
         // Push to new indices if does not already yet
@@ -176,8 +175,7 @@ void OctreeCompression::compressAndIntegrate(
         adjacent_polygons_.push_back(std::vector<pcl::Vertices>());
         active_vertices_->points.push_back(temp_all_vertices.points[idx]);
         // Add to octree
-        octree_->addPointFromCloud(active_vertices_->points.size() - 1,
-                                   nullptr);
+        octree_.addPointFromCloud(active_vertices_->points.size() - 1, nullptr);
         all_vertices_.push_back(temp_all_vertices.points[idx]);
         // Create remapping (second remapping to not include the non-vertex
         // points)
@@ -242,14 +240,13 @@ void OctreeCompression::pruneStoredMesh(const double& earliest_time_sec) {
     active_vertices_index_.clear();
 
     // Reset octree
-    octree_.reset(new Octree(octree_resolution_));
-    octree_->setInputCloud(active_vertices_);
+    octree_ = Octree(octree_resolution_);
+    octree_.setInputCloud(active_vertices_);
 
     for (size_t i = 0; i < temp_vertices_time.size(); i++) {
       if (temp_vertices_time[i] > earliest_time_sec) {
         active_vertices_->push_back(temp_active_vertices.points[i]);
-        octree_->addPointFromCloud(active_vertices_->points.size() - 1,
-                                   nullptr);
+        octree_.addPointFromCloud(active_vertices_->points.size() - 1, nullptr);
         vertices_latest_time_.push_back(temp_vertices_time[i]);
         active_vertices_index_.push_back(temp_vertices_index[i]);
       }

@@ -104,7 +104,7 @@ class OctreeCompression {
   // Keep track of adjacent polygons of vertices
   std::vector<std::vector<pcl::Vertices> > adjacent_polygons_;
   // Octree of compressor
-  Octree::Ptr octree_;
+  Octree octree_;
 
   std::vector<double> vertices_latest_time_;  // timestamps of active vertices
 
