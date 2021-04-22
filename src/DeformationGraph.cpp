@@ -43,7 +43,8 @@ bool DeformationGraph::initialize(double pgo_trans_threshold,
 
 void DeformationGraph::addNodeValence(const gtsam::Key& key,
                                       const Vertices& valences,
-                                      const char& valence_prefix) {
+                                      const char& valence_prefix,
+                                      bool optimize) {
   gtsam::NonlinearFactorGraph new_factors;
   gtsam::Values new_values;
   const char& prefix = gtsam::Symbol(key).chr();
@@ -68,7 +69,7 @@ void DeformationGraph::addNodeValence(const gtsam::Key& key,
     new_factors.add(new_edge_1);
     new_factors.add(new_edge_2);
   }
-  pgo_->update(new_factors, new_values, !do_not_optimize_);
+  pgo_->update(new_factors, new_values, optimize);
   values_ = pgo_->calculateEstimate();
   nfg_ = pgo_->getFactorsUnsafe();
 }
@@ -202,7 +203,8 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
 
 void DeformationGraph::addNewMeshEdgesAndNodes(
     const std::vector<std::pair<gtsam::Key, gtsam::Key>>& mesh_edges,
-    const gtsam::Values& mesh_nodes) {
+    const gtsam::Values& mesh_nodes,
+    bool optimize) {
   // New mesh edge factors
   gtsam::NonlinearFactorGraph new_mesh_factors;
   // New mesh node factors
@@ -253,7 +255,7 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
   }
 
   // Update rpgo
-  pgo_->update(new_mesh_factors, new_mesh_nodes, !do_not_optimize_);
+  pgo_->update(new_mesh_factors, new_mesh_nodes, optimize);
   values_ = pgo_->calculateEstimate();
   nfg_ = pgo_->getFactorsUnsafe();
 }

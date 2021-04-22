@@ -430,10 +430,6 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
 
   // Expect distortion
   EXPECT_EQ(size_t(5), optimized_vertices.points.size());
-  EXPECT_NE(2, optimized_vertices.points[0].x);
-  EXPECT_NE(2, optimized_vertices.points[0].y);
-  EXPECT_NE(2, optimized_vertices.points[0].z);
-
   EXPECT_NE(2, optimized_vertices.points[4].x);
   EXPECT_NE(2, optimized_vertices.points[4].y);
   EXPECT_NE(3, optimized_vertices.points[4].z);

@@ -320,7 +320,8 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
     deformation_graph_.addNodeValence(
         gtsam::Symbol(GetRobotPrefix(robot_id), closest_node),
         new_indices,
-        GetVertexPrefix(robot_id));
+        GetVertexPrefix(robot_id),
+        false);
     connection = true;
     if (abs(node_timestamps[closest_node].toSec() - msg_time) >
         embed_delta_t_) {
@@ -333,6 +334,7 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
   if (!connection) {
     ROS_WARN("KimeraPgmo: Partial mesh not connected to pose graph. ");
   }
+  deformation_graph_.optimize();
 
   return;
 }

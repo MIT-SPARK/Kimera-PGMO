@@ -147,20 +147,24 @@ class DeformationGraph {
   /*! \brief Add a new mesh edge to deformation graph
    *  - mesh_edges: edges storing key-key pairs
    *  - mesh_nodes: gtsam values encoding key value pairs of new nodes
+   *  - optimize: optimize or just add to pgo
    */
   void addNewMeshEdgesAndNodes(
       const std::vector<std::pair<gtsam::Key, gtsam::Key> >& mesh_edges,
-      const gtsam::Values& mesh_nodes);
+      const gtsam::Values& mesh_nodes,
+      bool optimize = false);
 
   /*! \brief Add connections from a pose graph node to mesh vertices nodes
    *  - key: Key of pose graph node
    *  - valences: The mesh vertices nodes to connect to
    *  - prefix: the prefixes of the key of the nodes corresponding to mesh
    * vertices
+   *  - optimize: optimize or just add to pgo
    */
   void addNodeValence(const gtsam::Key& key,
                       const Vertices& valences,
-                      const char& valence_prefix);
+                      const char& valence_prefix,
+                      bool optimize = false);
 
   /*! \brief Remove sll prior factors of nodes that have given prefix
    *  - prefix: prefix of nodes to remove prior
@@ -265,6 +269,11 @@ class DeformationGraph {
   /*! \brief Never optimize graph, store factors only
    */
   inline void storeOnlyNoOptimization() { do_not_optimize_ = true; }
+
+  /*! \brief Force an optimization of the deformation graph without adding new
+   * factors
+   */
+  inline void optimize() { pgo_->forceUpdate(); }
 
  private:
   std::map<char, Graph> graph_;
