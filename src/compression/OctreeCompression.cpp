@@ -126,6 +126,9 @@ void OctreeCompression::compressAndIntegrate(
     }
   }
 
+  temp_octree.deleteTree();
+  temp_active_vertices->clear();
+
   if (temp_new_indices.size() < 3) return;  // no surface after compression
 
   // Check polygons
@@ -231,17 +234,16 @@ void OctreeCompression::pruneStoredMesh(const double& earliest_time_sec) {
 
   try {
     // Discard all vertices last detected before this time
-    PointCloud temp_active_vertices = *active_vertices_;
-    std::vector<double> temp_vertices_time = vertices_latest_time_;
-    std::vector<size_t> temp_vertices_index = active_vertices_index_;
+    PointCloud temp_active_vertices(*active_vertices_);
+    std::vector<double> temp_vertices_time(vertices_latest_time_);
+    std::vector<size_t> temp_vertices_index(active_vertices_index_);
 
     active_vertices_->clear();
     vertices_latest_time_.clear();
     active_vertices_index_.clear();
 
     // Reset octree
-    octree_ = Octree(octree_resolution_);
-    octree_.setInputCloud(active_vertices_);
+    octree_.deleteTree();
 
     for (size_t i = 0; i < temp_vertices_time.size(); i++) {
       if (temp_vertices_time[i] > earliest_time_sec) {

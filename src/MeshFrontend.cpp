@@ -102,8 +102,8 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr mesh_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  boost::shared_ptr<std::vector<pcl::Vertices> > mesh_surfaces(
-      new std::vector<pcl::Vertices>);
+  boost::shared_ptr<std::vector<pcl::Vertices> > mesh_surfaces =
+      boost::make_shared<std::vector<pcl::Vertices> >();
 
   // First prune the mesh blocks
   const double msg_time = msg->header.stamp.toSec();
@@ -128,9 +128,10 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
   // Add to full mesh compressor
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles(
-      new std::vector<pcl::Vertices>);
-  boost::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
+  boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles =
+      boost::make_shared<std::vector<pcl::Vertices> >();
+  boost::shared_ptr<std::vector<size_t> > new_indices =
+      boost::make_shared<std::vector<size_t> >();
   full_mesh_compression_->compressAndIntegrate(*mesh_vertices,
                                                *mesh_surfaces,
                                                std::move(new_vertices),
@@ -141,10 +142,10 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
   // Add to deformation graph mesh compressor
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_graph_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  boost::shared_ptr<std::vector<pcl::Vertices> > new_graph_triangles(
-      new std::vector<pcl::Vertices>);
-  boost::shared_ptr<std::vector<size_t> > new_graph_indices(
-      new std::vector<size_t>);
+  boost::shared_ptr<std::vector<pcl::Vertices> > new_graph_triangles =
+      boost::make_shared<std::vector<pcl::Vertices> >();
+  boost::shared_ptr<std::vector<size_t> > new_graph_indices =
+      boost::make_shared<std::vector<size_t> >();
 
   d_graph_compression_->compressAndIntegrate(*mesh_vertices,
                                              *mesh_surfaces,
