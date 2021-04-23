@@ -76,14 +76,11 @@ void OctreeCompression::compressAndIntegrate(
   temp_octree.setInputCloud(temp_active_vertices);
   std::vector<size_t> temp_active_vertices_index(active_vertices_index_);
   std::vector<size_t> temp_new_indices;
-  std::vector<std::vector<pcl::Vertices> > temp_adjacent_polygons;
-  std::copy(adjacent_polygons_.begin(),
-            adjacent_polygons_.end(),
-            back_inserter(temp_adjacent_polygons));
+  std::map<size_t, bool> temp_have_adjacent_polygons;
   std::vector<pcl::Vertices> temp_new_triangles;
 
   //// First pass through with temporary variables
-  for (size_t i = 0; i < input_vertices.points.size(); ++i) {
+  for (size_t i = 0; i < input_vertices.size(); ++i) {
     const pcl::PointXYZRGBA p = input_vertices.points[i];
     try {
       temp_octree.getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
@@ -92,10 +89,9 @@ void OctreeCompression::compressAndIntegrate(
                   (p.z >= min_z && p.z <= max_z);
       if (!is_in_box || !temp_octree.isVoxelOccupiedAtPoint(p)) {
         // New point. Update temp structures
-        temp_adjacent_polygons.push_back(std::vector<pcl::Vertices>());  // help
         temp_active_vertices->points.push_back(p);
         // Add to (temp) octree
-        temp_octree.addPointFromCloud(temp_active_vertices->points.size() - 1,
+        temp_octree.addPointFromCloud(temp_active_vertices->size() - 1,
                                       nullptr);
         // Note that the other method to add to octree is addPointToCloud(point,
         // inputcloud) but this method causes segmentation faults under certain
@@ -106,6 +102,7 @@ void OctreeCompression::compressAndIntegrate(
         // Add (temp) index (temp active index to temp all index mapping)
         temp_active_vertices_index.push_back(temp_all_vertices.size() - 1);
         temp_new_indices.push_back(temp_all_vertices.size() - 1);
+        temp_have_adjacent_polygons[temp_all_vertices.size() - 1] = false;
       } else {
         // A nearby point exist, remap to nearby point
         float unused = 0.f;
@@ -118,16 +115,16 @@ void OctreeCompression::compressAndIntegrate(
             std::find(temp_new_indices.begin(),
                       temp_new_indices.end(),
                       temp_active_vertices_index[result_idx]) ==
-                temp_new_indices.end())
+                temp_new_indices.end()) {
           temp_new_indices.push_back(temp_active_vertices_index[result_idx]);
+          temp_have_adjacent_polygons[temp_active_vertices_index[result_idx]] =
+              true;
+        }
       }
     } catch (...) {
       ROS_ERROR("OctreeCompression: Failed to insert mesh vertex. ");
     }
   }
-
-  temp_octree.deleteTree();
-  temp_active_vertices->clear();
 
   if (temp_new_indices.size() < 3) return;  // no surface after compression
 
@@ -152,7 +149,7 @@ void OctreeCompression::compressAndIntegrate(
 
     // Check if it is a new surface constructed from existing points
     if (!new_surface) {
-      new_surface = !SurfaceExists(new_polygon, adjacent_polygons_);
+      new_surface = !SurfaceExists(new_polygon, adjacent_polygons_, polygons_);
     }
 
     // If it is a new surface, add
@@ -161,7 +158,7 @@ void OctreeCompression::compressAndIntegrate(
       temp_new_triangles.push_back(new_polygon);
       // Update (temp) adjacent polygons
       for (size_t v : new_polygon.vertices) {
-        temp_adjacent_polygons[v].push_back(new_polygon);
+        temp_have_adjacent_polygons[v] = true;
       }
     }
   }
@@ -172,13 +169,13 @@ void OctreeCompression::compressAndIntegrate(
   // belong to a face)
   for (auto idx : temp_new_indices) {
     // Check if point belongs to any surface of mesh
-    if (temp_adjacent_polygons.at(idx).size() > 0) {
+    if (temp_have_adjacent_polygons.at(idx)) {
       if (idx >= original_size_all) {  // Check if a new point
         new_vertices->push_back(temp_all_vertices.points[idx]);
-        adjacent_polygons_.push_back(std::vector<pcl::Vertices>());
+        adjacent_polygons_.push_back(std::vector<size_t>());
         active_vertices_->points.push_back(temp_all_vertices.points[idx]);
         // Add to octree
-        octree_.addPointFromCloud(active_vertices_->points.size() - 1, nullptr);
+        octree_.addPointFromCloud(active_vertices_->size() - 1, nullptr);
         all_vertices_.push_back(temp_all_vertices.points[idx]);
         // Create remapping (second remapping to not include the non-vertex
         // points)
@@ -210,22 +207,22 @@ void OctreeCompression::compressAndIntegrate(
     new_triangles->push_back(reindexed_t);
     // Update adjacent polygons
     for (size_t v : reindexed_t.vertices) {
-      adjacent_polygons_[v].push_back(reindexed_t);
+      adjacent_polygons_[v].push_back(polygons_.size() - 1);
     }
   }
   return;
 }
 
 void OctreeCompression::pruneStoredMesh(const double& earliest_time_sec) {
-  if (active_vertices_->points.size() == 0) return;  // nothing to prune
+  if (active_vertices_->size() == 0) return;  // nothing to prune
   // Entries in vertices_latest_time_ shoudl correspond to number of points
-  if (vertices_latest_time_.size() != active_vertices_->points.size()) {
+  if (vertices_latest_time_.size() != active_vertices_->size()) {
     ROS_ERROR(
         "Length of book-keeped vertex time does not match number of active "
         "points. ");
   }
 
-  if (active_vertices_index_.size() != active_vertices_->points.size()) {
+  if (active_vertices_index_.size() != active_vertices_->size()) {
     ROS_ERROR(
         "Length of book-keeped vertex indices does not match number of "
         "active "
@@ -248,7 +245,7 @@ void OctreeCompression::pruneStoredMesh(const double& earliest_time_sec) {
     for (size_t i = 0; i < temp_vertices_time.size(); i++) {
       if (temp_vertices_time[i] > earliest_time_sec) {
         active_vertices_->push_back(temp_active_vertices.points[i]);
-        octree_.addPointFromCloud(active_vertices_->points.size() - 1, nullptr);
+        octree_.addPointFromCloud(active_vertices_->size() - 1, nullptr);
         vertices_latest_time_.push_back(temp_vertices_time[i]);
         active_vertices_index_.push_back(temp_vertices_index[i]);
       }

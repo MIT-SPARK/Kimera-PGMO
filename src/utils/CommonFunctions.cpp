@@ -556,9 +556,9 @@ GraphMsgPtr GtsamGraphToRos(
   return boost::make_shared<pose_graph_tools::PoseGraph>(posegraph);
 }
 
-bool SurfaceExists(
-    const pcl::Vertices& new_surface,
-    const std::vector<std::vector<pcl::Vertices> >& adjacent_surfaces) {
+bool SurfaceExists(const pcl::Vertices& new_surface,
+                   const std::vector<std::vector<size_t> >& adjacent_surfaces,
+                   const std::vector<pcl::Vertices>& surfaces) {
   // Degenerate face
   if (new_surface.vertices.size() < 3) return false;
 
@@ -569,7 +569,8 @@ bool SurfaceExists(
     return false;
   }
 
-  for (pcl::Vertices p : adjacent_surfaces[idx0]) {
+  for (auto s_idx : adjacent_surfaces[idx0]) {
+    pcl::Vertices p = surfaces.at(s_idx);
     if (p.vertices == new_surface.vertices) {
       return true;
     }

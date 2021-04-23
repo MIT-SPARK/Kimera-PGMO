@@ -323,24 +323,26 @@ TEST(test_common_functions, GtsamGraphToRos) {
 }
 
 TEST(test_common_functions, MeshSurfaceExist) {
-  std::vector<std::vector<pcl::Vertices> > surfaces;
+  std::vector<std::vector<size_t> > adj_surfaces;
+
   pcl::Vertices poly_1, poly_2, poly_3, poly_4;
   poly_1.vertices = std::vector<uint32_t>{0, 1, 2};
   poly_2.vertices = std::vector<uint32_t>{0, 2, 3};
   poly_3.vertices = std::vector<uint32_t>{0, 5, 1};
   poly_4.vertices = std::vector<uint32_t>{1, 4, 2};
+  std::vector<pcl::Vertices> surfaces{poly_1, poly_2, poly_3, poly_4};
 
-  surfaces.push_back(std::vector<pcl::Vertices>{poly_1, poly_2});
-  surfaces.push_back(std::vector<pcl::Vertices>{poly_1, poly_4});
-  surfaces.push_back(std::vector<pcl::Vertices>{poly_1, poly_2, poly_4});
-  surfaces.push_back(std::vector<pcl::Vertices>{poly_2});
-  surfaces.push_back(std::vector<pcl::Vertices>{poly_4});
-  EXPECT_FALSE(SurfaceExists(poly_3, surfaces));
+  adj_surfaces.push_back(std::vector<size_t>{0, 1});
+  adj_surfaces.push_back(std::vector<size_t>{0, 3});
+  adj_surfaces.push_back(std::vector<size_t>{0, 1, 3});
+  adj_surfaces.push_back(std::vector<size_t>{1});
+  adj_surfaces.push_back(std::vector<size_t>{3});
+  EXPECT_FALSE(SurfaceExists(poly_3, adj_surfaces, surfaces));
 
-  surfaces[0].push_back(poly_3);
-  surfaces[1].push_back(poly_3);
-  surfaces.push_back(std::vector<pcl::Vertices>{poly_3});
-  EXPECT_TRUE(SurfaceExists(poly_3, surfaces));
+  adj_surfaces[0].push_back(2);
+  adj_surfaces[1].push_back(2);
+  adj_surfaces.push_back(std::vector<size_t>{2});
+  EXPECT_TRUE(SurfaceExists(poly_3, adj_surfaces, surfaces));
 }
 
 }  // namespace kimera_pgmo
