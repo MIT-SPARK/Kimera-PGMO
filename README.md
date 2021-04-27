@@ -17,7 +17,7 @@ In addition to PCL, OpenCV, and GTSAM, Kimera-PGMO is designed as part of Kimera
 
 [pose_graph_tools](https://github.mit.edu/SPARK/pose_graph_tools) branch: feature/multirobot
 
-[Kimera-Semantics](https://github.mit.edu/SPARK/Kimera-Semantics)
+[Kimera-Semantics](https://github.mit.edu/SPARK/Kimera-Semantics) branch: master
 
 For the immediate dependencies, check out the rosinstall files. 
 
