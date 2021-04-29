@@ -634,25 +634,25 @@ TEST(test_deformation_graph, addNewBetween) {
 
   // Check the between factor
   EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(
-      factors[2]));
+      factors[15]));
   gtsam::BetweenFactor<gtsam::Pose3> new2 =
       *boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(
-          factors[2]);
+          factors[15]);
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)), new2.measured()));
   EXPECT_EQ(gtsam::Symbol('a', 0).key(), new2.front());
   EXPECT_EQ(gtsam::Symbol('a', 2).key(), new2.back());
 
   // Check deformation edge factor
-  EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[14]));
-  DeformationEdgeFactor factor14 =
-      *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[14]);
+  EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[13]));
+  DeformationEdgeFactor factor13 =
+      *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[13]);
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)),
-      factor14.fromPose()));
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(0, 1, 0), factor14.toPoint()));
-  EXPECT_EQ(gtsam::Symbol('a', 2).key(), factor14.front());
-  EXPECT_EQ(gtsam::Symbol('v', 2).key(), factor14.back());
+      factor13.fromPose()));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(0, 1, 0), factor13.toPoint()));
+  EXPECT_EQ(gtsam::Symbol('a', 2).key(), factor13.front());
+  EXPECT_EQ(gtsam::Symbol('v', 2).key(), factor13.back());
 
   traj = graph.getOptimizedTrajectory('a');
   EXPECT_EQ(3, traj.size());
