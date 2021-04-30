@@ -16,6 +16,8 @@ namespace kimera_pgmo {
 MeshFrontend::MeshFrontend()
     : vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>),
       graph_vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>),
+      triangles_(new std::vector<pcl::Vertices>),
+      graph_triangles_(new std::vector<pcl::Vertices>),
       initilized_log_(false) {}
 MeshFrontend::~MeshFrontend() {}
 
@@ -140,7 +142,7 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
                                                msg_time);
   // Update the mesh vertices and surfaces for class variables
   full_mesh_compression_->getVertices(vertices_);
-  full_mesh_compression_->getStoredPolygons(&triangles_);
+  full_mesh_compression_->getStoredPolygons(triangles_);
 
   // Add to deformation graph mesh compressor
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_graph_vertices(
@@ -157,7 +159,7 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
                                              msg_time);
   // Update the simplified mesh vertices and surfaces for class variables
   d_graph_compression_->getVertices(graph_vertices_);
-  d_graph_compression_->getStoredPolygons(&graph_triangles_);
+  d_graph_compression_->getStoredPolygons(graph_triangles_);
 
   std::vector<Edge> new_graph_edges;
   if (new_graph_indices->size() > 0 && new_graph_triangles->size() > 0) {
@@ -189,7 +191,7 @@ void MeshFrontend::publishFullMesh(const ros::Time& stamp) const {
   if (full_mesh_pub_.getNumSubscribers() == 0) return;
   // convert to triangle mesh msg
   mesh_msgs::TriangleMesh mesh_msg =
-      kimera_pgmo::PolygonMeshToTriangleMeshMsg(*vertices_, triangles_);
+      kimera_pgmo::PolygonMeshToTriangleMeshMsg(*vertices_, *triangles_);
   // publish
   kimera_pgmo::TriangleMeshIdStamped new_msg;
   new_msg.header.stamp = stamp;
@@ -204,7 +206,7 @@ void MeshFrontend::publishSimplifiedMesh(const ros::Time& stamp) const {
   if (simplified_mesh_pub_.getNumSubscribers() == 0) return;
   // convert to triangle mesh msg
   mesh_msgs::TriangleMesh mesh_msg = kimera_pgmo::PolygonMeshToTriangleMeshMsg(
-      *graph_vertices_, graph_triangles_);
+      *graph_vertices_, *graph_triangles_);
 
   // Create msg
   mesh_msgs::TriangleMeshStamped new_msg;

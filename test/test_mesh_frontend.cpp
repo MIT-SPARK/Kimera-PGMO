@@ -168,13 +168,13 @@ class MeshFrontendTest : public ::testing::Test {
   void GetFullMesh(pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
                    std::vector<pcl::Vertices>* triangles) {
     *vertices = *(vp_.vertices_);
-    *triangles = vp_.triangles_;
+    *triangles = *(vp_.triangles_);
   }
 
   void GetSimplifiedMesh(pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
                          std::vector<pcl::Vertices>* triangles) {
     *vertices = *(vp_.graph_vertices_);
-    *triangles = vp_.graph_triangles_;
+    *triangles = *(vp_.graph_triangles_);
   }
 
   MeshFrontend vp_;
@@ -472,9 +472,10 @@ TEST_F(MeshFrontendTest, meshGraph) {
   // Check first and last node
   EXPECT_EQ(0, last_mesh_graph.nodes[0].robot_id);
   EXPECT_EQ(0, last_mesh_graph.nodes[0].key);
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3()),
-                                  RosToGtsam(last_mesh_graph.nodes[0].pose),
-                                  1e-4));
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, 0)),
+                          RosToGtsam(last_mesh_graph.nodes[0].pose),
+                          1e-4));
 
   EXPECT_EQ(0, last_mesh_graph.nodes[3].robot_id);
   EXPECT_EQ(3, last_mesh_graph.nodes[3].key);

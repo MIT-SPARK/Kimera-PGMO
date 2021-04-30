@@ -134,11 +134,11 @@ class MeshFrontend {
   // Vertices of full mesh
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices_;
   // Triangles (connections) of full mesh
-  std::vector<pcl::Vertices> triangles_;
+  boost::shared_ptr<std::vector<pcl::Vertices> > triangles_;
   // Vertices of simplified mesh used for the deformation graph
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr graph_vertices_;
   // Triangles of the simplified mesh used for the deformation graph
-  std::vector<pcl::Vertices> graph_triangles_;
+  boost::shared_ptr<std::vector<pcl::Vertices> > graph_triangles_;
 
   // Last pose graph msg created for testing purposes
   pose_graph_tools::PoseGraph last_mesh_graph_;

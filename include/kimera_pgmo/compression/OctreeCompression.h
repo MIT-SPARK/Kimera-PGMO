@@ -84,7 +84,8 @@ class OctreeCompression {
   /*! \brief Get the surfaces of the compressed full mesh
    *  - vertices: pointer to surfaces of full compressed mesh
    */
-  inline void getStoredPolygons(std::vector<pcl::Vertices>* polygons) {
+  inline void getStoredPolygons(
+      boost::shared_ptr<std::vector<pcl::Vertices> > polygons) {
     *polygons = polygons_;
   }
 
@@ -93,7 +94,8 @@ class OctreeCompression {
    *  - timestamps: vector of the timestamps indices corresponding to active
    * vertices
    */
-  inline void getActiveVerticesTimestamps(std::vector<double>* timestamps) {
+  inline void getActiveVerticesTimestamps(
+      boost::shared_ptr<std::vector<double> > timestamps) {
     *timestamps = vertices_latest_time_;
   }
 
