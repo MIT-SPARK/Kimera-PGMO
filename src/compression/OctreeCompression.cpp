@@ -69,8 +69,8 @@ void OctreeCompression::compressAndIntegrate(
   // Keep track of the new indices when redoing the connections
   // for the mesh surfaces
   std::map<size_t, size_t> remapping, second_remapping;
-  size_t original_size_all = all_vertices_.size();
-  size_t original_size_active = active_vertices_xyz_->size();
+  const size_t original_size_all = all_vertices_.size();
+  const size_t original_size_active = active_vertices_xyz_->size();
 
   // Create temporary octree and active cloud and other temp structures
   PointCloudXYZ::Ptr temp_active_vertices(
@@ -83,7 +83,7 @@ void OctreeCompression::compressAndIntegrate(
   std::map<size_t, std::vector<size_t> > temp_adjacent_polygons(
       adjacent_polygons_);
   std::vector<pcl::Vertices> temp_polygons(polygons_);
-  std::vector<pcl::Vertices> temp_new_triangles;
+  std::vector<size_t> temp_new_triangles;
 
   //// First pass through with temporary variables
   for (size_t i = 0; i < input_vertices.size(); ++i) {
@@ -105,19 +105,22 @@ void OctreeCompression::compressAndIntegrate(
         // conditions
         temp_all_vertices.push_back(p);
         // Track index for (first) remapping
-        remapping[i] = temp_all_vertices.size() - 1;
+        remapping.insert(remapping.end(), {i, temp_all_vertices.size() - 1});
         // Add (temp) index (temp active index to temp all index mapping)
         temp_active_vertices_index.push_back(temp_all_vertices.size() - 1);
         temp_new_indices.push_back(temp_all_vertices.size() - 1);
-        temp_adjacent_polygons[temp_all_vertices.size() - 1] =
-            std::vector<size_t>{};
+        // Track adjacent polygons
+        temp_adjacent_polygons.insert(
+            temp_adjacent_polygons.end(),
+            {temp_all_vertices.size() - 1, std::vector<size_t>{}});
       } else {
         // A nearby point exist, remap to nearby point
         float unused = 0.f;
         int result_idx;
         temp_octree.approxNearestSearch(p_xyz, result_idx, unused);
         // Add remapping index
-        remapping[i] = temp_active_vertices_index[result_idx];
+        remapping.insert(remapping.end(),
+                         {i, temp_active_vertices_index[result_idx]});
         // Push to new indices if does not already yet
         if (result_idx < original_size_active &&
             std::find(temp_new_indices.begin(),
@@ -162,8 +165,8 @@ void OctreeCompression::compressAndIntegrate(
     // If it is a new surface, add
     if (new_surface) {
       // Definitely a new surface
-      temp_new_triangles.push_back(new_polygon);
       temp_polygons.push_back(new_polygon);
+      temp_new_triangles.push_back(temp_polygons.size() - 1);
       // Update (temp) adjacent polygons
       for (size_t v : new_polygon.vertices) {
         temp_adjacent_polygons[v].push_back(temp_polygons.size() - 1);
@@ -171,6 +174,7 @@ void OctreeCompression::compressAndIntegrate(
     }
   }
   if (temp_new_triangles.size() == 0) return;  // No new surfaces
+
   //// Second pass through to clean up
   // Second remapping to clean up the points that are not vertices (do not
   // belong to a face)
@@ -190,16 +194,20 @@ void OctreeCompression::compressAndIntegrate(
         all_vertices_.push_back(new_p);
         // Create remapping (second remapping to not include the non-vertex
         // points)
-        second_remapping[idx] = all_vertices_.size() - 1;
+        second_remapping.insert(second_remapping.end(),
+                                {idx, all_vertices_.size() - 1});
         // keep track of index (index in active -> index in all)
         active_vertices_index_.push_back(all_vertices_.size() - 1);
         new_indices->push_back(all_vertices_.size() - 1);
         // Add latest observed time
         vertices_latest_time_.push_back(stamp_in_sec);
-        adjacent_polygons_[all_vertices_.size() - 1] = std::vector<size_t>{};
+        // Track adjacent polygons
+        adjacent_polygons_.insert(
+            adjacent_polygons_.end(),
+            {all_vertices_.size() - 1, std::vector<size_t>{}});
       } else {
         // Old point so no need to add to other structures
-        second_remapping[idx] = idx;
+        second_remapping.insert(second_remapping.end(), {idx, idx});
         new_indices->push_back(idx);
         vertices_latest_time_[idx] = stamp_in_sec;
       }
@@ -208,7 +216,8 @@ void OctreeCompression::compressAndIntegrate(
   if (new_indices->size() == 0) return;  // no new indices so no new surfaces
 
   // Reindex the new surfaces using the second remapping
-  for (auto t : temp_new_triangles) {
+  for (size_t i : temp_new_triangles) {
+    pcl::Vertices t = temp_polygons[i];
     pcl::Vertices reindexed_t;
     for (auto idx : t.vertices) {
       reindexed_t.vertices.push_back(second_remapping[idx]);
