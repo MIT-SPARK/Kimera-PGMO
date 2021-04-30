@@ -15,10 +15,11 @@
 namespace kimera_pgmo {
 
 OctreeCompression::OctreeCompression(double resolution)
-    : octree_resolution_(resolution), octree_(resolution) {
+    : octree_resolution_(resolution) {
   active_vertices_.reset(new PointCloud);
   // Initialize octree
-  octree_.setInputCloud(active_vertices_);
+  octree_.reset(new Octree(resolution));
+  octree_->setInputCloud(active_vertices_);
 }
 
 OctreeCompression::~OctreeCompression() {}
@@ -72,7 +73,7 @@ void OctreeCompression::compressAndIntegrate(
   // Create temporary octree and active cloud and other temp structures
   PointCloud::Ptr temp_active_vertices(new PointCloud(*active_vertices_));
   PointCloud temp_all_vertices(all_vertices_);
-  Octree temp_octree(octree_);
+  Octree temp_octree(*octree_);
   temp_octree.setInputCloud(temp_active_vertices);
   std::vector<size_t> temp_active_vertices_index(active_vertices_index_);
   std::vector<size_t> temp_new_indices;
@@ -172,10 +173,9 @@ void OctreeCompression::compressAndIntegrate(
     if (temp_have_adjacent_polygons.at(idx)) {
       if (idx >= original_size_all) {  // Check if a new point
         new_vertices->push_back(temp_all_vertices.points[idx]);
-        adjacent_polygons_.push_back(std::vector<size_t>());
         active_vertices_->points.push_back(temp_all_vertices.points[idx]);
         // Add to octree
-        octree_.addPointFromCloud(active_vertices_->size() - 1, nullptr);
+        octree_->addPointFromCloud(active_vertices_->size() - 1, nullptr);
         all_vertices_.push_back(temp_all_vertices.points[idx]);
         // Create remapping (second remapping to not include the non-vertex
         // points)
@@ -185,6 +185,7 @@ void OctreeCompression::compressAndIntegrate(
         new_indices->push_back(all_vertices_.size() - 1);
         // Add latest observed time
         vertices_latest_time_.push_back(stamp_in_sec);
+        adjacent_polygons_[all_vertices_.size() - 1] = std::vector<size_t>();
       } else {
         // Old point so no need to add to other structures
         second_remapping[idx] = idx;
@@ -231,24 +232,31 @@ void OctreeCompression::pruneStoredMesh(const double& earliest_time_sec) {
 
   try {
     // Discard all vertices last detected before this time
-    PointCloud temp_active_vertices(*active_vertices_);
-    std::vector<double> temp_vertices_time(vertices_latest_time_);
-    std::vector<size_t> temp_vertices_index(active_vertices_index_);
+    PointCloud temp_active_vertices;
+    std::vector<double> temp_vertices_time;
+    std::vector<size_t> temp_vertices_index;
+    std::map<size_t, std::vector<size_t> > temp_adjacent_polygons;
 
-    active_vertices_->clear();
-    vertices_latest_time_.clear();
-    active_vertices_index_.clear();
-
-    // Reset octree
-    octree_.deleteTree();
-
-    for (size_t i = 0; i < temp_vertices_time.size(); i++) {
-      if (temp_vertices_time[i] > earliest_time_sec) {
-        active_vertices_->push_back(temp_active_vertices.points[i]);
-        octree_.addPointFromCloud(active_vertices_->size() - 1, nullptr);
-        vertices_latest_time_.push_back(temp_vertices_time[i]);
-        active_vertices_index_.push_back(temp_vertices_index[i]);
+    for (size_t i = 0; i < vertices_latest_time_.size(); i++) {
+      if (vertices_latest_time_[i] > earliest_time_sec) {
+        temp_active_vertices.push_back(active_vertices_->points[i]);
+        temp_vertices_time.push_back(vertices_latest_time_[i]);
+        temp_vertices_index.push_back(active_vertices_index_[i]);
+        temp_adjacent_polygons[temp_vertices_index[i]] =
+            adjacent_polygons_[temp_vertices_index[i]];
       }
+    }
+
+    if (temp_active_vertices.size() < active_vertices_->size()) {
+      *active_vertices_ = temp_active_vertices;
+      vertices_latest_time_ = temp_vertices_time;
+      active_vertices_index_ = temp_vertices_index;
+      adjacent_polygons_ = temp_adjacent_polygons;
+
+      // Reset octree
+      octree_.reset(new Octree(octree_resolution_));
+      octree_->setInputCloud(active_vertices_);
+      octree_->addPointsFromInputCloud();
     }
   } catch (...) {
     ROS_ERROR("OctreeCompression: Failed to prune active mesh. ");

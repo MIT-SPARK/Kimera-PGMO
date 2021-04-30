@@ -6,6 +6,7 @@
 #pragma once
 
 #include <boost/shared_ptr.hpp>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -101,10 +102,10 @@ class OctreeCompression {
   std::vector<size_t> active_vertices_index_;
   // Index of active vertices in all vertices
   std::vector<pcl::Vertices> polygons_;
-  // Keep track of adjacent polygons of vertices (maps to polygons_)
-  std::vector<std::vector<size_t> > adjacent_polygons_;
+  // Keep track of adjacent polygons of active vertices (maps to polygons_)
+  std::map<size_t, std::vector<size_t> > adjacent_polygons_;
   // Octree of compressor
-  Octree octree_;
+  Octree::Ptr octree_;
 
   std::vector<double> vertices_latest_time_;  // timestamps of active vertices
 

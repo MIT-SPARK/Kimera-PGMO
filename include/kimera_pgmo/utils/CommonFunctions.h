@@ -204,7 +204,8 @@ GraphMsgPtr GtsamGraphToRos(
  * to order of vertices)
  *  returns true if surface exists
  */
-bool SurfaceExists(const pcl::Vertices& new_surface,
-                   const std::vector<std::vector<size_t> >& adjacent_surfaces,
-                   const std::vector<pcl::Vertices>& surfaces);
+bool SurfaceExists(
+    const pcl::Vertices& new_surface,
+    const std::map<size_t, std::vector<size_t> >& adjacent_surfaces,
+    const std::vector<pcl::Vertices>& surfaces);
 }  // namespace kimera_pgmo

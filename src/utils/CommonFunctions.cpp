@@ -556,20 +556,21 @@ GraphMsgPtr GtsamGraphToRos(
   return boost::make_shared<pose_graph_tools::PoseGraph>(posegraph);
 }
 
-bool SurfaceExists(const pcl::Vertices& new_surface,
-                   const std::vector<std::vector<size_t> >& adjacent_surfaces,
-                   const std::vector<pcl::Vertices>& surfaces) {
+bool SurfaceExists(
+    const pcl::Vertices& new_surface,
+    const std::map<size_t, std::vector<size_t> >& adjacent_surfaces,
+    const std::vector<pcl::Vertices>& surfaces) {
   // Degenerate face
   if (new_surface.vertices.size() < 3) return false;
 
   const size_t idx0 = new_surface.vertices.at(0);
   bool exist = false;
-  if (idx0 > adjacent_surfaces.size()) {
-    // vertex not yet tracked in adjacent surfaces
+  if (adjacent_surfaces.find(idx0) == adjacent_surfaces.end()) {
+    // vertex not in adjacent surfaces
     return false;
   }
 
-  for (auto s_idx : adjacent_surfaces[idx0]) {
+  for (auto s_idx : adjacent_surfaces.at(idx0)) {
     pcl::Vertices p = surfaces.at(s_idx);
     if (p.vertices == new_surface.vertices) {
       return true;
