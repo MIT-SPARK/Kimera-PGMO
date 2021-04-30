@@ -374,7 +374,7 @@ bool KimeraPgmoInterface::getConsistencyFactors(
     const size_t& robot_id,
     pose_graph_tools::PoseGraph* pg_mesh_msg,
     const size_t& vertex_index_offset) const {
-  assert(NULL != edges);
+  assert(nullptr != pg_mesh_msg);
   pg_mesh_msg->edges.clear();
   pg_mesh_msg->nodes.clear();
   // Make sure that robot id is valid
