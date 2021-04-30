@@ -5,7 +5,7 @@ SET(CMAKE_BUILD_TYPE Release)
 
 find_package(catkin_simple REQUIRED)
 
-find_package(Boost REQUIRED
+find_package(Boost REQUIRED COMPONENTS
   date_time
   serialization
   thread
@@ -14,6 +14,14 @@ find_package(Boost REQUIRED
   regex
   timer
   chrono
+)
+
+find_package(PCL REQUIRED COMPONENTS
+  common 
+  io 
+  geometry
+  kdtree
+  octree
 )
 
 find_package(KimeraRPGO REQUIRED)
