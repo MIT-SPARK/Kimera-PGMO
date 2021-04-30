@@ -82,8 +82,8 @@ TEST(test_octree_compression, constructor) {
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr active_vertices(
-      new pcl::PointCloud<pcl::PointXYZRGBA>);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr active_vertices(
+      new pcl::PointCloud<pcl::PointXYZ>);
   std::vector<pcl::Vertices> triangles;
   std::vector<double> vertex_timestamps;
 
@@ -162,8 +162,8 @@ TEST(test_octree_compression, storedValues) {
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr active_vertices(
-      new pcl::PointCloud<pcl::PointXYZRGBA>);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr active_vertices(
+      new pcl::PointCloud<pcl::PointXYZ>);
   std::vector<pcl::Vertices> triangles;
   std::vector<double> vertex_timestamps;
 
@@ -242,8 +242,8 @@ TEST(test_octree_compression, pruneStoredMesh) {
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr active_vertices(
-      new pcl::PointCloud<pcl::PointXYZRGBA>);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr active_vertices(
+      new pcl::PointCloud<pcl::PointXYZ>);
   std::vector<pcl::Vertices> triangles;
   std::vector<double> vertex_timestamps;
 
@@ -371,8 +371,8 @@ TEST(test_octree_compression, storedValuesCompressed) {
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr active_vertices(
-      new pcl::PointCloud<pcl::PointXYZRGBA>);
+  pcl::PointCloud<pcl::PointXYZ>::Ptr active_vertices(
+      new pcl::PointCloud<pcl::PointXYZ>);
   std::vector<pcl::Vertices> triangles;
   std::vector<double> vertex_timestamps;
 

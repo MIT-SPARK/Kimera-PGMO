@@ -10,11 +10,12 @@
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/io/ply_io.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl_msgs/PolygonMesh.h>
 #include <voxblox_msgs/Mesh.h>
 #include <voxblox_msgs/MeshBlock.h>
-#include <pcl/impl/point_types.hpp>
 
 #include "kimera_pgmo/utils/CommonFunctions.h"
 #include "kimera_pgmo/utils/VoxbloxUtils.h"

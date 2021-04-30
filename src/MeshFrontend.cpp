@@ -126,47 +126,39 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
   if (mesh_vertices->size() < 3 || mesh_surfaces->size() == 0) return;
 
   // Add to full mesh compressor
-  try {
-    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
-        new pcl::PointCloud<pcl::PointXYZRGBA>);
-    boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles =
-        boost::make_shared<std::vector<pcl::Vertices> >();
-    boost::shared_ptr<std::vector<size_t> > new_indices =
-        boost::make_shared<std::vector<size_t> >();
-    full_mesh_compression_->compressAndIntegrate(*mesh_vertices,
-                                                 *mesh_surfaces,
-                                                 std::move(new_vertices),
-                                                 std::move(new_triangles),
-                                                 std::move(new_indices),
-                                                 msg_time);
-    // Update the mesh vertices and surfaces for class variables
-    full_mesh_compression_->getVertices(vertices_);
-    full_mesh_compression_->getStoredPolygons(&triangles_);
-  } catch (...) {
-    ROS_ERROR("MeshFrontend: Failed to compress full mesh. ");
-  }
+  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
+      new pcl::PointCloud<pcl::PointXYZRGBA>);
+  boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles =
+      boost::make_shared<std::vector<pcl::Vertices> >();
+  boost::shared_ptr<std::vector<size_t> > new_indices =
+      boost::make_shared<std::vector<size_t> >();
+  full_mesh_compression_->compressAndIntegrate(*mesh_vertices,
+                                               *mesh_surfaces,
+                                               new_vertices,
+                                               new_triangles,
+                                               new_indices,
+                                               msg_time);
+  // Update the mesh vertices and surfaces for class variables
+  full_mesh_compression_->getVertices(vertices_);
+  full_mesh_compression_->getStoredPolygons(&triangles_);
 
   // Add to deformation graph mesh compressor
-
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_graph_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
   boost::shared_ptr<std::vector<pcl::Vertices> > new_graph_triangles =
       boost::make_shared<std::vector<pcl::Vertices> >();
   boost::shared_ptr<std::vector<size_t> > new_graph_indices =
       boost::make_shared<std::vector<size_t> >();
-  try {
-    d_graph_compression_->compressAndIntegrate(*mesh_vertices,
-                                               *mesh_surfaces,
-                                               new_graph_vertices,
-                                               new_graph_triangles,
-                                               new_graph_indices,
-                                               msg_time);
-    // Update the simplified mesh vertices and surfaces for class variables
-    d_graph_compression_->getVertices(graph_vertices_);
-    d_graph_compression_->getStoredPolygons(&graph_triangles_);
-  } catch (...) {
-    ROS_ERROR("MeshFrontend: Failed to simplify mesh for deformation graph. ");
-  }
+  d_graph_compression_->compressAndIntegrate(*mesh_vertices,
+                                             *mesh_surfaces,
+                                             new_graph_vertices,
+                                             new_graph_triangles,
+                                             new_graph_indices,
+                                             msg_time);
+  // Update the simplified mesh vertices and surfaces for class variables
+  d_graph_compression_->getVertices(graph_vertices_);
+  d_graph_compression_->getStoredPolygons(&graph_triangles_);
+
   std::vector<Edge> new_graph_edges;
   if (new_graph_indices->size() > 0 && new_graph_triangles->size() > 0) {
     // Add nodes and edges to graph

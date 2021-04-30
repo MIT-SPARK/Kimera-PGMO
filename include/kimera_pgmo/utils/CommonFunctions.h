@@ -15,10 +15,11 @@
 #include <mesh_msgs/TriangleMesh.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/io/ply_io.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 #include <pcl_msgs/PolygonMesh.h>
 #include <pose_graph_tools/PoseGraph.h>
 #include <voxblox_msgs/Mesh.h>
-#include <pcl/impl/point_types.hpp>
 
 namespace kimera_pgmo {
 
