@@ -62,172 +62,143 @@ void OctreeCompression::compressAndIntegrate(
   assert(nullptr != new_triangles);
   assert(nullptr != new_indices);
 
-  // Place vertices through octree for compression
-  double min_x, min_y, min_z, max_x, max_y, max_z;
+  const size_t num_original_active_vertices = active_vertices_xyz_->size();
+  const size_t num_original_vertices = all_vertices_.size();
 
-  bool is_in_box;
-  // Keep track of the new indices when redoing the connections
-  // for the mesh surfaces
-  std::map<size_t, size_t> remapping, second_remapping;
-  const size_t original_size_all = all_vertices_.size();
-  const size_t original_size_active = active_vertices_xyz_->size();
+  // Remaps from index in input vertices to index in all_vertices_
+  std::map<size_t, size_t> reindex;
+  // temporary reindex for all input vertices
+  std::vector<size_t> temp_reindex;
 
-  // Create temporary octree and active cloud and other temp structures
-  PointCloudXYZ::Ptr temp_active_vertices(
-      new PointCloudXYZ(*active_vertices_xyz_));
-  PointCloud temp_all_vertices(all_vertices_);
-  Octree temp_octree(*octree_);
-  temp_octree.setInputCloud(temp_active_vertices);
-  std::vector<size_t> temp_active_vertices_index(active_vertices_index_);
-  std::vector<size_t> temp_new_indices;
-  std::map<size_t, std::vector<size_t> > temp_adjacent_polygons(
-      adjacent_polygons_);
-  std::vector<pcl::Vertices> temp_polygons(polygons_);
-  std::vector<size_t> temp_new_triangles;
+  // Track possible new vertices
+  // Vector mapping index in temp_new_vertices to index in input vertices
+  std::vector<size_t> potential_new_vertices;
+  std::vector<bool> potential_new_vertices_check;
 
-  //// First pass through with temporary variables
-  for (size_t i = 0; i < input_vertices.size(); ++i) {
-    const pcl::PointXYZRGBA p = input_vertices.points[i];
+  // Temporary octree for the points not in stored octree
+  PointCloudXYZ::Ptr temp_new_vertices(new PointCloudXYZ);
+  Octree temp_octree(octree_resolution_);
+  temp_octree.setInputCloud(temp_new_vertices);
+  for (size_t i = 0; i < input_vertices.size(); i++) {
+    const pcl::PointXYZRGBA& p = input_vertices.at(i);
     const pcl::PointXYZ p_xyz(p.x, p.y, p.z);
-    try {
-      temp_octree.getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
-      is_in_box = (p_xyz.x >= min_x && p_xyz.x <= max_x) &&
-                  (p_xyz.y >= min_y && p_xyz.y <= max_y) &&
-                  (p_xyz.z >= min_z && p_xyz.z <= max_z);
-      if (!is_in_box || !temp_octree.isVoxelOccupiedAtPoint(p_xyz)) {
-        // New point. Update temp structures
-        temp_active_vertices->push_back(p_xyz);
-        // Add to (temp) octree
-        temp_octree.addPointFromCloud(temp_active_vertices->size() - 1,
-                                      nullptr);
-        // Note that the other method to add to octree is addPointToCloud(point,
-        // inputcloud) but this method causes segmentation faults under certain
-        // conditions
-        temp_all_vertices.push_back(p);
-        // Track index for (first) remapping
-        remapping.insert(remapping.end(), {i, temp_all_vertices.size() - 1});
-        // Add (temp) index (temp active index to temp all index mapping)
-        temp_active_vertices_index.push_back(temp_all_vertices.size() - 1);
-        temp_new_indices.push_back(temp_all_vertices.size() - 1);
-        // Track adjacent polygons
-        temp_adjacent_polygons.insert(
-            temp_adjacent_polygons.end(),
-            {temp_all_vertices.size() - 1, std::vector<size_t>{}});
+    // Check if vertex in octree
+    if (!InOctreeBoundingBox<pcl::PointXYZ>(*octree_, p_xyz) ||
+        !octree_->isVoxelOccupiedAtPoint(p_xyz)) {
+      // New vertex not in octree
+      // Check if vertex in new octree
+      if (!InOctreeBoundingBox<pcl::PointXYZ>(temp_octree, p_xyz) ||
+          !temp_octree.isVoxelOccupiedAtPoint(p_xyz)) {
+        // New vertex not in temporary octree
+        temp_new_vertices->push_back(p_xyz);
+        temp_octree.addPointFromCloud(temp_new_vertices->size() - 1, nullptr);
+        potential_new_vertices.push_back(i);
+        potential_new_vertices_check.push_back(false);
+        temp_reindex.push_back(num_original_vertices +
+                               temp_new_vertices->size() - 1);
       } else {
-        // A nearby point exist, remap to nearby point
         float unused = 0.f;
         int result_idx;
         temp_octree.approxNearestSearch(p_xyz, result_idx, unused);
-        // Add remapping index
-        remapping.insert(remapping.end(),
-                         {i, temp_active_vertices_index[result_idx]});
-        // Push to new indices if does not already yet
-        if (result_idx < original_size_active &&
-            std::find(temp_new_indices.begin(),
-                      temp_new_indices.end(),
-                      temp_active_vertices_index[result_idx]) ==
-                temp_new_indices.end()) {
-          temp_new_indices.push_back(temp_active_vertices_index[result_idx]);
-        }
+        // Add reindex index
+        temp_reindex.push_back(num_original_vertices + result_idx);
       }
-    } catch (...) {
-      ROS_ERROR("OctreeCompression: Failed to insert mesh vertex. ");
+    } else {
+      // Vertex in octree. This is a reobservation. Add to remap and new indices
+      float unused = 0.f;
+      int result_idx;
+      octree_->approxNearestSearch(p_xyz, result_idx, unused);
+      // Add reindex index
+      reindex[i] = active_vertices_index_[result_idx];
+      temp_reindex.push_back(active_vertices_index_[result_idx]);
+      // Push to new indices if does not already yet
+      if (std::find(new_indices->begin(),
+                    new_indices->end(),
+                    active_vertices_index_[result_idx]) == new_indices->end())
+        new_indices->push_back(active_vertices_index_[result_idx]);
+      // Update the last seen time of the vertex
+      vertices_latest_time_[result_idx] = stamp_in_sec;
     }
   }
-
-  if (temp_new_indices.size() < 3) return;  // no surface after compression
-
-  // Check polygons
-  for (pcl::Vertices polygon : input_surfaces) {
-    pcl::Vertices new_polygon;
-    // Remap polygon while checking if polygon is new
-    // by checking to see if any indices in new regime
-    bool new_surface = false;
-    for (size_t idx : polygon.vertices) {
-      new_polygon.vertices.push_back(remapping[idx]);
-      if (remapping[idx] >= original_size_all) new_surface = true;
+  // First iteration through the faces to check the potential new vertices
+  for (auto s : input_surfaces) {
+    pcl::Vertices reindex_s;
+    bool has_new_vertex = false;
+    for (size_t i : s.vertices) {
+      if (temp_reindex.at(i) >= num_original_vertices) has_new_vertex = true;
+      reindex_s.vertices.push_back(temp_reindex.at(i));
     }
+    if (!has_new_vertex) continue;  // no need to check
+    // Now check if new surface is acceptable
+    if (reindex_s.vertices.size() < 3 ||
+        reindex_s.vertices[0] == reindex_s.vertices[1] ||
+        reindex_s.vertices[1] == reindex_s.vertices[2] ||
+        reindex_s.vertices[2] == reindex_s.vertices[0])
+      continue;  // degenerate
+    // Passed degeneracy test so has at least one adjacent polygon. Pass check
+    for (size_t i : reindex_s.vertices) {
+      if (i >= num_original_vertices) {
+        // This check is the main objective of this iteration through the faces
+        potential_new_vertices_check[i - num_original_vertices] = true;
+      }
+    }
+  }
+  // Update reindex and the other structures
+  for (size_t i = 0; i < potential_new_vertices.size(); i++) {
+    if (potential_new_vertices_check[i]) {
+      // Passed check
+      size_t input_idx = potential_new_vertices[i];
+      pcl::PointXYZRGBA p = input_vertices.at(input_idx);
+      pcl::PointXYZ p_xyz(p.x, p.y, p.z);
+      // Add to octree
+      active_vertices_xyz_->push_back(p_xyz);
+      octree_->addPointFromCloud(active_vertices_xyz_->size() - 1, nullptr);
+      // Add to all vertices
+      all_vertices_.push_back(p);
+      // Add to active vertices index
+      active_vertices_index_.push_back(all_vertices_.size() - 1);
+      vertices_latest_time_.push_back(stamp_in_sec);
+      // Upate reindex
+      reindex[potential_new_vertices[i]] = all_vertices_.size() - 1;
+      // Add to new indices
+      new_indices->push_back(all_vertices_.size() - 1);
+      new_vertices->push_back(p);
+    }
+  }
+  // Second iteration through the faces to add to new_triangles and update
+  // compressed mesh surfaces
+  for (auto s : input_surfaces) {
+    pcl::Vertices reindex_s;
+    bool new_surface = false;
+    for (size_t idx : s.vertices) {
+      // Check if reindex key exists, if not, already pruned earlier
+      if (reindex.find(idx) == reindex.end()) continue;
+      reindex_s.vertices.push_back(reindex[idx]);
+      if (reindex[idx] >= num_original_vertices) new_surface = true;
+    }
+    if (reindex_s.vertices.size() < 3) continue;
 
     // Check if polygon has actual three diferent vertices
     // To avoid degeneracy
-    if (new_polygon.vertices.size() < 3 ||
-        new_polygon.vertices[0] == new_polygon.vertices[1] ||
-        new_polygon.vertices[1] == new_polygon.vertices[2] ||
-        new_polygon.vertices[2] == new_polygon.vertices[0])
+    if (reindex_s.vertices[0] == reindex_s.vertices[1] ||
+        reindex_s.vertices[1] == reindex_s.vertices[2] ||
+        reindex_s.vertices[2] == reindex_s.vertices[0])
       continue;
 
     // Check if it is a new surface constructed from existing points
     if (!new_surface) {
-      new_surface =
-          !SurfaceExists(new_polygon, temp_adjacent_polygons, temp_polygons);
+      new_surface = !SurfaceExists(reindex_s, adjacent_polygons_, polygons_);
     }
 
     // If it is a new surface, add
     if (new_surface) {
       // Definitely a new surface
-      temp_polygons.push_back(new_polygon);
-      temp_new_triangles.push_back(temp_polygons.size() - 1);
-      // Update (temp) adjacent polygons
-      for (size_t v : new_polygon.vertices) {
-        temp_adjacent_polygons[v].push_back(temp_polygons.size() - 1);
+      polygons_.push_back(reindex_s);
+      new_triangles->push_back(reindex_s);
+      // Update adjacent polygons
+      for (size_t v : reindex_s.vertices) {
+        adjacent_polygons_[v].push_back(polygons_.size() - 1);
       }
-    }
-  }
-  if (temp_new_triangles.size() == 0) return;  // No new surfaces
-
-  //// Second pass through to clean up
-  // Second remapping to clean up the points that are not vertices (do not
-  // belong to a face)
-  for (auto idx : temp_new_indices) {
-    // Check if point belongs to any surface of mesh
-    if (temp_adjacent_polygons.at(idx).size() > 0) {
-      if (idx >= original_size_all) {  // Check if a new point
-        new_vertices->push_back(temp_all_vertices.points[idx]);
-        // New point
-        pcl::PointXYZRGBA new_p = temp_all_vertices.points[idx];
-        // Insert to active vertices
-        active_vertices_xyz_->push_back(
-            pcl::PointXYZ(new_p.x, new_p.y, new_p.z));
-        // Add to octree
-        octree_->addPointFromCloud(active_vertices_xyz_->size() - 1, nullptr);
-        // Insert to all vertices
-        all_vertices_.push_back(new_p);
-        // Create remapping (second remapping to not include the non-vertex
-        // points)
-        second_remapping.insert(second_remapping.end(),
-                                {idx, all_vertices_.size() - 1});
-        // keep track of index (index in active -> index in all)
-        active_vertices_index_.push_back(all_vertices_.size() - 1);
-        new_indices->push_back(all_vertices_.size() - 1);
-        // Add latest observed time
-        vertices_latest_time_.push_back(stamp_in_sec);
-        // Track adjacent polygons
-        adjacent_polygons_.insert(
-            adjacent_polygons_.end(),
-            {all_vertices_.size() - 1, std::vector<size_t>{}});
-      } else {
-        // Old point so no need to add to other structures
-        second_remapping.insert(second_remapping.end(), {idx, idx});
-        new_indices->push_back(idx);
-        vertices_latest_time_[idx] = stamp_in_sec;
-      }
-    }
-  }
-  if (new_indices->size() == 0) return;  // no new indices so no new surfaces
-
-  // Reindex the new surfaces using the second remapping
-  for (size_t i : temp_new_triangles) {
-    pcl::Vertices t = temp_polygons[i];
-    pcl::Vertices reindexed_t;
-    for (auto idx : t.vertices) {
-      reindexed_t.vertices.push_back(second_remapping[idx]);
-    }
-    // Add to class and actual new triangles
-    polygons_.push_back(reindexed_t);
-    new_triangles->push_back(reindexed_t);
-    // Update adjacent polygons
-    for (size_t v : reindexed_t.vertices) {
-      adjacent_polygons_[v].push_back(polygons_.size() - 1);
     }
   }
   return;
