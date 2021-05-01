@@ -63,11 +63,11 @@ roslaunch kimera_vio_ros kimera_vio_ros_uhumans2.launch
 ```
 Then launch kimera_pgmo:
 ```bash
-rosunch kimera_pgmo kimera_pgmo.launch dataset:=UHumans2
+rosunch kimera_pgmo kimera_pgmo.launch dataset:=uHumans2
 ```
 Launch Kimera-Semantics:
 ```basg
-roslaunch kimera_semantics_ros kimera_semantics.launch
+roslaunch kimera_semantics_ros kimera_semantics_uHumans2.launch
 ```
 For visualization, an rviz configuration is provided: 
 ```bash
