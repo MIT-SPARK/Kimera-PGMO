@@ -92,7 +92,7 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
 
   incremental_mesh_graph_sub_ =
       nl.subscribe("mesh_graph_incremental",
-                   30,
+                   100,
                    &KimeraPgmo::incrementalMeshGraphCallback,
                    this);
 
