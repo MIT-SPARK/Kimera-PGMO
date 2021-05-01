@@ -9,11 +9,11 @@
 - git:
     local-name: pose_graph_tools
     uri: git@github.com:MIT-SPARK/pose_graph_tools.git
-    version: feature/multirobot
+    version: master
 - git:
     local-name: Kimera-RPGO
     uri: git@github.com:MIT-SPARK/Kimera-RPGO.git
-    version: master
+    version: feature/gnc
 - git:
     local-name: voxblox
     uri: git@github.com:ToniRV/voxblox-private.git
