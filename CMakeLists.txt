@@ -5,7 +5,7 @@ SET(CMAKE_BUILD_TYPE Release)
 
 find_package(catkin_simple REQUIRED)
 
-find_package(Boost REQUIRED
+find_package(Boost REQUIRED COMPONENTS
   date_time
   serialization
   thread
@@ -14,6 +14,14 @@ find_package(Boost REQUIRED
   regex
   timer
   chrono
+)
+
+find_package(PCL REQUIRED COMPONENTS
+  common 
+  io 
+  geometry
+  kdtree
+  octree
 )
 
 find_package(KimeraRPGO REQUIRED)
@@ -28,8 +36,7 @@ src/utils/VoxbloxUtils.cpp
 src/utils/tinyply.cpp
 src/DeformationGraph.cpp
 src/KimeraPgmo.cpp
-src/VoxbloxProcessing.cpp
-src/KimeraPgmoMulti.cpp
+src/MeshFrontend.cpp
 src/KimeraPgmoInterface.cpp
 )
 target_link_libraries(${PROJECT_NAME} 
@@ -46,15 +53,10 @@ cs_add_executable(kimera_pgmo_node
 )
 target_link_libraries(kimera_pgmo_node ${PROJECT_NAME})
 
-cs_add_executable(kimera_pgmo_multi_node
-  src/kimera_pgmo_multi_node.cpp
+cs_add_executable(mesh_frontend_node
+  src/mesh_frontend_node.cpp
 )
-target_link_libraries(kimera_pgmo_multi_node ${PROJECT_NAME})
-
-cs_add_executable(voxblox_processing_node
-  src/voxblox_processing_node.cpp
-)
-target_link_libraries(voxblox_processing_node ${PROJECT_NAME})
+target_link_libraries(mesh_frontend_node ${PROJECT_NAME})
 
 cs_add_executable(load_mesh
   src/load_mesh.cpp
@@ -82,14 +84,14 @@ target_link_libraries(${PROJECT_NAME}-test_graph ${PROJECT_NAME})
 catkin_add_gtest(${PROJECT_NAME}-test_octree_compression test/test_octree_compression.cpp)
 target_link_libraries(${PROJECT_NAME}-test_octree_compression ${PROJECT_NAME})
 
-add_rostest_gtest(${PROJECT_NAME}-test_voxblox_processing test/test_voxblox_processing.test test/test_voxblox_processing.cpp)
-target_link_libraries(${PROJECT_NAME}-test_voxblox_processing ${PROJECT_NAME})
+add_rostest_gtest(${PROJECT_NAME}-test_mesh_frontend test/test_mesh_frontend.test test/test_mesh_frontend.cpp)
+target_link_libraries(${PROJECT_NAME}-test_mesh_frontend ${PROJECT_NAME})
 
 add_rostest_gtest(${PROJECT_NAME}-test_kimera_pgmo test/test_kimera_pgmo.test test/test_kimera_pgmo.cpp)
 target_link_libraries(${PROJECT_NAME}-test_kimera_pgmo ${PROJECT_NAME})
 
-add_rostest_gtest(${PROJECT_NAME}-test_kimera_pgmo_multi test/test_kimera_pgmo_multi.test test/test_kimera_pgmo_multi.cpp)
-target_link_libraries(${PROJECT_NAME}-test_kimera_pgmo_multi ${PROJECT_NAME})
+add_rostest_gtest(${PROJECT_NAME}-test_kimera_dpgmo test/test_kimera_dpgmo.test test/test_kimera_dpgmo.cpp)
+target_link_libraries(${PROJECT_NAME}-test_kimera_dpgmo ${PROJECT_NAME})
 
 cs_install()
 

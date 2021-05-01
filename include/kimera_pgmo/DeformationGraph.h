@@ -99,18 +99,6 @@ class DeformationGraph {
    */
   bool initialize(double pgo_trans_threshold, double pgo_rot_threshold);
 
-  /*! \brief Add new vertices as nodes in deformation graph and the sides of the
-   * new surfaces as edges in deformation graph.
-   *  - new_vertices: new vertices of sampled mesh that makes up most of
-   * deformation graph
-   *  - new_surfaces: new surfaces of sampled mesh
-   *  - prefix: the prefixes of the key of the nodes corresponding to mesh
-   * vertices
-   */
-  void updateMesh(const pcl::PointCloud<pcl::PointXYZRGBA>& new_vertices,
-                  const std::vector<pcl::Vertices> new_surfaces,
-                  const char& prefix);
-
   /*! \brief Fix the transform of a node corresponding to a sampled mesh vertex
    * in deformation graph. Note that all vertices has an original rotation of
    * identity.
@@ -156,15 +144,27 @@ class DeformationGraph {
                      const gtsam::Pose3& meas,
                      const gtsam::Pose3& initial_pose = gtsam::Pose3());
 
+  /*! \brief Add a new mesh edge to deformation graph
+   *  - mesh_edges: edges storing key-key pairs
+   *  - mesh_nodes: gtsam values encoding key value pairs of new nodes
+   *  - optimize: optimize or just add to pgo
+   */
+  void addNewMeshEdgesAndNodes(
+      const std::vector<std::pair<gtsam::Key, gtsam::Key> >& mesh_edges,
+      const gtsam::Values& mesh_nodes,
+      bool optimize = false);
+
   /*! \brief Add connections from a pose graph node to mesh vertices nodes
    *  - key: Key of pose graph node
    *  - valences: The mesh vertices nodes to connect to
    *  - prefix: the prefixes of the key of the nodes corresponding to mesh
    * vertices
+   *  - optimize: optimize or just add to pgo
    */
   void addNodeValence(const gtsam::Key& key,
                       const Vertices& valences,
-                      const char& valence_prefix);
+                      const char& valence_prefix,
+                      bool optimize = false);
 
   /*! \brief Remove sll prior factors of nodes that have given prefix
    *  - prefix: prefix of nodes to remove prior
@@ -185,6 +185,19 @@ class DeformationGraph {
    */
   pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
                               const char& prefix,
+                              size_t k = 4);
+
+  /*! \brief Deform a mesh based on the deformation graph
+   * - original_mesh: mesh to deform
+   * - k: how many nearby nodes to use to adjust new position of vertices when
+   * - prefix: the prefixes of the key of the nodes corresponding to mesh
+   * vertices deforming
+   * - values: values consisting of the key-pose pairs of the optimized mesh
+   * vertices
+   */
+  pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
+                              const char& prefix,
+                              const gtsam::Values& values,
                               size_t k = 4);
 
   /*! \brief Get the number of mesh vertices nodes in the deformation graph
@@ -226,17 +239,41 @@ class DeformationGraph {
     return GtsamGraphToRos(nfg_, values_, timestamps);
   }
 
- private:
-  /*! \brief Called within updateMesh to create the DeformationEdgeFactors
-   * created from the newly added mesh surfaces
-   *  - new_vertices: vertices of the newly added mesh (in updateMesh)
-   *  - new_edges: edges created from the sides of the new mesh surfaces
-   *  - prefix: the prefixes of the key of the nodes corresponding to mesh
-   * vertices
+  /*! \brief Get the consistency factors (ie. the deformation edge factors)
    */
-  void updateConsistencyFactors(const Vertices& new_vertices,
-                                const std::vector<Edge>& new_edges,
-                                const char& prefix);
+  inline gtsam::NonlinearFactorGraph getConsistencyFactors() const {
+    return consistency_factors_;
+  }
+
+  /*! \brief Get the intial pose of a keyframe node
+   */
+  inline gtsam::Pose3 getInitialPose(const char& prefix,
+                                     const size_t& index) const {
+    return pg_initial_poses_.at(prefix).at(index);
+  }
+
+  /*! \brief Get the intial position of a vertex
+   */
+  inline gtsam::Point3 getInitialPositionVertex(const char& prefix,
+                                                const size_t& index) const {
+    return vertex_positions_.at(prefix).at(index);
+  }
+
+  /*! \brief Get the intial positions of the vertices corresponding to prefix
+   */
+  inline std::vector<gtsam::Point3> getInitialPositionsVertices(
+      const char& prefix) const {
+    return vertex_positions_.at(prefix);
+  }
+
+  /*! \brief Never optimize graph, store factors only
+   */
+  inline void storeOnlyNoOptimization() { do_not_optimize_ = true; }
+
+  /*! \brief Force an optimization of the deformation graph without adding new
+   * factors
+   */
+  inline void optimize() { pgo_->forceUpdate(); }
 
  private:
   std::map<char, Graph> graph_;
@@ -248,8 +285,6 @@ class DeformationGraph {
   std::map<char, std::vector<gtsam::Pose3> > pg_initial_poses_;
 
   std::map<char, std::vector<gtsam::Point3> > vertex_positions_;
-  // track the prefixes only important in multirobot case
-  std::vector<char> vertex_prefixes_;
   // Number of mesh vertices corresponding a particular prefix thus far
   std::map<char, size_t> num_vertices_;
 
@@ -266,8 +301,13 @@ class DeformationGraph {
   // factor graph for pose graph related factors
   gtsam::NonlinearFactorGraph pg_factors_;
 
+  // Just store and not optimize
+  bool do_not_optimize_;
+
   // Recalculate only if new measurements added
   bool recalculate_vertices_;
   std::map<char, pcl::PointCloud<pcl::PointXYZRGBA> > last_calculated_vertices_;
 };
+
+typedef std::shared_ptr<DeformationGraph> DeformationGraphPtr;
 }  // namespace kimera_pgmo

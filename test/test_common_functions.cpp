@@ -131,6 +131,30 @@ TEST(test_common_functions, GtsamPoseToRos) {
   EXPECT_NEAR(0.707, ros_pose.orientation.w, 0.001);
 }
 
+TEST(test_common_functions, PclPointToGtsam) {
+  pcl::PointXYZRGBA point_rgb;
+  point_rgb.x = 1.0;
+  point_rgb.y = 2.0;
+  point_rgb.z = -0.3;
+  point_rgb.r = 22;
+  point_rgb.g = 132;
+  point_rgb.b = 255;
+  point_rgb.a = 255;
+  gtsam::Point3 gtsam_rgb_pt = PclToGtsam<pcl::PointXYZRGBA>(point_rgb);
+
+  EXPECT_TRUE(gtsam::assert_equal(
+      gtsam::Point3(point_rgb.x, point_rgb.y, point_rgb.z), gtsam_rgb_pt));
+
+  pcl::PointXYZ point;
+  point.x = -1.0;
+  point.y = 20.0;
+  point.z = 0.35;
+  gtsam::Point3 gtsam_pt = PclToGtsam<pcl::PointXYZ>(point);
+
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Point3(point.x, point.y, point.z), gtsam_pt));
+}
+
 // Combine Meshes
 TEST(test_common_functions, CombineMeshesNoCheck) {
   pcl::PolygonMeshPtr sphere_mesh(new pcl::PolygonMesh());
@@ -299,24 +323,26 @@ TEST(test_common_functions, GtsamGraphToRos) {
 }
 
 TEST(test_common_functions, MeshSurfaceExist) {
-  std::vector<std::vector<pcl::Vertices> > surfaces;
+  std::map<size_t, std::vector<size_t> > adj_surfaces;
+
   pcl::Vertices poly_1, poly_2, poly_3, poly_4;
   poly_1.vertices = std::vector<uint32_t>{0, 1, 2};
   poly_2.vertices = std::vector<uint32_t>{0, 2, 3};
   poly_3.vertices = std::vector<uint32_t>{0, 5, 1};
   poly_4.vertices = std::vector<uint32_t>{1, 4, 2};
+  std::vector<pcl::Vertices> surfaces{poly_1, poly_2, poly_3, poly_4};
 
-  surfaces.push_back(std::vector<pcl::Vertices>{poly_1, poly_2});
-  surfaces.push_back(std::vector<pcl::Vertices>{poly_1, poly_4});
-  surfaces.push_back(std::vector<pcl::Vertices>{poly_1, poly_2, poly_4});
-  surfaces.push_back(std::vector<pcl::Vertices>{poly_2});
-  surfaces.push_back(std::vector<pcl::Vertices>{poly_4});
-  EXPECT_FALSE(SurfaceExists(poly_3, surfaces));
+  adj_surfaces[0] = std::vector<size_t>{0, 1};
+  adj_surfaces[1] = std::vector<size_t>{0, 3};
+  adj_surfaces[2] = std::vector<size_t>{0, 1, 3};
+  adj_surfaces[3] = std::vector<size_t>{1};
+  adj_surfaces[4] = std::vector<size_t>{3};
+  EXPECT_FALSE(SurfaceExists(poly_3, adj_surfaces, surfaces));
 
-  surfaces[0].push_back(poly_3);
-  surfaces[1].push_back(poly_3);
-  surfaces.push_back(std::vector<pcl::Vertices>{poly_3});
-  EXPECT_TRUE(SurfaceExists(poly_3, surfaces));
+  adj_surfaces[0].push_back(2);
+  adj_surfaces[1].push_back(2);
+  adj_surfaces[5] = std::vector<size_t>{2};
+  EXPECT_TRUE(SurfaceExists(poly_3, adj_surfaces, surfaces));
 }
 
 }  // namespace kimera_pgmo

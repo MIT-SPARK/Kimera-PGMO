@@ -7,6 +7,7 @@
 
 #include "kimera_pgmo/AbsolutePoseStamped.h"
 #include "kimera_pgmo/KimeraPgmoInterface.h"
+#include "kimera_pgmo/RequestMeshFactors.h"
 #include "kimera_pgmo/TriangleMeshIdStamped.h"
 #include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
@@ -14,6 +15,7 @@
 namespace kimera_pgmo {
 class KimeraPgmo : public KimeraPgmoInterface {
   friend class KimeraPgmoTest;
+  friend class KimeraDpgmoTest;
 
  public:
   /*! \brief Constructor for Kimera Pgmo class. Which subscribes to the
@@ -76,15 +78,14 @@ class KimeraPgmo : public KimeraPgmoInterface {
    */
   void publishTransforms();
 
-  /*! \brief Subscribes to the partial mesh from VoxbloxProcessing, which
-   * corresponds to the latest partial mesh from Voxblox or Kimera-Semantics. We
-   * sample this partial mesh to add to the deformation graph and also connect
-   * the nodes stored in the waiting queue to the vertices of the sampled mesh,
-   * provided that the time difference is within the threshold
-   *  - mesh_msg: partial mesh in mesh_msgs TriangleMeshStamped format
+  /*! \brief Subscribes to the mesh factors from MeshFrontend, which
+   * corresponds to the latest simplified partial mesh from Voxblox or
+   * Kimera-Semantics. We add to the deformation graph and also connect the
+   * nodes stored in the waiting queue to the vertices of the sampled mesh,
+   *  - mesh_graph_msg: mesh factors to add to deformation graph and mesh nodes.
    */
-  void incrementalMeshCallback(
-      const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg);
+  void incrementalMeshGraphCallback(
+      const pose_graph_tools::PoseGraph::ConstPtr& mesh_graph_msg);
 
   /*! \brief Subscribes to an optimized trajectory. The path should correspond
    * to the nodes of the pose graph received in the
@@ -93,6 +94,11 @@ class KimeraPgmo : public KimeraPgmoInterface {
    *  - mesh_msg: partial mesh in mesh_msgs TriangleMeshStamped format
    */
   void optimizedPathCallback(const nav_msgs::Path::ConstPtr& path_msg);
+
+  /*! \brief Subscribes to an optimized values published by dpgmo
+   *  - msg: optimized pose graph published as a pose graph msg
+   */
+  void dpgmoCallback(const pose_graph_tools::PoseGraph::ConstPtr& msg);
 
   /*! \brief Saves mesh as a ply file. Triggers through a rosservice call
    * and saves to file [output_prefix_].ply
@@ -105,6 +111,13 @@ class KimeraPgmo : public KimeraPgmoInterface {
   bool saveTrajectoryCallback(std_srvs::Empty::Request&,
                               std_srvs::Empty::Response&);
 
+  /*! \brief Requests the mesh related edges (pose-vertex, vertex-vertex) in the
+   * deformation graph.
+   */
+  bool requestMeshEdgesCallback(
+      kimera_pgmo::RequestMeshFactors::Request& request,
+      kimera_pgmo::RequestMeshFactors::Response& response);
+
   /*! \brief log the run-time stats such as pose graph size, mesh size, and run
    * time
    */
@@ -113,9 +126,8 @@ class KimeraPgmo : public KimeraPgmoInterface {
  protected:
   // optimized mesh for each robot
   pcl::PolygonMesh optimized_mesh_;
+  std::vector<gtsam::Pose3> optimized_path_;
   ros::Time last_mesh_stamp_;
-
-  OctreeCompressionPtr compression_;
 
   // Publishers
   ros::Publisher optimized_mesh_pub_;
@@ -130,19 +142,23 @@ class KimeraPgmo : public KimeraPgmoInterface {
   // Subscribers
   ros::Subscriber pose_graph_incremental_sub_;
   ros::Subscriber full_mesh_sub_;
-  ros::Subscriber incremental_mesh_sub_;
+  ros::Subscriber incremental_mesh_graph_sub_;
   ros::Subscriber path_callback_sub_;
+  ros::Subscriber dpgmo_callback_sub_;
 
   // Service
   ros::ServiceServer save_mesh_srv_;
   ros::ServiceServer save_traj_srv_;
+  ros::ServiceServer req_mesh_edges_srv_;
 
   // Trajectory
   std::vector<gtsam::Pose3> trajectory_;
   std::queue<size_t> unconnected_nodes_;
   std::vector<ros::Time> timestamps_;
+  std::queue<size_t> dpgmo_num_poses_last_req_;
 
   std::string frame_id_;
+  int robot_id_;
 
   // Track number of loop closures
   size_t num_loop_closures_;

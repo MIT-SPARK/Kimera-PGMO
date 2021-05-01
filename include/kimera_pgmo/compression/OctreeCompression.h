@@ -5,14 +5,19 @@
  */
 #pragma once
 
+#include <boost/shared_ptr.hpp>
+#include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
 #include <ros/ros.h>
 
 #include <mesh_msgs/TriangleMeshStamped.h>
+#include <pcl/PolygonMesh.h>
 #include <pcl/octree/octree_search.h>
-#include <pcl_ros/point_cloud.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 
 namespace kimera_pgmo {
 
@@ -20,7 +25,7 @@ class OctreeCompression {
  public:
   typedef pcl::PointCloud<pcl::PointXYZRGBA> PointCloud;
   typedef pcl::PointCloud<pcl::PointXYZ> PointCloudXYZ;
-  typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZRGBA> Octree;
+  typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
 
   OctreeCompression(double resolution);
   ~OctreeCompression();
@@ -35,8 +40,8 @@ class OctreeCompression {
   void compressAndIntegrate(
       const pcl::PolygonMesh& input,
       pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
-      std::vector<pcl::Vertices>* new_triangles,
-      std::vector<size_t>* new_indices,
+      boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
+      boost::shared_ptr<std::vector<size_t> > new_indices,
       const double& stamp_in_sec = ros::Time::now().toSec());
 
   /*! \brief Compress and integrate with the full compressed mesh
@@ -51,8 +56,8 @@ class OctreeCompression {
       const pcl::PointCloud<pcl::PointXYZRGBA>& input_vertices,
       const std::vector<pcl::Vertices>& input_surfaces,
       pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
-      std::vector<pcl::Vertices>* new_triangles,
-      std::vector<size_t>* new_indices,
+      boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
+      boost::shared_ptr<std::vector<size_t> > new_indices,
       const double& stamp_in_sec = ros::Time::now().toSec());
 
   /*! \brief Discard parts of the stored compressed full mesh by detection time
@@ -65,21 +70,22 @@ class OctreeCompression {
    *  - vertices: pointer to vertices of full compressed mesh
    */
   inline void getVertices(PointCloud::Ptr vertices) {
-    *vertices = *all_vertices_;
+    *vertices = all_vertices_;
   }
 
   /*! \brief Get the vertices currently in the octree (actively being checked
    * for duplication according to resolution)
    *  - vertices: pointer to vertices in octree
    */
-  inline void getActiveVertices(PointCloud::Ptr vertices) {
-    *vertices = *active_vertices_;
+  inline void getActiveVertices(PointCloudXYZ::Ptr vertices) {
+    *vertices = *active_vertices_xyz_;
   }
 
   /*! \brief Get the surfaces of the compressed full mesh
    *  - vertices: pointer to surfaces of full compressed mesh
    */
-  inline void getStoredPolygons(std::vector<pcl::Vertices>* polygons) {
+  inline void getStoredPolygons(
+      boost::shared_ptr<std::vector<pcl::Vertices> > polygons) {
     *polygons = polygons_;
   }
 
@@ -88,20 +94,25 @@ class OctreeCompression {
    *  - timestamps: vector of the timestamps indices corresponding to active
    * vertices
    */
-  inline void getActiveVerticesTimestamps(std::vector<double>* timestamps) {
+  inline void getActiveVerticesTimestamps(
+      boost::shared_ptr<std::vector<double> > timestamps) {
     *timestamps = vertices_latest_time_;
   }
 
-  inline size_t getNumVertices() const { return all_vertices_->size(); }
+  inline size_t getNumVertices() const { return all_vertices_.size(); }
 
  protected:
-  PointCloud::Ptr active_vertices_;  // vertices in octree
-  PointCloud::Ptr all_vertices_;     // all verices
+  // Vertices in octree (vertices of "active" part of mesh)
+  PointCloudXYZ::Ptr active_vertices_xyz_;
+  // All verices
+  PointCloud all_vertices_;
+  // Maps index of active vertices to index of all vertices
   std::vector<size_t> active_vertices_index_;
-  // index of active vertices in all vertices
+  // Mesh surfaces (all)
   std::vector<pcl::Vertices> polygons_;
-  // Keep track of adjacent polygons of vertices
-  std::vector<std::vector<pcl::Vertices> > adjacent_polygons_;
+  // Keep track of adjacent faces of active part of mesh
+  std::map<size_t, std::vector<size_t> > adjacent_polygons_;
+  // Octree of compressor
   Octree::Ptr octree_;
 
   std::vector<double> vertices_latest_time_;  // timestamps of active vertices
@@ -109,5 +120,5 @@ class OctreeCompression {
   double octree_resolution_;
 };
 
-typedef std::shared_ptr<OctreeCompression> OctreeCompressionPtr;
+typedef boost::shared_ptr<OctreeCompression> OctreeCompressionPtr;
 }  // namespace kimera_pgmo

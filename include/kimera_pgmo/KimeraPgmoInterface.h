@@ -95,8 +95,7 @@ class KimeraPgmoInterface {
       const pose_graph_tools::PoseGraph::ConstPtr& msg,
       std::vector<gtsam::Pose3>* initial_trajectory,
       std::queue<size_t>* unconnected_nodes,
-      std::vector<ros::Time>* node_timestamps,
-      bool single_robot = false);
+      std::vector<ros::Time>* node_timestamps);
 
   /*! \brief Optimize the full mesh (and pose graph) using the deformation graph
    * then publish the deformed mesh
@@ -105,27 +104,21 @@ class KimeraPgmoInterface {
    * - publisher: associated publisher
    * returns the optimized mesh
    */
-  pcl::PolygonMesh optimizeAndPublishFullMesh(
+  bool optimizeFullMesh(
       const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg,
-      const ros::Publisher* publisher,
-      bool single_robot = false);
+      pcl::PolygonMesh* optimized_mesh);
 
-  /*! \brief Process the partial mesh, which
-   * corresponds to the latest partial mesh from Voxblox or Kimera-Semantics. We
-   * sample this partial mesh to add to the deformation graph and also connect
-   * the nodes stored in the waiting queue to the vertices of the sampled mesh,
-   * provided that the time difference is within the threshold
-   *  - mesh_msg: partial mesh in mesh_msgs TriangleMeshStamped format
-   *  - compressor: mesh simplification modules
+  /*! \brief Process the mesh graph that consists of the new mesh edges and mesh
+   * nodes to be added to the deformation graph
+   * - mesh_msg: partial mesh in mesh_msgs TriangleMeshStamped format
+   * - node_timestamps: vector of the timestamps of each odometric node
    * - unconnected_nodes: odometric nodes not yet connected to the mesh and
    * still within the embed time window
    */
-  void processIncrementalMesh(
-      const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg,
-      const OctreeCompressionPtr compressor,
+  void processIncrementalMeshGraph(
+      const pose_graph_tools::PoseGraph::ConstPtr& mesh_graph_msg,
       const std::vector<ros::Time>& node_timestamps,
-      std::queue<size_t>* unconnected_nodes,
-      bool single_robot = false);
+      std::queue<size_t>* unconnected_nodes);
 
   /*! \brief Given an optimized trajectory, adjust the mesh. The path should
    * correspond to the nodes of the pose graph received in the
@@ -136,6 +129,12 @@ class KimeraPgmoInterface {
    */
   void processOptimizedPath(const nav_msgs::Path::ConstPtr& path_msg,
                             const size_t& robot_id = 0);
+
+  /*! \brief Get the optimized trajectory of a robot
+   * - robot_id: id of the robot referred to in query
+   */
+  std::vector<gtsam::Pose3> getOptimizedTrajectory(
+      const size_t& robot_id) const;
 
   /*! \brief Saves mesh as a ply file. Triggers through a rosservice call
    * and saves to file [output_prefix_][id].ply
@@ -153,13 +152,35 @@ class KimeraPgmoInterface {
                       const std::vector<ros::Time>& timestamps,
                       const std::string& csv_file);
 
+  /*! \brief Get the consistency factors as pose graph edges
+   * - robot_id: the id of the robot in question
+   * - pg_mesh_msg: pointer to the factors and initial values
+   * - vertex_index_offset start index for vertices from this index (default 0)
+   */
+  bool getConsistencyFactors(const size_t& robot_id,
+                             pose_graph_tools::PoseGraph* pg_mesh_msg,
+                             const size_t& vertex_index_offset = 0) const;
+
+  void inline insertDpgmoValues(const gtsam::Key& key,
+                                const gtsam::Pose3& pose) {
+    if (dpgmo_values_.exists(key)) {
+      ROS_ERROR("Attempting to insert existing key to dpgmo values. ");
+      return;
+    }
+    dpgmo_values_.insert(key, pose);
+  }
+  /*! \brief Get the DPGMO optimized values
+   */
+  gtsam::Values inline getDpgmoValues() const { return dpgmo_values_; }
+
   /*! \brief visualize the edges of the deformation graph  */
   void visualizeDeformationGraph(const ros::Publisher* publisher) const;
 
  protected:
   enum class RunMode {
     FULL = 0u,  // Optimize mesh and pose graph
-    MESH = 1u   // Optimize mesh based on given optimized trajectory
+    MESH = 1u,  // Optimize mesh based on given optimized trajectory
+    DPGMO = 2u  // DPGO does the optimization
   };
   RunMode run_mode_;
   bool use_msg_time_;  // use msg time or call back time
@@ -172,5 +193,8 @@ class KimeraPgmoInterface {
 
   // Track number of loop closures
   size_t num_loop_closures_;
+
+  // DPGMO optimized values
+  gtsam::Values dpgmo_values_;
 };
 }  // namespace kimera_pgmo

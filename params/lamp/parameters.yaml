@@ -1,6 +1,4 @@
 frame_id: "world"
-d_graph_resolution: 4.0 # meters
-compression_time_horizon: 200 # seconds 
 embed_trajectory_delta_t: 5.0 # seconds (prints warning if delta exceeds, not strictly enforced. ) 
 rpgo:
   translation_threshold: 0.01

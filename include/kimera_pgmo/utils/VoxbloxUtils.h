@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <boost/shared_ptr.hpp>
 #include <string>
 
 #include <pcl/PolygonMesh.h>
@@ -44,10 +45,11 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
     const voxblox_msgs::MeshBlock& mesh_block,
     const float& block_edge_length,
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
-    std::vector<pcl::Vertices>* triangles,
+    boost::shared_ptr<std::vector<pcl::Vertices> > triangles,
     const std::vector<size_t>& original_indices,
-    std::vector<size_t>* updated_indices,
-    std::map<size_t, std::vector<pcl::Vertices> >* adjacent_surfaces);
+    boost::shared_ptr<std::vector<size_t> > updated_indices,
+    boost::shared_ptr<std::map<size_t, std::vector<pcl::Vertices> > >
+        adjacent_surfaces);
 
 /*! \brief When adding new mesh surface, check first if exist with a stored
  * index to adjacent surface map, and also update map if surface is new
@@ -57,7 +59,8 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
  */
 bool CheckAndUpdateAdjacentSurfaces(
     const pcl::Vertices& new_triangle,
-    std::map<size_t, std::vector<pcl::Vertices> >* adjacent_surfaces);
+    boost::shared_ptr<std::map<size_t, std::vector<pcl::Vertices> > >
+        adjacent_surfaces);
 
 /*! \brief Convert a voxblox mesh block to a polygon mesh type
  *  - mesh_block: voxblox mesh block input
@@ -72,12 +75,15 @@ pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
  *  - mesh_block: voxblox mesh block input
  *  - vertices: pointcloud of generated vertices
  *  - triangles: vector of triplet indices inidicating the connections
+ *  - check_duplicates_full: check for duplicated vertices against all vertices
+ * (including the points already in vertices)
  */
 void VoxbloxMeshBlockToPolygonMesh(
     const voxblox_msgs::MeshBlock& mesh_block,
     float block_edge_length,
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
-    std::vector<pcl::Vertices>* triangles);
+    boost::shared_ptr<std::vector<pcl::Vertices> > triangles,
+    const bool& check_duplicates_full = false);
 
 /*! \brief Convert a voxblox mesh ~ consisted of many mesh blocks, to a polygon
  * mesh

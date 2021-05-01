@@ -1,0 +1,6 @@
+<launch>
+	<test test-name="test_mesh_frontend"
+		  pkg="kimera_pgmo"
+		  type="kimera_pgmo-test_mesh_frontend"
+		  time-limit="300" />
+</launch>

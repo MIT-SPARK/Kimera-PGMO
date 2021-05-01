@@ -27,8 +27,6 @@ bool KimeraPgmoInterface::loadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("run_mode", run_mode_num)) return false;
   run_mode_ = static_cast<RunMode>(run_mode_num);
   if (!n.getParam("use_msg_time", use_msg_time_)) return false;
-  if (!n.getParam("compression_time_horizon", compression_time_horizon_))
-    return false;
 
   if (!n.getParam("embed_trajectory_delta_t", embed_delta_t_)) return false;
 
@@ -42,6 +40,8 @@ bool KimeraPgmoInterface::loadParameters(const ros::NodeHandle& n) {
     ROS_ERROR("KimeraPgmo: Failed to initialize deformation graph.");
     return false;
   }
+
+  if (run_mode_ == RunMode::DPGMO) deformation_graph_.storeOnlyNoOptimization();
   return true;
 }
 
@@ -103,15 +103,12 @@ void KimeraPgmoInterface::processIncrementalPoseGraph(
     const pose_graph_tools::PoseGraph::ConstPtr& msg,
     std::vector<gtsam::Pose3>* initial_trajectory,
     std::queue<size_t>* unconnected_nodes,
-    std::vector<ros::Time>* node_timestamps,
-    bool single_robot) {
+    std::vector<ros::Time>* node_timestamps) {
   // if first node initialize
   //// Note that we assume for all node ids that the keys start with 0
   if (msg->nodes.size() > 0 && msg->nodes[0].key == 0 &&
       initial_trajectory->size() == 0) {
     size_t robot_id = msg->nodes[0].robot_id;
-    // Always use robot id of 0 if single robot
-    if (single_robot) robot_id = 0;
 
     const gtsam::Symbol key_symb(GetRobotPrefix(robot_id), 0);
     const gtsam::Pose3& init_pose = RosToGtsam(msg->nodes[0].pose);
@@ -138,15 +135,6 @@ void KimeraPgmoInterface::processIncrementalPoseGraph(
 
       size_t robot_from = pg_edge.robot_from;
       size_t robot_to = pg_edge.robot_to;
-      // Always use robot id of 0 if single robot
-      if (single_robot) {
-        if (robot_from != robot_to)
-          ROS_ERROR(
-              "Receiving inter-robot loop closures in single robot "
-              "Kimera-PGMO. ");
-        robot_from = 0;
-        robot_to = 0;
-      }
 
       const gtsam::Symbol from_key(GetRobotPrefix(robot_from), prev_node);
       const gtsam::Symbol to_key(GetRobotPrefix(robot_to), current_node);
@@ -164,8 +152,8 @@ void KimeraPgmoInterface::processIncrementalPoseGraph(
           ROS_WARN(
               "New current node does not match current trajectory length. %d "
               "vs %d",
-              initial_trajectory->size(),
-              current_node);
+              static_cast<int>(initial_trajectory->size()),
+              static_cast<int>(current_node));
         }
         // Calculate pose of new node
         const gtsam::Pose3& new_pose =
@@ -181,7 +169,7 @@ void KimeraPgmoInterface::processIncrementalPoseGraph(
         // Add new node to queue to be connected to mesh later
         unconnected_nodes->push(current_node);
         // Add to deformation graph
-        if (run_mode_ == RunMode::FULL) {
+        if (run_mode_ == RunMode::FULL || run_mode_ == RunMode::DPGMO) {
           // Add the pose estimate of new node and between factor (odometry)
           deformation_graph_.addNewBetween(from_key, to_key, measure, new_pose);
         } else if (run_mode_ == RunMode::MESH) {
@@ -199,16 +187,15 @@ void KimeraPgmoInterface::processIncrementalPoseGraph(
         ROS_INFO(
             "KimeraPgmo: Loop closure detected between robot %d node %d and "
             "robot %d node %d.",
-            robot_from,
-            prev_node,
-            robot_to,
-            current_node);
+            static_cast<int>(robot_from),
+            static_cast<int>(prev_node),
+            static_cast<int>(robot_to),
+            static_cast<int>(current_node));
         num_loop_closures_++;
       }
     }
   } catch (const std::exception& e) {
     ROS_ERROR("Error in KimeraPgmo incrementalPoseGraphCallback. ");
-    ROS_ERROR(e.what());
   }
 }
 
@@ -229,68 +216,87 @@ void KimeraPgmoInterface::processOptimizedPath(
   deformation_graph_.addNodeMeasurements(node_estimates);
 }
 
-pcl::PolygonMesh KimeraPgmoInterface::optimizeAndPublishFullMesh(
+bool KimeraPgmoInterface::optimizeFullMesh(
     const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg,
-    const ros::Publisher* publisher,
-    bool single_robot) {
+    pcl::PolygonMesh* optimized_mesh) {
   const pcl::PolygonMesh& input_mesh =
       TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
   // check if empty
-  if (input_mesh.cloud.height * input_mesh.cloud.width == 0) return input_mesh;
+  if (input_mesh.cloud.height * input_mesh.cloud.width == 0) return false;
 
   size_t robot_id = mesh_msg->id;
-  // Always use robot id of 0 if single robot
-  if (single_robot) robot_id = 0;
 
   std_msgs::Header mesh_header = mesh_msg->header;
 
   // Optimize mesh
-  pcl::PolygonMesh optimized_mesh;
   try {
-    optimized_mesh =
-        deformation_graph_.deformMesh(input_mesh, GetVertexPrefix(robot_id));
+    if (run_mode_ == RunMode::DPGMO) {
+      *optimized_mesh = deformation_graph_.deformMesh(
+          input_mesh, GetVertexPrefix(robot_id), dpgmo_values_);
+    } else {
+      *optimized_mesh =
+          deformation_graph_.deformMesh(input_mesh, GetVertexPrefix(robot_id));
+    }
   } catch (const std::out_of_range& e) {
     ROS_ERROR("Failed to deform mesh. Out of range error. ");
+    return false;
   }
-  if (publisher->getNumSubscribers() > 0) {
-    publishMesh(optimized_mesh, mesh_header, publisher);
-  }
-  return optimized_mesh;
+  return true;
 }
 
-void KimeraPgmoInterface::processIncrementalMesh(
-    const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg,
-    const OctreeCompressionPtr compressor,
+void KimeraPgmoInterface::processIncrementalMeshGraph(
+    const pose_graph_tools::PoseGraph::ConstPtr& mesh_graph_msg,
     const std::vector<ros::Time>& node_timestamps,
-    std::queue<size_t>* unconnected_nodes,
-    bool single_robot) {
-  size_t robot_id = mesh_msg->id;
-  // Always use robot id of 0 if single robot
-  if (single_robot) robot_id = 0;
+    std::queue<size_t>* unconnected_nodes) {
+  if (mesh_graph_msg->edges.size() == 0 || mesh_graph_msg->nodes.size() == 0) {
+    ROS_WARN(
+        "processIncrementalMeshGraph: 0 nodes or 0 edges in mesh graph msg. ");
+    return;
+  }
+  // Assume graph only contains message from one robot
+  size_t robot_id = mesh_graph_msg->nodes[0].robot_id;
+  // Mesh edges and nodes
+  std::vector<std::pair<gtsam::Key, gtsam::Key> > new_mesh_edges;
+  gtsam::Values new_mesh_nodes;
+  std::vector<size_t>
+      new_indices;  // TODO: this can be cleaned up by changing the defomration
+                    // graph addNodeValence interface
 
-  const pcl::PolygonMesh incremental_mesh =
-      TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
+  // Convert and add edges
+  for (auto e : mesh_graph_msg->edges) {
+    if (e.robot_from != robot_id || e.robot_to != robot_id) {
+      ROS_WARN(
+          "processIncrementalMeshGraph: detect different robot ids in single "
+          "mesh graph msg. ");
+    }
+    gtsam::Key from = gtsam::Symbol(GetVertexPrefix(e.robot_from), e.key_from);
+    gtsam::Key to = gtsam::Symbol(GetVertexPrefix(e.robot_to), e.key_to);
+    new_mesh_edges.push_back(std::pair<gtsam::Key, gtsam::Key>(from, to));
+  }
 
-  // Check if mesh empty
-  if (incremental_mesh.cloud.height * incremental_mesh.cloud.width == 0) return;
+  // Convert and add nodes
+  for (auto n : mesh_graph_msg->nodes) {
+    if (n.robot_id != robot_id) {
+      ROS_WARN(
+          "processIncrementalMeshGraph: detect different robot ids in single "
+          "mesh graph msg. ");
+    }
+    gtsam::Key key = gtsam::Symbol(GetVertexPrefix(n.robot_id), n.key);
+    gtsam::Pose3 node_pose = RosToGtsam(n.pose);
+    new_mesh_nodes.insert(key, node_pose);
+    new_indices.push_back(n.key);
+  }
 
-  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
-      new pcl::PointCloud<pcl::PointXYZRGBA>);
-  std::vector<pcl::Vertices> new_triangles;
-  std::vector<size_t> new_indices;
+  // Add to deformation graph
+  deformation_graph_.addNewMeshEdgesAndNodes(new_mesh_edges, new_mesh_nodes);
 
   double msg_time;
   if (use_msg_time_) {
-    msg_time = mesh_msg->header.stamp.toSec();
+    msg_time = mesh_graph_msg->header.stamp.toSec();
   } else {
     msg_time = ros::Time::now().toSec();
   }
-  compressor->pruneStoredMesh(msg_time - compression_time_horizon_);
-  compressor->compressAndIntegrate(
-      incremental_mesh, new_vertices, &new_triangles, &new_indices, msg_time);
-  deformation_graph_.updateMesh(
-      *new_vertices, new_triangles, GetVertexPrefix(robot_id));
-  if (new_indices.size() == 0) return;
+
   bool connection = false;
   // Associate nodes to mesh
   if (!unconnected_nodes->empty()) {
@@ -308,13 +314,14 @@ void KimeraPgmoInterface::processIncrementalMesh(
       }
     }
     ROS_INFO("Connecting robot %d node %d to %d vertices. ",
-             robot_id,
-             closest_node,
-             new_indices.size());
+             static_cast<int>(robot_id),
+             static_cast<int>(closest_node),
+             static_cast<int>(new_indices.size()));
     deformation_graph_.addNodeValence(
         gtsam::Symbol(GetRobotPrefix(robot_id), closest_node),
         new_indices,
-        GetVertexPrefix(robot_id));
+        GetVertexPrefix(robot_id),
+        false);
     connection = true;
     if (abs(node_timestamps[closest_node].toSec() - msg_time) >
         embed_delta_t_) {
@@ -327,6 +334,7 @@ void KimeraPgmoInterface::processIncrementalMesh(
   if (!connection) {
     ROS_WARN("KimeraPgmo: Partial mesh not connected to pose graph. ");
   }
+  deformation_graph_.optimize();
 
   return;
 }
@@ -359,6 +367,134 @@ bool KimeraPgmoInterface::saveTrajectory(
   }
   csvfile.close();
   ROS_INFO("KimeraPgmo: Saved trajectories to file.");
+  return true;
+}
+
+bool KimeraPgmoInterface::getConsistencyFactors(
+    const size_t& robot_id,
+    pose_graph_tools::PoseGraph* pg_mesh_msg,
+    const size_t& vertex_index_offset) const {
+  assert(nullptr != pg_mesh_msg);
+  pg_mesh_msg->edges.clear();
+  pg_mesh_msg->nodes.clear();
+  // Make sure that robot id is valid
+  if (robot_id_to_prefix.find(robot_id) == robot_id_to_prefix.end()) {
+    ROS_ERROR("Unexpected robot id. ");
+    return false;
+  }
+
+  // Get the edges from the deformation graph
+  gtsam::NonlinearFactorGraph edge_factors =
+      deformation_graph_.getConsistencyFactors();
+
+  // Get the prefixes
+  char vertex_prefix = robot_id_to_vertex_prefix.at(robot_id);
+  char robot_prefix = robot_id_to_prefix.at(robot_id);
+
+  // Iterate and convert the edges to PoseGraphEdge type
+  for (auto factor : edge_factors) {
+    // Create edge
+    pose_graph_tools::PoseGraphEdge pg_edge;
+
+    gtsam::Symbol from(factor->front());
+    gtsam::Symbol to(factor->back());
+
+    if (from.chr() == vertex_prefix) {
+      if (to.chr() == vertex_prefix) {
+        pg_edge.type = pose_graph_tools::PoseGraphEdge::MESH;
+      } else if (to.chr() == robot_prefix) {
+        pg_edge.type = pose_graph_tools::PoseGraphEdge::MESH_POSE;
+      } else {
+        ROS_WARN("Unexpected edge type. ");
+        continue;
+      }
+    } else if (from.chr() == robot_prefix) {
+      if (to.chr() == vertex_prefix) {
+        pg_edge.type = pose_graph_tools::PoseGraphEdge::POSE_MESH;
+      } else if (to.chr() == robot_prefix) {
+        ROS_ERROR(
+            "Getting a pose-to-pose edge in deformation graph consistency "
+            "factors. Check for bug. ");
+        continue;
+      } else {
+        ROS_WARN("Unexpected edge type. ");
+        continue;
+      }
+    }
+
+    pg_edge.robot_from = robot_id;
+    pg_edge.robot_to = robot_id;
+    pg_edge.key_from = from.index();
+    pg_edge.key_to = to.index();
+    // Covariance is infinite for rotation part
+    pg_edge.covariance[21] = 1.0 / 0.0;
+    pg_edge.covariance[28] = 1.0 / 0.0;
+    pg_edge.covariance[35] = 1.0 / 0.0;
+    // Pose should be [I , R_1^{-1} (t2 - t1)] *** these are all initial
+    // poses/positions
+    switch (pg_edge.type) {
+      case pose_graph_tools::PoseGraphEdge::MESH: {
+        const gtsam::Point3& vertex_pos_from =
+            deformation_graph_.getInitialPositionVertex(vertex_prefix,
+                                                        pg_edge.key_from);
+        const gtsam::Point3& vertex_pos_to =
+            deformation_graph_.getInitialPositionVertex(vertex_prefix,
+                                                        pg_edge.key_to);
+        pg_edge.pose = GtsamToRos(
+            gtsam::Pose3(gtsam::Rot3(), vertex_pos_to - vertex_pos_from));
+
+        // Update key with offset
+        pg_edge.key_from = pg_edge.key_from + vertex_index_offset;
+        pg_edge.key_to = pg_edge.key_to + vertex_index_offset;
+        pg_mesh_msg->edges.push_back(pg_edge);
+        break;
+      }
+      case pose_graph_tools::PoseGraphEdge::POSE_MESH: {
+        const gtsam::Pose3& pose_from =
+            deformation_graph_.getInitialPose(robot_prefix, pg_edge.key_from);
+        const gtsam::Point3& vertex_pos_to =
+            deformation_graph_.getInitialPositionVertex(vertex_prefix,
+                                                        pg_edge.key_to);
+        pg_edge.pose = GtsamToRos(gtsam::Pose3(
+            gtsam::Rot3(),
+            pose_from.rotation().inverse().rotate(vertex_pos_to -
+                                                  pose_from.translation())));
+
+        // Update key with offset
+        pg_edge.key_to = pg_edge.key_to + vertex_index_offset;
+        pg_mesh_msg->edges.push_back(pg_edge);
+        break;
+      }
+      case pose_graph_tools::PoseGraphEdge::MESH_POSE: {
+        const gtsam::Point3& vertex_pos_from =
+            deformation_graph_.getInitialPositionVertex(vertex_prefix,
+                                                        pg_edge.key_from);
+        const gtsam::Pose3& pose_to =
+            deformation_graph_.getInitialPose(robot_prefix, pg_edge.key_to);
+        pg_edge.pose = GtsamToRos(gtsam::Pose3(
+            gtsam::Rot3(), pose_to.translation() - vertex_pos_from));
+
+        // Update key with offset
+        pg_edge.key_from = pg_edge.key_from + vertex_index_offset;
+        pg_mesh_msg->edges.push_back(pg_edge);
+        break;
+      }
+    }
+  }
+  if (pg_mesh_msg->edges.size() == 0) return false;
+
+  // Get the nodes from the deformation graph
+  const std::vector<gtsam::Point3>& initial_positions =
+      deformation_graph_.getInitialPositionsVertices(vertex_prefix);
+
+  for (size_t i = 0; i < initial_positions.size(); i++) {
+    pose_graph_tools::PoseGraphNode pg_node;
+    pg_node.robot_id = robot_id;
+    pg_node.key = i + vertex_index_offset;
+    pg_node.pose =
+        GtsamToRos(gtsam::Pose3(gtsam::Rot3(), initial_positions[i]));
+    pg_mesh_msg->nodes.push_back(pg_node);
+  }
   return true;
 }
 
@@ -423,6 +559,25 @@ void KimeraPgmoInterface::visualizeDeformationGraph(
 
     publisher->publish(graph_viz);
   }
+}
+
+std::vector<gtsam::Pose3> KimeraPgmoInterface::getOptimizedTrajectory(
+    const size_t& robot_id) const {
+  // return the optimized trajectory (pose graph)
+  const char& robot_prefix = robot_id_to_prefix.at(robot_id);
+  std::vector<gtsam::Pose3> optimized_traj =
+      deformation_graph_.getOptimizedTrajectory(robot_prefix);
+  if (run_mode_ == RunMode::DPGMO) {
+    try {
+      for (size_t i = 0; i < optimized_traj.size(); i++) {
+        gtsam::Symbol node(robot_prefix, i);
+        optimized_traj[i] = dpgmo_values_.at<gtsam::Pose3>(node);
+      }
+    } catch (const std::exception& e) {
+      ROS_ERROR("Error in KimeraPgmo getOptimizedTrajectory. ");
+    }
+  }
+  return optimized_traj;
 }
 
 }  // namespace kimera_pgmo

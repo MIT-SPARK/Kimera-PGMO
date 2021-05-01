@@ -54,6 +54,7 @@ bool KimeraPgmo::loadParameters(const ros::NodeHandle& n) {
   if (!KimeraPgmoInterface::loadParameters(n)) return false;
 
   if (!n.getParam("frame_id", frame_id_)) return false;
+  if (!n.getParam("robot_id", robot_id_)) return false;
   if (n.getParam("output_prefix", output_prefix_)) {
     ROS_INFO("Saving optimized data to: %s/ mesh_pgmo.ply and traj_pgmo.csv",
              output_prefix_.c_str());
@@ -63,14 +64,6 @@ bool KimeraPgmo::loadParameters(const ros::NodeHandle& n) {
                output_prefix_.c_str());
     }
   }
-
-  // start the mesh compression module for deformation graph
-  double deformation_graph_resolution;
-  if (!n.getParam("d_graph_resolution", deformation_graph_resolution))
-    return false;
-
-  compression_.reset(new OctreeCompression(deformation_graph_resolution));
-
   return true;
 }
 
@@ -97,8 +90,11 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
   full_mesh_sub_ =
       nl.subscribe("full_mesh", 1, &KimeraPgmo::fullMeshCallback, this);
 
-  incremental_mesh_sub_ = nl.subscribe(
-      "incremental_mesh", 5, &KimeraPgmo::incrementalMeshCallback, this);
+  incremental_mesh_graph_sub_ =
+      nl.subscribe("mesh_graph_incremental",
+                   100,
+                   &KimeraPgmo::incrementalMeshGraphCallback,
+                   this);
 
   pose_graph_incremental_sub_ =
       nl.subscribe("pose_graph_incremental",
@@ -109,6 +105,9 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
   path_callback_sub_ =
       nl.subscribe("input_path", 2, &KimeraPgmo::optimizedPathCallback, this);
 
+  dpgmo_callback_sub_ =
+      nl.subscribe("optimized_values", 1, &KimeraPgmo::dpgmoCallback, this);
+
   // Initialize save mesh service
   save_mesh_srv_ =
       nl.advertiseService("save_mesh", &KimeraPgmo::saveMeshCallback, this);
@@ -116,6 +115,10 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
   // Initialize save trajectory service
   save_traj_srv_ = nl.advertiseService(
       "save_trajectory", &KimeraPgmo::saveTrajectoryCallback, this);
+
+  // Initialize request mesh edges service
+  req_mesh_edges_srv_ = nl.advertiseService(
+      "get_mesh_edges", &KimeraPgmo::requestMeshEdgesCallback, this);
   return true;
 }
 
@@ -130,20 +133,17 @@ bool KimeraPgmo::publishOptimizedMesh() const {
 
 // To publish optimized trajectory
 bool KimeraPgmo::publishOptimizedPath() const {
-  std::vector<gtsam::Pose3> gtsam_path =
-      deformation_graph_.getOptimizedTrajectory('a');
-
-  if (gtsam_path.size() == 0) return false;
+  if (optimized_path_.size() == 0) return false;
 
   std_msgs::Header msg_header;
   msg_header.stamp = ros::Time::now();
   msg_header.frame_id = frame_id_;
-  publishPath(gtsam_path, msg_header, &optimized_path_pub_);
+  publishPath(optimized_path_, msg_header, &optimized_path_pub_);
 
   if (optimized_odom_pub_.getNumSubscribers() > 0) {
     // Publish also the optimized odometry
     nav_msgs::Odometry odometry_msg;
-    const gtsam::Pose3 last_pose = gtsam_path[gtsam_path.size() - 1];
+    const gtsam::Pose3 last_pose = optimized_path_[optimized_path_.size() - 1];
     const gtsam::Rot3& rotation = last_pose.rotation();
     const gtsam::Quaternion& quaternion = rotation.toQuaternion();
 
@@ -174,7 +174,10 @@ void KimeraPgmo::incrementalPoseGraphCallback(
   auto start = std::chrono::high_resolution_clock::now();
 
   processIncrementalPoseGraph(
-      msg, &trajectory_, &unconnected_nodes_, &timestamps_, true);
+      msg, &trajectory_, &unconnected_nodes_, &timestamps_);
+
+  // Update optimized path
+  optimized_path_ = getOptimizedTrajectory(robot_id_);
 
   // Update transforms
   publishTransforms();
@@ -194,11 +197,14 @@ void KimeraPgmo::incrementalPoseGraphCallback(
   if (pose_graph_pub_.getNumSubscribers() > 0) {
     // Publish pose graph
     std::map<size_t, std::vector<ros::Time> > id_timestamps;
-    id_timestamps[0] = timestamps_;
+    id_timestamps[robot_id_] = timestamps_;
     const GraphMsgPtr& pose_graph_ptr =
         deformation_graph_.getPoseGraph(id_timestamps);
     pose_graph_pub_.publish(*pose_graph_ptr);
   }
+
+  // Publish optimized trajectory
+  publishOptimizedPath();
 }
 
 void KimeraPgmo::optimizedPathCallback(
@@ -211,7 +217,7 @@ void KimeraPgmo::optimizedPathCallback(
         "KimeraPgmo: Path subscriber does not support centralized multirobot "
         "scenario. ");
   }
-  processOptimizedPath(path_msg, 0);
+  processOptimizedPath(path_msg, robot_id_);
 
   // Stop timer and save
   auto stop = std::chrono::high_resolution_clock::now();
@@ -231,8 +237,10 @@ void KimeraPgmo::fullMeshCallback(
   // Start timer
   auto start = std::chrono::high_resolution_clock::now();
 
-  optimized_mesh_ =
-      optimizeAndPublishFullMesh(mesh_msg, &optimized_mesh_pub_, true);
+  if (optimizeFullMesh(mesh_msg, &optimized_mesh_) &&
+      optimized_mesh_pub_.getNumSubscribers() > 0) {
+    publishMesh(optimized_mesh_, mesh_msg->header, &optimized_mesh_pub_);
+  }
 
   // Stop timer and save
   auto stop = std::chrono::high_resolution_clock::now();
@@ -243,13 +251,12 @@ void KimeraPgmo::fullMeshCallback(
   return;
 }
 
-void KimeraPgmo::incrementalMeshCallback(
-    const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
+void KimeraPgmo::incrementalMeshGraphCallback(
+    const pose_graph_tools::PoseGraph::ConstPtr& mesh_graph_msg) {
   // Start timer
   auto start = std::chrono::high_resolution_clock::now();
 
-  processIncrementalMesh(
-      mesh_msg, compression_, timestamps_, &unconnected_nodes_, true);
+  processIncrementalMeshGraph(mesh_graph_msg, timestamps_, &unconnected_nodes_);
 
   // Stop timer and save
   auto stop = std::chrono::high_resolution_clock::now();
@@ -263,11 +270,40 @@ void KimeraPgmo::incrementalMeshCallback(
   return;
 }
 
-void KimeraPgmo::publishTransforms() {
-  const std::vector<gtsam::Pose3>& gtsam_path =
-      deformation_graph_.getOptimizedTrajectory('a');
-  const gtsam::Pose3& latest_pose = gtsam_path.at(trajectory_.size() - 1);
+void KimeraPgmo::dpgmoCallback(
+    const pose_graph_tools::PoseGraph::ConstPtr& msg) {
+  if (dpgmo_num_poses_last_req_.empty()) {
+    ROS_ERROR("Mesh factors request queue empty.");
+    return;
+  }
+  size_t num_poses = dpgmo_num_poses_last_req_.front();
+  dpgmo_num_poses_last_req_.pop();
+  for (auto node : msg->nodes) {
+    if (node.robot_id != robot_id_) {
+      ROS_WARN(
+          "Unexpected robot id in pose graph received in dpgmo callback. ");
+      continue;
+    }
+    char prefix = robot_id_to_prefix.at(robot_id_);
+    size_t index = node.key;
+    if (node.key >= num_poses) {
+      prefix = robot_id_to_vertex_prefix.at(robot_id_);
+      index = node.key - num_poses;  // account for offset
+    }
+    gtsam::Symbol key = gtsam::Symbol(prefix, index);
+    gtsam::Pose3 pose = RosToGtsam(node.pose);
+    insertDpgmoValues(key, pose);
+  }
 
+  // Update optimized path
+  optimized_path_ = getOptimizedTrajectory(robot_id_);
+}
+
+void KimeraPgmo::publishTransforms() {
+  if (optimized_path_.size() == 0) return;
+
+  const gtsam::Pose3& latest_pose =
+      optimized_path_.at(optimized_path_.size() - 1);
   const gtsam::Point3& pos = latest_pose.translation();
   const gtsam::Quaternion& quat = latest_pose.rotation().toQuaternion();
   // Create transfomr message
@@ -300,13 +336,24 @@ bool KimeraPgmo::saveMeshCallback(std_srvs::Empty::Request&,
 bool KimeraPgmo::saveTrajectoryCallback(std_srvs::Empty::Request&,
                                         std_srvs::Empty::Response&) {
   // Save trajectory
-  const std::vector<gtsam::Pose3>& optimized_path =
-      deformation_graph_.getOptimizedTrajectory('a');
   std::ofstream csvfile;
   std::string csv_name = output_prefix_ + std::string("/traj_pgmo.csv");
-  saveTrajectory(optimized_path, timestamps_, csv_name);
+  saveTrajectory(optimized_path_, timestamps_, csv_name);
   ROS_INFO("KimeraPgmo: Saved trajectories to file.");
   return true;
+}
+
+bool KimeraPgmo::requestMeshEdgesCallback(
+    kimera_pgmo::RequestMeshFactors::Request& request,
+    kimera_pgmo::RequestMeshFactors::Response& response) {
+  size_t offset_vertex_indices = 0;
+  if (request.reindex_vertices) offset_vertex_indices = trajectory_.size();
+  if (getConsistencyFactors(
+          request.robot_id, &response.mesh_factors, offset_vertex_indices)) {
+    dpgmo_num_poses_last_req_.push(trajectory_.size());
+    return true;
+  }
+  return false;
 }
 
 void KimeraPgmo::logStats(const std::string filename) const {

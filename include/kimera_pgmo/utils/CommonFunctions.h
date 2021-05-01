@@ -15,10 +15,12 @@
 #include <mesh_msgs/TriangleMesh.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/io/ply_io.h>
+#include <pcl/octree/octree_search.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 #include <pcl_msgs/PolygonMesh.h>
 #include <pose_graph_tools/PoseGraph.h>
 #include <voxblox_msgs/Mesh.h>
-#include <pcl/impl/point_types.hpp>
 
 namespace kimera_pgmo {
 
@@ -134,6 +136,28 @@ gtsam::Pose3 RosToGtsam(const geometry_msgs::Pose& transform);
  */
 geometry_msgs::Pose GtsamToRos(const gtsam::Pose3& pose);
 
+/*! \brief Converts a pcl point to gtsam point3
+ *  - point: pcl point
+ *  - outputs gtsam point3 position
+ */
+template <class point_type>
+inline gtsam::Point3 PclToGtsam(const point_type& point) {
+  return gtsam::Point3(static_cast<double>(point.x),
+                       static_cast<double>(point.y),
+                       static_cast<double>(point.z));
+}
+
+/*! \brief Converts a gtsam point3 to a pcl point
+ *  - point: gtsam point3
+ *  - outputs pcl point
+ */
+template <class point_type>
+inline point_type GtsamToPcl(const gtsam::Point3& point) {
+  return point_type(static_cast<double>(point.x()),
+                    static_cast<double>(point.y()),
+                    static_cast<double>(point.z()));
+}
+
 /*! \brief Combine two meshes into one
  *  - mesh1: partial mesh represented as pcl PolygonMesh
  *  - mesh2: partial mesh represented as pcl PolygonMesh
@@ -184,5 +208,20 @@ GraphMsgPtr GtsamGraphToRos(
  */
 bool SurfaceExists(
     const pcl::Vertices& new_surface,
-    const std::vector<std::vector<pcl::Vertices> >& adjacent_surfaces);
+    const std::map<size_t, std::vector<size_t> >& adjacent_surfaces,
+    const std::vector<pcl::Vertices>& surfaces);
+
+/*! \brief Check if a point is within the bounding box of an octree structure
+ *  - octree: pcl octree type
+ *  - p: point to query
+ */
+template <class point_type>
+bool InOctreeBoundingBox(
+    const pcl::octree::OctreePointCloudSearch<point_type>& octree,
+    const point_type& p) {
+  double min_x, min_y, min_z, max_x, max_y, max_z;
+  octree.getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
+  return (p.x >= min_x && p.x <= max_x) && (p.y >= min_y && p.y <= max_y) &&
+         (p.z >= min_z && p.z <= max_z);
+}
 }  // namespace kimera_pgmo

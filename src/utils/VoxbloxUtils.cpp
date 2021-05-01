@@ -10,11 +10,12 @@
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/io/ply_io.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl_msgs/PolygonMesh.h>
 #include <voxblox_msgs/Mesh.h>
 #include <voxblox_msgs/MeshBlock.h>
-#include <pcl/impl/point_types.hpp>
 
 #include "kimera_pgmo/utils/CommonFunctions.h"
 #include "kimera_pgmo/utils/VoxbloxUtils.h"
@@ -25,10 +26,11 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
     const voxblox_msgs::MeshBlock& mesh_block,
     const float& block_edge_length,
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
-    std::vector<pcl::Vertices>* triangles,
+    boost::shared_ptr<std::vector<pcl::Vertices> > triangles,
     const std::vector<size_t>& original_indices,
-    std::vector<size_t>* updated_indices,
-    std::map<size_t, std::vector<pcl::Vertices> >* adjacent_surfaces) {
+    boost::shared_ptr<std::vector<size_t> > updated_indices,
+    boost::shared_ptr<std::map<size_t, std::vector<pcl::Vertices> > >
+        adjacent_surfaces) {
   // For speed, assume mesh is incrementally increasing
   if (mesh_block.x.size() <= original_indices.size()) {
     *updated_indices = original_indices;
@@ -138,7 +140,8 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
 
 bool CheckAndUpdateAdjacentSurfaces(
     const pcl::Vertices& new_triangle,
-    std::map<size_t, std::vector<pcl::Vertices> >* adjacent_surfaces) {
+    boost::shared_ptr<std::map<size_t, std::vector<pcl::Vertices> > >
+        adjacent_surfaces) {
   if (new_triangle.vertices.size() < 3) return false;
   size_t idx0 = new_triangle.vertices.at(0);
   bool exist = false;
@@ -179,7 +182,10 @@ pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
 
   VoxbloxMeshBlockToPolygonMesh(
-      mesh_block, block_edge_length, vertices_cloud, &new_mesh.polygons);
+      mesh_block,
+      block_edge_length,
+      vertices_cloud,
+      boost::make_shared<std::vector<pcl::Vertices> >(new_mesh.polygons));
 
   pcl::toPCLPointCloud2(*vertices_cloud, new_mesh.cloud);
   return new_mesh;
@@ -189,9 +195,13 @@ void VoxbloxMeshBlockToPolygonMesh(
     const voxblox_msgs::MeshBlock& mesh_block,
     float block_edge_length,
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
-    std::vector<pcl::Vertices>* triangles) {
+    boost::shared_ptr<std::vector<pcl::Vertices> > triangles,
+    const bool& check_duplicates_full) {
+  assert(vertices != nullptr);
+  assert(triangles != nullptr);
   // Extract mesh block
-  size_t vertex_index = 0u;
+  size_t vertex_index = vertices->size();
+  size_t first_index_to_check = (check_duplicates_full) ? 0 : vertices->size();
   // translate vertex data from message to voxblox mesh
   pcl::Vertices triangle;
   for (size_t i = 0; i < mesh_block.x.size(); ++i) {
@@ -225,8 +235,8 @@ void VoxbloxMeshBlockToPolygonMesh(
     // Search if vertex inserted
     size_t vidx;
     bool point_exists = false;
-    // TODO(Yun) check if this needed. discard to save time
-    for (size_t k = 0; k < vertices->points.size(); k++) {
+    // Check for duplicates.
+    for (size_t k = first_index_to_check; k < vertices->points.size(); k++) {
       if (mesh_x == vertices->points[k].x && mesh_y == vertices->points[k].y &&
           mesh_z == vertices->points[k].z) {
         vidx = k;

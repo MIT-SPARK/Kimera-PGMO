@@ -1,5 +1,5 @@
 /**
- * @file   test_voxblox_processing.cpp
+ * @file   test_mesh_frontend.cpp
  * @brief  Unit-tests for the graph structure
  * @author Yun Chang
  */
@@ -12,23 +12,30 @@
 
 #include "gtest/gtest.h"
 
-#include "kimera_pgmo/VoxbloxProcessing.h"
+#include "kimera_pgmo/MeshFrontend.h"
+#include "kimera_pgmo/utils/CommonFunctions.h"
 #include "kimera_pgmo/utils/VoxbloxUtils.h"
 
 namespace kimera_pgmo {
 
-class VoxbloxProcessingTest : public ::testing::Test {
+class MeshFrontendTest : public ::testing::Test {
  protected:
-  VoxbloxProcessingTest() {
+  MeshFrontendTest() {
     system("rosparam set horizon 1.0");
     system("rosparam set robot_id 0");
+    system("rosparam set d_graph_resolution 0.5");
   }
 
-  ~VoxbloxProcessingTest() {}
+  ~MeshFrontendTest() {}
+
+  // Test the created mesh graph
+  inline pose_graph_tools::PoseGraph GetLastProcessedMeshGraph() const {
+    return vp_.getLastProcessedMeshGraph();
+  }
 
   // Test update called in timer event
-  pcl::PolygonMesh ProcessVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
-    return vp_.processVoxbloxMesh(msg);
+  void ProcessVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
+    vp_.processVoxbloxMesh(msg);
   }
 
   voxblox_msgs::MeshBlock CreateMeshBlock(
@@ -161,13 +168,19 @@ class VoxbloxProcessingTest : public ::testing::Test {
   void GetFullMesh(pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
                    std::vector<pcl::Vertices>* triangles) {
     *vertices = *(vp_.vertices_);
-    *triangles = vp_.triangles_;
+    *triangles = *(vp_.triangles_);
   }
 
-  VoxbloxProcessing vp_;
+  void GetSimplifiedMesh(pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
+                         std::vector<pcl::Vertices>* triangles) {
+    *vertices = *(vp_.graph_vertices_);
+    *triangles = *(vp_.graph_triangles_);
+  }
+
+  MeshFrontend vp_;
 };
 
-TEST_F(VoxbloxProcessingTest, initialize) {
+TEST_F(MeshFrontendTest, initialize) {
   // Test initialization
   ros::NodeHandle nh;
   system("rosparam set output_mesh_resolution 0.1");
@@ -175,8 +188,9 @@ TEST_F(VoxbloxProcessingTest, initialize) {
   ASSERT_TRUE(init);
 }
 
-TEST_F(VoxbloxProcessingTest, partialMesh) {
-  // Test the construction of the martial mesh during callback
+TEST_F(MeshFrontendTest, simplifiedMesh_high_res) {
+  // Test the construction of the simplified mesh during callback
+  // Case where graph resolution is higher than input mesh
   ros::NodeHandle nh;
   system("rosparam set output_mesh_resolution 0.1");
   vp_.initialize(nh);
@@ -184,63 +198,107 @@ TEST_F(VoxbloxProcessingTest, partialMesh) {
   voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
   *mesh1 = CreateSimpleMesh1();
 
-  pcl::PolygonMesh partial = ProcessVoxbloxMesh(mesh1);
-  pcl::PointCloud<pcl::PointXYZRGBA> partial_vertices;
-  pcl::fromPCLPointCloud2(partial.cloud, partial_vertices);
+  ProcessVoxbloxMesh(mesh1);
 
-  EXPECT_EQ(size_t(4), partial_vertices.points.size());
-  EXPECT_EQ(size_t(2), partial.polygons.size());
+  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr simplified_vertices(
+      new pcl::PointCloud<pcl::PointXYZRGBA>);
+  std::vector<pcl::Vertices> triangles;
+  GetSimplifiedMesh(simplified_vertices, &triangles);
+
+  EXPECT_EQ(size_t(4), simplified_vertices->points.size());
+  EXPECT_EQ(size_t(2), triangles.size());
   // Test points and triangles
-  EXPECT_NEAR(1, partial_vertices.points[1].x, 1e-3);
-  EXPECT_NEAR(1, partial_vertices.points[3].x, 1e-3);
-  EXPECT_NEAR(1, partial_vertices.points[3].y, 1e-3);
-  EXPECT_EQ(2, partial.polygons[0].vertices[2]);
-  EXPECT_EQ(1, partial.polygons[1].vertices[0]);
+  EXPECT_NEAR(1, simplified_vertices->points[1].x, 1e-3);
+  EXPECT_NEAR(1, simplified_vertices->points[3].x, 1e-3);
+  EXPECT_NEAR(1, simplified_vertices->points[3].y, 1e-3);
+  EXPECT_EQ(2, triangles[0].vertices[2]);
+  EXPECT_EQ(1, triangles[1].vertices[0]);
 
   // Add second mesh
   voxblox_msgs::Mesh::Ptr mesh2(new voxblox_msgs::Mesh);
   *mesh2 = CreateSimpleMesh2();
-  partial = ProcessVoxbloxMesh(mesh2);
-  pcl::fromPCLPointCloud2(partial.cloud, partial_vertices);
+  ProcessVoxbloxMesh(mesh2);
+  GetSimplifiedMesh(simplified_vertices, &triangles);
 
-  EXPECT_EQ(size_t(12), partial_vertices.points.size());
-  EXPECT_EQ(size_t(6), partial.polygons.size());
+  EXPECT_EQ(size_t(12), simplified_vertices->points.size());
+  EXPECT_EQ(size_t(6), triangles.size());
   // Test points and triangles
-  EXPECT_NEAR(3, partial_vertices.points[5].x, 1e-3);
-  EXPECT_NEAR(3, partial_vertices.points[7].x, 1e-3);
-  EXPECT_NEAR(1, partial_vertices.points[7].y, 1e-3);
-  EXPECT_EQ(6, partial.polygons[2].vertices[2]);
-  EXPECT_EQ(5, partial.polygons[3].vertices[0]);
+  EXPECT_NEAR(3, simplified_vertices->points[5].x, 1e-3);
+  EXPECT_NEAR(3, simplified_vertices->points[7].x, 1e-3);
+  EXPECT_NEAR(1, simplified_vertices->points[7].y, 1e-3);
+  EXPECT_EQ(6, triangles[2].vertices[2]);
+  EXPECT_EQ(5, triangles[3].vertices[0]);
 
-  EXPECT_NEAR(2, partial_vertices.points[9].y, 1e-3);
-  EXPECT_NEAR(3, partial_vertices.points[11].x, 1e-3);
-  EXPECT_NEAR(3, partial_vertices.points[11].y, 1e-3);
-  EXPECT_EQ(10, partial.polygons[4].vertices[2]);
-  EXPECT_EQ(9, partial.polygons[5].vertices[0]);
+  EXPECT_NEAR(2, simplified_vertices->points[9].y, 1e-3);
+  EXPECT_NEAR(3, simplified_vertices->points[11].x, 1e-3);
+  EXPECT_NEAR(3, simplified_vertices->points[11].y, 1e-3);
+  EXPECT_EQ(10, triangles[4].vertices[2]);
 
-  // Add third mesh
+  // This last mesh has stamp 11.6 so last mesh is not within time horizon
+  // meaning that for duplicated blocks, won't check if points duplicated
   voxblox_msgs::Mesh::Ptr mesh3(new voxblox_msgs::Mesh);
   *mesh3 = CreateSimpleMesh3();
-  partial = ProcessVoxbloxMesh(mesh3);
-  pcl::fromPCLPointCloud2(partial.cloud, partial_vertices);
+  ProcessVoxbloxMesh(mesh3);
+  GetSimplifiedMesh(simplified_vertices, &triangles);
 
-  EXPECT_EQ(size_t(8), partial_vertices.points.size());
-  EXPECT_EQ(size_t(4), partial.polygons.size());
+  EXPECT_EQ(size_t(20), simplified_vertices->points.size());
+  EXPECT_EQ(size_t(10), triangles.size());
   // Test points and triangles
-  EXPECT_NEAR(1, partial_vertices.points[1].x, 1e-3);
-  EXPECT_NEAR(1, partial_vertices.points[3].x, 1e-3);
-  EXPECT_NEAR(1, partial_vertices.points[3].y, 1e-3);
-  EXPECT_EQ(2, partial.polygons[0].vertices[2]);
-  EXPECT_EQ(1, partial.polygons[1].vertices[0]);
+  EXPECT_NEAR(1, simplified_vertices->points[13].x, 1e-3);
+  EXPECT_NEAR(1, simplified_vertices->points[15].x, 1e-3);
+  EXPECT_NEAR(1, simplified_vertices->points[15].y, 1e-3);
+  EXPECT_EQ(14, triangles[6].vertices[2]);
+  EXPECT_EQ(13, triangles[7].vertices[0]);
 
-  EXPECT_NEAR(3, partial_vertices.points[5].x, 1e-3);
-  EXPECT_NEAR(2, partial_vertices.points[7].z, 1e-3);
-  EXPECT_NEAR(1, partial_vertices.points[7].y, 1e-3);
-  EXPECT_EQ(6, partial.polygons[2].vertices[2]);
-  EXPECT_EQ(5, partial.polygons[3].vertices[0]);
+  EXPECT_NEAR(3, simplified_vertices->points[17].x, 1e-3);
+  EXPECT_NEAR(2, simplified_vertices->points[19].z, 1e-3);
+  EXPECT_NEAR(1, simplified_vertices->points[19].y, 1e-3);
+  EXPECT_EQ(18, triangles[8].vertices[2]);
+  EXPECT_EQ(17, triangles[9].vertices[0]);
 }
 
-TEST_F(VoxbloxProcessingTest, fullMesh) {
+TEST_F(MeshFrontendTest, simplifiedMesh_low_res) {
+  // Test the construction of the simplified mesh during callback
+  // Case where graph resolution is lower than input mesh
+  ros::NodeHandle nh;
+  system("rosparam set output_mesh_resolution 0.1");
+  system("rosparam set d_graph_resolution 1.5");
+  vp_.initialize(nh);
+
+  voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
+  *mesh1 = CreateSimpleMesh1();
+
+  ProcessVoxbloxMesh(mesh1);
+
+  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr simplified_vertices(
+      new pcl::PointCloud<pcl::PointXYZRGBA>);
+  std::vector<pcl::Vertices> triangles;
+  GetSimplifiedMesh(simplified_vertices, &triangles);
+
+  EXPECT_EQ(size_t(0), simplified_vertices->points.size());
+  EXPECT_EQ(size_t(0), triangles.size());
+
+  // Add second mesh
+  voxblox_msgs::Mesh::Ptr mesh2(new voxblox_msgs::Mesh);
+  *mesh2 = CreateSimpleMesh2();
+  ProcessVoxbloxMesh(mesh2);
+  GetSimplifiedMesh(simplified_vertices, &triangles);
+
+  EXPECT_EQ(size_t(0), simplified_vertices->points.size());
+  EXPECT_EQ(size_t(0), triangles.size());
+
+  // This last mesh has stamp 11.6 so last mesh is not within time horizon
+  // meaning that for duplicated blocks, won't check if points duplicated
+  voxblox_msgs::Mesh::Ptr mesh3(new voxblox_msgs::Mesh);
+  *mesh3 = CreateSimpleMesh3();
+  ProcessVoxbloxMesh(mesh3);
+  GetSimplifiedMesh(simplified_vertices, &triangles);
+
+  EXPECT_EQ(size_t(0), simplified_vertices->points.size());
+  EXPECT_EQ(size_t(0), triangles.size());
+}
+
+TEST_F(MeshFrontendTest, fullMesh) {
   // Test the updated full mesh after callback
   ros::NodeHandle nh;
   system("rosparam set output_mesh_resolution 0.1");
@@ -308,7 +366,7 @@ TEST_F(VoxbloxProcessingTest, fullMesh) {
   EXPECT_EQ(17, triangles[9].vertices[0]);
 }
 
-TEST_F(VoxbloxProcessingTest, compression1) {
+TEST_F(MeshFrontendTest, compression1) {
   // Test with higher resolution to see if compression works
   ros::NodeHandle nh;
   system("rosparam set output_mesh_resolution 4.0");
@@ -324,12 +382,8 @@ TEST_F(VoxbloxProcessingTest, compression1) {
   std::vector<pcl::Vertices> triangles;
   GetFullMesh(full_vertices, &triangles);
 
-  EXPECT_EQ(size_t(1), full_vertices->points.size());
+  EXPECT_EQ(size_t(0), full_vertices->points.size());
   EXPECT_EQ(size_t(0), triangles.size());
-  // Test points and triangles
-  EXPECT_NEAR(0, full_vertices->points[0].x, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].y, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].z, 1e-3);
 
   // Add second mesh
   voxblox_msgs::Mesh::Ptr mesh2(new voxblox_msgs::Mesh);
@@ -337,12 +391,8 @@ TEST_F(VoxbloxProcessingTest, compression1) {
   ProcessVoxbloxMesh(mesh2);
   GetFullMesh(full_vertices, &triangles);
 
-  EXPECT_EQ(size_t(1), full_vertices->points.size());
+  EXPECT_EQ(size_t(0), full_vertices->points.size());
   EXPECT_EQ(size_t(0), triangles.size());
-  // Test points and triangles
-  EXPECT_NEAR(0, full_vertices->points[0].x, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].y, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].z, 1e-3);
 
   // This last mesh has stamp 11.6 so last mesh is not within time horizon
   // meaning that for duplicated blocks, won't check if points duplicated
@@ -351,19 +401,11 @@ TEST_F(VoxbloxProcessingTest, compression1) {
   ProcessVoxbloxMesh(mesh3);
   GetFullMesh(full_vertices, &triangles);
 
-  EXPECT_EQ(size_t(2), full_vertices->points.size());
+  EXPECT_EQ(size_t(0), full_vertices->points.size());
   EXPECT_EQ(size_t(0), triangles.size());
-  // Test points and triangles
-  EXPECT_NEAR(0, full_vertices->points[0].x, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].y, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].z, 1e-3);
-
-  EXPECT_NEAR(0, full_vertices->points[1].x, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[1].y, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[1].z, 1e-3);
 }
 
-TEST_F(VoxbloxProcessingTest, compression2) {
+TEST_F(MeshFrontendTest, compression2) {
   // Test with higher resolution to see if compression works
   ros::NodeHandle nh;
   system("rosparam set output_mesh_resolution 4.0");
@@ -379,12 +421,8 @@ TEST_F(VoxbloxProcessingTest, compression2) {
   std::vector<pcl::Vertices> triangles;
   GetFullMesh(full_vertices, &triangles);
 
-  EXPECT_EQ(size_t(1), full_vertices->points.size());
+  EXPECT_EQ(size_t(0), full_vertices->points.size());
   EXPECT_EQ(size_t(0), triangles.size());
-  // Test points and triangles
-  EXPECT_NEAR(0, full_vertices->points[0].x, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].y, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].z, 1e-3);
 
   // process another mesh
   voxblox_msgs::Mesh::Ptr mesh4(new voxblox_msgs::Mesh);
@@ -392,33 +430,109 @@ TEST_F(VoxbloxProcessingTest, compression2) {
   ProcessVoxbloxMesh(mesh4);
   GetFullMesh(full_vertices, &triangles);
 
-  EXPECT_EQ(size_t(5), full_vertices->points.size());
-  EXPECT_EQ(size_t(4), triangles.size());
-  // Test points and triangles
-  EXPECT_NEAR(0, full_vertices->points[0].x, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].y, 1e-3);
-  EXPECT_NEAR(0, full_vertices->points[0].z, 1e-3);
+  EXPECT_EQ(size_t(0), full_vertices->points.size());
+  EXPECT_EQ(size_t(0), triangles.size());
+}
 
-  EXPECT_NEAR(4.5, full_vertices->points[3].x, 1e-3);
-  EXPECT_NEAR(4.5, full_vertices->points[3].y, 1e-3);
-  EXPECT_NEAR(0.0, full_vertices->points[3].z, 1e-3);
+TEST_F(MeshFrontendTest, meshGraph) {
+  // Test with higher resolution to see if compression works
+  ros::NodeHandle nh;
+  system("rosparam set output_mesh_resolution 4.0");
+  vp_.initialize(nh);
 
-  EXPECT_NEAR(4.5, full_vertices->points[4].x, 1e-3);
-  EXPECT_NEAR(3.5, full_vertices->points[4].y, 1e-3);
-  EXPECT_NEAR(4.5, full_vertices->points[4].z, 1e-3);
+  voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
+  *mesh1 = CreateSimpleMesh1();
 
-  EXPECT_EQ(0, triangles[0].vertices[0]);
-  EXPECT_EQ(1, triangles[1].vertices[0]);
+  ProcessVoxbloxMesh(mesh1);
 
-  EXPECT_EQ(0, triangles[2].vertices[0]);
-  EXPECT_EQ(2, triangles[2].vertices[2]);
-  EXPECT_EQ(4, triangles[3].vertices[0]);
+  pose_graph_tools::PoseGraph last_mesh_graph = GetLastProcessedMeshGraph();
+
+  // Check size
+  EXPECT_EQ(4, last_mesh_graph.nodes.size());
+  EXPECT_EQ(10, last_mesh_graph.edges.size());
+
+  // Check first and last edge
+  EXPECT_EQ(0, last_mesh_graph.edges[0].robot_from);
+  EXPECT_EQ(0, last_mesh_graph.edges[0].robot_to);
+  EXPECT_EQ(0, last_mesh_graph.edges[0].key_from);
+  EXPECT_EQ(1, last_mesh_graph.edges[0].key_to);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
+                          RosToGtsam(last_mesh_graph.edges[0].pose),
+                          1e-4));
+  EXPECT_EQ(0, last_mesh_graph.edges[9].robot_from);
+  EXPECT_EQ(0, last_mesh_graph.edges[9].robot_to);
+  EXPECT_EQ(2, last_mesh_graph.edges[9].key_from);
+  EXPECT_EQ(3, last_mesh_graph.edges[9].key_to);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
+                          RosToGtsam(last_mesh_graph.edges[9].pose),
+                          1e-4));
+
+  // Check first and last node
+  EXPECT_EQ(0, last_mesh_graph.nodes[0].robot_id);
+  EXPECT_EQ(0, last_mesh_graph.nodes[0].key);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, 0)),
+                          RosToGtsam(last_mesh_graph.nodes[0].pose),
+                          1e-4));
+
+  EXPECT_EQ(0, last_mesh_graph.nodes[3].robot_id);
+  EXPECT_EQ(3, last_mesh_graph.nodes[3].key);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
+                          RosToGtsam(last_mesh_graph.nodes[3].pose),
+                          1e-4));
+
+  // process another mesh
+  voxblox_msgs::Mesh::Ptr mesh4(new voxblox_msgs::Mesh);
+  *mesh4 = CreateSimpleMesh4();
+  ProcessVoxbloxMesh(mesh4);
+
+  last_mesh_graph = GetLastProcessedMeshGraph();
+
+  // Check size
+  EXPECT_EQ(8, last_mesh_graph.nodes.size());
+  EXPECT_EQ(20, last_mesh_graph.edges.size());
+
+  // Check first and last edge
+  EXPECT_EQ(0, last_mesh_graph.edges[0].robot_from);
+  EXPECT_EQ(0, last_mesh_graph.edges[0].robot_to);
+  EXPECT_EQ(4, last_mesh_graph.edges[0].key_from);
+  EXPECT_EQ(5, last_mesh_graph.edges[0].key_to);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
+                          RosToGtsam(last_mesh_graph.edges[0].pose),
+                          1e-4));
+  EXPECT_EQ(0, last_mesh_graph.edges[19].robot_from);
+  EXPECT_EQ(0, last_mesh_graph.edges[19].robot_to);
+  EXPECT_EQ(10, last_mesh_graph.edges[19].key_from);
+  EXPECT_EQ(11, last_mesh_graph.edges[19].key_to);
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
+                          RosToGtsam(last_mesh_graph.edges[9].pose),
+                          1e-4));
+
+  // Check first and last node
+  EXPECT_EQ(0, last_mesh_graph.nodes[0].robot_id);
+  EXPECT_EQ(4, last_mesh_graph.nodes[0].key);
+  EXPECT_TRUE(gtsam::assert_equal(
+      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3.5, 3.5, 0)),
+      RosToGtsam(last_mesh_graph.nodes[0].pose),
+      1e-4));
+
+  EXPECT_EQ(0, last_mesh_graph.nodes[7].robot_id);
+  EXPECT_EQ(11, last_mesh_graph.nodes[7].key);
+  EXPECT_TRUE(gtsam::assert_equal(
+      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(4.5, 4.5, 3.5)),
+      RosToGtsam(last_mesh_graph.nodes[7].pose),
+      1e-4));
 }
 
 }  // namespace kimera_pgmo
 
 int main(int argc, char** argv) {
   testing::InitGoogleTest(&argc, argv);
-  ros::init(argc, argv, "kimera_pgmo_test_voxblox_processing");
+  ros::init(argc, argv, "kimera_pgmo_test_mesh_frontend");
   return RUN_ALL_TESTS();
 }
