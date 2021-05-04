@@ -255,6 +255,7 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
   }
 
   // Update rpgo
+  if (do_not_optimize_) optimize = false;
   pgo_->update(new_mesh_factors, new_mesh_nodes, optimize);
   values_ = pgo_->calculateEstimate();
   nfg_ = pgo_->getFactorsUnsafe();

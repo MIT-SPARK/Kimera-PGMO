@@ -288,7 +288,8 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
   }
 
   // Add to deformation graph
-  deformation_graph_.addNewMeshEdgesAndNodes(new_mesh_edges, new_mesh_nodes);
+  deformation_graph_.addNewMeshEdgesAndNodes(
+      new_mesh_edges, new_mesh_nodes, false);
 
   double msg_time;
   if (use_msg_time_) {
@@ -334,7 +335,7 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
   if (!connection) {
     ROS_WARN("KimeraPgmo: Partial mesh not connected to pose graph. ");
   }
-  deformation_graph_.optimize();
+  if (run_mode_ != RunMode::DPGMO) deformation_graph_.optimize();
 
   return;
 }
@@ -565,17 +566,19 @@ std::vector<gtsam::Pose3> KimeraPgmoInterface::getOptimizedTrajectory(
     const size_t& robot_id) const {
   // return the optimized trajectory (pose graph)
   const char& robot_prefix = robot_id_to_prefix.at(robot_id);
-  std::vector<gtsam::Pose3> optimized_traj =
-      deformation_graph_.getOptimizedTrajectory(robot_prefix);
+  std::vector<gtsam::Pose3> optimized_traj;
   if (run_mode_ == RunMode::DPGMO) {
-    try {
-      for (size_t i = 0; i < optimized_traj.size(); i++) {
-        gtsam::Symbol node(robot_prefix, i);
-        optimized_traj[i] = dpgmo_values_.at<gtsam::Pose3>(node);
+    size_t n = deformation_graph_.getOptimizedTrajectory(robot_prefix).size();
+    for (size_t i = 0; i < n; i++) {
+      gtsam::Symbol node(robot_prefix, i);
+      if (dpgmo_values_.exists(node)) {
+        optimized_traj.push_back(dpgmo_values_.at<gtsam::Pose3>(node));
+      } else {
+        break;
       }
-    } catch (const std::exception& e) {
-      ROS_ERROR("Error in KimeraPgmo getOptimizedTrajectory. ");
     }
+  } else {
+    optimized_traj = deformation_graph_.getOptimizedTrajectory(robot_prefix);
   }
   return optimized_traj;
 }
