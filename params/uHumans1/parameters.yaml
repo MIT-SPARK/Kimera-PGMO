@@ -3,3 +3,4 @@ embed_trajectory_delta_t: 0.1 # seconds (prints warning if delta exceeds, not st
 rpgo:
   translation_threshold: 0.01
   rotation_threshold: 0.001
+  gnc_alpha: 0.5

@@ -31,11 +31,16 @@ DeformationGraph::DeformationGraph()
 DeformationGraph::~DeformationGraph() {}
 
 bool DeformationGraph::initialize(double pgo_trans_threshold,
-                                  double pgo_rot_threshold) {
+                                  double pgo_rot_threshold,
+                                  double gnc_alpha) {
   // Initialize pgo_:
   KimeraRPGO::RobustSolverParams pgo_params;
   pgo_params.setPcmSimple3DParams(
       pgo_trans_threshold, pgo_rot_threshold, KimeraRPGO::Verbosity::UPDATE);
+  // Use GNC (confidence value)
+  if (gnc_alpha > 0 && gnc_alpha < 1)
+    pgo_params.setGncInlierCostThresholdsAtProbability(gnc_alpha);
+  // Initialize RPGO
   pgo_ = std::unique_ptr<KimeraRPGO::RobustSolver>(
       new KimeraRPGO::RobustSolver(pgo_params));
   return true;
