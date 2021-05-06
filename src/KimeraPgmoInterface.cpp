@@ -499,21 +499,32 @@ bool KimeraPgmoInterface::getConsistencyFactors(
   return true;
 }
 
-void KimeraPgmoInterface::visualizeDeformationGraph(
-    const ros::Publisher* publisher) const {
-  if (publisher->getNumSubscribers() > 0) {
+void KimeraPgmoInterface::visualizeDeformationGraphMeshEdges(
+    const ros::Publisher* mesh_mesh_pub,
+    const ros::Publisher* pose_mesh_pub) const {
+  if (mesh_mesh_pub->getNumSubscribers() > 0 ||
+      pose_mesh_pub->getNumSubscribers() > 0) {
     // First get the latest estimates and factors
     const gtsam::Values& graph_values = deformation_graph_.getGtsamValues();
     const gtsam::NonlinearFactorGraph& graph_factors =
         deformation_graph_.getGtsamFactors();
 
-    visualization_msgs::Marker graph_viz;
-    graph_viz.header.frame_id = "world";
-    graph_viz.header.stamp = ros::Time::now();
-    graph_viz.id = 0;
-    graph_viz.action = visualization_msgs::Marker::ADD;
-    graph_viz.type = visualization_msgs::Marker::LINE_LIST;
-    graph_viz.scale.x = 0.02;
+    // Msg for the mesh to mesh edges
+    visualization_msgs::Marker mesh_mesh_viz;
+    mesh_mesh_viz.header.frame_id = "world";
+    mesh_mesh_viz.header.stamp = ros::Time::now();
+    mesh_mesh_viz.id = 0;
+    mesh_mesh_viz.action = visualization_msgs::Marker::ADD;
+    mesh_mesh_viz.type = visualization_msgs::Marker::LINE_LIST;
+    mesh_mesh_viz.scale.x = 0.02;
+    // Msg for the pose to mesh edges
+    visualization_msgs::Marker pose_mesh_viz;
+    pose_mesh_viz.header.frame_id = "world";
+    pose_mesh_viz.header.stamp = ros::Time::now();
+    pose_mesh_viz.id = 0;
+    pose_mesh_viz.action = visualization_msgs::Marker::ADD;
+    pose_mesh_viz.type = visualization_msgs::Marker::LINE_LIST;
+    pose_mesh_viz.scale.x = 0.02;
 
     for (auto factor : graph_factors) {
       // Only interested in edges here
@@ -527,38 +538,41 @@ void KimeraPgmoInterface::visualizeDeformationGraph(
       const bool back_is_pose_vertex =
           (robot_prefix_to_id.find(back.chr()) != robot_prefix_to_id.end());
 
-      graph_viz.points.push_back(
-          GtsamToRos(graph_values.at<gtsam::Pose3>(front)).position);
-      graph_viz.points.push_back(
-          GtsamToRos(graph_values.at<gtsam::Pose3>(back)).position);
-
       // Three types: pose-to-pose, pose-to-mesh, mesh-to-mesh
       // color accordingly
       std_msgs::ColorRGBA color;
       if (front_is_pose_vertex && back_is_pose_vertex) {
         // pose-to-pose
+        continue;
+      } else if (!front_is_pose_vertex && !back_is_pose_vertex) {
+        // mesh-to-mesh
+        mesh_mesh_viz.points.push_back(
+            GtsamToRos(graph_values.at<gtsam::Pose3>(front)).position);
+        mesh_mesh_viz.points.push_back(
+            GtsamToRos(graph_values.at<gtsam::Pose3>(back)).position);
         color.r = 1.0;
         color.g = 0.0;
         color.b = 0.0;
         color.a = 0.8;
-      } else if (!front_is_pose_vertex && !back_is_pose_vertex) {
-        // mesh-to-mesh
-        color.r = 0.0;
-        color.g = 1.0;
-        color.b = 0.0;
-        color.a = 0.8;
+        mesh_mesh_viz.colors.push_back(color);
+        mesh_mesh_viz.colors.push_back(color);
       } else {
         // pose-to-mesh
+        pose_mesh_viz.points.push_back(
+            GtsamToRos(graph_values.at<gtsam::Pose3>(front)).position);
+        pose_mesh_viz.points.push_back(
+            GtsamToRos(graph_values.at<gtsam::Pose3>(back)).position);
         color.r = 1.0;
         color.g = 1.0;
         color.b = 0.2;
         color.a = 0.3;
+        pose_mesh_viz.colors.push_back(color);
+        pose_mesh_viz.colors.push_back(color);
       }
-      graph_viz.colors.push_back(color);
-      graph_viz.colors.push_back(color);
     }
-
-    publisher->publish(graph_viz);
+    // Publish the msg with the edges
+    mesh_mesh_pub->publish(mesh_mesh_viz);
+    pose_mesh_pub->publish(pose_mesh_viz);
   }
 }
 

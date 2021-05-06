@@ -173,8 +173,14 @@ class KimeraPgmoInterface {
    */
   gtsam::Values inline getDpgmoValues() const { return dpgmo_values_; }
 
-  /*! \brief visualize the edges of the deformation graph  */
-  void visualizeDeformationGraph(const ros::Publisher* publisher) const;
+  /*! \brief visualize the mesh-to-mesh edges and pose-to-mesh edges of the
+  deformation graph
+  - mesh_mesh_pub: publisher publishing the mesh to mesh edges
+  - pose_mesh_pub: publisher publishing the pose to mesh edges
+   */
+  void visualizeDeformationGraphMeshEdges(
+      const ros::Publisher* mesh_mesh_pub,
+      const ros::Publisher* pose_mesh_pub) const;
 
  protected:
   enum class RunMode {
