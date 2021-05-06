@@ -134,7 +134,8 @@ class KimeraPgmo : public KimeraPgmoInterface {
   ros::Publisher optimized_path_pub_;  // Unused for now (TODO)
   ros::Publisher optimized_odom_pub_;  // Unused for now (TODO)
   ros::Publisher pose_graph_pub_;
-  ros::Publisher viz_deformation_graph_pub_;
+  ros::Publisher viz_mesh_mesh_edges_pub_;
+  ros::Publisher viz_pose_mesh_edges_pub_;
 
   // Transform broadcaster
   tf2_ros::TransformBroadcaster tf_broadcast_;

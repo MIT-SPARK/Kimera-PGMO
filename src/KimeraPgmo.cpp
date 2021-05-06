@@ -78,8 +78,10 @@ bool KimeraPgmo::createPublishers(const ros::NodeHandle& n) {
       nl.advertise<pose_graph_tools::PoseGraph>("pose_graph", 1, false);
   optimized_path_pub_ =
       nl.advertise<nav_msgs::Path>("optimized_path", 1, false);
-  viz_deformation_graph_pub_ =
-      nl.advertise<visualization_msgs::Marker>("deformation_graph", 10, false);
+  viz_mesh_mesh_edges_pub_ = nl.advertise<visualization_msgs::Marker>(
+      "deformation_graph_mesh_mesh", 10, false);
+  viz_pose_mesh_edges_pub_ = nl.advertise<visualization_msgs::Marker>(
+      "deformation_graph_pose_mesh", 10, false);
   return true;
 }
 
@@ -264,9 +266,9 @@ void KimeraPgmo::incrementalMeshGraphCallback(
       std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
   inc_mesh_cb_time_ = spin_duration.count();
 
-  // Publish deformation graph visualization
-  visualizeDeformationGraph(&viz_deformation_graph_pub_);
-
+  // Publish deformation graph edges visualization
+  visualizeDeformationGraphMeshEdges(&viz_mesh_mesh_edges_pub_,
+                                     &viz_pose_mesh_edges_pub_);
   return;
 }
 

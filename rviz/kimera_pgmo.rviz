@@ -238,13 +238,13 @@ Visualization Manager:
       Queue Size: 100
       Value: true
     - Class: rviz/Marker
-      Enabled: false
+      Enabled: true
       Marker Topic: /kimera_pgmo_node/posegraph_viewer/odometry_edges
       Name: Odometry
       Namespaces:
         {}
       Queue Size: 100
-      Value: false
+      Value: true
     - Class: rviz/Group
       Displays:
         - Class: rviz_mesh_plugin/TriangleMesh
@@ -289,10 +289,18 @@ Visualization Manager:
       Name: debug
     - Class: rviz/Marker
       Enabled: true
-      Marker Topic: /kimera_pgmo_node/deformation_graph
-      Name: DeformationGraph
+      Marker Topic: /kimera_pgmo_node/deformation_graph_mesh_mesh
+      Name: Mesh-Mesh edges
       Namespaces:
-        "": true
+        {}
+      Queue Size: 100
+      Value: true
+    - Class: rviz/Marker
+      Enabled: true
+      Marker Topic: /kimera_pgmo_node/deformation_graph_pose_mesh
+      Name: Pose-Mesh-edges
+      Namespaces:
+        {}
       Queue Size: 100
       Value: true
   Enabled: true
