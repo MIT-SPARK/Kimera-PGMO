@@ -214,11 +214,6 @@ void KimeraPgmo::optimizedPathCallback(
   // Start timer
   auto start = std::chrono::high_resolution_clock::now();
 
-  if (trajectory_.size() > 1) {
-    ROS_ERROR(
-        "KimeraPgmo: Path subscriber does not support centralized multirobot "
-        "scenario. ");
-  }
   processOptimizedPath(path_msg, robot_id_);
 
   // Stop timer and save

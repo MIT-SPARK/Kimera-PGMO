@@ -232,7 +232,7 @@ bool KimeraPgmoInterface::optimizeFullMesh(
   try {
     if (run_mode_ == RunMode::DPGMO) {
       *optimized_mesh = deformation_graph_.deformMesh(
-          input_mesh, GetVertexPrefix(robot_id), dpgmo_values_);
+          input_mesh, GetVertexPrefix(robot_id), dpgmo_values_, 10);
     } else {
       *optimized_mesh =
           deformation_graph_.deformMesh(input_mesh, GetVertexPrefix(robot_id));
