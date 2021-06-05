@@ -118,6 +118,10 @@ class KimeraPgmo : public KimeraPgmoInterface {
       kimera_pgmo::RequestMeshFactors::Request& request,
       kimera_pgmo::RequestMeshFactors::Response& response);
 
+  /*! \brief Timer callback to optimize factors and deform full mesh
+   */
+  void processTimerCallback(const ros::TimerEvent& ev);
+
   /*! \brief log the run-time stats such as pose graph size, mesh size, and run
    * time
    */
@@ -147,6 +151,9 @@ class KimeraPgmo : public KimeraPgmoInterface {
   ros::Subscriber path_callback_sub_;
   ros::Subscriber dpgmo_callback_sub_;
 
+  // Timer
+  ros::Timer update_timer_;
+
   // Service
   ros::ServiceServer save_mesh_srv_;
   ros::ServiceServer save_traj_srv_;
@@ -160,6 +167,9 @@ class KimeraPgmo : public KimeraPgmoInterface {
 
   std::string frame_id_;
   int robot_id_;
+
+  // Store last received full mesh
+  kimera_pgmo::TriangleMeshIdStamped last_mesh_msg_;
 
   // Track number of loop closures
   size_t num_loop_closures_;

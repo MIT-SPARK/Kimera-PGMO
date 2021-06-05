@@ -218,16 +218,16 @@ void KimeraPgmoInterface::processOptimizedPath(
 }
 
 bool KimeraPgmoInterface::optimizeFullMesh(
-    const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg,
+    const kimera_pgmo::TriangleMeshIdStamped& mesh_msg,
     pcl::PolygonMesh* optimized_mesh) {
   const pcl::PolygonMesh& input_mesh =
-      TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
+      TriangleMeshMsgToPolygonMesh(mesh_msg.mesh);
   // check if empty
   if (input_mesh.cloud.height * input_mesh.cloud.width == 0) return false;
 
-  size_t robot_id = mesh_msg->id;
+  size_t robot_id = mesh_msg.id;
 
-  std_msgs::Header mesh_header = mesh_msg->header;
+  std_msgs::Header mesh_header = mesh_msg.header;
 
   // Optimize mesh
   try {
