@@ -41,7 +41,7 @@ bool KimeraPgmoInterface::loadParameters(const ros::NodeHandle& n) {
     return false;
   }
 
-  if (run_mode_ == RunMode::DPGMO) deformation_graph_.storeOnlyNoOptimization();
+  if (run_mode_ != RunMode::FULL) deformation_graph_.storeOnlyNoOptimization();
   return true;
 }
 
