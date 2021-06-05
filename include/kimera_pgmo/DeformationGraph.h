@@ -147,11 +147,13 @@ class DeformationGraph {
   /*! \brief Add a new mesh edge to deformation graph
    *  - mesh_edges: edges storing key-key pairs
    *  - mesh_nodes: gtsam values encoding key value pairs of new nodes
+   *  - added_indices: indices of nodes that was successfully added
    *  - optimize: optimize or just add to pgo
    */
   void addNewMeshEdgesAndNodes(
       const std::vector<std::pair<gtsam::Key, gtsam::Key> >& mesh_edges,
       const gtsam::Values& mesh_nodes,
+      std::vector<size_t>* added_indices,
       bool optimize = false);
 
   /*! \brief Add connections from a pose graph node to mesh vertices nodes

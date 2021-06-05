@@ -286,12 +286,11 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
     gtsam::Key key = gtsam::Symbol(GetVertexPrefix(n.robot_id), n.key);
     gtsam::Pose3 node_pose = RosToGtsam(n.pose);
     new_mesh_nodes.insert(key, node_pose);
-    new_indices.push_back(n.key);
   }
 
   // Add to deformation graph
   deformation_graph_.addNewMeshEdgesAndNodes(
-      new_mesh_edges, new_mesh_nodes, false);
+      new_mesh_edges, new_mesh_nodes, &new_indices, false);
 
   double msg_time;
   if (use_msg_time_) {
@@ -302,7 +301,7 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
 
   bool connection = false;
   // Associate nodes to mesh
-  if (!unconnected_nodes->empty()) {
+  if (!unconnected_nodes->empty() && new_indices.size() > 0) {
     // find the closest
     size_t closest_node = unconnected_nodes->front();
     double min_difference = std::numeric_limits<double>::infinity();
@@ -334,7 +333,7 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
           abs(node_timestamps[closest_node].toSec() - msg_time));
     }
   }
-  if (!connection) {
+  if (!connection && new_indices.size() > 0) {
     ROS_WARN("KimeraPgmo: Partial mesh not connected to pose graph. ");
   }
 
