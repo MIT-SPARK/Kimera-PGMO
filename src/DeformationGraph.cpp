@@ -126,18 +126,18 @@ void DeformationGraph::addNodeMeasurements(
   gtsam::NonlinearFactorGraph new_factors;
 
   for (auto keyed_pose : measurements) {
-    static const gtsam::SharedNoiseModel& noise =
-        gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
-    gtsam::PriorFactor<gtsam::Pose3> measurement(
-        keyed_pose.first, keyed_pose.second, noise);
-    new_factors.add(measurement);
-
     if (!values_.exists(keyed_pose.first)) {
       ROS_ERROR(
           "DeformationGraph: adding node measurement to a node %s not "
           "previously seen before. ",
           gtsam::DefaultKeyFormatter(keyed_pose.first));
+      continue;
     }
+    static const gtsam::SharedNoiseModel& noise =
+        gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
+    gtsam::PriorFactor<gtsam::Pose3> measurement(
+        keyed_pose.first, keyed_pose.second, noise);
+    new_factors.add(measurement);
   }
 
   pgo_->update(new_factors, new_values, !do_not_optimize_);
@@ -247,9 +247,9 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
   for (auto e : mesh_edges) {
     const gtsam::Symbol& from = gtsam::Symbol(e.first);
     const gtsam::Symbol& to = gtsam::Symbol(e.second);
-    // if (from.index() >= vertex_positions_.at(from.chr()).size() ||
-    //     to.index() >= vertex_positions_.at(to.chr()).size())
-    //   continue;
+    if (from.index() >= vertex_positions_.at(from.chr()).size() ||
+        to.index() >= vertex_positions_.at(to.chr()).size())
+      continue;
     const gtsam::Pose3& pose_from = mesh_nodes.at<gtsam::Pose3>(from);
     const gtsam::Pose3& pose_to = mesh_nodes.at<gtsam::Pose3>(to);
     // Create new edge as deformation edge factor
