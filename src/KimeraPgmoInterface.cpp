@@ -195,7 +195,8 @@ void KimeraPgmoInterface::processIncrementalPoseGraph(
       }
     }
   } catch (const std::exception& e) {
-    ROS_ERROR("Error in KimeraPgmo incrementalPoseGraphCallback. ");
+    ROS_ERROR_STREAM(
+        "Error in KimeraPgmo incrementalPoseGraphCallback: " << e.what());
   }
 }
 

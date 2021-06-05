@@ -133,11 +133,10 @@ void DeformationGraph::addNodeMeasurements(
     new_factors.add(measurement);
 
     if (!values_.exists(keyed_pose.first)) {
-      ROS_WARN(
+      ROS_ERROR(
           "DeformationGraph: adding node measurement to a node %s not "
           "previously seen before. ",
           gtsam::DefaultKeyFormatter(keyed_pose.first));
-      new_values.insert(keyed_pose.first, keyed_pose.second);
     }
   }
 
