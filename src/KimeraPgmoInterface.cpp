@@ -235,6 +235,7 @@ bool KimeraPgmoInterface::optimizeFullMesh(
       *optimized_mesh = deformation_graph_.deformMesh(
           input_mesh, GetVertexPrefix(robot_id), dpgmo_values_, 10);
     } else {
+      deformation_graph_.optimize();
       *optimized_mesh =
           deformation_graph_.deformMesh(input_mesh, GetVertexPrefix(robot_id));
     }
@@ -336,7 +337,6 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
   if (!connection) {
     ROS_WARN("KimeraPgmo: Partial mesh not connected to pose graph. ");
   }
-  if (run_mode_ != RunMode::DPGMO) deformation_graph_.optimize();
 
   return;
 }
