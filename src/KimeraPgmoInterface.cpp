@@ -57,7 +57,7 @@ bool KimeraPgmoInterface::publishMesh(const pcl::PolygonMesh& mesh,
   mesh_msgs::TriangleMeshStamped new_msg;
   new_msg.header = header;
   new_msg.mesh = mesh_msg;
-
+  ROS_INFO("Publish optimized mesh. ");
   publisher->publish(new_msg);
   return true;
 }
@@ -233,7 +233,7 @@ bool KimeraPgmoInterface::optimizeFullMesh(
   try {
     if (run_mode_ == RunMode::DPGMO) {
       *optimized_mesh = deformation_graph_.deformMesh(
-          input_mesh, GetVertexPrefix(robot_id), dpgmo_values_, 10);
+          input_mesh, GetVertexPrefix(robot_id), dpgmo_values_, 7);
     } else {
       deformation_graph_.optimize();
       *optimized_mesh =

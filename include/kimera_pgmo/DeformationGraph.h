@@ -199,7 +199,7 @@ class DeformationGraph {
    */
   pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
                               const char& prefix,
-                              const gtsam::Values& values,
+                              const gtsam::Values values,
                               size_t k = 4);
 
   /*! \brief Get the number of mesh vertices nodes in the deformation graph

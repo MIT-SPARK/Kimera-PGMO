@@ -251,9 +251,6 @@ void KimeraPgmo::incrementalMeshGraphCallback(
       std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
   inc_mesh_cb_time_ = spin_duration.count();
 
-  // Publish deformation graph edges visualization
-  visualizeDeformationGraphMeshEdges(&viz_mesh_mesh_edges_pub_,
-                                     &viz_pose_mesh_edges_pub_);
   return;
 }
 
@@ -302,6 +299,9 @@ void KimeraPgmo::processTimerCallback(const ros::TimerEvent& ev) {
       std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
   full_mesh_cb_time_ = spin_duration.count();
 
+  // Publish deformation graph edges visualization
+  visualizeDeformationGraphMeshEdges(&viz_mesh_mesh_edges_pub_,
+                                     &viz_pose_mesh_edges_pub_);
   return;
 }
 
