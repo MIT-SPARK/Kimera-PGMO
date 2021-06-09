@@ -168,17 +168,9 @@ void KimeraPgmoInterface::processIncrementalPoseGraph(
         }
         // Add new node to queue to be connected to mesh later
         unconnected_nodes->push(current_node);
-        // Add to deformation graph
-        if (run_mode_ == RunMode::FULL || run_mode_ == RunMode::DPGMO) {
-          // Add the pose estimate of new node and between factor (odometry)
-          deformation_graph_.addNewBetween(from_key, to_key, measure, new_pose);
-        } else if (run_mode_ == RunMode::MESH) {
-          // Only add the pose estimate of new node (gtsam Value)
-          // Do not add factor
-          deformation_graph_.addNewNode(to_key, new_pose, false);
-        } else {
-          ROS_ERROR("KimeraPgmo: unrecognized run mode. ");
-        }
+        // Add the pose estimate of new node and between factor (odometry) to
+        // deformation graph
+        deformation_graph_.addNewBetween(from_key, to_key, measure, new_pose);
       } else if (pg_edge.type == pose_graph_tools::PoseGraphEdge::LOOPCLOSE &&
                  run_mode_ == RunMode::FULL) {
         // Loop closure edge (only add if we are in full optimization mode )
@@ -233,7 +225,7 @@ bool KimeraPgmoInterface::optimizeFullMesh(
   try {
     if (run_mode_ == RunMode::DPGMO) {
       *optimized_mesh = deformation_graph_.deformMesh(
-          input_mesh, GetVertexPrefix(robot_id), dpgmo_values_, 7);
+          input_mesh, GetVertexPrefix(robot_id), dpgmo_values_);
     } else {
       deformation_graph_.optimize();
       *optimized_mesh =

@@ -317,7 +317,7 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
 pcl::PolygonMesh DeformationGraph::deformMesh(
     const pcl::PolygonMesh& original_mesh,
     const char& prefix,
-    const gtsam::Values optimized_values,
+    const gtsam::Values& optimized_values,
     size_t k) {
   // Cannot deform if no nodes in the deformation graph
   if (vertices_->points.size() == 0) {

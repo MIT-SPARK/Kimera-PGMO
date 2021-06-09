@@ -199,7 +199,7 @@ class DeformationGraph {
    */
   pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
                               const char& prefix,
-                              const gtsam::Values values,
+                              const gtsam::Values& values,
                               size_t k = 4);
 
   /*! \brief Get the number of mesh vertices nodes in the deformation graph
@@ -275,7 +275,11 @@ class DeformationGraph {
   /*! \brief Force an optimization of the deformation graph without adding new
    * factors
    */
-  inline void optimize() { pgo_->forceUpdate(); }
+  inline void optimize() {
+    pgo_->forceUpdate();
+    values_ = pgo_->calculateEstimate();
+    nfg_ = pgo_->getFactorsUnsafe();
+  }
 
  private:
   std::map<char, Graph> graph_;
