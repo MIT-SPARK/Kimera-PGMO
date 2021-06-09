@@ -291,6 +291,8 @@ class DeformationGraph {
   std::map<char, std::vector<gtsam::Pose3> > pg_initial_poses_;
 
   std::map<char, std::vector<gtsam::Point3> > vertex_positions_;
+  std::map<char, std::vector<bool> >
+      vertex_status_;  // Consider for deformation or not
   // Number of mesh vertices corresponding a particular prefix thus far
   std::map<char, size_t> num_vertices_;
 

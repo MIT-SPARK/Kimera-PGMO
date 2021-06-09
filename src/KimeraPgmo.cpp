@@ -111,7 +111,7 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
       nl.subscribe("optimized_values", 1, &KimeraPgmo::dpgmoCallback, this);
 
   update_timer_ = nl.createTimer(
-      ros::Duration(5.0), &KimeraPgmo::processTimerCallback, this);
+      ros::Duration(30.0), &KimeraPgmo::processTimerCallback, this);
 
   // Initialize save mesh service
   save_mesh_srv_ =
