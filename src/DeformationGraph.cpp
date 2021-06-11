@@ -365,6 +365,7 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
       new pcl::PointCloud<pcl::PointXYZ>);
   search_octree->setInputCloud(search_cloud);
   for (size_t j = 0; j < vertex_positions_[prefix].size(); j++) {
+    if (!optimized_values.exists(gtsam::Symbol(prefix, j))) continue;
     gtsam::Point3 position = vertex_positions_[prefix][j];
     search_cloud->push_back(
         pcl::PointXYZ(position.x(), position.y(), position.z()));
