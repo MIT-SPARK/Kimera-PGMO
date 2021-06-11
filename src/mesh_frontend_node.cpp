@@ -20,7 +20,7 @@ int main(int argc, char* argv[]) {
 
   kimera_pgmo::MeshFrontend mesh_frontend;
   if (!mesh_frontend.initialize(n)) {
-    ROS_ERROR("Failed to initialize Voxblox Processing node.");
+    ROS_ERROR("Failed to initialize Mesh Frontend node.");
     return EXIT_FAILURE;
   }
 

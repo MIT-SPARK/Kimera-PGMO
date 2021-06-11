@@ -41,7 +41,7 @@ bool KimeraPgmoInterface::loadParameters(const ros::NodeHandle& n) {
     return false;
   }
 
-  if (run_mode_ == RunMode::DPGMO) deformation_graph_.storeOnlyNoOptimization();
+  if (run_mode_ != RunMode::FULL) deformation_graph_.storeOnlyNoOptimization();
   return true;
 }
 
@@ -57,7 +57,7 @@ bool KimeraPgmoInterface::publishMesh(const pcl::PolygonMesh& mesh,
   mesh_msgs::TriangleMeshStamped new_msg;
   new_msg.header = header;
   new_msg.mesh = mesh_msg;
-
+  ROS_INFO("Publish optimized mesh. ");
   publisher->publish(new_msg);
   return true;
 }
@@ -168,17 +168,9 @@ void KimeraPgmoInterface::processIncrementalPoseGraph(
         }
         // Add new node to queue to be connected to mesh later
         unconnected_nodes->push(current_node);
-        // Add to deformation graph
-        if (run_mode_ == RunMode::FULL || run_mode_ == RunMode::DPGMO) {
-          // Add the pose estimate of new node and between factor (odometry)
-          deformation_graph_.addNewBetween(from_key, to_key, measure, new_pose);
-        } else if (run_mode_ == RunMode::MESH) {
-          // Only add the pose estimate of new node (gtsam Value)
-          // Do not add factor
-          deformation_graph_.addNewNode(to_key, new_pose, false);
-        } else {
-          ROS_ERROR("KimeraPgmo: unrecognized run mode. ");
-        }
+        // Add the pose estimate of new node and between factor (odometry) to
+        // deformation graph
+        deformation_graph_.addNewBetween(from_key, to_key, measure, new_pose);
       } else if (pg_edge.type == pose_graph_tools::PoseGraphEdge::LOOPCLOSE &&
                  run_mode_ == RunMode::FULL) {
         // Loop closure edge (only add if we are in full optimization mode )
@@ -195,7 +187,8 @@ void KimeraPgmoInterface::processIncrementalPoseGraph(
       }
     }
   } catch (const std::exception& e) {
-    ROS_ERROR("Error in KimeraPgmo incrementalPoseGraphCallback. ");
+    ROS_ERROR_STREAM(
+        "Error in KimeraPgmo incrementalPoseGraphCallback: " << e.what());
   }
 }
 
@@ -217,16 +210,16 @@ void KimeraPgmoInterface::processOptimizedPath(
 }
 
 bool KimeraPgmoInterface::optimizeFullMesh(
-    const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg,
+    const kimera_pgmo::TriangleMeshIdStamped& mesh_msg,
     pcl::PolygonMesh* optimized_mesh) {
   const pcl::PolygonMesh& input_mesh =
-      TriangleMeshMsgToPolygonMesh(mesh_msg->mesh);
+      TriangleMeshMsgToPolygonMesh(mesh_msg.mesh);
   // check if empty
   if (input_mesh.cloud.height * input_mesh.cloud.width == 0) return false;
 
-  size_t robot_id = mesh_msg->id;
+  size_t robot_id = mesh_msg.id;
 
-  std_msgs::Header mesh_header = mesh_msg->header;
+  std_msgs::Header mesh_header = mesh_msg.header;
 
   // Optimize mesh
   try {
@@ -234,6 +227,7 @@ bool KimeraPgmoInterface::optimizeFullMesh(
       *optimized_mesh = deformation_graph_.deformMesh(
           input_mesh, GetVertexPrefix(robot_id), dpgmo_values_);
     } else {
+      deformation_graph_.optimize();
       *optimized_mesh =
           deformation_graph_.deformMesh(input_mesh, GetVertexPrefix(robot_id));
     }
@@ -284,12 +278,11 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
     gtsam::Key key = gtsam::Symbol(GetVertexPrefix(n.robot_id), n.key);
     gtsam::Pose3 node_pose = RosToGtsam(n.pose);
     new_mesh_nodes.insert(key, node_pose);
-    new_indices.push_back(n.key);
   }
 
   // Add to deformation graph
   deformation_graph_.addNewMeshEdgesAndNodes(
-      new_mesh_edges, new_mesh_nodes, false);
+      new_mesh_edges, new_mesh_nodes, &new_indices, false);
 
   double msg_time;
   if (use_msg_time_) {
@@ -300,7 +293,7 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
 
   bool connection = false;
   // Associate nodes to mesh
-  if (!unconnected_nodes->empty()) {
+  if (!unconnected_nodes->empty() && new_indices.size() > 0) {
     // find the closest
     size_t closest_node = unconnected_nodes->front();
     double min_difference = std::numeric_limits<double>::infinity();
@@ -332,10 +325,9 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
           abs(node_timestamps[closest_node].toSec() - msg_time));
     }
   }
-  if (!connection) {
+  if (!connection && new_indices.size() > 0) {
     ROS_WARN("KimeraPgmo: Partial mesh not connected to pose graph. ");
   }
-  if (run_mode_ != RunMode::DPGMO) deformation_graph_.optimize();
 
   return;
 }

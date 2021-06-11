@@ -76,7 +76,7 @@ bool MeshFrontend::createPublishers(const ros::NodeHandle& n) {
   simplified_mesh_pub_ = nl.advertise<mesh_msgs::TriangleMeshStamped>(
       "deformation_graph_mesh", 10, false);
   mesh_graph_pub_ = nl.advertise<pose_graph_tools::PoseGraph>(
-      "mesh_graph_incremental", 100, false);
+      "mesh_graph_incremental", 100, true);
   return true;
 }
 

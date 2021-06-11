@@ -104,9 +104,8 @@ class KimeraPgmoInterface {
    * - publisher: associated publisher
    * returns the optimized mesh
    */
-  bool optimizeFullMesh(
-      const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg,
-      pcl::PolygonMesh* optimized_mesh);
+  bool optimizeFullMesh(const kimera_pgmo::TriangleMeshIdStamped& mesh_msg,
+                        pcl::PolygonMesh* optimized_mesh);
 
   /*! \brief Process the mesh graph that consists of the new mesh edges and mesh
    * nodes to be added to the deformation graph
