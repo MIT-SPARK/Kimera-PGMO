@@ -75,7 +75,7 @@ rviz -d $(rospack find kimera_pgmo)/rviz/kimera_pgmo.rviz
 ```
 Finally play the rosbag. 
 ```bash
-rosbag play some_bag.bag --clock
+rosbag play some_bag.bag --clock --pause -k
 ```
 
 To save the mesh, do 
@@ -93,7 +93,7 @@ the mesh will be saved to ouput_folder/mesh_pgmo.ply and trajectory will be save
 Similar to above: 
 ```bash
 roslaunch kimera_vio_ros kimera_vio_ros_euroc.launch use_lcd:=true run_stereo_dense:=true
-rosbag play V1_02_medium.bag --clock --pause
+rosbag play V1_02_medium.bag --clock --pause -k
 roslaunch kimera_pgmo kimera_pgmo.launch dataset:=Euroc
 roslaunch kimera_semantics_ros kimera_semantics_euroc.launch
 rviz -d $(rospack find kimera_pgmo)/rviz/kimera_pgmo.rviz
