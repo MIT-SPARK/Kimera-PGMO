@@ -83,7 +83,7 @@ class KimeraPgmoTest : public ::testing::Test {
   }
 
   inline pcl::PolygonMesh getOptimizedMesh() const {
-    return pgmo_.optimized_mesh_;
+    return *(pgmo_.optimized_mesh_);
   }
 
   inline gtsam::NonlinearFactorGraph getConsistencyFactorsGtsam() const {

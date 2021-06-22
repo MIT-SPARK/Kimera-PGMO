@@ -129,8 +129,8 @@ class KimeraPgmo : public KimeraPgmoInterface {
 
  protected:
   // optimized mesh for each robot
-  pcl::PolygonMesh optimized_mesh_;
-  std::vector<gtsam::Pose3> optimized_path_;
+  pcl::PolygonMesh::Ptr optimized_mesh_;
+  PathPtr optimized_path_;
   ros::Time last_mesh_stamp_;
 
   // Publishers
@@ -160,7 +160,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
   ros::ServiceServer req_mesh_edges_srv_;
 
   // Trajectory
-  std::vector<gtsam::Pose3> trajectory_;
+  Path trajectory_;
   std::queue<size_t> unconnected_nodes_;
   std::vector<ros::Time> timestamps_;
   std::queue<size_t> dpgmo_num_poses_last_req_;

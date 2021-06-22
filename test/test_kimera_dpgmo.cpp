@@ -81,12 +81,10 @@ class KimeraDpgmoTest : public ::testing::Test {
   }
 
   inline pcl::PolygonMesh getOptimizedMesh() const {
-    return pgmo_.optimized_mesh_;
+    return *(pgmo_.optimized_mesh_);
   }
 
-  inline std::vector<gtsam::Pose3> getOptimizedPath() const {
-    return pgmo_.optimized_path_;
-  }
+  inline Path getOptimizedPath() const { return *(pgmo_.optimized_path_); }
 
   inline gtsam::NonlinearFactorGraph getConsistencyFactorsGtsam() const {
     return pgmo_.getDeformationGraphPtr()->getConsistencyFactors();

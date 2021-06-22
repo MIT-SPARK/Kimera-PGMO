@@ -20,7 +20,9 @@ KimeraPgmo::KimeraPgmo()
       inc_mesh_cb_time_(0),
       full_mesh_cb_time_(0),
       pg_cb_time_(0),
-      path_cb_time_(0) {}
+      path_cb_time_(0),
+      optimized_path_(new Path),
+      optimized_mesh_(new pcl::PolygonMesh) {}
 
 KimeraPgmo::~KimeraPgmo() {}
 
@@ -132,23 +134,24 @@ bool KimeraPgmo::publishOptimizedMesh() const {
   std_msgs::Header msg_header;
   msg_header.stamp = last_mesh_stamp_;
   msg_header.frame_id = frame_id_;
-  publishMesh(optimized_mesh_, msg_header, &optimized_mesh_pub_);
+  publishMesh(*optimized_mesh_, msg_header, &optimized_mesh_pub_);
   return true;
 }
 
 // To publish optimized trajectory
 bool KimeraPgmo::publishOptimizedPath() const {
-  if (optimized_path_.size() == 0) return false;
+  if (optimized_path_->size() == 0) return false;
 
   std_msgs::Header msg_header;
   msg_header.stamp = ros::Time::now();
   msg_header.frame_id = frame_id_;
-  publishPath(optimized_path_, msg_header, &optimized_path_pub_);
+  publishPath(*optimized_path_, msg_header, &optimized_path_pub_);
 
   if (optimized_odom_pub_.getNumSubscribers() > 0) {
     // Publish also the optimized odometry
     nav_msgs::Odometry odometry_msg;
-    const gtsam::Pose3 last_pose = optimized_path_[optimized_path_.size() - 1];
+    const gtsam::Pose3 last_pose =
+        optimized_path_->at(optimized_path_->size() - 1);
     const gtsam::Rot3& rotation = last_pose.rotation();
     const gtsam::Quaternion& quaternion = rotation.toQuaternion();
 
@@ -182,7 +185,7 @@ void KimeraPgmo::incrementalPoseGraphCallback(
       msg, &trajectory_, &unconnected_nodes_, &timestamps_);
 
   // Update optimized path
-  optimized_path_ = getOptimizedTrajectory(robot_id_);
+  *optimized_path_ = getOptimizedTrajectory(robot_id_);
 
   // Update transforms
   publishTransforms();
@@ -280,18 +283,18 @@ void KimeraPgmo::dpgmoCallback(
   }
 
   // Update optimized path
-  optimized_path_ = getOptimizedTrajectory(robot_id_);
+  *optimized_path_ = getOptimizedTrajectory(robot_id_);
 }
 
 void KimeraPgmo::processTimerCallback(const ros::TimerEvent& ev) {
   // Start timer
   auto start = std::chrono::high_resolution_clock::now();
 
-  if (optimizeFullMesh(last_mesh_msg_, &optimized_mesh_) &&
+  if (optimizeFullMesh(last_mesh_msg_, optimized_mesh_) &&
       optimized_mesh_pub_.getNumSubscribers() > 0) {
     std_msgs::Header msg_header = last_mesh_msg_.header;
     msg_header.stamp = ros::Time::now();
-    publishMesh(optimized_mesh_, msg_header, &optimized_mesh_pub_);
+    publishMesh(*optimized_mesh_, msg_header, &optimized_mesh_pub_);
   }
   // Stop timer and save
   auto stop = std::chrono::high_resolution_clock::now();
@@ -306,10 +309,10 @@ void KimeraPgmo::processTimerCallback(const ros::TimerEvent& ev) {
 }
 
 void KimeraPgmo::publishTransforms() {
-  if (optimized_path_.size() == 0) return;
+  if (optimized_path_->size() == 0) return;
 
   const gtsam::Pose3& latest_pose =
-      optimized_path_.at(optimized_path_.size() - 1);
+      optimized_path_->at(optimized_path_->size() - 1);
   const gtsam::Point3& pos = latest_pose.translation();
   const gtsam::Quaternion& quat = latest_pose.rotation().toQuaternion();
   // Create transfomr message
@@ -334,7 +337,7 @@ bool KimeraPgmo::saveMeshCallback(std_srvs::Empty::Request&,
                                   std_srvs::Empty::Response&) {
   // Save mesh
   std::string ply_name = output_prefix_ + std::string("/mesh_pgmo.ply");
-  saveMesh(optimized_mesh_, ply_name);
+  saveMesh(*optimized_mesh_, ply_name);
   ROS_INFO("KimeraPgmo: Saved mesh to file.");
   return true;
 }
@@ -344,7 +347,7 @@ bool KimeraPgmo::saveTrajectoryCallback(std_srvs::Empty::Request&,
   // Save trajectory
   std::ofstream csvfile;
   std::string csv_name = output_prefix_ + std::string("/traj_pgmo.csv");
-  saveTrajectory(optimized_path_, timestamps_, csv_name);
+  saveTrajectory(*optimized_path_, timestamps_, csv_name);
   ROS_INFO("KimeraPgmo: Saved trajectories to file.");
   return true;
 }
@@ -377,7 +380,7 @@ void KimeraPgmo::logStats(const std::string filename) const {
   size_t num_keyframes = trajectory_.size();
   // Number of vertices (total)
   size_t num_vertices =
-      optimized_mesh_.cloud.width * optimized_mesh_.cloud.height;
+      optimized_mesh_->cloud.width * optimized_mesh_->cloud.height;
 
   file.open(filename, std::ofstream::out | std::ofstream::app);
   file << 1 << "," << num_keyframes << "," << num_loop_closures_ << ","

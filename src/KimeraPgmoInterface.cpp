@@ -64,7 +64,7 @@ bool KimeraPgmoInterface::publishMesh(const pcl::PolygonMesh& mesh,
 }
 
 // To publish optimized trajectory
-bool KimeraPgmoInterface::publishPath(const std::vector<gtsam::Pose3>& path,
+bool KimeraPgmoInterface::publishPath(const Path& path,
                                       const std_msgs::Header& header,
                                       const ros::Publisher* publisher) const {
   if (path.size() == 0) return false;
@@ -102,7 +102,7 @@ bool KimeraPgmoInterface::publishPath(const std::vector<gtsam::Pose3>& path,
 
 void KimeraPgmoInterface::processIncrementalPoseGraph(
     const pose_graph_tools::PoseGraph::ConstPtr& msg,
-    std::vector<gtsam::Pose3>* initial_trajectory,
+    Path* initial_trajectory,
     std::queue<size_t>* unconnected_nodes,
     std::vector<ros::Time>* node_timestamps) {
   // if first node initialize
@@ -212,7 +212,7 @@ void KimeraPgmoInterface::processOptimizedPath(
 
 bool KimeraPgmoInterface::optimizeFullMesh(
     const kimera_pgmo::TriangleMeshIdStamped& mesh_msg,
-    pcl::PolygonMesh* optimized_mesh) {
+    pcl::PolygonMesh::Ptr optimized_mesh) {
   const pcl::PolygonMesh& input_mesh =
       TriangleMeshMsgToPolygonMesh(mesh_msg.mesh);
   // check if empty
@@ -342,7 +342,7 @@ bool KimeraPgmoInterface::saveMesh(const pcl::PolygonMesh& mesh,
 }
 
 bool KimeraPgmoInterface::saveTrajectory(
-    const std::vector<gtsam::Pose3>& trajectory,
+    const Path& trajectory,
     const std::vector<ros::Time>& timestamps,
     const std::string& csv_file) {
   // There should be a timestamp associated with each pose
@@ -569,11 +569,10 @@ void KimeraPgmoInterface::visualizeDeformationGraphMeshEdges(
   }
 }
 
-std::vector<gtsam::Pose3> KimeraPgmoInterface::getOptimizedTrajectory(
-    const size_t& robot_id) const {
+Path KimeraPgmoInterface::getOptimizedTrajectory(const size_t& robot_id) const {
   // return the optimized trajectory (pose graph)
   const char& robot_prefix = robot_id_to_prefix.at(robot_id);
-  std::vector<gtsam::Pose3> optimized_traj;
+  Path optimized_traj;
   if (run_mode_ == RunMode::DPGMO) {
     size_t n = deformation_graph_->getOptimizedTrajectory(robot_prefix).size();
     for (size_t i = 0; i < n; i++) {

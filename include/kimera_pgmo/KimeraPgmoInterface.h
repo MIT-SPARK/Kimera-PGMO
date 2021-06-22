@@ -30,6 +30,10 @@
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
 namespace kimera_pgmo {
+
+typedef std::vector<gtsam::Pose3> Path;
+typedef std::shared_ptr<Path> PathPtr;
+
 class KimeraPgmoInterface {
   friend class KimeraPgmoInterfaceTest;
 
@@ -77,7 +81,7 @@ class KimeraPgmoInterface {
    * - header: header for published message
    * - publisher: associated publisher
    */
-  bool publishPath(const std::vector<gtsam::Pose3>& path,
+  bool publishPath(const Path& path,
                    const std_msgs::Header& header,
                    const ros::Publisher* publisher) const;
 
@@ -93,7 +97,7 @@ class KimeraPgmoInterface {
    */
   void processIncrementalPoseGraph(
       const pose_graph_tools::PoseGraph::ConstPtr& msg,
-      std::vector<gtsam::Pose3>* initial_trajectory,
+      Path* initial_trajectory,
       std::queue<size_t>* unconnected_nodes,
       std::vector<ros::Time>* node_timestamps);
 
@@ -105,7 +109,7 @@ class KimeraPgmoInterface {
    * returns the optimized mesh
    */
   bool optimizeFullMesh(const kimera_pgmo::TriangleMeshIdStamped& mesh_msg,
-                        pcl::PolygonMesh* optimized_mesh);
+                        pcl::PolygonMesh::Ptr optimized_mesh);
 
   /*! \brief Process the mesh graph that consists of the new mesh edges and mesh
    * nodes to be added to the deformation graph
@@ -132,8 +136,7 @@ class KimeraPgmoInterface {
   /*! \brief Get the optimized trajectory of a robot
    * - robot_id: id of the robot referred to in query
    */
-  std::vector<gtsam::Pose3> getOptimizedTrajectory(
-      const size_t& robot_id) const;
+  Path getOptimizedTrajectory(const size_t& robot_id) const;
 
   /*! \brief Get the factors of the underlying deformation graph
    */
@@ -165,7 +168,7 @@ class KimeraPgmoInterface {
    * - trajectory: trajectory to save
    * - csv_file: name of the csv file to save to
    */
-  bool saveTrajectory(const std::vector<gtsam::Pose3>& trajectory,
+  bool saveTrajectory(const Path& trajectory,
                       const std::vector<ros::Time>& timestamps,
                       const std::string& csv_file);
 
