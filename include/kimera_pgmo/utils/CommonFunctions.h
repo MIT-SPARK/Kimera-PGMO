@@ -264,13 +264,14 @@ pcl::PointCloud<point_type> deformPoints(
       new pcl::PointCloud<pcl::PointXYZ>);
   search_octree->setInputCloud(search_cloud);
   for (size_t j = 0; j < control_points.size(); j++) {
-    if (!values.exists(gtsam::Symbol(prefix, j))) continue;
-    gtsam::Point3 position = control_points[j];
+    const gtsam::Point3& position = control_points[j];
     search_cloud->push_back(
         pcl::PointXYZ(position.x(), position.y(), position.z()));
+    if (!values.exists(gtsam::Symbol(prefix, j))) continue;
+    search_octree->addPointFromCloud(search_cloud->points.size() - 1, nullptr);
   }
 
-  if (search_cloud->size() < k) {
+  if (search_octree->getLeafCount() < k) {
     ROS_WARN("Not enough valid control points to deform points. ");
     return original_points;
   }

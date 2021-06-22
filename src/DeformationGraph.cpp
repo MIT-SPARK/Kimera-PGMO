@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <numeric>
 
 #include "kimera_pgmo/DeformationGraph.h"
 
@@ -51,8 +52,8 @@ void DeformationGraph::addNodeValence(const gtsam::Key& key,
   const size_t& idx = gtsam::Symbol(key).index();
   // Add the consistency factors
   for (Vertex v : valences) {
-    if (!vertex_status_[valence_prefix].at(v)) continue;
     const gtsam::Symbol vertex(valence_prefix, v);
+    if (!values_.exists(vertex)) continue;
     const gtsam::Pose3& node_pose = pg_initial_poses_[prefix].at(idx);
     const gtsam::Pose3 vertex_pose(gtsam::Rot3(),
                                    vertex_positions_[valence_prefix].at(v));
@@ -226,14 +227,12 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
         while (vertex_positions_.at(node_prefix).size() < node_idx) {
           // Place at inifinity to ignore
           vertex_positions_[node_prefix].push_back(gtsam::Point3(0, 0, 0));
-          vertex_status_[node_prefix].push_back(false);
           vertices_->push_back(pcl::PointXYZ(0, 0, 0));
         }
       }
       if (node_idx == vertex_positions_.at(node_prefix).size()) {
         // Only add nodes that has not previously been added
         vertex_positions_[node_prefix].push_back(node_pose.translation());
-        vertex_status_[node_prefix].push_back(true);
         vertices_->push_back(
             GtsamToPcl<pcl::PointXYZ>(node_pose.translation()));
         new_mesh_nodes.insert(k, node_pose);
@@ -242,9 +241,7 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
     } catch (const std::out_of_range& e) {
       ROS_INFO("New prefix detected when adding new mesh edges and nodes. ");
       vertex_positions_[node_prefix] = std::vector<gtsam::Point3>{};
-      vertex_status_[node_prefix] = std::vector<bool>{};
       vertex_positions_[node_prefix].push_back(node_pose.translation());
-      vertex_status_[node_prefix].push_back(true);
       vertices_->push_back(GtsamToPcl<pcl::PointXYZ>(node_pose.translation()));
       new_mesh_nodes.insert(k, node_pose);
       added_indices->push_back(node_idx);
@@ -261,8 +258,8 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
     if (from.index() >= vertex_positions_.at(from.chr()).size() ||
         to.index() >= vertex_positions_.at(to.chr()).size())
       continue;
-    if (!vertex_status_.at(from.chr()).at(from.index()) ||
-        !vertex_status_.at(to.chr()).at(to.index()))
+    if ((!values_.exists(from) && !new_mesh_nodes.exists(from)) ||
+        (!values_.exists(to) && !new_mesh_nodes.exists(to)))
       continue;
     const gtsam::Pose3& pose_from = mesh_nodes.at<gtsam::Pose3>(from);
     const gtsam::Pose3& pose_to = mesh_nodes.at<gtsam::Pose3>(to);
@@ -334,11 +331,6 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
     const gtsam::Values& optimized_values,
     size_t k) {
   // Cannot deform if no nodes in the deformation graph
-  if (vertices_->points.size() == 0) {
-    ROS_DEBUG("Deformable mesh empty. No deformation. ");
-    return original_mesh;
-  }
-
   if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
     ROS_DEBUG(
         "Deformation graph has no vertices associated with mesh prefix. No "
@@ -350,7 +342,7 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
   pcl::PointCloud<pcl::PointXYZRGBA> original_vertices;
   pcl::fromPCLPointCloud2(original_mesh.cloud, original_vertices);
 
-  pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
+  pcl::PointCloud<pcl::PointXYZRGBA> new_vertices, vertices_to_deform;
   // iterate through original vertices to create new vertices
   size_t start_idx = 0;
   if (!recalculate_vertices_ && last_calculated_vertices_.find(prefix) !=
@@ -359,68 +351,18 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
     new_vertices = last_calculated_vertices_[prefix];
   }
 
-  // Build Octree
-  Octree::Ptr search_octree(new Octree(1.0));
-  pcl::PointCloud<pcl::PointXYZ>::Ptr search_cloud(
-      new pcl::PointCloud<pcl::PointXYZ>);
-  search_octree->setInputCloud(search_cloud);
-  for (size_t j = 0; j < vertex_positions_[prefix].size(); j++) {
-    if (!optimized_values.exists(gtsam::Symbol(prefix, j))) continue;
-    gtsam::Point3 position = vertex_positions_[prefix][j];
-    search_cloud->push_back(
-        pcl::PointXYZ(position.x(), position.y(), position.z()));
-    if (vertex_status_[prefix].at(j)) {
-      search_octree->addPointFromCloud(search_cloud->points.size() - 1,
-                                       nullptr);
-    }
-  }
+  std::vector<int> to_add_indices(original_vertices.size() - start_idx);
+  std::iota(std::begin(to_add_indices), std::end(to_add_indices), start_idx);
+  vertices_to_deform =
+      pcl::PointCloud<pcl::PointXYZRGBA>(original_vertices, to_add_indices);
 
-  if (search_cloud->size() < k) {
-    ROS_WARN("Not enough vertices to deform mesh. ");
-    return original_mesh;
-  }
-
-  for (size_t ii = start_idx; ii < original_vertices.points.size(); ii++) {
-    const pcl::PointXYZRGBA& p = original_vertices.points[ii];
-    // search for k + 1 nearest nodes
-    std::vector<std::pair<Vertex, double>> nearest_nodes;
-    pcl::PointXYZ p_xyz(p.x, p.y, p.z);
-    gtsam::Point3 vi(p.x, p.y, p.z);
-    // Query octree
-    std::vector<int> nearest_nodes_index;
-    std::vector<float> nearest_nodes_sq_dist;
-    search_octree->nearestKSearch(
-        p_xyz, k + 1, nearest_nodes_index, nearest_nodes_sq_dist);
-
-    // Calculate new point location from k points
-    gtsam::Point3 new_point(0, 0, 0);
-    double d_max =
-        std::sqrt(nearest_nodes_sq_dist[nearest_nodes_index.size() - 1]);
-    double weight_sum = 0;
-    for (size_t j = 0; j < nearest_nodes_index.size() - 1; j++) {
-      const pcl::PointXYZ& p_g =
-          search_cloud->points.at(nearest_nodes_index[j]);
-      gtsam::Point3 gj(p_g.x, p_g.y, p_g.z);
-      double weight = (1 - std::sqrt(nearest_nodes_sq_dist[j]) / d_max);
-      if (weight_sum == 0 && weight == 0) weight = 1;
-      weight_sum = weight_sum + weight;
-      gtsam::Pose3 node_transform = optimized_values.at<gtsam::Pose3>(
-          gtsam::Symbol(prefix, nearest_nodes_index[j]));
-      gtsam::Point3 add = node_transform.rotation().rotate(vi - gj) +
-                          node_transform.translation();
-      new_point = new_point + weight * add;
-    }
-    // Add back to new_vertices
-    pcl::PointXYZRGBA new_pcl_point;
-    new_pcl_point.x = new_point.x() / weight_sum;
-    new_pcl_point.y = new_point.y() / weight_sum;
-    new_pcl_point.z = new_point.z() / weight_sum;
-    new_pcl_point.r = p.r;
-    new_pcl_point.g = p.g;
-    new_pcl_point.b = p.b;
-    new_pcl_point.a = p.a;
-    new_vertices.points.push_back(new_pcl_point);
-  }
+  pcl::PointCloud<pcl::PointXYZRGBA> new_vertices_to_deform =
+      deformPoints<pcl::PointXYZRGBA>(vertices_to_deform,
+                                      prefix,
+                                      vertex_positions_[prefix],
+                                      optimized_values,
+                                      k);
+  new_vertices += new_vertices_to_deform;
 
   // With new vertices, construct new polygon mesh
   pcl::PolygonMesh new_mesh;
