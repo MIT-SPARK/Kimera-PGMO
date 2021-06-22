@@ -82,6 +82,11 @@ class DeformationEdgeFactor
 
   inline gtsam::Pose3 fromPose() const { return node1_pose; }
   inline gtsam::Point3 toPoint() const { return node2_position; }
+
+  gtsam::NonlinearFactor::shared_ptr clone() const override {
+    return boost::static_pointer_cast<gtsam::NonlinearFactor>(
+        gtsam::NonlinearFactor::shared_ptr(new DeformationEdgeFactor(*this)));
+  }
 };
 
 class DeformationGraph {
@@ -97,7 +102,9 @@ class DeformationGraph {
    *  - pgo_rot_threshold: rotation threshold (radians of error per node) for
    * backend PCM outlier rejection
    */
-  bool initialize(double pgo_trans_threshold, double pgo_rot_threshold);
+  bool initialize(double pgo_trans_threshold,
+                  double pgo_rot_threshold,
+                  double gnc_alpha = 0);
 
   /*! \brief Fix the transform of a node corresponding to a sampled mesh vertex
    * in deformation graph. Note that all vertices has an original rotation of

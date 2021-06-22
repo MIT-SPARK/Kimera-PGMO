@@ -30,6 +30,7 @@ class KimeraPgmoTest : public ::testing::Test {
     system("rosparam set embed_trajectory_delta_t 3.0");
     system("rosparam set rpgo/translation_threshold 10.0");
     system("rosparam set rpgo/rotation_threshold 10.0");
+    system("rosparam set rpgo/gnc_alpha 0");
   }
   ~KimeraPgmoTest() {}
 

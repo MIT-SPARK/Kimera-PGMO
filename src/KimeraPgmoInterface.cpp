@@ -32,12 +32,14 @@ bool KimeraPgmoInterface::loadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("embed_trajectory_delta_t", embed_delta_t_)) return false;
 
   // start deformation graph module
-  double pgo_trans_threshold, pgo_rot_threshold;
+  double pgo_trans_threshold, pgo_rot_threshold, gnc_alpha;
   if (!n.getParam("rpgo/translation_threshold", pgo_trans_threshold))
     return false;
   if (!n.getParam("rpgo/rotation_threshold", pgo_rot_threshold)) return false;
+  if (!n.getParam("rpgo/gnc_alpha", gnc_alpha)) return false;
 
-  if (!deformation_graph_->initialize(pgo_trans_threshold, pgo_rot_threshold)) {
+  if (!deformation_graph_->initialize(
+          pgo_trans_threshold, pgo_rot_threshold, gnc_alpha)) {
     ROS_ERROR("KimeraPgmo: Failed to initialize deformation graph.");
     return false;
   }
