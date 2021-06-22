@@ -104,9 +104,8 @@ class KimeraPgmoInterface {
    * - publisher: associated publisher
    * returns the optimized mesh
    */
-  bool optimizeFullMesh(
-      const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg,
-      pcl::PolygonMesh* optimized_mesh);
+  bool optimizeFullMesh(const kimera_pgmo::TriangleMeshIdStamped& mesh_msg,
+                        pcl::PolygonMesh* optimized_mesh);
 
   /*! \brief Process the mesh graph that consists of the new mesh edges and mesh
    * nodes to be added to the deformation graph
@@ -173,8 +172,14 @@ class KimeraPgmoInterface {
    */
   gtsam::Values inline getDpgmoValues() const { return dpgmo_values_; }
 
-  /*! \brief visualize the edges of the deformation graph  */
-  void visualizeDeformationGraph(const ros::Publisher* publisher) const;
+  /*! \brief visualize the mesh-to-mesh edges and pose-to-mesh edges of the
+  deformation graph
+  - mesh_mesh_pub: publisher publishing the mesh to mesh edges
+  - pose_mesh_pub: publisher publishing the pose to mesh edges
+   */
+  void visualizeDeformationGraphMeshEdges(
+      const ros::Publisher* mesh_mesh_pub,
+      const ros::Publisher* pose_mesh_pub) const;
 
  protected:
   enum class RunMode {

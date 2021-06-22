@@ -56,6 +56,7 @@ void DeformationGraph::addNodeValence(const gtsam::Key& key,
   const size_t& idx = gtsam::Symbol(key).index();
   // Add the consistency factors
   for (Vertex v : valences) {
+    if (!vertex_status_[valence_prefix].at(v)) continue;
     const gtsam::Symbol vertex(valence_prefix, v);
     const gtsam::Pose3& node_pose = pg_initial_poses_[prefix].at(idx);
     const gtsam::Pose3 vertex_pose(gtsam::Rot3(),
@@ -131,19 +132,18 @@ void DeformationGraph::addNodeMeasurements(
   gtsam::NonlinearFactorGraph new_factors;
 
   for (auto keyed_pose : measurements) {
+    if (!values_.exists(keyed_pose.first)) {
+      ROS_ERROR(
+          "DeformationGraph: adding node measurement to a node %s not "
+          "previously seen before. ",
+          gtsam::DefaultKeyFormatter(keyed_pose.first));
+      continue;
+    }
     static const gtsam::SharedNoiseModel& noise =
         gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
     gtsam::PriorFactor<gtsam::Pose3> measurement(
         keyed_pose.first, keyed_pose.second, noise);
     new_factors.add(measurement);
-
-    if (!values_.exists(keyed_pose.first)) {
-      ROS_WARN(
-          "DeformationGraph: adding node measurement to a node %s not "
-          "previously seen before. ",
-          gtsam::DefaultKeyFormatter(keyed_pose.first));
-      new_values.insert(keyed_pose.first, keyed_pose.second);
-    }
   }
 
   pgo_->update(new_factors, new_values, !do_not_optimize_);
@@ -209,18 +209,66 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
 void DeformationGraph::addNewMeshEdgesAndNodes(
     const std::vector<std::pair<gtsam::Key, gtsam::Key>>& mesh_edges,
     const gtsam::Values& mesh_nodes,
+    std::vector<size_t>* added_indices,
     bool optimize) {
   // New mesh edge factors
   gtsam::NonlinearFactorGraph new_mesh_factors;
   // New mesh node factors
   gtsam::Values new_mesh_nodes;
+  // Iterate and add the new mesh nodes not yet in graph
+  // Note that the keys are in increasing order by construction from gtsam
+  for (auto k : mesh_nodes.keys()) {
+    char node_prefix = gtsam::Symbol(k).chr();
+    size_t node_idx = gtsam::Symbol(k).index();
+    const gtsam::Pose3& node_pose = mesh_nodes.at<gtsam::Pose3>(k);
+    try {
+      if (node_idx > vertex_positions_.at(node_prefix).size()) {
+        ROS_ERROR_STREAM(
+            "Adding new mesh edges and nodes: node index does not match index "
+            "in vertex position vector. Likely to have dropped packets from "
+            "frontend. "
+            << node_idx << " vs. " << vertex_positions_.at(node_prefix).size());
+        while (vertex_positions_.at(node_prefix).size() < node_idx) {
+          // Place at inifinity to ignore
+          vertex_positions_[node_prefix].push_back(gtsam::Point3(0, 0, 0));
+          vertex_status_[node_prefix].push_back(false);
+          vertices_->push_back(pcl::PointXYZ(0, 0, 0));
+        }
+      }
+      if (node_idx == vertex_positions_.at(node_prefix).size()) {
+        // Only add nodes that has not previously been added
+        vertex_positions_[node_prefix].push_back(node_pose.translation());
+        vertex_status_[node_prefix].push_back(true);
+        vertices_->push_back(
+            GtsamToPcl<pcl::PointXYZ>(node_pose.translation()));
+        new_mesh_nodes.insert(k, node_pose);
+        added_indices->push_back(node_idx);
+      }
+    } catch (const std::out_of_range& e) {
+      ROS_INFO("New prefix detected when adding new mesh edges and nodes. ");
+      vertex_positions_[node_prefix] = std::vector<gtsam::Point3>{};
+      vertex_status_[node_prefix] = std::vector<bool>{};
+      vertex_positions_[node_prefix].push_back(node_pose.translation());
+      vertex_status_[node_prefix].push_back(true);
+      vertices_->push_back(GtsamToPcl<pcl::PointXYZ>(node_pose.translation()));
+      new_mesh_nodes.insert(k, node_pose);
+      added_indices->push_back(node_idx);
+    }
+  }
+
   // Define noise. Hardcoded for now
   static const gtsam::SharedNoiseModel& edge_noise =
       gtsam::noiseModel::Isotropic::Variance(3, 1e-4);
   // Iterate and add the new edges
   for (auto e : mesh_edges) {
-    const gtsam::Key& from = e.first;
-    const gtsam::Key& to = e.second;
+    const gtsam::Symbol& from = gtsam::Symbol(e.first);
+    const gtsam::Symbol& to = gtsam::Symbol(e.second);
+    if (from.index() >= vertex_positions_.at(from.chr()).size() ||
+        to.index() >= vertex_positions_.at(to.chr()).size())
+      continue;
+    if (!vertex_status_.at(from.chr()).at(from.index()) ||
+        !vertex_status_.at(to.chr()).at(to.index()))
+      continue;
     const gtsam::Pose3& pose_from = mesh_nodes.at<gtsam::Pose3>(from);
     const gtsam::Pose3& pose_to = mesh_nodes.at<gtsam::Pose3>(to);
     // Create new edge as deformation edge factor
@@ -229,37 +277,9 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
     new_mesh_factors.add(new_edge);
     consistency_factors_.add(new_edge);
   }
-  // Iterate and add the new mesh nodes not yet in graph
-  // Note that the keys are in increasing order by construction from gtsam
-  for (auto k : mesh_nodes.keys()) {
-    char node_prefix = gtsam::Symbol(k).chr();
-    size_t node_idx = gtsam::Symbol(k).index();
-    const gtsam::Pose3& node_pose = mesh_nodes.at<gtsam::Pose3>(k);
-    try {
-      if (node_idx == vertex_positions_.at(node_prefix).size()) {
-        // Only add nodes that has not previously been added
-        vertex_positions_[node_prefix].push_back(node_pose.translation());
-        vertices_->push_back(
-            GtsamToPcl<pcl::PointXYZ>(node_pose.translation()));
-        new_mesh_nodes.insert(k, node_pose);
-      } else if (node_idx > vertex_positions_.at(node_prefix).size()) {
-        ROS_ERROR_STREAM(
-            "Adding new mesh edges and nodes: node index does not match index "
-            "in vertex position vector. Likely to have dropped packets from "
-            "frontend. "
-            << node_idx << " vs. " << vertex_positions_.at(node_prefix).size());
-        exit(EXIT_FAILURE);
-      }
-    } catch (const std::out_of_range& e) {
-      ROS_INFO("New prefix detected when adding new mesh edges and nodes. ");
-      vertex_positions_[node_prefix] = std::vector<gtsam::Point3>{};
-      vertex_positions_[node_prefix].push_back(node_pose.translation());
-      vertices_->push_back(GtsamToPcl<pcl::PointXYZ>(node_pose.translation()));
-      new_mesh_nodes.insert(k, node_pose);
-    }
-  }
 
   // Update rpgo
+  if (do_not_optimize_) optimize = false;
   pgo_->update(new_mesh_factors, new_mesh_nodes, optimize);
   values_ = pgo_->calculateEstimate();
   nfg_ = pgo_->getFactorsUnsafe();
@@ -323,6 +343,14 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
     ROS_DEBUG("Deformable mesh empty. No deformation. ");
     return original_mesh;
   }
+
+  if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
+    ROS_DEBUG(
+        "Deformation graph has no vertices associated with mesh prefix. No "
+        "deformation. ");
+    return original_mesh;
+  }
+
   // extract original vertices
   pcl::PointCloud<pcl::PointXYZRGBA> original_vertices;
   pcl::fromPCLPointCloud2(original_mesh.cloud, original_vertices);
@@ -341,13 +369,12 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
   pcl::PointCloud<pcl::PointXYZ>::Ptr search_cloud(
       new pcl::PointCloud<pcl::PointXYZ>);
   search_octree->setInputCloud(search_cloud);
-  for (auto v : optimized_values.keys()) {
-    gtsam::Symbol v_key = gtsam::Symbol(v);
-    if (v_key.chr() == prefix) {
-      // Gtsam Keylist should be ordered
-      gtsam::Point3 position = vertex_positions_[prefix].at(v_key.index());
-      search_cloud->push_back(
-          pcl::PointXYZ(position.x(), position.y(), position.z()));
+  for (size_t j = 0; j < vertex_positions_[prefix].size(); j++) {
+    if (!optimized_values.exists(gtsam::Symbol(prefix, j))) continue;
+    gtsam::Point3 position = vertex_positions_[prefix][j];
+    search_cloud->push_back(
+        pcl::PointXYZ(position.x(), position.y(), position.z()));
+    if (vertex_status_[prefix].at(j)) {
       search_octree->addPointFromCloud(search_cloud->points.size() - 1,
                                        nullptr);
     }

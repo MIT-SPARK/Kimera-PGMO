@@ -151,7 +151,8 @@ TEST(test_deformation_graph, addNewMeshEdgesAndNodes) {
 
   MeshToEdgesAndNodes(simple_mesh, 's', &mesh_nodes, &mesh_edges);
 
-  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes);
+  std::vector<size_t> added_node_indices;
+  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
 
   // Check sizes
   EXPECT_EQ(3, graph.getNumVertices());
@@ -182,7 +183,8 @@ TEST(test_deformation_graph, reconstructMesh) {
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
   MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
 
-  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes);
+  std::vector<size_t> added_node_indices;
+  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
 
   // First try deform with k = 1, should not change
   pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 'v', 1);
@@ -223,7 +225,8 @@ TEST(test_deformation_graph, deformMeshtranslation) {
   gtsam::Values mesh_nodes;
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
   MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
-  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes);
+  std::vector<size_t> added_node_indices;
+  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
 
   // deform mesh
   geometry_msgs::Pose distortion;
@@ -271,7 +274,8 @@ TEST(test_deformation_graph, deformMesh) {
   gtsam::Values mesh_nodes;
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
   MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
-  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes);
+  std::vector<size_t> added_node_indices;
+  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
 
   geometry_msgs::Pose distortion;
   distortion.position.x = -0.5;
@@ -321,7 +325,8 @@ TEST(test_deformation_graph, updateMesh) {
   gtsam::Values mesh_nodes;
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
   MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
-  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes);
+  std::vector<size_t> added_node_indices;
+  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
 
   EXPECT_EQ(3, graph.getNumVertices());
   EXPECT_EQ(0, graph.getVertices().points[0].x);
@@ -394,7 +399,8 @@ TEST(test_deformation_graph, addNodeMeasurement) {
   gtsam::Values mesh_nodes;
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
   MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
-  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes);
+  std::vector<size_t> added_node_indices;
+  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
 
   Vertices new_node_valences{0, 2};
   graph.addNewNode(
@@ -451,7 +457,8 @@ TEST(test_deformation_graph, addNodeMeasurements) {
   gtsam::Values mesh_nodes;
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
   MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
-  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes);
+  std::vector<size_t> added_node_indices;
+  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
 
   Vertices new_node_valences{0, 2};
   graph.addNewNode(
@@ -520,7 +527,8 @@ TEST(test_deformation_graph, removePriorsWithPrefix) {
   gtsam::Values mesh_nodes;
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
   MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
-  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes);
+  std::vector<size_t> added_node_indices;
+  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
 
   Vertices new_node_valences{0, 2};
   graph.addNewNode(
@@ -596,7 +604,8 @@ TEST(test_deformation_graph, addNewBetween) {
   gtsam::Values mesh_nodes;
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
   MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
-  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes);
+  std::vector<size_t> added_node_indices;
+  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
 
   EXPECT_EQ(3, graph.getNumVertices());
   EXPECT_EQ(0, graph.getVertices().points[0].x);

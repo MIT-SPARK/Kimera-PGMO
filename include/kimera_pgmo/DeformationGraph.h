@@ -154,11 +154,13 @@ class DeformationGraph {
   /*! \brief Add a new mesh edge to deformation graph
    *  - mesh_edges: edges storing key-key pairs
    *  - mesh_nodes: gtsam values encoding key value pairs of new nodes
+   *  - added_indices: indices of nodes that was successfully added
    *  - optimize: optimize or just add to pgo
    */
   void addNewMeshEdgesAndNodes(
       const std::vector<std::pair<gtsam::Key, gtsam::Key> >& mesh_edges,
       const gtsam::Values& mesh_nodes,
+      std::vector<size_t>* added_indices,
       bool optimize = false);
 
   /*! \brief Add connections from a pose graph node to mesh vertices nodes
@@ -280,7 +282,11 @@ class DeformationGraph {
   /*! \brief Force an optimization of the deformation graph without adding new
    * factors
    */
-  inline void optimize() { pgo_->forceUpdate(); }
+  inline void optimize() {
+    pgo_->forceUpdate();
+    values_ = pgo_->calculateEstimate();
+    nfg_ = pgo_->getFactorsUnsafe();
+  }
 
  private:
   std::map<char, Graph> graph_;
@@ -292,6 +298,8 @@ class DeformationGraph {
   std::map<char, std::vector<gtsam::Pose3> > pg_initial_poses_;
 
   std::map<char, std::vector<gtsam::Point3> > vertex_positions_;
+  std::map<char, std::vector<bool> >
+      vertex_status_;  // Consider for deformation or not
   // Number of mesh vertices corresponding a particular prefix thus far
   std::map<char, size_t> num_vertices_;
 
