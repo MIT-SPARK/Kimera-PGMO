@@ -8,7 +8,6 @@
 #include <limits>
 
 #include <geometry_msgs/Point.h>
-#include <gtsam/inference/Symbol.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <mesh_msgs/TriangleIndices.h>
 #include <pcl/PCLPointCloud2.h>

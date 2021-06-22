@@ -10,6 +10,7 @@
 
 #include <geometry_msgs/Pose.h>
 #include <gtsam/geometry/Pose3.h>
+#include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 #include <mesh_msgs/TriangleMesh.h>
@@ -20,6 +21,7 @@
 #include <pcl/point_types.h>
 #include <pcl_msgs/PolygonMesh.h>
 #include <pose_graph_tools/PoseGraph.h>
+#include <ros/console.h>
 #include <voxblox_msgs/Mesh.h>
 
 namespace kimera_pgmo {
@@ -198,7 +200,7 @@ bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2);
 GraphMsgPtr GtsamGraphToRos(
     const gtsam::NonlinearFactorGraph& factors,
     const gtsam::Values& values,
-    const std::map<size_t, std::vector<ros::Time> >& timestamps);
+    const std::map<size_t, std::vector<ros::Time>>& timestamps);
 
 /*! \brief Check if a surface exist based on previous tracked adjacent surfaces
  *  - new_surface: new surface to be inserted
@@ -208,7 +210,7 @@ GraphMsgPtr GtsamGraphToRos(
  */
 bool SurfaceExists(
     const pcl::Vertices& new_surface,
-    const std::map<size_t, std::vector<size_t> >& adjacent_surfaces,
+    const std::map<size_t, std::vector<size_t>>& adjacent_surfaces,
     const std::vector<pcl::Vertices>& surfaces);
 
 /*! \brief Check if a point is within the bounding box of an octree structure
@@ -224,4 +226,94 @@ bool InOctreeBoundingBox(
   return (p.x >= min_x && p.x <= max_x) && (p.y >= min_y && p.y <= max_y) &&
          (p.z >= min_z && p.z <= max_z);
 }
+
+/*! \brief Deform a points (i.e. the vertices of a mesh) based on the
+ * controls points via deformation
+ * - original_points: set of points to deform
+ * - prefix: a char to distinguish the type of control points
+ * - control_points: original positions of the control points. In the case of
+ * mesh vertices, these are the original positions of the simplified mesh.
+ * - values: key-value pairs. Where each key should be gtsam::Symbol(prefix,
+ * idx-in-control-points) from the previous two arguments.
+ * - k: how many nearby nodes to use to adjust new position of vertices
+ */
+template <class point_type>
+pcl::PointCloud<point_type> deformPoints(
+    const pcl::PointCloud<point_type>& original_points,
+    const char& prefix,
+    const std::vector<gtsam::Point3>& control_points,
+    const gtsam::Values& values,
+    size_t k = 4) {
+  typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
+  // Check if there are points to deform
+  if (original_points.size() == 0) {
+    return original_points;
+  }
+
+  // Cannot deform if no nodes in the deformation graph
+  if (control_points.size() == 0) {
+    ROS_WARN("No control points. No deformation. ");
+    return original_points;
+  }
+
+  pcl::PointCloud<point_type> new_points;
+
+  // Build Octree
+  Octree::Ptr search_octree(new Octree(1.0));
+  pcl::PointCloud<pcl::PointXYZ>::Ptr search_cloud(
+      new pcl::PointCloud<pcl::PointXYZ>);
+  search_octree->setInputCloud(search_cloud);
+  for (size_t j = 0; j < control_points.size(); j++) {
+    if (!values.exists(gtsam::Symbol(prefix, j))) continue;
+    gtsam::Point3 position = control_points[j];
+    search_cloud->push_back(
+        pcl::PointXYZ(position.x(), position.y(), position.z()));
+  }
+
+  if (search_cloud->size() < k) {
+    ROS_WARN("Not enough valid control points to deform points. ");
+    return original_points;
+  }
+
+  for (size_t ii = 0; ii < original_points.size(); ii++) {
+    const point_type& p = original_points.points[ii];
+    // search for k + 1 nearest nodes
+    std::vector<std::pair<size_t, double>> nearest_nodes;
+    pcl::PointXYZ p_xyz(p.x, p.y, p.z);
+    gtsam::Point3 vi(p.x, p.y, p.z);
+    // Query octree
+    std::vector<int> nearest_nodes_index;
+    std::vector<float> nearest_nodes_sq_dist;
+    search_octree->nearestKSearch(
+        p_xyz, k + 1, nearest_nodes_index, nearest_nodes_sq_dist);
+
+    // Calculate new point location from k points
+    gtsam::Point3 new_point(0, 0, 0);
+    double d_max =
+        std::sqrt(nearest_nodes_sq_dist[nearest_nodes_index.size() - 1]);
+    double weight_sum = 0;
+    for (size_t j = 0; j < nearest_nodes_index.size() - 1; j++) {
+      const pcl::PointXYZ& p_g =
+          search_cloud->points.at(nearest_nodes_index[j]);
+      gtsam::Point3 gj(p_g.x, p_g.y, p_g.z);
+      double weight = (1 - std::sqrt(nearest_nodes_sq_dist[j]) / d_max);
+      if (weight_sum == 0 && weight == 0) weight = 1;
+      weight_sum = weight_sum + weight;
+      gtsam::Pose3 node_transform = values.at<gtsam::Pose3>(
+          gtsam::Symbol(prefix, nearest_nodes_index[j]));
+      gtsam::Point3 add = node_transform.rotation().rotate(vi - gj) +
+                          node_transform.translation();
+      new_point = new_point + weight * add;
+    }
+    // Add back to new_vertices
+    point_type new_pcl_point = p;
+    new_pcl_point.x = new_point.x() / weight_sum;
+    new_pcl_point.y = new_point.y() / weight_sum;
+    new_pcl_point.z = new_point.z() / weight_sum;
+    new_points.points.push_back(new_pcl_point);
+  }
+
+  return new_points;
+}
+
 }  // namespace kimera_pgmo
