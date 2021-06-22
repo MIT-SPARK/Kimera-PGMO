@@ -135,6 +135,24 @@ class KimeraPgmoInterface {
   std::vector<gtsam::Pose3> getOptimizedTrajectory(
       const size_t& robot_id) const;
 
+  /*! \brief Get the factors of the underlying deformation graph
+   */
+  inline gtsam::NonlinearFactorGraph getDeformationGraphFactors() const {
+    return deformation_graph_->getGtsamFactors();
+  }
+
+  /*! \brief Get the estimates of the underlying deformation graph
+   */
+  inline gtsam::Values getDeformationGraphValues() const {
+    return deformation_graph_->getGtsamValues();
+  }
+
+  /*! \brief Ptr to deformation graph
+   */
+  inline DeformationGraphPtr getDeformationGraphPtr() const {
+    return deformation_graph_;
+  }
+
   /*! \brief Saves mesh as a ply file. Triggers through a rosservice call
    * and saves to file [output_prefix_][id].ply
    * - mesh: mesh to save
@@ -190,7 +208,7 @@ class KimeraPgmoInterface {
   RunMode run_mode_;
   bool use_msg_time_;  // use msg time or call back time
 
-  DeformationGraph deformation_graph_;
+  DeformationGraphPtr deformation_graph_;
   // maximum time allowed when associating node to mesh
   double embed_delta_t_;
   // time horizon when creating simplifed mesh

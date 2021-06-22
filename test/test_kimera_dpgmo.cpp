@@ -73,11 +73,11 @@ class KimeraDpgmoTest : public ::testing::Test {
   }
 
   inline gtsam::Values getValues() const {
-    return pgmo_.deformation_graph_.getGtsamValues();
+    return pgmo_.getDeformationGraphValues();
   }
 
   inline gtsam::NonlinearFactorGraph getFactors() const {
-    return pgmo_.deformation_graph_.getGtsamFactors();
+    return pgmo_.getDeformationGraphFactors();
   }
 
   inline pcl::PolygonMesh getOptimizedMesh() const {
@@ -89,7 +89,7 @@ class KimeraDpgmoTest : public ::testing::Test {
   }
 
   inline gtsam::NonlinearFactorGraph getConsistencyFactorsGtsam() const {
-    return pgmo_.deformation_graph_.getConsistencyFactors();
+    return pgmo_.getDeformationGraphPtr()->getConsistencyFactors();
   }
 
   inline bool getConsistencyFactorsMsg(

@@ -204,7 +204,7 @@ void KimeraPgmo::incrementalPoseGraphCallback(
     std::map<size_t, std::vector<ros::Time> > id_timestamps;
     id_timestamps[robot_id_] = timestamps_;
     const GraphMsgPtr& pose_graph_ptr =
-        deformation_graph_.getPoseGraph(id_timestamps);
+        deformation_graph_->getPoseGraph(id_timestamps);
     pose_graph_pub_.publish(*pose_graph_ptr);
   }
 
@@ -381,8 +381,8 @@ void KimeraPgmo::logStats(const std::string filename) const {
 
   file.open(filename, std::ofstream::out | std::ofstream::app);
   file << 1 << "," << num_keyframes << "," << num_loop_closures_ << ","
-       << deformation_graph_.getGtsamFactors().size() << "," << num_vertices
-       << "," << deformation_graph_.getVertices().points.size() << ","
+       << deformation_graph_->getGtsamFactors().size() << "," << num_vertices
+       << "," << deformation_graph_->getVertices().points.size() << ","
        << inc_mesh_cb_time_ << "," << full_mesh_cb_time_ << "," << pg_cb_time_
        << "," << path_cb_time_ << std::endl;
   file.close();
