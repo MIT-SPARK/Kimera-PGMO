@@ -13,10 +13,10 @@
 - git:
     local-name: Kimera-RPGO
     uri: git@github.com:MIT-SPARK/Kimera-RPGO.git
-    version: feature/gnc
+    version: master
 - git:
     local-name: voxblox
-    uri: git@github.com:ToniRV/voxblox-private.git
+    uri: git@github.com:ethz-asl/voxblox.git
 - git:
     local-name: Kimera-VIO
     uri: git@github.mit.edu:SPARK/Kimera-VIO.git

@@ -13,7 +13,7 @@
 - git:
     local-name: Kimera-RPGO
     uri: https://github.com/MIT-SPARK/Kimera-RPGO.git
-    version: feature/gnc
+    version: master
 - git:
     local-name: voxblox
     uri: https://github.com/ethz-asl/voxblox.git
