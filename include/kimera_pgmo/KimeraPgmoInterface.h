@@ -51,6 +51,24 @@ class KimeraPgmoInterface {
    */
   virtual bool initialize(const ros::NodeHandle& n) = 0;
 
+  /*! \brief Get the factors of the underlying deformation graph
+   */
+  inline gtsam::NonlinearFactorGraph getDeformationGraphFactors() const {
+    return deformation_graph_->getGtsamFactors();
+  }
+
+  /*! \brief Get the estimates of the underlying deformation graph
+   */
+  inline gtsam::Values getDeformationGraphValues() const {
+    return deformation_graph_->getGtsamValues();
+  }
+
+  /*! \brief Ptr to deformation graph
+   */
+  inline DeformationGraphPtr getDeformationGraphPtr() const {
+    return deformation_graph_;
+  }
+
  protected:
   /*! \brief Load the parameters required by this class through ROS
    *  - n: ROS node handle
@@ -137,24 +155,6 @@ class KimeraPgmoInterface {
    * - robot_id: id of the robot referred to in query
    */
   Path getOptimizedTrajectory(const size_t& robot_id) const;
-
-  /*! \brief Get the factors of the underlying deformation graph
-   */
-  inline gtsam::NonlinearFactorGraph getDeformationGraphFactors() const {
-    return deformation_graph_->getGtsamFactors();
-  }
-
-  /*! \brief Get the estimates of the underlying deformation graph
-   */
-  inline gtsam::Values getDeformationGraphValues() const {
-    return deformation_graph_->getGtsamValues();
-  }
-
-  /*! \brief Ptr to deformation graph
-   */
-  inline DeformationGraphPtr getDeformationGraphPtr() const {
-    return deformation_graph_;
-  }
 
   /*! \brief Saves mesh as a ply file. Triggers through a rosservice call
    * and saves to file [output_prefix_][id].ply
