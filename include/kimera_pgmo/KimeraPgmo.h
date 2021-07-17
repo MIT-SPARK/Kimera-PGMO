@@ -31,6 +31,12 @@ class KimeraPgmo : public KimeraPgmoInterface {
    */
   bool initialize(const ros::NodeHandle& n) override;
 
+  /*! \brief Get a pointer to the optimized mesh
+   */
+  inline pcl::PolygonMesh::ConstPtr getOptimizedMeshPtr() const {
+    return optimized_mesh_;
+  }
+
  protected:
   /*! \brief Load the parameters required by this class through ROS
    *  - n: ROS node handle
