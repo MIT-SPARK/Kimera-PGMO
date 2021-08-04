@@ -131,9 +131,12 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
     // push to mesh block index and mesh vertices
     const voxblox::BlockIndex block_index(
         mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
-    vxblx_msg_to_graph_idx_.insert(
-        std::pair<voxblox::BlockIndex, std::map<size_t, size_t> >{
-            block_index, *msg_vertex_ind_map});
+    if (vxblx_msg_to_graph_idx_.count(block_index) > 0) {
+      vxblx_msg_to_graph_idx_[block_index] = *msg_vertex_ind_map;
+    } else {
+      vxblx_msg_to_graph_idx_.insert(
+          VoxbloxIndexPair{block_index, *msg_vertex_ind_map});
+    }
   }
 
   if (mesh_vertices->size() < 3 || mesh_surfaces->size() == 0) return;
@@ -180,6 +183,15 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
   d_graph_compression_->getStoredPolygons(graph_triangles_);
 
   // Update the vxblx_msg_to_graph_idx_ mapping after first compression
+  // TODO!!! graph_index_remappings do not consist of all remappings! 
+  for (const voxblox_msgs::MeshBlock& mesh_block : msg->mesh_blocks) {
+    const voxblox::BlockIndex block_index(
+        mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
+    for (size_t i = 0; i < mesh_block.x.size(); i++) {
+      vxblx_msg_to_graph_idx_[block_index][i] =
+          graph_index_remappings->at(vxblx_msg_to_graph_idx_[block_index][i]);
+    }
+  }
 
   std::vector<Edge> new_graph_edges;
   if (new_graph_indices->size() > 0 && new_graph_triangles->size() > 0) {

@@ -30,6 +30,11 @@ class MeshFrontend {
   friend class MeshFrontendTest;
 
  public:
+  typedef voxblox::AnyIndexHashMapType<std::map<size_t, size_t>>::type
+      VoxbloxIndexMapping;
+  typedef std::pair<voxblox::BlockIndex, std::map<size_t, size_t>>
+      VoxbloxIndexPair;
+
   /*! \brief Constructor for MeshFrontend class, which is in charge of
    * converting from Voxblox msg type to our mesh type while storing and
    * compressing the full unoptimized mesh
@@ -100,6 +105,12 @@ class MeshFrontend {
     return last_mesh_graph_;
   }
 
+  /*! \brief Get the mappings from vxblx msg to graph index for tracking.
+   */
+  inline VoxbloxIndexMapping getVoxbloxMsgMapping() const {
+    return vxblx_msg_to_graph_idx_;
+  }
+
   /*! \brief Log the stats and the timing
    *  - filename: file to log to
    *  - callback_duration: callback time (mu-s)
@@ -147,8 +158,7 @@ class MeshFrontend {
   pose_graph_tools::PoseGraph last_mesh_graph_;
 
   // Book keeping for indices
-  voxblox::AnyIndexHashMapType<std::map<size_t, size_t>>::type
-      vxblx_msg_to_graph_idx_;
+  VoxbloxIndexMapping vxblx_msg_to_graph_idx_;
 
   // Save output
   std::string log_path_;
