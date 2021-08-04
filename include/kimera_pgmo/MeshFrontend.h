@@ -8,6 +8,7 @@
 #include <ros/ros.h>
 #include <map>
 #include <queue>
+#include <unordered_map>
 
 #include <mesh_msgs/TriangleMeshStamped.h>
 #include <pcl/PolygonMesh.h>
@@ -15,6 +16,8 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pose_graph_tools/PoseGraph.h>
+#include <voxblox/core/block_hash.h>
+#include <voxblox/core/common.h>
 #include <voxblox_msgs/Mesh.h>
 
 #include "kimera_pgmo/compression/OctreeCompression.h"
@@ -134,14 +137,19 @@ class MeshFrontend {
   // Vertices of full mesh
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices_;
   // Triangles (connections) of full mesh
-  boost::shared_ptr<std::vector<pcl::Vertices> > triangles_;
+  boost::shared_ptr<std::vector<pcl::Vertices>> triangles_;
   // Vertices of simplified mesh used for the deformation graph
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr graph_vertices_;
   // Triangles of the simplified mesh used for the deformation graph
-  boost::shared_ptr<std::vector<pcl::Vertices> > graph_triangles_;
+  boost::shared_ptr<std::vector<pcl::Vertices>> graph_triangles_;
 
   // Last pose graph msg created for testing purposes
   pose_graph_tools::PoseGraph last_mesh_graph_;
+
+  // Book keeping for indices
+  voxblox::AnyIndexHashMapType<std::map<size_t, size_t>>::type
+      voxblox_msg_mapping_;
+  std::map<size_t, size_t> simplified_vertices_mapping_;
 
   // Save output
   std::string log_path_;

@@ -118,11 +118,22 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
     // Convert it into a vertices - surfaces format and input to compressor
     // Full mesh will then be extracted from compressor
     // While mesh blocks are combined to build a partial mesh to be returned
+    boost::shared_ptr<std::map<size_t, size_t> > msg_vertex_ind_map =
+        boost::make_shared<std::map<size_t, size_t> >();
     if (mesh_block.x.size() > 3) {
       // Convert to vertices and surfaces
-      VoxbloxMeshBlockToPolygonMesh(
-          mesh_block, msg->block_edge_length, mesh_vertices, mesh_surfaces);
+      VoxbloxMeshBlockToPolygonMesh(mesh_block,
+                                    msg->block_edge_length,
+                                    mesh_vertices,
+                                    msg_vertex_ind_map,
+                                    mesh_surfaces);
     }
+    // push to mesh block index and mesh vertices
+    const voxblox::BlockIndex block_index(
+        mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
+    voxblox_msg_mapping_.insert(
+        std::pair<voxblox::BlockIndex, std::map<size_t, size_t> >{
+            block_index, *msg_vertex_ind_map});
   }
 
   if (mesh_vertices->size() < 3 || mesh_surfaces->size() == 0) return;
