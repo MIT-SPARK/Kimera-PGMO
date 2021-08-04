@@ -131,7 +131,7 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
     // push to mesh block index and mesh vertices
     const voxblox::BlockIndex block_index(
         mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
-    voxblox_msg_mapping_.insert(
+    vxblx_msg_to_graph_idx_.insert(
         std::pair<voxblox::BlockIndex, std::map<size_t, size_t> >{
             block_index, *msg_vertex_ind_map});
   }
@@ -145,11 +145,14 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
       boost::make_shared<std::vector<pcl::Vertices> >();
   boost::shared_ptr<std::vector<size_t> > new_indices =
       boost::make_shared<std::vector<size_t> >();
+  boost::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
+      boost::make_shared<std::unordered_map<size_t, size_t> >();
   full_mesh_compression_->compressAndIntegrate(*mesh_vertices,
                                                *mesh_surfaces,
                                                new_vertices,
                                                new_triangles,
                                                new_indices,
+                                               index_remappings,
                                                msg_time);
   // Update the mesh vertices and surfaces for class variables
   full_mesh_compression_->getVertices(vertices_);
@@ -162,15 +165,21 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
       boost::make_shared<std::vector<pcl::Vertices> >();
   boost::shared_ptr<std::vector<size_t> > new_graph_indices =
       boost::make_shared<std::vector<size_t> >();
+  boost::shared_ptr<std::unordered_map<size_t, size_t> >
+      graph_index_remappings =
+          boost::make_shared<std::unordered_map<size_t, size_t> >();
   d_graph_compression_->compressAndIntegrate(*mesh_vertices,
                                              *mesh_surfaces,
                                              new_graph_vertices,
                                              new_graph_triangles,
                                              new_graph_indices,
+                                             graph_index_remappings,
                                              msg_time);
   // Update the simplified mesh vertices and surfaces for class variables
   d_graph_compression_->getVertices(graph_vertices_);
   d_graph_compression_->getStoredPolygons(graph_triangles_);
+
+  // Update the vxblx_msg_to_graph_idx_ mapping after first compression
 
   std::vector<Edge> new_graph_edges;
   if (new_graph_indices->size() > 0 && new_graph_triangles->size() > 0) {

@@ -148,8 +148,7 @@ class MeshFrontend {
 
   // Book keeping for indices
   voxblox::AnyIndexHashMapType<std::map<size_t, size_t>>::type
-      voxblox_msg_mapping_;
-  std::map<size_t, size_t> simplified_vertices_mapping_;
+      vxblx_msg_to_graph_idx_;
 
   // Save output
   std::string log_path_;

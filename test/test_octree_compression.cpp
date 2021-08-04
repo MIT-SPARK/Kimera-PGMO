@@ -110,8 +110,10 @@ TEST(test_octree_compression, returnedValues) {
   boost::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
 
   pcl::PolygonMesh mesh = createMesh(1.0);
+  boost::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
+      boost::make_shared<std::unordered_map<size_t, size_t> >();
   compression.compressAndIntegrate(
-      mesh, new_vertices, new_triangles, new_indices, 100.0);
+      mesh, new_vertices, new_triangles, new_indices, index_remappings, 100.0);
 
   // Check the partial integration
   EXPECT_EQ(size_t(5), new_vertices->size());
@@ -131,9 +133,10 @@ TEST(test_octree_compression, returnedValues) {
   new_vertices->clear();
   new_indices->clear();
   new_triangles->clear();
+  index_remappings->clear();
 
   compression.compressAndIntegrate(
-      mesh, new_vertices, new_triangles, new_indices, 101.0);
+      mesh, new_vertices, new_triangles, new_indices, index_remappings, 101.0);
 
   // Check the partial integration
   EXPECT_EQ(size_t(4), new_vertices->size());
@@ -159,8 +162,10 @@ TEST(test_octree_compression, storedValues) {
   boost::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
 
   pcl::PolygonMesh mesh = createMesh(1.0);
+  boost::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
+      boost::make_shared<std::unordered_map<size_t, size_t> >();
   compression.compressAndIntegrate(
-      mesh, new_vertices, new_triangles, new_indices, 100.0);
+      mesh, new_vertices, new_triangles, new_indices, index_remappings, 100.0);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -197,9 +202,10 @@ TEST(test_octree_compression, storedValues) {
   new_vertices->clear();
   new_indices->clear();
   new_triangles->clear();
+  index_remappings->clear();
 
   compression.compressAndIntegrate(
-      mesh, new_vertices, new_triangles, new_indices, 101.0);
+      mesh, new_vertices, new_triangles, new_indices, index_remappings, 101.0);
 
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);
@@ -232,17 +238,20 @@ TEST(test_octree_compression, pruneStoredMesh) {
   boost::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
 
   pcl::PolygonMesh mesh = createMesh(1.0);
+  boost::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
+      boost::make_shared<std::unordered_map<size_t, size_t> >();
   compression.compressAndIntegrate(
-      mesh, new_vertices, new_triangles, new_indices, 100.0);
+      mesh, new_vertices, new_triangles, new_indices, index_remappings, 100.0);
 
   // Insert another
   mesh = createMesh(2.0);
   new_vertices->clear();
   new_indices->clear();
   new_triangles->clear();
+  index_remappings->clear();
 
   compression.compressAndIntegrate(
-      mesh, new_vertices, new_triangles, new_indices, 101.0);
+      mesh, new_vertices, new_triangles, new_indices, index_remappings, 101.0);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -284,9 +293,10 @@ TEST(test_octree_compression, pruneStoredMesh) {
   new_vertices->clear();
   new_indices->clear();
   new_triangles->clear();
+  index_remappings->clear();
 
   compression.compressAndIntegrate(
-      mesh, new_vertices, new_triangles, new_indices, 102.0);
+      mesh, new_vertices, new_triangles, new_indices, index_remappings, 102.0);
   compression.pruneStoredMesh(100.9);
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);
@@ -333,8 +343,10 @@ TEST(test_octree_compression, returnedValuesCompressed) {
   boost::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
 
   pcl::PolygonMesh mesh = createMesh(1.0);
+  boost::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
+      boost::make_shared<std::unordered_map<size_t, size_t> >();
   compression.compressAndIntegrate(
-      mesh, new_vertices, new_triangles, new_indices, 100.0);
+      mesh, new_vertices, new_triangles, new_indices, index_remappings, 100.0);
 
   // Check the partial integration
   EXPECT_EQ(size_t(0), new_vertices->size());
@@ -349,9 +361,10 @@ TEST(test_octree_compression, returnedValuesCompressed) {
   new_vertices->clear();
   new_indices->clear();
   new_triangles->clear();
+  index_remappings->clear();
 
   compression.compressAndIntegrate(
-      mesh, new_vertices, new_triangles, new_indices, 101.0);
+      mesh, new_vertices, new_triangles, new_indices, index_remappings, 101.0);
 
   // Check the partial integration
   EXPECT_EQ(size_t(0), new_vertices->size());
@@ -372,8 +385,10 @@ TEST(test_octree_compression, storedValuesCompressed) {
   boost::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
 
   pcl::PolygonMesh mesh = createMesh(1.0);
+  boost::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
+      boost::make_shared<std::unordered_map<size_t, size_t> >();
   compression.compressAndIntegrate(
-      mesh, new_vertices, new_triangles, new_indices, 100.0);
+      mesh, new_vertices, new_triangles, new_indices, index_remappings, 100.0);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -400,9 +415,10 @@ TEST(test_octree_compression, storedValuesCompressed) {
   new_vertices->clear();
   new_indices->clear();
   new_triangles->clear();
+  index_remappings->clear();
 
   compression.compressAndIntegrate(
-      mesh, new_vertices, new_triangles, new_indices, 101.0);
+      mesh, new_vertices, new_triangles, new_indices, index_remappings, 101.0);
 
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);
