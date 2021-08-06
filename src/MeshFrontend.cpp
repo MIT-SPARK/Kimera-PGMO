@@ -188,8 +188,12 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
     const voxblox::BlockIndex block_index(
         mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
     for (size_t i = 0; i < mesh_block.x.size(); i++) {
-      vxblx_msg_to_graph_idx_[block_index][i] =
-          graph_index_remappings->at(vxblx_msg_to_graph_idx_[block_index][i]);
+      try {
+        vxblx_msg_to_graph_idx_[block_index][i] =
+            graph_index_remappings->at(vxblx_msg_to_graph_idx_[block_index][i]);
+      } catch (const std::out_of_range& e) {
+        vxblx_msg_to_graph_idx_[block_index].erase(i);
+      }
     }
   }
 
