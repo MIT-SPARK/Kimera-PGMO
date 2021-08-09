@@ -147,6 +147,7 @@ void OctreeCompression::compressAndIntegrate(
       }
     }
   }
+  *remapping = reindex;
   // Update reindex and the other structures
   for (size_t i = 0; i < potential_new_vertices.size(); i++) {
     if (potential_new_vertices_check[i]) {
@@ -164,12 +165,21 @@ void OctreeCompression::compressAndIntegrate(
       vertices_latest_time_.push_back(stamp_in_sec);
       // Upate reindex
       reindex[potential_new_vertices[i]] = all_vertices_.size() - 1;
+      remapping->insert(std::pair<size_t, size_t>{potential_new_vertices[i],
+                                                  all_vertices_.size() - 1});
+      for (size_t m = 0; m < temp_reindex.size(); m++) {
+        if (potential_new_vertices[i] != m &&
+            temp_reindex[i] == temp_reindex[m]) {
+          remapping->insert(
+              std::pair<size_t, size_t>{m, all_vertices_.size() - 1});
+        }
+      }
       // Add to new indices
       new_indices->push_back(all_vertices_.size() - 1);
       new_vertices->push_back(p);
     }
   }
-  *remapping = reindex;
+
   // Second iteration through the faces to add to new_triangles and update
   // compressed mesh surfaces
   for (auto s : input_surfaces) {

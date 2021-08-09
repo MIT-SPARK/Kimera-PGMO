@@ -183,7 +183,6 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
   d_graph_compression_->getStoredPolygons(graph_triangles_);
 
   // Update the vxblx_msg_to_graph_idx_ mapping after first compression
-  // TODO!!! graph_index_remappings do not consist of all remappings! 
   for (const voxblox_msgs::MeshBlock& mesh_block : msg->mesh_blocks) {
     const voxblox::BlockIndex block_index(
         mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);

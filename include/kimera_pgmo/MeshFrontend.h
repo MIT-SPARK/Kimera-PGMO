@@ -26,15 +26,15 @@
 
 namespace kimera_pgmo {
 
+typedef voxblox::AnyIndexHashMapType<std::map<size_t, size_t>>::type
+    VoxbloxIndexMapping;
+typedef std::pair<voxblox::BlockIndex, std::map<size_t, size_t>>
+    VoxbloxIndexPair;
+
 class MeshFrontend {
   friend class MeshFrontendTest;
 
  public:
-  typedef voxblox::AnyIndexHashMapType<std::map<size_t, size_t>>::type
-      VoxbloxIndexMapping;
-  typedef std::pair<voxblox::BlockIndex, std::map<size_t, size_t>>
-      VoxbloxIndexPair;
-
   /*! \brief Constructor for MeshFrontend class, which is in charge of
    * converting from Voxblox msg type to our mesh type while storing and
    * compressing the full unoptimized mesh
