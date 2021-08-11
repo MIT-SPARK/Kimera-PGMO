@@ -165,6 +165,30 @@ class MeshFrontendTest : public ::testing::Test {
     return mesh4;
   }
 
+  voxblox_msgs::Mesh CreateSimpleMesh5() const {
+    std::vector<float> x_coords = {1.7, 3.1, 3.1, 1.7, 1.7, 3.1};
+    std::vector<float> y_coords = {0.0, 0.0, 1.5, 0.0, 1.5, 1.5};
+    std::vector<float> z_coords = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+
+    voxblox_msgs::MeshBlock block1 =
+        CreateMeshBlock(BlockIndex(1, 0, 0), 1.6, x_coords, y_coords, z_coords);
+
+    x_coords = {1.7, 3.1, 3.1, 1.7, 1.7, 3.1};
+    y_coords = {1.7, 1.7, 3.1, 1.7, 3.1, 3.1};
+    z_coords = {0.0, 0.0, 0.0, 0.0, 0.0, 0.0};
+
+    voxblox_msgs::MeshBlock block2 =
+        CreateMeshBlock(BlockIndex(1, 1, 0), 1.6, x_coords, y_coords, z_coords);
+
+    voxblox_msgs::Mesh mesh5;
+    mesh5.header.stamp = ros::Time(10.5);
+    mesh5.block_edge_length = 1.6;
+    mesh5.mesh_blocks.push_back(block1);
+    mesh5.mesh_blocks.push_back(block2);
+
+    return mesh5;
+  }
+
   void GetFullMesh(pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
                    std::vector<pcl::Vertices>* triangles) {
     *vertices = *(vp_.vertices_);
@@ -175,6 +199,10 @@ class MeshFrontendTest : public ::testing::Test {
                          std::vector<pcl::Vertices>* triangles) {
     *vertices = *(vp_.graph_vertices_);
     *triangles = *(vp_.graph_triangles_);
+  }
+
+  VoxbloxIndexMapping GetVoxbloxMsgMapping() {
+    return vp_.getVoxbloxMsgMapping();
   }
 
   MeshFrontend vp_;
@@ -527,6 +555,98 @@ TEST_F(MeshFrontendTest, meshGraph) {
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(4.5, 4.5, 3.5)),
       RosToGtsam(last_mesh_graph.nodes[7].pose),
       1e-4));
+}
+
+TEST_F(MeshFrontendTest, vxblxIndexMapping1) {
+  // Test index mappings
+  ros::NodeHandle nh;
+  vp_.initialize(nh);
+
+  voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
+  *mesh1 = CreateSimpleMesh1();
+
+  ProcessVoxbloxMesh(mesh1);
+
+  // process another mesh
+  voxblox_msgs::Mesh::Ptr mesh5(new voxblox_msgs::Mesh);
+  *mesh5 = CreateSimpleMesh5();
+  ProcessVoxbloxMesh(mesh5);
+
+  VoxbloxIndexMapping mappings = GetVoxbloxMsgMapping();
+
+  BlockIndex block1(0, 0, 0);
+  BlockIndex block2(1, 0, 0);
+  BlockIndex block3(1, 1, 0);
+
+  // Check the mappings
+  EXPECT_EQ(3, mappings.size());
+  EXPECT_EQ(6, mappings[block1].size());
+  EXPECT_EQ(6, mappings[block2].size());
+  EXPECT_EQ(6, mappings[block3].size());
+
+  EXPECT_EQ(0, mappings[block1][0]);
+  EXPECT_EQ(1, mappings[block1][1]);
+  EXPECT_EQ(2, mappings[block1][2]);
+  EXPECT_EQ(1, mappings[block1][3]);
+  EXPECT_EQ(3, mappings[block1][4]);
+  EXPECT_EQ(2, mappings[block1][5]);
+
+  EXPECT_EQ(4, mappings[block2][0]);
+  EXPECT_EQ(5, mappings[block2][1]);
+  EXPECT_EQ(6, mappings[block2][2]);
+  EXPECT_EQ(4, mappings[block2][3]);
+  EXPECT_EQ(7, mappings[block2][4]);
+  EXPECT_EQ(6, mappings[block2][5]);
+
+  EXPECT_EQ(8, mappings[block3][0]);
+  EXPECT_EQ(9, mappings[block3][1]);
+  EXPECT_EQ(10, mappings[block3][2]);
+  EXPECT_EQ(8, mappings[block3][3]);
+  EXPECT_EQ(11, mappings[block3][4]);
+  EXPECT_EQ(10, mappings[block3][5]);
+}
+
+TEST_F(MeshFrontendTest, vxblxIndexMapping2) {
+  // Test index mappings
+  ros::NodeHandle nh;
+  system("rosparam set d_graph_resolution 1.2");
+  vp_.initialize(nh);
+
+  voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
+  *mesh1 = CreateSimpleMesh1();
+
+  ProcessVoxbloxMesh(mesh1);
+
+  // process another mesh
+  voxblox_msgs::Mesh::Ptr mesh5(new voxblox_msgs::Mesh);
+  *mesh5 = CreateSimpleMesh5();
+  ProcessVoxbloxMesh(mesh5);
+
+  VoxbloxIndexMapping mappings = GetVoxbloxMsgMapping();
+
+  BlockIndex block1(0, 0, 0);
+  BlockIndex block2(1, 0, 0);
+  BlockIndex block3(1, 1, 0);
+
+  // Check the mappings
+  EXPECT_EQ(3, mappings.size());
+  EXPECT_EQ(0, mappings[block1].size());
+  EXPECT_EQ(6, mappings[block2].size());
+  EXPECT_EQ(6, mappings[block3].size());
+
+  EXPECT_EQ(0, mappings[block2][0]);
+  EXPECT_EQ(1, mappings[block2][1]);
+  EXPECT_EQ(2, mappings[block2][2]);
+  EXPECT_EQ(0, mappings[block2][3]);
+  EXPECT_EQ(3, mappings[block2][4]);
+  EXPECT_EQ(2, mappings[block2][5]);
+
+  EXPECT_EQ(3, mappings[block3][0]);
+  EXPECT_EQ(2, mappings[block3][1]);
+  EXPECT_EQ(4, mappings[block3][2]);
+  EXPECT_EQ(3, mappings[block3][3]);
+  EXPECT_EQ(5, mappings[block3][4]);
+  EXPECT_EQ(4, mappings[block3][5]);
 }
 
 }  // namespace kimera_pgmo

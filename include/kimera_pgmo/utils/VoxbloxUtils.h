@@ -74,6 +74,7 @@ pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
  * mesh (represented as pointcloud of vertices + sets of triangles )
  *  - mesh_block: voxblox mesh block input
  *  - vertices: pointcloud of generated vertices
+ *  - msg_vertex_map: mapping from msg (mesh block) index to vertex index
  *  - triangles: vector of triplet indices inidicating the connections
  *  - check_duplicates_full: check for duplicated vertices against all vertices
  * (including the points already in vertices)
@@ -82,6 +83,7 @@ void VoxbloxMeshBlockToPolygonMesh(
     const voxblox_msgs::MeshBlock& mesh_block,
     float block_edge_length,
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
+    boost::shared_ptr<std::map<size_t, size_t> > msg_vertex_map,
     boost::shared_ptr<std::vector<pcl::Vertices> > triangles,
     const bool& check_duplicates_full = false);
 

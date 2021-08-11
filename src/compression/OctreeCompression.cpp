@@ -31,6 +31,7 @@ void OctreeCompression::compressAndIntegrate(
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
     boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
     boost::shared_ptr<std::vector<size_t> > new_indices,
+    boost::shared_ptr<std::unordered_map<size_t, size_t> > remapping,
     const double& stamp_in_sec) {
   // Extract vertices from input mesh
   PointCloud input_vertices;
@@ -41,6 +42,7 @@ void OctreeCompression::compressAndIntegrate(
                        new_vertices,
                        new_triangles,
                        new_indices,
+                       remapping,
                        stamp_in_sec);
   return;
 }
@@ -51,6 +53,7 @@ void OctreeCompression::compressAndIntegrate(
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
     boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
     boost::shared_ptr<std::vector<size_t> > new_indices,
+    boost::shared_ptr<std::unordered_map<size_t, size_t> > remapping,
     const double& stamp_in_sec) {
   // If there are no surfaces, return
   if (input_vertices.size() < 3 || input_surfaces.size() == 0) {
@@ -61,12 +64,13 @@ void OctreeCompression::compressAndIntegrate(
   assert(nullptr != new_vertices);
   assert(nullptr != new_triangles);
   assert(nullptr != new_indices);
+  assert(nullptr != remapping);
 
   const size_t num_original_active_vertices = active_vertices_xyz_->size();
   const size_t num_original_vertices = all_vertices_.size();
 
   // Remaps from index in input vertices to index in all_vertices_
-  std::map<size_t, size_t> reindex;
+  std::unordered_map<size_t, size_t> reindex;
   // temporary reindex for all input vertices
   std::vector<size_t> temp_reindex;
 
@@ -143,6 +147,7 @@ void OctreeCompression::compressAndIntegrate(
       }
     }
   }
+  *remapping = reindex;
   // Update reindex and the other structures
   for (size_t i = 0; i < potential_new_vertices.size(); i++) {
     if (potential_new_vertices_check[i]) {
@@ -160,11 +165,21 @@ void OctreeCompression::compressAndIntegrate(
       vertices_latest_time_.push_back(stamp_in_sec);
       // Upate reindex
       reindex[potential_new_vertices[i]] = all_vertices_.size() - 1;
+      remapping->insert(std::pair<size_t, size_t>{potential_new_vertices[i],
+                                                  all_vertices_.size() - 1});
+      for (size_t m = 0; m < temp_reindex.size(); m++) {
+        if (potential_new_vertices[i] != m &&
+            temp_reindex[i] == temp_reindex[m]) {
+          remapping->insert(
+              std::pair<size_t, size_t>{m, all_vertices_.size() - 1});
+        }
+      }
       // Add to new indices
       new_indices->push_back(all_vertices_.size() - 1);
       new_vertices->push_back(p);
     }
   }
+
   // Second iteration through the faces to add to new_triangles and update
   // compressed mesh surfaces
   for (auto s : input_surfaces) {

@@ -180,11 +180,13 @@ pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
   pcl::PolygonMesh new_mesh;
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices_cloud(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-
+  boost::shared_ptr<std::map<size_t, size_t> > msg_vertex_map =
+      boost::make_shared<std::map<size_t, size_t> >();
   VoxbloxMeshBlockToPolygonMesh(
       mesh_block,
       block_edge_length,
       vertices_cloud,
+      msg_vertex_map,
       boost::make_shared<std::vector<pcl::Vertices> >(new_mesh.polygons));
 
   pcl::toPCLPointCloud2(*vertices_cloud, new_mesh.cloud);
@@ -195,10 +197,12 @@ void VoxbloxMeshBlockToPolygonMesh(
     const voxblox_msgs::MeshBlock& mesh_block,
     float block_edge_length,
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
+    boost::shared_ptr<std::map<size_t, size_t> > msg_vertex_map,
     boost::shared_ptr<std::vector<pcl::Vertices> > triangles,
     const bool& check_duplicates_full) {
   assert(vertices != nullptr);
   assert(triangles != nullptr);
+  assert(msg_vertex_map != nullptr);
   // Extract mesh block
   size_t vertex_index = vertices->size();
   size_t first_index_to_check = (check_duplicates_full) ? 0 : vertices->size();
@@ -252,6 +256,7 @@ void VoxbloxMeshBlockToPolygonMesh(
     }
 
     triangle.vertices.push_back(vidx);
+    msg_vertex_map->insert(std::pair<size_t, size_t>{i, vidx});
     if (triangle.vertices.size() == 3) {
       triangles->push_back(triangle);
       triangle = pcl::Vertices();

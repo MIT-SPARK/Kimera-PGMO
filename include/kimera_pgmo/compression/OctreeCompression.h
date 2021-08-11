@@ -9,6 +9,7 @@
 #include <map>
 #include <memory>
 #include <string>
+#include <unordered_map>
 #include <vector>
 
 #include <ros/ros.h>
@@ -42,6 +43,7 @@ class OctreeCompression {
       pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
       boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
       boost::shared_ptr<std::vector<size_t> > new_indices,
+      boost::shared_ptr<std::unordered_map<size_t, size_t> > remapping,
       const double& stamp_in_sec = ros::Time::now().toSec());
 
   /*! \brief Compress and integrate with the full compressed mesh
@@ -58,6 +60,7 @@ class OctreeCompression {
       pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
       boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
       boost::shared_ptr<std::vector<size_t> > new_indices,
+      boost::shared_ptr<std::unordered_map<size_t, size_t> > remapping,
       const double& stamp_in_sec = ros::Time::now().toSec());
 
   /*! \brief Discard parts of the stored compressed full mesh by detection time
