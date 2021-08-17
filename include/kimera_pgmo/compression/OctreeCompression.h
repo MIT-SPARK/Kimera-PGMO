@@ -104,6 +104,10 @@ class OctreeCompression {
 
   inline size_t getNumVertices() const { return all_vertices_.size(); }
 
+  inline const std::vector<size_t>& getActiveVerticesIndex() const {
+    return active_vertices_index_;
+  }
+
  protected:
   // Vertices in octree (vertices of "active" part of mesh)
   PointCloudXYZ::Ptr active_vertices_xyz_;

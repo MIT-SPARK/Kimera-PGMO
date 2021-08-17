@@ -93,6 +93,7 @@ void MeshFrontend::voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg) {
   // Publish partial and full mesh
   publishFullMesh(msg->header.stamp);
   publishSimplifiedMesh(msg->header.stamp);
+  voxblox_update_called_ = true;
   return;
 }
 
