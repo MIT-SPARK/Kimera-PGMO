@@ -18,7 +18,8 @@ MeshFrontend::MeshFrontend()
       graph_vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>),
       triangles_(new std::vector<pcl::Vertices>),
       graph_triangles_(new std::vector<pcl::Vertices>),
-      initilized_log_(false) {}
+      initilized_log_(false),
+      voxblox_update_called_(false)  {}
 MeshFrontend::~MeshFrontend() {}
 
 // Initialize parameters, publishers, and subscribers
