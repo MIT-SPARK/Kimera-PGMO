@@ -19,6 +19,7 @@ MeshFrontend::MeshFrontend()
       triangles_(new std::vector<pcl::Vertices>),
       graph_triangles_(new std::vector<pcl::Vertices>),
       initilized_log_(false),
+      voxblox_queue_size_(20),
       voxblox_update_called_(false)  {}
 MeshFrontend::~MeshFrontend() {}
 
@@ -56,6 +57,8 @@ bool MeshFrontend::loadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("output_mesh_resolution", mesh_resolution)) return false;
   if (!n.getParam("d_graph_resolution", d_graph_resolution)) return false;
 
+  n.getParam("voxblox_queue_size", voxblox_queue_size_);
+
   full_mesh_compression_.reset(new OctreeCompression(mesh_resolution));
   d_graph_compression_.reset(new OctreeCompression(d_graph_resolution));
 
@@ -84,7 +87,7 @@ bool MeshFrontend::createPublishers(const ros::NodeHandle& n) {
 bool MeshFrontend::registerCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
   voxblox_sub_ =
-      nl.subscribe("voxblox_mesh", 20, &MeshFrontend::voxbloxCallback, this);
+      nl.subscribe("voxblox_mesh", voxblox_queue_size_, &MeshFrontend::voxbloxCallback, this);
   return true;
 }
 

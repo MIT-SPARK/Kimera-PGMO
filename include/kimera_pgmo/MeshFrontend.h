@@ -187,6 +187,9 @@ protected:
   // Log output to output_prefix_ folder
   bool log_output_;
 
+  // queue size for voxblox
+  int voxblox_queue_size_;
+
   // whether or not voxbloxCallback triggered since wasFrontendUpdated was
   // called
   bool voxblox_update_called_;
