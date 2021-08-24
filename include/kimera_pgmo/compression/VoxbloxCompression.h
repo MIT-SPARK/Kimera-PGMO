@@ -11,9 +11,13 @@
 
 #include <ros/ros.h>
 
-#include "voxblox/core/block_hash.h"
-#include "voxblox/core/common.h"
-#include "voxblox/mesh/mesh.h"
+#include <voxblox/core/block_hash.h>
+#include <voxblox/core/common.h>
+#include <voxblox/mesh/mesh.h>
+
+#include <pcl/PolygonMesh.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 
 namespace kimera_pgmo {
 
@@ -115,7 +119,7 @@ class VoxbloxCompression {
   std::map<size_t, std::vector<size_t> > adjacent_polygons_;
 
   // Grid hash from voxblox
-  voxblx::LongIndexHashMapType<size_t>::type cell_hash_;
+  voxblox::LongIndexHashMapType<size_t>::type cell_hash_;
 
   std::vector<double> vertices_latest_time_;  // timestamps of active vertices
 

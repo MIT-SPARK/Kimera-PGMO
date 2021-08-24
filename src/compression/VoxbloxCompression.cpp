@@ -10,7 +10,7 @@
 #include "kimera_pgmo/compression/VoxbloxCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
-namespace voxblox = vxb;
+namespace vxb = voxblox;
 
 namespace kimera_pgmo {
 
@@ -76,7 +76,7 @@ void VoxbloxCompression::compressAndIntegrate(
 
   // Temporary cell hash for the points not in stored cell hash
   PointCloudXYZ::Ptr temp_new_vertices(new PointCloudXYZ);
-  voxblx::LongIndexHashMapType<size_t>::type temp_cell_hash;
+  vxb::LongIndexHashMapType<size_t>::type temp_cell_hash;
   const double threshold_inv = 1. / resolution_;
 
   for (size_t i = 0; i < input_vertices.size(); i++) {
@@ -274,7 +274,8 @@ void VoxbloxCompression::pruneStoredMesh(const double& earliest_time_sec) {
 
       // Reset cell hash
       cell_hash_.clear();
-      idx = 0;
+      size_t idx = 0;
+      const double threshold_inv = 1. / resolution_;
       for (const auto& p : active_vertices_xyz_->points) {
         vxb::Point vertex;
         // TODO(Yun write a function for this)
