@@ -14,6 +14,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_msgs/PolygonMesh.h>
+#include <voxblox/core/common.h>
 #include <voxblox_msgs/Mesh.h>
 
 // Define BlockIndex as used in voxblox
@@ -93,5 +94,22 @@ void VoxbloxMeshBlockToPolygonMesh(
  */
 pcl::PolygonMesh VoxbloxToPolygonMesh(
     const voxblox_msgs::Mesh::ConstPtr& voxblox_mesh);
+
+/*! \brief Convert a pcl point to a voxblox longindex type for voxblox cell
+ * hashing
+ *  - pcl_point: pcl point type
+ *  - resolution: double resolution of cells
+ */
+template <class point_type>
+voxblox::LongIndex PclPtToVoxbloxLongIndex(const point_type& pcl_point,
+                                           double resolution) {
+  const double threshold_inv = 1. / resolution;
+  voxblox::Point vertex;
+  vertex << pcl_point.x, pcl_point.y, pcl_point.z;
+  const Eigen::Vector3d scaled_vector = vertex.cast<double>() * threshold_inv;
+  return voxblox::LongIndex(std::round(scaled_vector.x()),
+                            std::round(scaled_vector.y()),
+                            std::round(scaled_vector.z()));
+}
 
 }  // namespace kimera_pgmo

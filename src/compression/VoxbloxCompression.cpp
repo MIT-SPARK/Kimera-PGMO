@@ -7,6 +7,7 @@
 
 #include "kimera_pgmo/compression/VoxbloxCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
+#include "kimera_pgmo/utils/VoxbloxUtils.h"
 
 namespace vxb = voxblox;
 
@@ -75,18 +76,12 @@ void VoxbloxCompression::compressAndIntegrate(
   // Temporary cell hash for the points not in stored cell hash
   PointCloudXYZ::Ptr temp_new_vertices(new PointCloudXYZ);
   vxb::LongIndexHashMapType<size_t>::type temp_cell_hash;
-  const double threshold_inv = 1. / resolution_;
 
   for (size_t i = 0; i < input_vertices.size(); i++) {
     const pcl::PointXYZRGBA& p = input_vertices.at(i);
     const pcl::PointXYZ p_xyz(p.x, p.y, p.z);
-    vxb::Point vertex;
-    vertex << p.x, p.y, p.z;
-    const Eigen::Vector3d scaled_vector = vertex.cast<double>() * threshold_inv;
-    const vxb::LongIndex vertex_3D_index =
-        vxb::LongIndex(std::round(scaled_vector.x()),
-                       std::round(scaled_vector.y()),
-                       std::round(scaled_vector.z()));
+    const vxb::LongIndex& vertex_3D_index =
+        PclPtToVoxbloxLongIndex<pcl::PointXYZRGBA>(p, resolution_);
 
     vxb::LongIndexHashMapType<size_t>::type::const_iterator it =
         cell_hash_.find(vertex_3D_index);
@@ -158,14 +153,8 @@ void VoxbloxCompression::compressAndIntegrate(
       size_t input_idx = potential_new_vertices[i];
       pcl::PointXYZRGBA p = input_vertices.at(input_idx);
       pcl::PointXYZ p_xyz(p.x, p.y, p.z);
-      vxb::Point vertex;
-      vertex << p.x, p.y, p.z;
-      const Eigen::Vector3d scaled_vector =
-          vertex.cast<double>() * threshold_inv;
-      const vxb::LongIndex vertex_3D_index =
-          vxb::LongIndex(std::round(scaled_vector.x()),
-                         std::round(scaled_vector.y()),
-                         std::round(scaled_vector.z()));
+      const vxb::LongIndex& vertex_3D_index =
+          PclPtToVoxbloxLongIndex<pcl::PointXYZRGBA>(p, resolution_);
 
       // Add to stored cell hash
       active_vertices_xyz_->push_back(p_xyz);
@@ -273,17 +262,9 @@ void VoxbloxCompression::pruneStoredMesh(const double& earliest_time_sec) {
       // Reset cell hash
       cell_hash_.clear();
       size_t idx = 0;
-      const double threshold_inv = 1. / resolution_;
       for (const auto& p : active_vertices_xyz_->points) {
-        vxb::Point vertex;
-        // TODO(Yun write a function for this)
-        vertex << p.x, p.y, p.z;
-        const Eigen::Vector3d scaled_vector =
-            vertex.cast<double>() * threshold_inv;
-        const vxb::LongIndex vertex_3D_index =
-            vxb::LongIndex(std::round(scaled_vector.x()),
-                           std::round(scaled_vector.y()),
-                           std::round(scaled_vector.z()));
+        const vxb::LongIndex& vertex_3D_index =
+            PclPtToVoxbloxLongIndex<pcl::PointXYZ>(p, resolution_);
         cell_hash_.emplace(vertex_3D_index, idx);
         idx++;
       }
