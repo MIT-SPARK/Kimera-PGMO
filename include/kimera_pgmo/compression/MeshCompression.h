@@ -10,6 +10,8 @@
 #include <boost/shared_ptr.hpp>
 #include <map>
 #include <memory>
+#include <unordered_map>
+#include <vector>
 
 #include <pcl/PolygonMesh.h>
 #include <pcl/octree/octree_search.h>
@@ -21,12 +23,12 @@
 
 namespace kimera_pgmo {
 
+typedef pcl::PointCloud<pcl::PointXYZRGBA> PointCloud;
+typedef pcl::PointCloud<pcl::PointXYZ> PointCloudXYZ;
+typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
+
 class MeshCompression {
  public:
-  typedef pcl::PointCloud<pcl::PointXYZRGBA> PointCloud;
-  typedef pcl::PointCloud<pcl::PointXYZ> PointCloudXYZ;
-  typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
-
   MeshCompression(double resolution) : resolution_(resolution) {}
   ~MeshCompression() = default;
 
@@ -69,6 +71,71 @@ class MeshCompression {
     return active_vertices_index_;
   }
 
+  /*! \brief Compress and integrate with the full compressed mesh
+   *  - input: input mesh in polygon mesh type
+   *  - new_vertices: new vertices added after compression
+   *  - new_triangles: new mesh surfaces (as triangles) added after compression
+   *  - new_indices: indices of the vertices of the compressed partial mesh
+   *  - stamp_in_sec: current time stamp in seconds
+   */
+  virtual void compressAndIntegrate(
+      const pcl::PolygonMesh& input,
+      pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
+      boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
+      boost::shared_ptr<std::vector<size_t> > new_indices,
+      boost::shared_ptr<std::unordered_map<size_t, size_t> > remapping,
+      const double& stamp_in_sec = ros::Time::now().toSec());
+
+  /*! \brief Compress and integrate with the full compressed mesh
+   *  - input_vertices: vertices of input mesh
+   *  - input_surfaces: surfaces of input mesh
+   *  - new_vertices: new vertices added after compression
+   *  - new_triangles: new mesh surfaces (as triangles) added after compression
+   *  - new_indices: indices of the vertices of the compressed partial mesh
+   *  - stamp_in_sec: current time stamp in seconds
+   */
+  virtual void compressAndIntegrate(
+      const pcl::PointCloud<pcl::PointXYZRGBA>& input_vertices,
+      const std::vector<pcl::Vertices>& input_surfaces,
+      pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
+      boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
+      boost::shared_ptr<std::vector<size_t> > new_indices,
+      boost::shared_ptr<std::unordered_map<size_t, size_t> > remapping,
+      const double& stamp_in_sec = ros::Time::now().toSec());
+
+  /*! \brief Discard parts of the stored compressed full mesh by detection time
+   *  - earliest_time_sec: discard all vertices added earlier than this time in
+   * seconds
+   */
+  void pruneStoredMesh(const double& earliest_time_sec);
+
+  /*! \brief Reinitialize the compression structure (ie. octree or hash cells)
+   *  - active_vertices: xyz of the active vertices
+   */
+  virtual void reInitializeStructure(PointCloudXYZ::Ptr active_vertices) = 0;
+
+  /*! \brief Check if vertex exists in structure
+   */
+  virtual bool checkIfVertexUnique(const pcl::PointXYZ& v,
+                                   int* matched_ind) const = 0;
+
+  /*! \brief Updatae structure
+   */
+  virtual void updateStructure(PointCloudXYZ::Ptr vertices) = 0;
+
+  /*! \brief Check if vertex exists in temporary structure
+   */
+  virtual bool checkIfVertexTempUnique(const pcl::PointXYZ& v,
+                                       int* matched_ind) const = 0;
+
+  /*! \brief Initialize temporary structure
+   */
+  virtual void initializeTempStructure(PointCloudXYZ::Ptr vertices) = 0;
+
+  /*! \brief Update temporary structure
+   */
+  virtual void updateTempStructure(PointCloudXYZ::Ptr vertices) = 0;
+
  protected:
   // Vertices in octree (vertices of "active" part of mesh)
   PointCloudXYZ::Ptr active_vertices_xyz_;
@@ -85,4 +152,6 @@ class MeshCompression {
 
   double resolution_;
 };
+
+typedef boost::shared_ptr<MeshCompression> MeshCompressionPtr;
 }  // namespace kimera_pgmo

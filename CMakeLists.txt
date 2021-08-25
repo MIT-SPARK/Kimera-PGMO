@@ -29,6 +29,7 @@ find_package(KimeraRPGO REQUIRED)
 catkin_simple()
 
 cs_add_library(${PROJECT_NAME}
+src/compression/MeshCompression.cpp
 src/compression/OctreeCompression.cpp
 src/compression/VoxbloxCompression.cpp
 src/utils/CommonFunctions.cpp

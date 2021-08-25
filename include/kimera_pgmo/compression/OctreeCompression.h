@@ -5,10 +5,6 @@
  */
 #pragma once
 
-#include <string>
-#include <unordered_map>
-#include <vector>
-
 #include "kimera_pgmo/compression/MeshCompression.h"
 
 namespace kimera_pgmo {
@@ -18,47 +14,37 @@ class OctreeCompression : public MeshCompression {
   OctreeCompression(double resolution);
   ~OctreeCompression();
 
-  /*! \brief Compress and integrate with the full compressed mesh
-   *  - input: input mesh in polygon mesh type
-   *  - new_vertices: new vertices added after compression
-   *  - new_triangles: new mesh surfaces (as triangles) added after compression
-   *  - new_indices: indices of the vertices of the compressed partial mesh
-   *  - stamp_in_sec: current time stamp in seconds
+  /*! \brief Reinitialize the octree
+   *  - active_vertices: xyz of the active vertices
    */
-  void compressAndIntegrate(
-      const pcl::PolygonMesh& input,
-      pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
-      boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
-      boost::shared_ptr<std::vector<size_t> > new_indices,
-      boost::shared_ptr<std::unordered_map<size_t, size_t> > remapping,
-      const double& stamp_in_sec = ros::Time::now().toSec());
+  void reInitializeStructure(PointCloudXYZ::Ptr active_vertices) override;
 
-  /*! \brief Compress and integrate with the full compressed mesh
-   *  - input_vertices: vertices of input mesh
-   *  - input_surfaces: surfaces of input mesh
-   *  - new_vertices: new vertices added after compression
-   *  - new_triangles: new mesh surfaces (as triangles) added after compression
-   *  - new_indices: indices of the vertices of the compressed partial mesh
-   *  - stamp_in_sec: current time stamp in seconds
+  /*! \brief Check if vertex exists in structure
    */
-  void compressAndIntegrate(
-      const pcl::PointCloud<pcl::PointXYZRGBA>& input_vertices,
-      const std::vector<pcl::Vertices>& input_surfaces,
-      pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
-      boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
-      boost::shared_ptr<std::vector<size_t> > new_indices,
-      boost::shared_ptr<std::unordered_map<size_t, size_t> > remapping,
-      const double& stamp_in_sec = ros::Time::now().toSec());
+  bool checkIfVertexUnique(const pcl::PointXYZ& v,
+                           int* matched_ind) const override;
 
-  /*! \brief Discard parts of the stored compressed full mesh by detection time
-   *  - earliest_time_sec: discard all vertices added earlier than this time in
-   * seconds
+  /*! \brief Updatae structure
    */
-  void pruneStoredMesh(const double& earliest_time_sec);
+  void updateStructure(PointCloudXYZ::Ptr vertices) override;
+
+  /*! \brief Check if vertex exists in temporary structure
+   */
+  bool checkIfVertexTempUnique(const pcl::PointXYZ& v,
+                               int* matched_ind) const override;
+
+  /*! \brief Initialize temporary structure
+   */
+  void initializeTempStructure(PointCloudXYZ::Ptr vertices) override;
+
+  /*! \brief Update temporary structure
+   */
+  void updateTempStructure(PointCloudXYZ::Ptr vertices) override;
 
  protected:
   // Octree of compressor
   Octree::Ptr octree_;
+  Octree::Ptr temp_octree_;
 };
 
 typedef boost::shared_ptr<OctreeCompression> OctreeCompressionPtr;
