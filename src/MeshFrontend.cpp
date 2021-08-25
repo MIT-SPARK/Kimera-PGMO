@@ -10,6 +10,8 @@
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
 #include "kimera_pgmo/MeshFrontend.h"
+#include "kimera_pgmo/compression/OctreeCompression.h"
+#include "kimera_pgmo/compression/VoxbloxCompression.h"
 
 namespace kimera_pgmo {
 
@@ -20,7 +22,7 @@ MeshFrontend::MeshFrontend()
       graph_triangles_(new std::vector<pcl::Vertices>),
       initilized_log_(false),
       voxblox_queue_size_(20),
-      voxblox_update_called_(false)  {}
+      voxblox_update_called_(false) {}
 MeshFrontend::~MeshFrontend() {}
 
 // Initialize parameters, publishers, and subscribers
@@ -56,11 +58,22 @@ bool MeshFrontend::loadParameters(const ros::NodeHandle& n) {
   double mesh_resolution, d_graph_resolution;
   if (!n.getParam("output_mesh_resolution", mesh_resolution)) return false;
   if (!n.getParam("d_graph_resolution", d_graph_resolution)) return false;
+  int compression_method;
+  if (!n.getParam("compression_method", compression_method)) return false;
 
   n.getParam("voxblox_queue_size", voxblox_queue_size_);
 
-  full_mesh_compression_.reset(new OctreeCompression(mesh_resolution));
-  d_graph_compression_.reset(new OctreeCompression(d_graph_resolution));
+  // 0 for octree, 1 for voxblox
+  if (compression_method == 0) {
+    full_mesh_compression_.reset(new OctreeCompression(mesh_resolution));
+    d_graph_compression_.reset(new OctreeCompression(d_graph_resolution));
+  } else if (compression_method == 1) {
+    full_mesh_compression_.reset(new VoxbloxCompression(mesh_resolution));
+    d_graph_compression_.reset(new VoxbloxCompression(d_graph_resolution));
+  } else {
+    ROS_ERROR("Invalid compression option. ");
+    return false;
+  }
 
   if (n.getParam("log_path", log_path_)) {
     n.getParam("log_output", log_output_);
@@ -86,8 +99,10 @@ bool MeshFrontend::createPublishers(const ros::NodeHandle& n) {
 
 bool MeshFrontend::registerCallbacks(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
-  voxblox_sub_ =
-      nl.subscribe("voxblox_mesh", voxblox_queue_size_, &MeshFrontend::voxbloxCallback, this);
+  voxblox_sub_ = nl.subscribe("voxblox_mesh",
+                              voxblox_queue_size_,
+                              &MeshFrontend::voxbloxCallback,
+                              this);
   return true;
 }
 

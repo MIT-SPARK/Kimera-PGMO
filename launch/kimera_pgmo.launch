@@ -16,6 +16,7 @@
     <param name="output_mesh_resolution" value="$(arg output_resolution)" />
     <param name="robot_id" value="$(arg robot_id)" />
     <param name="d_graph_resolution" value="$(arg d_graph_resolution)" />
+    <param name="compression_method" value="1" />
     <param name="log_path" value="$(arg output_path)" />
     <param name="log_output" value="$(arg log)" />
     <remap from="~voxblox_mesh" to="kimera_semantics_node/mesh" />

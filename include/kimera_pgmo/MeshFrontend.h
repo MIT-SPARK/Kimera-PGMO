@@ -21,7 +21,6 @@
 #include <voxblox_msgs/Mesh.h>
 
 #include "kimera_pgmo/compression/MeshCompression.h"
-#include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/CommonStructs.h"
 #include "kimera_pgmo/utils/VoxbloxUtils.h"
 
