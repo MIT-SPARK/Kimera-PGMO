@@ -5,8 +5,6 @@
  */
 #include <iterator>
 
-#include <ros/ros.h>
-
 #include "kimera_pgmo/compression/VoxbloxCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
@@ -15,7 +13,7 @@ namespace vxb = voxblox;
 namespace kimera_pgmo {
 
 VoxbloxCompression::VoxbloxCompression(double resolution)
-    : resolution_(resolution) {
+    : MeshCompression(resolution) {
   active_vertices_xyz_.reset(new PointCloudXYZ);
 }
 

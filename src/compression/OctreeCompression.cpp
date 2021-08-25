@@ -5,11 +5,7 @@
  */
 #include <algorithm>
 #include <iterator>
-#include <map>
-#include <memory>
 #include <utility>
-
-#include <ros/ros.h>
 
 #include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
@@ -17,7 +13,7 @@
 namespace kimera_pgmo {
 
 OctreeCompression::OctreeCompression(double resolution)
-    : octree_resolution_(resolution) {
+    : MeshCompression(resolution) {
   active_vertices_xyz_.reset(new PointCloudXYZ);
   // Initialize octree
   octree_.reset(new Octree(resolution));
@@ -81,7 +77,7 @@ void OctreeCompression::compressAndIntegrate(
 
   // Temporary octree for the points not in stored octree
   PointCloudXYZ::Ptr temp_new_vertices(new PointCloudXYZ);
-  Octree temp_octree(octree_resolution_);
+  Octree temp_octree(resolution_);
   temp_octree.setInputCloud(temp_new_vertices);
   for (size_t i = 0; i < input_vertices.size(); i++) {
     const pcl::PointXYZRGBA& p = input_vertices.at(i);
@@ -259,7 +255,7 @@ void OctreeCompression::pruneStoredMesh(const double& earliest_time_sec) {
       std::swap(adjacent_polygons_, temp_adjacent_polygons);
 
       // Reset octree
-      octree_.reset(new Octree(octree_resolution_));
+      octree_.reset(new Octree(resolution_));
       octree_->setInputCloud(active_vertices_xyz_);
       octree_->addPointsFromInputCloud();
     }

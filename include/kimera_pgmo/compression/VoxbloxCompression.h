@@ -9,23 +9,16 @@
 #include <unordered_map>
 #include <vector>
 
-#include <ros/ros.h>
-
 #include <voxblox/core/block_hash.h>
 #include <voxblox/core/common.h>
 #include <voxblox/mesh/mesh.h>
 
-#include <pcl/PolygonMesh.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
+#include "kimera_pgmo/compression/MeshCompression.h"
 
 namespace kimera_pgmo {
 
-class VoxbloxCompression {
+class VoxbloxCompression : public MeshCompression {
  public:
-  typedef pcl::PointCloud<pcl::PointXYZRGBA> PointCloud;
-  typedef pcl::PointCloud<pcl::PointXYZ> PointCloudXYZ;
-
   VoxbloxCompression(double resolution);
   ~VoxbloxCompression();
 
@@ -67,63 +60,9 @@ class VoxbloxCompression {
    */
   void pruneStoredMesh(const double& earliest_time_sec);
 
-  /*! \brief Get the vertices of the compressed full mesh
-   *  - vertices: pointer to vertices of full compressed mesh
-   */
-  inline void getVertices(PointCloud::Ptr vertices) {
-    *vertices = all_vertices_;
-  }
-
-  /*! \brief Get the vertices currently in the octree (actively being checked
-   * for duplication according to resolution)
-   *  - vertices: pointer to vertices in octree
-   */
-  inline void getActiveVertices(PointCloudXYZ::Ptr vertices) {
-    *vertices = *active_vertices_xyz_;
-  }
-
-  /*! \brief Get the surfaces of the compressed full mesh
-   *  - vertices: pointer to surfaces of full compressed mesh
-   */
-  inline void getStoredPolygons(
-      boost::shared_ptr<std::vector<pcl::Vertices> > polygons) {
-    *polygons = polygons_;
-  }
-
-  /*! \brief Get the timestamps of the active vertices (time of the msg from
-   * which the vertices were inserted )
-   *  - timestamps: vector of the timestamps indices corresponding to active
-   * vertices
-   */
-  inline void getActiveVerticesTimestamps(
-      boost::shared_ptr<std::vector<double> > timestamps) {
-    *timestamps = vertices_latest_time_;
-  }
-
-  inline size_t getNumVertices() const { return all_vertices_.size(); }
-
-  inline const std::vector<size_t>& getActiveVerticesIndex() const {
-    return active_vertices_index_;
-  }
-
  protected:
-  // Vertices in octree (vertices of "active" part of mesh)
-  PointCloudXYZ::Ptr active_vertices_xyz_;
-  // All verices
-  PointCloud all_vertices_;
-  // Maps index of active vertices to index of all vertices
-  std::vector<size_t> active_vertices_index_;
-  // Mesh surfaces (all)
-  std::vector<pcl::Vertices> polygons_;
-  // Keep track of adjacent faces of active part of mesh
-  std::map<size_t, std::vector<size_t> > adjacent_polygons_;
-
   // Grid hash from voxblox
   voxblox::LongIndexHashMapType<size_t>::type cell_hash_;
-
-  std::vector<double> vertices_latest_time_;  // timestamps of active vertices
-
-  double resolution_;
 };
 
 typedef boost::shared_ptr<VoxbloxCompression> VoxbloxCompressionPtr;

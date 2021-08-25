@@ -9,6 +9,7 @@
 #include <queue>
 #include <string>
 
+#include <mesh_msgs/TriangleMeshStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
 #include <pcl/PolygonMesh.h>
