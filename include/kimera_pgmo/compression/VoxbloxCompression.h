@@ -16,7 +16,7 @@ namespace kimera_pgmo {
 class VoxbloxCompression : public MeshCompression {
  public:
   VoxbloxCompression(double resolution);
-  ~VoxbloxCompression();
+  virtual~VoxbloxCompression();
 
   /*! \brief Reinitialize the cell hash map
    *  - active_vertices: xyz of the active vertices

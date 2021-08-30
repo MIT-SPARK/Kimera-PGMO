@@ -12,7 +12,7 @@ namespace kimera_pgmo {
 class OctreeCompression : public MeshCompression {
  public:
   OctreeCompression(double resolution);
-  ~OctreeCompression();
+  virtual~OctreeCompression();
 
   /*! \brief Reinitialize the octree
    *  - active_vertices: xyz of the active vertices

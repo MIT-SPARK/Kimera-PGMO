@@ -30,7 +30,7 @@ typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
 class MeshCompression {
  public:
   MeshCompression(double resolution) : resolution_(resolution) {}
-  ~MeshCompression() = default;
+  virtual ~MeshCompression() = default;
 
   /*! \brief Get the vertices of the compressed full mesh
    *  - vertices: pointer to vertices of full compressed mesh
