@@ -17,7 +17,7 @@ namespace kimera_pgmo {
 
 // Constructor
 KimeraPgmoInterface::KimeraPgmoInterface()
-    : deformation_graph_(new DeformationGraph) {}
+    : deformation_graph_(new DeformationGraph), full_mesh_updated_(false) {}
 
 KimeraPgmoInterface::~KimeraPgmoInterface() {}
 
@@ -238,6 +238,8 @@ bool KimeraPgmoInterface::optimizeFullMesh(
     ROS_ERROR("Failed to deform mesh. Out of range error. ");
     return false;
   }
+
+  full_mesh_updated_ = true;
   return true;
 }
 

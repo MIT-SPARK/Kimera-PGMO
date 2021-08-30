@@ -70,6 +70,16 @@ class KimeraPgmoInterface {
     return deformation_graph_;
   }
 
+  /*! \brief get whether the mesh has been updated
+   */
+  inline bool wasFullMeshUpdated(bool clear_flag = true) {
+    bool to_return = full_mesh_updated_;
+    if (clear_flag) {
+      full_mesh_updated_ = false;
+    }
+    return to_return;
+  }
+
  protected:
   /*! \brief Load the parameters required by this class through ROS
    *  - n: ROS node handle
@@ -211,6 +221,8 @@ class KimeraPgmoInterface {
   };
   RunMode run_mode_;
   bool use_msg_time_;  // use msg time or call back time
+
+  bool full_mesh_updated_;
 
   DeformationGraphPtr deformation_graph_;
   // maximum time allowed when associating node to mesh
