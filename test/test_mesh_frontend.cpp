@@ -24,6 +24,7 @@ class MeshFrontendTest : public ::testing::Test {
     system("rosparam set horizon 1.0");
     system("rosparam set robot_id 0");
     system("rosparam set d_graph_resolution 0.5");
+    system("rosparam set compression_method 0");
   }
 
   ~MeshFrontendTest() {}

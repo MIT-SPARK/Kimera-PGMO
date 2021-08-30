@@ -5,9 +5,9 @@
  */
 #pragma once
 
+#include <ros/ros.h>
 #include <map>
 #include <queue>
-#include <ros/ros.h>
 #include <unordered_map>
 
 #include <mesh_msgs/TriangleMeshStamped.h>
@@ -20,7 +20,7 @@
 #include <voxblox/core/common.h>
 #include <voxblox_msgs/Mesh.h>
 
-#include "kimera_pgmo/compression/OctreeCompression.h"
+#include "kimera_pgmo/compression/MeshCompression.h"
 #include "kimera_pgmo/utils/CommonStructs.h"
 #include "kimera_pgmo/utils/VoxbloxUtils.h"
 
@@ -34,7 +34,7 @@ typedef std::pair<voxblox::BlockIndex, std::map<size_t, size_t>>
 class MeshFrontend {
   friend class MeshFrontendTest;
 
-public:
+ public:
   /*! \brief Constructor for MeshFrontend class, which is in charge of
    * converting from Voxblox msg type to our mesh type while storing and
    * compressing the full unoptimized mesh
@@ -45,7 +45,7 @@ public:
   /*! \brief Initializes callbacks and publishers, and also parse the parameters
    *  - n: ROS node handle.
    */
-  bool initialize(const ros::NodeHandle &n);
+  bool initialize(const ros::NodeHandle& n);
 
   /*! /brief Get curent frontend vertices
    *  /returns Current vertex pointcloud
@@ -58,12 +58,12 @@ public:
    *  /returns Active indices (i.e. inside frontend time-horizon) of the full
    * mesh
    */
-  inline const std::vector<size_t> &getActiveFullMeshVertices() const {
+  inline const std::vector<size_t>& getActiveFullMeshVertices() const {
     return full_mesh_compression_->getActiveVerticesIndex();
   }
 
-  /*! /brief Check if the frontend has received input from voxblox since the last time
-   * this function was called
+  /*! /brief Check if the frontend has received input from voxblox since the
+   * last time this function was called
    */
   inline bool wasFrontendUpdated(bool clear_update_flag = true) {
     bool prev_flag = voxblox_update_called_;
@@ -71,44 +71,44 @@ public:
     return prev_flag;
   }
 
-protected:
+ protected:
   /*! \brief Load the parameters required by this class through ROS
    *  - n: ROS node handle
    */
-  bool loadParameters(const ros::NodeHandle &n);
+  bool loadParameters(const ros::NodeHandle& n);
 
   /*! \brief Creates the ROS publishers used
    *  - n: ROS node handle
    */
-  bool createPublishers(const ros::NodeHandle &n);
+  bool createPublishers(const ros::NodeHandle& n);
 
   /*! \brief Starts the callbacks in this class
    *  - n: ROS node handle
    */
-  bool registerCallbacks(const ros::NodeHandle &n);
+  bool registerCallbacks(const ros::NodeHandle& n);
 
   /*! \brief Main callback of this class: receives the updated incremental mesh
    * from Voxblox or Kimera-Semantics
    *  - msg: mesh msg from Voxblox or Kimera Semantics
    */
-  void voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr &msg);
+  void voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg);
 
   /*! \brief Process the latest incremental mesh from the
    * callback and add the partial mesh to the full mesh and compress
    *  - msg: mesh msg from Voxblox or Kimera Semantics
    */
-  void processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr &msg);
+  void processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg);
 
   /*! \brief Publish the full (compressed) mesh stored
    *  - stamp: timestamp
    */
-  void publishFullMesh(const ros::Time &stamp) const;
+  void publishFullMesh(const ros::Time& stamp) const;
 
   /*! \brief Publish the simplified mesh (used as the mesh part of deformation
    * graph)
    *  - stamp: timestamp
    */
-  void publishSimplifiedMesh(const ros::Time &stamp) const;
+  void publishSimplifiedMesh(const ros::Time& stamp) const;
 
   /*! \brief Publish the factors corresponding to the new edges added to the
    * simplified mesh / deformation graph and also the initial values (positions
@@ -117,10 +117,10 @@ protected:
    *  - new_indices: new vertices of type Vertex
    *  returns: published pose graph
    */
-  pose_graph_tools::PoseGraph
-  publishMeshGraph(const std::vector<Edge> &new_edges,
-                   const std::vector<size_t> &new_indices,
-                   const std_msgs::Header &header) const;
+  pose_graph_tools::PoseGraph publishMeshGraph(
+      const std::vector<Edge>& new_edges,
+      const std::vector<size_t>& new_indices,
+      const std_msgs::Header& header) const;
 
   /*! \brief Get last mesh graph created in voxblox callback for testing
    * purposes.
@@ -141,27 +141,28 @@ protected:
    *  - num_indices: number of new indices to add to deformation graph
    *  - num_edges: number of new edges to add to deformation graph
    */
-  void logTiming(const std::string &filename, const int &callback_duration = 0,
-                 const size_t &num_indices = 0,
-                 const size_t &num_edges = 0) const;
+  void logTiming(const std::string& filename,
+                 const int& callback_duration = 0,
+                 const size_t& num_indices = 0,
+                 const size_t& num_edges = 0) const;
 
   // Class arguments
   ros::Subscriber voxblox_sub_;
   ros::Publisher full_mesh_pub_;
   ros::Publisher simplified_mesh_pub_;
-  ros::Publisher mesh_graph_pub_; // publish the factors corresponding to the
-                                  // edges of the simplified mesh
+  ros::Publisher mesh_graph_pub_;  // publish the factors corresponding to the
+                                   // edges of the simplified mesh
 
-  double time_horizon_; // only merge meshes for the blocks detected
-                        // within defined time horizon (secs)
+  double time_horizon_;  // only merge meshes for the blocks detected
+                         // within defined time horizon (secs)
 
-  OctreeCompressionPtr full_mesh_compression_; // Allow compression of full mesh
+  MeshCompressionPtr full_mesh_compression_;  // Allow compression of full mesh
 
-  OctreeCompressionPtr d_graph_compression_; // Compression to get simplified
-                                             // mesh for deformation graph
+  MeshCompressionPtr d_graph_compression_;  // Compression to get simplified
+                                            // mesh for deformation graph
 
-  Graph simplified_mesh_graph_; // Graph of simplified mesh (edges are the
-                                // factors in deformation graph)
+  Graph simplified_mesh_graph_;  // Graph of simplified mesh (edges are the
+                                 // factors in deformation graph)
 
   int robot_id_;
 
@@ -194,5 +195,4 @@ protected:
   // called
   bool voxblox_update_called_;
 };
-
-} // namespace kimera_pgmo
+}  // namespace kimera_pgmo

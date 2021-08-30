@@ -1,20 +1,24 @@
 /**
- * @file   OctreeCompression.h
- * @brief  Simplify and reconstruct meshes Peng and Kuo 2005
+ * @file   VoxbloxCompression.h
+ * @brief  Combine and simplify meshes based on Voxblox createConnectedMesh
  * @author Yun Chang
  */
 #pragma once
+
+#include <voxblox/core/block_hash.h>
+#include <voxblox/core/common.h>
+#include <voxblox/mesh/mesh.h>
 
 #include "kimera_pgmo/compression/MeshCompression.h"
 
 namespace kimera_pgmo {
 
-class OctreeCompression : public MeshCompression {
+class VoxbloxCompression : public MeshCompression {
  public:
-  OctreeCompression(double resolution);
-  virtual~OctreeCompression();
+  VoxbloxCompression(double resolution);
+  virtual~VoxbloxCompression();
 
-  /*! \brief Reinitialize the octree
+  /*! \brief Reinitialize the cell hash map
    *  - active_vertices: xyz of the active vertices
    */
   void reInitializeStructure(PointCloudXYZ::Ptr active_vertices) override;
@@ -42,10 +46,10 @@ class OctreeCompression : public MeshCompression {
   void updateTempStructure(PointCloudXYZ::Ptr vertices) override;
 
  protected:
-  // Octree of compressor
-  Octree::Ptr octree_;
-  Octree::Ptr temp_octree_;
+  // Grid hash from voxblox
+  voxblox::LongIndexHashMapType<size_t>::type cell_hash_;
+  voxblox::LongIndexHashMapType<size_t>::type temp_cell_hash_;
 };
 
-typedef boost::shared_ptr<OctreeCompression> OctreeCompressionPtr;
+typedef boost::shared_ptr<VoxbloxCompression> VoxbloxCompressionPtr;
 }  // namespace kimera_pgmo

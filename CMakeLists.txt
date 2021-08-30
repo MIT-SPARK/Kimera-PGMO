@@ -29,7 +29,9 @@ find_package(KimeraRPGO REQUIRED)
 catkin_simple()
 
 cs_add_library(${PROJECT_NAME}
+src/compression/MeshCompression.cpp
 src/compression/OctreeCompression.cpp
+src/compression/VoxbloxCompression.cpp
 src/utils/CommonFunctions.cpp
 src/utils/CommonStructs.cpp
 src/utils/VoxbloxUtils.cpp
@@ -83,6 +85,9 @@ target_link_libraries(${PROJECT_NAME}-test_graph ${PROJECT_NAME})
 
 catkin_add_gtest(${PROJECT_NAME}-test_octree_compression test/test_octree_compression.cpp)
 target_link_libraries(${PROJECT_NAME}-test_octree_compression ${PROJECT_NAME})
+
+catkin_add_gtest(${PROJECT_NAME}-test_voxblox_compression test/test_voxblox_compression.cpp)
+target_link_libraries(${PROJECT_NAME}-test_voxblox_compression ${PROJECT_NAME})
 
 add_rostest_gtest(${PROJECT_NAME}-test_mesh_frontend test/test_mesh_frontend.test test/test_mesh_frontend.cpp)
 target_link_libraries(${PROJECT_NAME}-test_mesh_frontend ${PROJECT_NAME})
