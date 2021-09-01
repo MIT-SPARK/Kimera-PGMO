@@ -107,6 +107,7 @@ bool MeshFrontend::registerCallbacks(const ros::NodeHandle& n) {
 }
 
 void MeshFrontend::voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg) {
+  last_mesh_msg_time_ = msg->header.stamp;
   processVoxbloxMesh(msg);
 
   // Publish partial and full mesh
