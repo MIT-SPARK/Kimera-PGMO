@@ -37,6 +37,22 @@ class KimeraPgmo : public KimeraPgmoInterface {
     return optimized_mesh_;
   }
 
+  /*! \brief Get the current robot id
+   */
+  inline int getRobotId() const { return robot_id_; };
+
+  /*! \brief Get the current robot prefix
+   */
+  inline char getRobotPrefix() const { return robot_id_to_prefix.at(robot_id_); }
+
+  /*! \brief Get the timestamps for the robot
+   */
+  inline std::vector<ros::Time> getRobotTimestamps() const { return timestamps_; };
+
+  /*! \brief Timer callback to optimize factors and deform full mesh
+   */
+  void processTimerCallback(const ros::TimerEvent& ev);
+
  protected:
   /*! \brief Load the parameters required by this class through ROS
    *  - n: ROS node handle
@@ -123,10 +139,6 @@ class KimeraPgmo : public KimeraPgmoInterface {
   bool requestMeshEdgesCallback(
       kimera_pgmo::RequestMeshFactors::Request& request,
       kimera_pgmo::RequestMeshFactors::Response& response);
-
-  /*! \brief Timer callback to optimize factors and deform full mesh
-   */
-  void processTimerCallback(const ros::TimerEvent& ev);
 
   /*! \brief log the run-time stats such as pose graph size, mesh size, and run
    * time
