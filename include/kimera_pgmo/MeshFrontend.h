@@ -45,7 +45,7 @@ class MeshFrontend {
   /*! \brief Initializes callbacks and publishers, and also parse the parameters
    *  - n: ROS node handle.
    */
-  bool initialize(const ros::NodeHandle& n);
+  bool initialize(const ros::NodeHandle& n, bool should_register_callbacks = true);
 
   /*! /brief Get curent frontend vertices
    *  /returns Current vertex pointcloud
@@ -85,6 +85,12 @@ class MeshFrontend {
     return vxblx_msg_to_graph_idx_;
   }
 
+  /*! \brief Main callback of this class: receives the updated incremental mesh
+   * from Voxblox or Kimera-Semantics
+   *  - msg: mesh msg from Voxblox or Kimera Semantics
+   */
+  void voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg);
+
  protected:
   /*! \brief Load the parameters required by this class through ROS
    *  - n: ROS node handle
@@ -100,12 +106,6 @@ class MeshFrontend {
    *  - n: ROS node handle
    */
   bool registerCallbacks(const ros::NodeHandle& n);
-
-  /*! \brief Main callback of this class: receives the updated incremental mesh
-   * from Voxblox or Kimera-Semantics
-   *  - msg: mesh msg from Voxblox or Kimera Semantics
-   */
-  void voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg);
 
   /*! \brief Process the latest incremental mesh from the
    * callback and add the partial mesh to the full mesh and compress
