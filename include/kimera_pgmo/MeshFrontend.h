@@ -81,7 +81,7 @@ class MeshFrontend {
 
   /*! \brief Get the mappings from vxblx msg to graph index for tracking.
    */
-  inline VoxbloxIndexMapping getVoxbloxMsgMapping() const {
+  inline const VoxbloxIndexMapping& getVoxbloxMsgMapping() const {
     return vxblx_msg_to_graph_idx_;
   }
 
