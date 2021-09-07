@@ -275,7 +275,7 @@ class DeformationGraph {
     return vertex_positions_.at(prefix);
   }
 
-  inline bool hasVertexKey(char prefix) {
+  inline bool hasVertexKey(char prefix) const {
     return vertex_positions_.count(prefix);
   }
 
