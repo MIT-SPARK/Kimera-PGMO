@@ -70,6 +70,21 @@ class KimeraPgmoInterface {
     return deformation_graph_;
   }
 
+  /*! \brief get whether the mesh has been updated
+   */
+  inline bool wasFullMeshUpdated(bool clear_flag = true) {
+    bool to_return = full_mesh_updated_;
+    if (clear_flag) {
+      full_mesh_updated_ = false;
+    }
+    return to_return;
+  }
+
+  /*! \brief Get the optimized trajectory of a robot
+   * - robot_id: id of the robot referred to in query
+   */
+  Path getOptimizedTrajectory(const size_t& robot_id) const;
+
  protected:
   /*! \brief Load the parameters required by this class through ROS
    *  - n: ROS node handle
@@ -152,10 +167,6 @@ class KimeraPgmoInterface {
   void processOptimizedPath(const nav_msgs::Path::ConstPtr& path_msg,
                             const size_t& robot_id = 0);
 
-  /*! \brief Get the optimized trajectory of a robot
-   * - robot_id: id of the robot referred to in query
-   */
-  Path getOptimizedTrajectory(const size_t& robot_id) const;
 
   /*! \brief Saves mesh as a ply file. Triggers through a rosservice call
    * and saves to file [output_prefix_][id].ply
@@ -211,6 +222,8 @@ class KimeraPgmoInterface {
   };
   RunMode run_mode_;
   bool use_msg_time_;  // use msg time or call back time
+
+  bool full_mesh_updated_;
 
   DeformationGraphPtr deformation_graph_;
   // maximum time allowed when associating node to mesh

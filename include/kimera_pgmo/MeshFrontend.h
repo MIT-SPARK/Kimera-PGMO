@@ -45,7 +45,7 @@ class MeshFrontend {
   /*! \brief Initializes callbacks and publishers, and also parse the parameters
    *  - n: ROS node handle.
    */
-  bool initialize(const ros::NodeHandle& n);
+  bool initialize(const ros::NodeHandle& n, bool should_register_callbacks = true);
 
   /*! /brief Get curent frontend vertices
    *  /returns Current vertex pointcloud
@@ -71,6 +71,26 @@ class MeshFrontend {
     return prev_flag;
   }
 
+  /*! \brief Get the time horizion (in seconds) of the mesh compression
+   */
+  inline double getMeshTimeHorizon() const { return time_horizon_; }
+
+  /*! \brief Get the last message's timestamps
+   */
+  inline ros::Time getLastMsgTime() const { return last_mesh_msg_time_; }
+
+  /*! \brief Get the mappings from vxblx msg to graph index for tracking.
+   */
+  inline const VoxbloxIndexMapping& getVoxbloxMsgMapping() const {
+    return vxblx_msg_to_graph_idx_;
+  }
+
+  /*! \brief Main callback of this class: receives the updated incremental mesh
+   * from Voxblox or Kimera-Semantics
+   *  - msg: mesh msg from Voxblox or Kimera Semantics
+   */
+  void voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg);
+
  protected:
   /*! \brief Load the parameters required by this class through ROS
    *  - n: ROS node handle
@@ -86,12 +106,6 @@ class MeshFrontend {
    *  - n: ROS node handle
    */
   bool registerCallbacks(const ros::NodeHandle& n);
-
-  /*! \brief Main callback of this class: receives the updated incremental mesh
-   * from Voxblox or Kimera-Semantics
-   *  - msg: mesh msg from Voxblox or Kimera Semantics
-   */
-  void voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg);
 
   /*! \brief Process the latest incremental mesh from the
    * callback and add the partial mesh to the full mesh and compress
@@ -129,12 +143,6 @@ class MeshFrontend {
     return last_mesh_graph_;
   }
 
-  /*! \brief Get the mappings from vxblx msg to graph index for tracking.
-   */
-  inline VoxbloxIndexMapping getVoxbloxMsgMapping() const {
-    return vxblx_msg_to_graph_idx_;
-  }
-
   /*! \brief Log the stats and the timing
    *  - filename: file to log to
    *  - callback_duration: callback time (mu-s)
@@ -167,6 +175,8 @@ class MeshFrontend {
   int robot_id_;
 
   bool initilized_log_;
+
+  ros::Time last_mesh_msg_time_;  // last message processed timestamp
 
   // Vertices of full mesh
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices_;
