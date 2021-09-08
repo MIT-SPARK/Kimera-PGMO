@@ -140,6 +140,15 @@ class DeformationGraph {
                   const gtsam::Pose3& initial_pose,
                   bool add_prior);
 
+  /*! \brief Initialize with new node of a trajectory, but keep it temporary
+   *  - key: Key of first node in new trajectory
+   *  - initial_pose: Initial measurement of first node
+   *  - add_prior: boolean - add a Prior Factor or not
+   */
+  void addNewTempNode(const gtsam::Key& key,
+                      const gtsam::Pose3& initial_pose,
+                      bool add_prior);
+
   /*! \brief Add a new between factor to the deformation graph
    *  - key_from: Key of front node to connect between factor
    *  - key_to: Key of back node to connect between factor
@@ -150,6 +159,17 @@ class DeformationGraph {
                      const gtsam::Key& key_to,
                      const gtsam::Pose3& meas,
                      const gtsam::Pose3& initial_pose = gtsam::Pose3());
+
+  /*! \brief Add a new temporary between factor to the deformation graph
+   *  - key_from: Key of front node to connect between factor
+   *  - key_to: Key of back node to connect between factor
+   *  - meas: Measurement of between factor
+   *  - Estimated position of new node (the back node if node is new)
+   */
+  void addNewTempBetween(const gtsam::Key& key_from,
+                         const gtsam::Key& key_to,
+                         const gtsam::Pose3& meas,
+                         const gtsam::Pose3& initial_pose = gtsam::Pose3());
 
   /*! \brief Add a new mesh edge to deformation graph
    *  - mesh_edges: edges storing key-key pairs
@@ -174,6 +194,19 @@ class DeformationGraph {
                       const Vertices& valences,
                       const char& valence_prefix,
                       bool optimize = false);
+
+  /*! \brief Add temporary connections from a pose graph node to mesh vertices
+   * nodes
+   *  - key: Key of pose graph node
+   *  - valences: The mesh vertices nodes to connect to
+   *  - prefix: the prefixes of the key of the nodes corresponding to mesh
+   * vertices
+   *  - optimize: optimize or just add to pgo
+   */
+  void addTempNodeValence(const gtsam::Key& key,
+                          const Vertices& valences,
+                          const char& valence_prefix,
+                          bool optimize = false);
 
   /*! \brief Remove sll prior factors of nodes that have given prefix
    *  - prefix: prefix of nodes to remove prior
@@ -307,6 +340,10 @@ class DeformationGraph {
   gtsam::NonlinearFactorGraph nfg_;
   // current estimate
   gtsam::Values values_;
+  // temp factors
+  gtsam::NonlinearFactorGraph temp_nfg_;
+  // current estimate for temp nodes
+  gtsam::Values temp_values_;
 
   //// Below separated factor types for debugging
   // factor graph encoding the mesh structure

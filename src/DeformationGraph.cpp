@@ -81,6 +81,42 @@ void DeformationGraph::addNodeValence(const gtsam::Key& key,
   nfg_ = pgo_->getFactorsUnsafe();
 }
 
+void DeformationGraph::addTempNodeValence(const gtsam::Key& key,
+                                          const Vertices& valences,
+                                          const char& valence_prefix,
+                                          bool optimize) {
+  gtsam::NonlinearFactorGraph new_factors;
+  gtsam::Values new_values;
+  const char& prefix = gtsam::Symbol(key).chr();
+  const size_t& idx = gtsam::Symbol(key).index();
+  // Add the consistency factors
+  for (Vertex v : valences) {
+    const gtsam::Symbol vertex(valence_prefix, v);
+    if (!values_.exists(vertex)) continue;
+    // TODO(Yun) Change to temp_initial_poses_
+    const gtsam::Pose3& node_pose = pg_initial_poses_[prefix].at(idx);
+    const gtsam::Pose3 vertex_pose(gtsam::Rot3(),
+                                   vertex_positions_[valence_prefix].at(v));
+
+    // Define noise. Hardcoded for now
+    static const gtsam::SharedNoiseModel& noise =
+        gtsam::noiseModel::Isotropic::Variance(3, 1e-4);
+    // Create deformation edge factor
+    const DeformationEdgeFactor new_edge_1(
+        key, vertex, node_pose, vertex_pose.translation(), noise);
+    const DeformationEdgeFactor new_edge_2(
+        vertex, key, vertex_pose, node_pose.translation(), noise);
+    // TODO(Yun) temp_consistency_factors_? Or just not add yet.
+    consistency_factors_.add(new_edge_1);
+    consistency_factors_.add(new_edge_2);
+    new_factors.add(new_edge_1);
+    new_factors.add(new_edge_2);
+  }
+  pgo_->updateTempFactorsValues(new_factors, new_values);
+  temp_nfg_ = pgo_->getTempFactorsUnsafe();
+  temp_values_ = pgo_->getTempValues();
+}
+
 void DeformationGraph::addMeasurement(const Vertex& v,
                                       const geometry_msgs::Pose& pose,
                                       const char& prefix) {
@@ -207,6 +243,42 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
   return;
 }
 
+void DeformationGraph::addNewTempBetween(const gtsam::Key& key_from,
+                                         const gtsam::Key& key_to,
+                                         const gtsam::Pose3& meas,
+                                         const gtsam::Pose3& initial_pose) {
+  gtsam::Values new_values;
+  gtsam::NonlinearFactorGraph new_factors;
+  const char& from_prefix = gtsam::Symbol(key_from).chr();
+  const char& to_prefix = gtsam::Symbol(key_to).chr();
+  const size_t& from_idx = gtsam::Symbol(key_from).index();
+  const size_t& to_idx = gtsam::Symbol(key_to).index();
+
+  if (!values_.exists(key_from) && !temp_values_.exists(key_from)) {
+    ROS_ERROR("Key does not exist when adding temporary between factor. ");
+    return;
+  }
+
+  if (!values_.exists(key_to) && !temp_values_.exists(key_to)) {
+    ROS_ERROR("Key does not exist when adding temporary between factor. ");
+    return;
+  }
+
+  // Note that unlike the typical addNewBetween, this one only adds the
+  // temporary between factors without any values
+  static const gtsam::SharedNoiseModel& noise =
+      gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
+  new_factors.add(
+      gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
+
+  pgo_->updateTempFactorsValues(new_factors, new_values);
+  temp_nfg_ = pgo_->getTempFactorsUnsafe();
+  temp_values_ = pgo_->getTempValues();
+
+  recalculate_vertices_ = true;
+  return;
+}
+
 void DeformationGraph::addNewMeshEdgesAndNodes(
     const std::vector<std::pair<gtsam::Key, gtsam::Key>>& mesh_edges,
     const gtsam::Values& mesh_nodes,
@@ -312,6 +384,29 @@ void DeformationGraph::addNewNode(const gtsam::Key& key,
   pgo_->update(new_factors, new_values, !do_not_optimize_);
   values_ = pgo_->calculateEstimate();
   nfg_ = pgo_->getFactorsUnsafe();
+  return;
+}
+
+void DeformationGraph::addNewTempNode(const gtsam::Key& key,
+                                      const gtsam::Pose3& initial_pose,
+                                      bool add_prior) {
+  // new node
+  // For now push empty valence, valences will be populated when updated
+  gtsam::Values new_values;
+  gtsam::NonlinearFactorGraph new_factors;
+
+  // TODO(Yun) do I need to create temp_pg_initial_poses_?
+
+  static const gtsam::SharedNoiseModel& noise =
+      gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
+  new_values.insert(key, initial_pose);
+  if (add_prior) {
+    new_factors.add(gtsam::PriorFactor<gtsam::Pose3>(key, initial_pose, noise));
+  }
+
+  pgo_->updateTempFactorsValues(new_factors, new_values);
+  temp_nfg_ = pgo_->getTempFactorsUnsafe();
+  temp_values_ = pgo_->getTempValues();
   return;
 }
 
