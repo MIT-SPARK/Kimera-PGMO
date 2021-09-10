@@ -26,7 +26,7 @@ MeshFrontend::MeshFrontend()
 MeshFrontend::~MeshFrontend() {}
 
 // Initialize parameters, publishers, and subscribers
-bool MeshFrontend::initialize(const ros::NodeHandle& n) {
+bool MeshFrontend::initialize(const ros::NodeHandle& n, bool should_register_callbacks) {
   if (!loadParameters(n)) {
     ROS_ERROR("MeshFrontend: Failed to load parameters.");
   }
@@ -35,8 +35,12 @@ bool MeshFrontend::initialize(const ros::NodeHandle& n) {
     ROS_ERROR("MeshFrontend: Failed to create publishers.");
   }
 
-  if (!registerCallbacks(n)) {
-    ROS_ERROR("MeshFrontend: Failed to register callbacks.");
+  if (should_register_callbacks) {
+    if (!registerCallbacks(n)) {
+      ROS_ERROR("MeshFrontend: Failed to register callbacks.");
+    }
+  } else {
+    ROS_WARN("MeshFrontend: Skipping callback registration");
   }
 
   // Log header to file
@@ -107,6 +111,7 @@ bool MeshFrontend::registerCallbacks(const ros::NodeHandle& n) {
 }
 
 void MeshFrontend::voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg) {
+  last_mesh_msg_time_ = msg->header.stamp;
   processVoxbloxMesh(msg);
 
   // Publish partial and full mesh
