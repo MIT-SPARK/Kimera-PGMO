@@ -87,14 +87,12 @@ void DeformationGraph::addTempNodeValence(const gtsam::Key& key,
                                           bool optimize) {
   gtsam::NonlinearFactorGraph new_factors;
   gtsam::Values new_values;
-  const char& prefix = gtsam::Symbol(key).chr();
-  const size_t& idx = gtsam::Symbol(key).index();
   // Add the consistency factors
   for (Vertex v : valences) {
     const gtsam::Symbol vertex(valence_prefix, v);
     if (!values_.exists(vertex)) continue;
-    // TODO(Yun) Change to temp_initial_poses_
-    const gtsam::Pose3& node_pose = pg_initial_poses_[prefix].at(idx);
+
+    const gtsam::Pose3& node_pose = temp_pg_initial_poses_.at(key);
     const gtsam::Pose3 vertex_pose(gtsam::Rot3(),
                                    vertex_positions_[valence_prefix].at(v));
 
@@ -106,9 +104,7 @@ void DeformationGraph::addTempNodeValence(const gtsam::Key& key,
         key, vertex, node_pose, vertex_pose.translation(), noise);
     const DeformationEdgeFactor new_edge_2(
         vertex, key, vertex_pose, node_pose.translation(), noise);
-    // TODO(Yun) temp_consistency_factors_? Or just not add yet.
-    consistency_factors_.add(new_edge_1);
-    consistency_factors_.add(new_edge_2);
+    // TODO(Yun) temp_consistency_factors_? For now seems like not needed.
     new_factors.add(new_edge_1);
     new_factors.add(new_edge_2);
   }
@@ -390,12 +386,11 @@ void DeformationGraph::addNewNode(const gtsam::Key& key,
 void DeformationGraph::addNewTempNode(const gtsam::Key& key,
                                       const gtsam::Pose3& initial_pose,
                                       bool add_prior) {
-  // new node
-  // For now push empty valence, valences will be populated when updated
+  // new temp node
   gtsam::Values new_values;
   gtsam::NonlinearFactorGraph new_factors;
 
-  // TODO(Yun) do I need to create temp_pg_initial_poses_?
+  temp_pg_initial_poses_[key] = initial_pose;
 
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(6, 1e-4);

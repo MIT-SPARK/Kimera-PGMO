@@ -6,6 +6,7 @@
 #pragma once
 
 #include <map>
+#include <unordered_map>
 #include <vector>
 
 #include <gtsam/geometry/Point3.h>
@@ -333,6 +334,7 @@ class DeformationGraph {
   // Keep track of vertices not part of mesh
   // for embedding trajectory, etc.
   std::map<char, std::vector<gtsam::Pose3> > pg_initial_poses_;
+  std::unordered_map<gtsam::Key, gtsam::Pose3> temp_pg_initial_poses_;
 
   std::map<char, std::vector<gtsam::Point3> > vertex_positions_;
   // Number of mesh vertices corresponding a particular prefix thus far
