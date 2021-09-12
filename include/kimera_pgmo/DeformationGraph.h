@@ -324,6 +324,21 @@ class DeformationGraph {
     pgo_->forceUpdate();
     values_ = pgo_->calculateEstimate();
     nfg_ = pgo_->getFactorsUnsafe();
+    temp_values_ = pgo_->getTempValues();
+    temp_nfg_ = pgo_->getTempFactorsUnsafe();
+  }
+
+  /*! \brief Gets the temp values since last optimization
+   *  - outputs last temp values as GTSAM Values
+   */
+  inline gtsam::Values getGtsamTempValues() const { return temp_values_; }
+
+  /*! \brief Gets the temp factors added to the backend, minus the detected
+   * outliers
+   *  - outputs the factors as a GTSAM NonlinearFactorGraph
+   */
+  inline gtsam::NonlinearFactorGraph getGtsamTempFactors() const {
+    return temp_nfg_;
   }
 
  private:

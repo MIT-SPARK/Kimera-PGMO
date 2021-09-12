@@ -729,7 +729,91 @@ TEST(test_deformation_graph, addNewBetween) {
   traj = graph.getOptimizedTrajectory('a');
   EXPECT_EQ(3, traj.size());
   EXPECT_TRUE(gtsam::assert_equal(
-      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.05, 2.05)), traj[2], 0.05));
+      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.05, 2.05)),
+      traj[2],
+      0.05));
+}
+
+TEST(test_deformation_graph, addTemporary) {
+  DeformationGraph graph;
+  graph.initialize(100, 100);
+  pcl::PolygonMesh simple_mesh = createMeshTriangle();
+
+  pcl::PolygonMesh original_mesh = SimpleMesh();
+  gtsam::Values mesh_nodes;
+  std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
+  MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
+  std::vector<size_t> added_node_indices;
+  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
+
+  Vertices new_node_valences{0, 2};
+  graph.addNewNode(gtsam::Symbol('a', 0),
+                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
+                   true);
+  graph.addNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
+  graph.addNewBetween(gtsam::Symbol('a', 0),
+                      gtsam::Symbol('a', 1),
+                      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)),
+                      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)));
+
+  graph.addNewBetween(gtsam::Symbol('a', 1),
+                      gtsam::Symbol('a', 2),
+                      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)),
+                      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)));
+
+  Vertices new_node_valences_2{2};
+  graph.addNodeValence(gtsam::Symbol('a', 2), new_node_valences_2, 'v');
+
+  // Check added factors
+  gtsam::Values values = graph.getGtsamValues();
+  gtsam::NonlinearFactorGraph factors = graph.getGtsamFactors();
+
+  EXPECT_EQ(size_t(15), factors.size());
+  EXPECT_EQ(size_t(6), values.size());
+
+  std::vector<gtsam::Pose3> traj = graph.getOptimizedTrajectory('a');
+  EXPECT_EQ(3, traj.size());
+
+  // Add temporary nodes and edges
+  gtsam::Values temp_vals;
+  gtsam::NonlinearFactorGraph temp_nfg;
+  temp_vals.insert(gtsam::Symbol('p', 0), gtsam::Pose3());
+  temp_vals.insert(gtsam::Symbol('p', 1),
+                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 1)));
+  static const gtsam::SharedNoiseModel& noise =
+      gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
+  temp_nfg.add(gtsam::BetweenFactor<gtsam::Pose3>(
+      gtsam::Symbol('p', 0),
+      gtsam::Symbol('p', 1),
+      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 1)),
+      noise));
+
+  graph.addNewTempNode(gtsam::Symbol('p', 0), gtsam::Pose3(), false);
+  graph.addNewTempNode(gtsam::Symbol('p', 1),
+                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 1)),
+                       false);
+  graph.addNewTempBetween(gtsam::Symbol('p', 0),
+                          gtsam::Symbol('p', 1),
+                          gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 1)));
+  Vertices temp_node_valences{1, 2};
+  graph.addTempNodeValence(gtsam::Symbol('p', 0), temp_node_valences, 'v');
+
+  graph.optimize();
+
+  // Check added factors
+  values = graph.getGtsamValues();
+  factors = graph.getGtsamFactors();
+  gtsam::Values temp_values = graph.getGtsamTempValues();
+  gtsam::NonlinearFactorGraph temp_factors = graph.getGtsamTempFactors();
+
+  EXPECT_EQ(size_t(15), factors.size());
+  EXPECT_EQ(size_t(6), values.size());
+
+  EXPECT_EQ(size_t(5), temp_factors.size());
+  EXPECT_EQ(size_t(2), temp_values.size());
+
+  traj = graph.getOptimizedTrajectory('a');
+  EXPECT_EQ(3, traj.size());
 }
 
 }  // namespace kimera_pgmo
