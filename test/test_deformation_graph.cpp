@@ -775,19 +775,6 @@ TEST(test_deformation_graph, addTemporary) {
   EXPECT_EQ(3, traj.size());
 
   // Add temporary nodes and edges
-  gtsam::Values temp_vals;
-  gtsam::NonlinearFactorGraph temp_nfg;
-  temp_vals.insert(gtsam::Symbol('p', 0), gtsam::Pose3());
-  temp_vals.insert(gtsam::Symbol('p', 1),
-                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 1)));
-  static const gtsam::SharedNoiseModel& noise =
-      gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
-  temp_nfg.add(gtsam::BetweenFactor<gtsam::Pose3>(
-      gtsam::Symbol('p', 0),
-      gtsam::Symbol('p', 1),
-      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 1)),
-      noise));
-
   graph.addNewTempNode(gtsam::Symbol('p', 0), gtsam::Pose3(), false);
   graph.addNewTempNode(gtsam::Symbol('p', 1),
                        gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 1)),
@@ -822,6 +809,19 @@ TEST(test_deformation_graph, addTemporary) {
 
   EXPECT_EQ(size_t(0), temp_factors.size());
   EXPECT_EQ(size_t(0), temp_values.size());
+
+  // Re-ad temporary nodes and edges
+  graph.addNewTempNode(gtsam::Symbol('p', 0), gtsam::Pose3(), false);
+  Vertices temp_node_valences_2{0, 1, 2};
+  graph.addTempNodeValence(gtsam::Symbol('p', 0), temp_node_valences_2, 'v');
+  graph.optimize();
+
+  // Check added factors
+  temp_values = graph.getGtsamTempValues();
+  temp_factors = graph.getGtsamTempFactors();
+
+  EXPECT_EQ(size_t(6), temp_factors.size());
+  EXPECT_EQ(size_t(1), temp_values.size());
 }
 
 }  // namespace kimera_pgmo
