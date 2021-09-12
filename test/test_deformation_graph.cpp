@@ -814,6 +814,14 @@ TEST(test_deformation_graph, addTemporary) {
 
   traj = graph.getOptimizedTrajectory('a');
   EXPECT_EQ(3, traj.size());
+
+  graph.clearTemporaryStructures();
+  graph.optimize();
+  temp_values = graph.getGtsamTempValues();
+  temp_factors = graph.getGtsamTempFactors();
+
+  EXPECT_EQ(size_t(0), temp_factors.size());
+  EXPECT_EQ(size_t(0), temp_values.size());
 }
 
 }  // namespace kimera_pgmo

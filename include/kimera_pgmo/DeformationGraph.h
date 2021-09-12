@@ -341,6 +341,15 @@ class DeformationGraph {
     return temp_nfg_;
   }
 
+  /*! \brief Clear all temporary values, factors, and related structures
+   */
+  inline void clearTemporaryStructures() {
+    temp_values_ = gtsam::Values();
+    temp_nfg_ = gtsam::NonlinearFactorGraph();
+    pgo_->clearTempFactorsValues();
+    temp_pg_initial_poses_.clear();
+  }
+
  private:
   std::map<char, Graph> graph_;
   pcl::PointCloud<pcl::PointXYZ>::Ptr vertices_;
