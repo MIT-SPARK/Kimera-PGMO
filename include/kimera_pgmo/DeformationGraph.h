@@ -350,6 +350,10 @@ class DeformationGraph {
     temp_pg_initial_poses_.clear();
   }
 
+  inline const KimeraRPGO::RobustSolverParams& getParams() const { return pgo_params_; }
+
+  void setParams(const KimeraRPGO::RobustSolverParams& params);
+
  private:
   std::map<char, Graph> graph_;
   pcl::PointCloud<pcl::PointXYZ>::Ptr vertices_;
@@ -364,6 +368,7 @@ class DeformationGraph {
   // Number of mesh vertices corresponding a particular prefix thus far
   std::map<char, size_t> num_vertices_;
 
+  KimeraRPGO::RobustSolverParams pgo_params_;
   std::unique_ptr<KimeraRPGO::RobustSolver> pgo_;
 
   // factors
