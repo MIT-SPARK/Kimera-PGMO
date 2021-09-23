@@ -97,6 +97,8 @@ class DeformationGraph {
   DeformationGraph();
   ~DeformationGraph();
 
+  inline void setVerboseFlag(bool verbose) { verbose_ = verbose; }
+
   /*! \brief Initialize deformation graph along with robust solver backend.
    *  - pgo_trans_threshold: translation threshold (meters of error per node)
    * for backend PCM outlier rejection
@@ -355,6 +357,8 @@ class DeformationGraph {
   void setParams(const KimeraRPGO::RobustSolverParams& params);
 
  private:
+  bool verbose_;
+
   std::map<char, Graph> graph_;
   pcl::PointCloud<pcl::PointXYZ>::Ptr vertices_;
   typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;

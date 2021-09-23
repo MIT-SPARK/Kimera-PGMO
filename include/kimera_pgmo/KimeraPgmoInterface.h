@@ -214,6 +214,13 @@ class KimeraPgmoInterface {
       const ros::Publisher* mesh_mesh_pub,
       const ros::Publisher* pose_mesh_pub) const;
 
+  inline void setVerboseFlag(bool verbose) {
+    verbose_ = verbose;
+    if (deformation_graph_) {
+      deformation_graph_->setVerboseFlag(verbose);
+    }
+  }
+
  protected:
   enum class RunMode {
     FULL = 0u,  // Optimize mesh and pose graph
@@ -222,6 +229,8 @@ class KimeraPgmoInterface {
   };
   RunMode run_mode_;
   bool use_msg_time_;  // use msg time or call back time
+
+  bool verbose_; // whether or not to print messages
 
   bool full_mesh_updated_;
 
