@@ -25,7 +25,8 @@ using pcl::PolygonMesh;
 namespace kimera_pgmo {
 
 DeformationGraph::DeformationGraph()
-    : pgo_(nullptr),
+    : verbose_(true),
+      pgo_(nullptr),
       recalculate_vertices_(false),
       vertices_(new pcl::PointCloud<pcl::PointXYZ>),
       do_not_optimize_(false) {}
@@ -311,7 +312,10 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
         added_indices->push_back(node_idx);
       }
     } catch (const std::out_of_range& e) {
-      ROS_INFO("New prefix detected when adding new mesh edges and nodes. ");
+      if (verbose_) {
+        ROS_INFO_STREAM("New prefix " << node_prefix <<
+                        " detected when adding new mesh edges and nodes. ");
+      }
       vertex_positions_[node_prefix] = std::vector<gtsam::Point3>{};
       vertex_positions_[node_prefix].push_back(node_pose.translation());
       vertices_->push_back(GtsamToPcl<pcl::PointXYZ>(node_pose.translation()));

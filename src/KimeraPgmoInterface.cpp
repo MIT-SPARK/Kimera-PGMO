@@ -126,7 +126,7 @@ void KimeraPgmoInterface::processIncrementalPoseGraph(
     }
     // Push node to queue to be connected to mesh vertices later
     unconnected_nodes->push(0);
-    ROS_INFO("Initialized first node in pose graph. ");
+    ROS_DEBUG("Initialized first node in pose graph. ");
   }
 
   try {
@@ -248,7 +248,7 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
     const std::vector<ros::Time>& node_timestamps,
     std::queue<size_t>* unconnected_nodes) {
   if (mesh_graph_msg->edges.size() == 0 || mesh_graph_msg->nodes.size() == 0) {
-    ROS_WARN(
+    ROS_DEBUG(
         "processIncrementalMeshGraph: 0 nodes or 0 edges in mesh graph msg. ");
     return;
   }
@@ -312,10 +312,13 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
         break;
       }
     }
-    ROS_INFO("Connecting robot %d node %d to %d vertices. ",
-             static_cast<int>(robot_id),
-             static_cast<int>(closest_node),
-             static_cast<int>(new_indices.size()));
+
+    if (verbose_) {
+      ROS_INFO("Connecting robot %d node %d to %d vertices. ",
+               static_cast<int>(robot_id),
+               static_cast<int>(closest_node),
+               static_cast<int>(new_indices.size()));
+    }
     deformation_graph_->addNodeValence(
         gtsam::Symbol(GetRobotPrefix(robot_id), closest_node),
         new_indices,
