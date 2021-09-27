@@ -35,15 +35,14 @@ bool DeformationGraph::initialize(double pgo_trans_threshold,
                                   double pgo_rot_threshold,
                                   double gnc_alpha) {
   // Initialize pgo_:
-  KimeraRPGO::RobustSolverParams pgo_params;
-  pgo_params.setPcmSimple3DParams(
+  pgo_params_.setPcmSimple3DParams(
       pgo_trans_threshold, pgo_rot_threshold, KimeraRPGO::Verbosity::UPDATE);
   // Use GNC (confidence value)
   if (gnc_alpha > 0 && gnc_alpha < 1)
-    pgo_params.setGncInlierCostThresholdsAtProbability(gnc_alpha);
+    pgo_params_.setGncInlierCostThresholdsAtProbability(gnc_alpha);
   // Initialize RPGO
   pgo_ = std::unique_ptr<KimeraRPGO::RobustSolver>(
-      new KimeraRPGO::RobustSolver(pgo_params));
+      new KimeraRPGO::RobustSolver(pgo_params_));
   return true;
 }
 
@@ -79,6 +78,38 @@ void DeformationGraph::addNodeValence(const gtsam::Key& key,
   pgo_->update(new_factors, new_values, optimize);
   values_ = pgo_->calculateEstimate();
   nfg_ = pgo_->getFactorsUnsafe();
+}
+
+void DeformationGraph::addTempNodeValence(const gtsam::Key& key,
+                                          const Vertices& valences,
+                                          const char& valence_prefix,
+                                          bool optimize) {
+  gtsam::NonlinearFactorGraph new_factors;
+  gtsam::Values new_values;
+  // Add the consistency factors
+  for (Vertex v : valences) {
+    const gtsam::Symbol vertex(valence_prefix, v);
+    if (!values_.exists(vertex)) continue;
+
+    const gtsam::Pose3& node_pose = temp_pg_initial_poses_.at(key);
+    const gtsam::Pose3 vertex_pose(gtsam::Rot3(),
+                                   vertex_positions_[valence_prefix].at(v));
+
+    // Define noise. Hardcoded for now
+    static const gtsam::SharedNoiseModel& noise =
+        gtsam::noiseModel::Isotropic::Variance(3, 1e-4);
+    // Create deformation edge factor
+    const DeformationEdgeFactor new_edge_1(
+        key, vertex, node_pose, vertex_pose.translation(), noise);
+    const DeformationEdgeFactor new_edge_2(
+        vertex, key, vertex_pose, node_pose.translation(), noise);
+    // TODO(Yun) temp_consistency_factors_? For now seems like not needed.
+    new_factors.add(new_edge_1);
+    new_factors.add(new_edge_2);
+  }
+  pgo_->updateTempFactorsValues(new_factors, new_values);
+  temp_nfg_ = pgo_->getTempFactorsUnsafe();
+  temp_values_ = pgo_->getTempValues();
 }
 
 void DeformationGraph::addMeasurement(const Vertex& v,
@@ -207,6 +238,42 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
   return;
 }
 
+void DeformationGraph::addNewTempBetween(const gtsam::Key& key_from,
+                                         const gtsam::Key& key_to,
+                                         const gtsam::Pose3& meas,
+                                         const gtsam::Pose3& initial_pose) {
+  gtsam::Values new_values;
+  gtsam::NonlinearFactorGraph new_factors;
+  const char& from_prefix = gtsam::Symbol(key_from).chr();
+  const char& to_prefix = gtsam::Symbol(key_to).chr();
+  const size_t& from_idx = gtsam::Symbol(key_from).index();
+  const size_t& to_idx = gtsam::Symbol(key_to).index();
+
+  if (!values_.exists(key_from) && !temp_values_.exists(key_from)) {
+    ROS_ERROR("Key does not exist when adding temporary between factor. ");
+    return;
+  }
+
+  if (!values_.exists(key_to) && !temp_values_.exists(key_to)) {
+    ROS_ERROR("Key does not exist when adding temporary between factor. ");
+    return;
+  }
+
+  // Note that unlike the typical addNewBetween, this one only adds the
+  // temporary between factors without any values
+  static const gtsam::SharedNoiseModel& noise =
+      gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
+  new_factors.add(
+      gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
+
+  pgo_->updateTempFactorsValues(new_factors, new_values);
+  temp_nfg_ = pgo_->getTempFactorsUnsafe();
+  temp_values_ = pgo_->getTempValues();
+
+  recalculate_vertices_ = true;
+  return;
+}
+
 void DeformationGraph::addNewMeshEdgesAndNodes(
     const std::vector<std::pair<gtsam::Key, gtsam::Key>>& mesh_edges,
     const gtsam::Values& mesh_nodes,
@@ -315,6 +382,28 @@ void DeformationGraph::addNewNode(const gtsam::Key& key,
   return;
 }
 
+void DeformationGraph::addNewTempNode(const gtsam::Key& key,
+                                      const gtsam::Pose3& initial_pose,
+                                      bool add_prior) {
+  // new temp node
+  gtsam::Values new_values;
+  gtsam::NonlinearFactorGraph new_factors;
+
+  temp_pg_initial_poses_[key] = initial_pose;
+
+  static const gtsam::SharedNoiseModel& noise =
+      gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
+  new_values.insert(key, initial_pose);
+  if (add_prior) {
+    new_factors.add(gtsam::PriorFactor<gtsam::Pose3>(key, initial_pose, noise));
+  }
+
+  pgo_->updateTempFactorsValues(new_factors, new_values);
+  temp_nfg_ = pgo_->getTempFactorsUnsafe();
+  temp_values_ = pgo_->getTempValues();
+  return;
+}
+
 void DeformationGraph::removePriorsWithPrefix(const char& prefix) {
   pgo_->removePriorFactorsWithPrefix(prefix);
   values_ = pgo_->calculateEstimate();
@@ -388,6 +477,12 @@ std::vector<gtsam::Pose3> DeformationGraph::getOptimizedTrajectory(
     optimized_traj.push_back(values_.at<gtsam::Pose3>(node));
   }
   return optimized_traj;
+}
+
+
+void DeformationGraph::setParams(const KimeraRPGO::RobustSolverParams& params) {
+  pgo_params_ = params;
+  pgo_.reset(new KimeraRPGO::RobustSolver(pgo_params_));
 }
 
 }  // namespace kimera_pgmo

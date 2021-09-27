@@ -6,6 +6,7 @@
 #pragma once
 
 #include <map>
+#include <unordered_map>
 #include <vector>
 
 #include <gtsam/geometry/Point3.h>
@@ -140,6 +141,15 @@ class DeformationGraph {
                   const gtsam::Pose3& initial_pose,
                   bool add_prior);
 
+  /*! \brief Initialize with new node of a trajectory, but keep it temporary
+   *  - key: Key of first node in new trajectory
+   *  - initial_pose: Initial measurement of first node
+   *  - add_prior: boolean - add a Prior Factor or not
+   */
+  void addNewTempNode(const gtsam::Key& key,
+                      const gtsam::Pose3& initial_pose,
+                      bool add_prior);
+
   /*! \brief Add a new between factor to the deformation graph
    *  - key_from: Key of front node to connect between factor
    *  - key_to: Key of back node to connect between factor
@@ -150,6 +160,17 @@ class DeformationGraph {
                      const gtsam::Key& key_to,
                      const gtsam::Pose3& meas,
                      const gtsam::Pose3& initial_pose = gtsam::Pose3());
+
+  /*! \brief Add a new temporary between factor to the deformation graph
+   *  - key_from: Key of front node to connect between factor
+   *  - key_to: Key of back node to connect between factor
+   *  - meas: Measurement of between factor
+   *  - Estimated position of new node (the back node if node is new)
+   */
+  void addNewTempBetween(const gtsam::Key& key_from,
+                         const gtsam::Key& key_to,
+                         const gtsam::Pose3& meas,
+                         const gtsam::Pose3& initial_pose = gtsam::Pose3());
 
   /*! \brief Add a new mesh edge to deformation graph
    *  - mesh_edges: edges storing key-key pairs
@@ -174,6 +195,19 @@ class DeformationGraph {
                       const Vertices& valences,
                       const char& valence_prefix,
                       bool optimize = false);
+
+  /*! \brief Add temporary connections from a pose graph node to mesh vertices
+   * nodes
+   *  - key: Key of pose graph node
+   *  - valences: The mesh vertices nodes to connect to
+   *  - prefix: the prefixes of the key of the nodes corresponding to mesh
+   * vertices
+   *  - optimize: optimize or just add to pgo
+   */
+  void addTempNodeValence(const gtsam::Key& key,
+                          const Vertices& valences,
+                          const char& valence_prefix,
+                          bool optimize = false);
 
   /*! \brief Remove sll prior factors of nodes that have given prefix
    *  - prefix: prefix of nodes to remove prior
@@ -290,7 +324,35 @@ class DeformationGraph {
     pgo_->forceUpdate();
     values_ = pgo_->calculateEstimate();
     nfg_ = pgo_->getFactorsUnsafe();
+    temp_values_ = pgo_->getTempValues();
+    temp_nfg_ = pgo_->getTempFactorsUnsafe();
   }
+
+  /*! \brief Gets the temp values since last optimization
+   *  - outputs last temp values as GTSAM Values
+   */
+  inline gtsam::Values getGtsamTempValues() const { return temp_values_; }
+
+  /*! \brief Gets the temp factors added to the backend, minus the detected
+   * outliers
+   *  - outputs the factors as a GTSAM NonlinearFactorGraph
+   */
+  inline gtsam::NonlinearFactorGraph getGtsamTempFactors() const {
+    return temp_nfg_;
+  }
+
+  /*! \brief Clear all temporary values, factors, and related structures
+   */
+  inline void clearTemporaryStructures() {
+    temp_values_ = gtsam::Values();
+    temp_nfg_ = gtsam::NonlinearFactorGraph();
+    pgo_->clearTempFactorsValues();
+    temp_pg_initial_poses_.clear();
+  }
+
+  inline const KimeraRPGO::RobustSolverParams& getParams() const { return pgo_params_; }
+
+  void setParams(const KimeraRPGO::RobustSolverParams& params);
 
  private:
   std::map<char, Graph> graph_;
@@ -300,17 +362,23 @@ class DeformationGraph {
   // Keep track of vertices not part of mesh
   // for embedding trajectory, etc.
   std::map<char, std::vector<gtsam::Pose3> > pg_initial_poses_;
+  std::unordered_map<gtsam::Key, gtsam::Pose3> temp_pg_initial_poses_;
 
   std::map<char, std::vector<gtsam::Point3> > vertex_positions_;
   // Number of mesh vertices corresponding a particular prefix thus far
   std::map<char, size_t> num_vertices_;
 
+  KimeraRPGO::RobustSolverParams pgo_params_;
   std::unique_ptr<KimeraRPGO::RobustSolver> pgo_;
 
   // factors
   gtsam::NonlinearFactorGraph nfg_;
   // current estimate
   gtsam::Values values_;
+  // temp factors
+  gtsam::NonlinearFactorGraph temp_nfg_;
+  // current estimate for temp nodes
+  gtsam::Values temp_values_;
 
   //// Below separated factor types for debugging
   // factor graph encoding the mesh structure
