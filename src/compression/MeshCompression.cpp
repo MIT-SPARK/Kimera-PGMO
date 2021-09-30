@@ -236,6 +236,7 @@ void MeshCompression::compressAndIntegrate(
 
   // Iterate through the blocks
   for (const auto& mesh_block : mesh.mesh_blocks) {
+    assert(mesh_block.x.size() % 3 == 0);
     const voxblox::BlockIndex block_index(
         mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
 
@@ -268,7 +269,6 @@ void MeshCompression::compressAndIntegrate(
       } else {
         // This is a reobservation. Add to remap and new indices
         // Add reindex index
-        reindex[count] = active_vertices_index_[result_idx];
         temp_reindex.push_back(active_vertices_index_[result_idx]);
         // Push to new indices if does not already yet
         if (std::find(new_indices->begin(),
@@ -290,13 +290,18 @@ void MeshCompression::compressAndIntegrate(
           reindex_s.vertices.push_back(temp_reindex.at(j));
         }
         input_surfaces.push_back(orig_s);  // Track original input
-        if (!has_new_vertex) continue;     // no need to check
+        if (!has_new_vertex) {
+          count++;
+          continue;  // no need to check
+        }
         // Now check if new surface is acceptable
         if (reindex_s.vertices.size() < 3 ||
             reindex_s.vertices[0] == reindex_s.vertices[1] ||
             reindex_s.vertices[1] == reindex_s.vertices[2] ||
-            reindex_s.vertices[2] == reindex_s.vertices[0])
+            reindex_s.vertices[2] == reindex_s.vertices[0]) {
+          count++;
           continue;  // degenerate
+        }
         // Passed degeneracy test so has at least one adjacent polygon. Pass
         // check
         for (size_t v : reindex_s.vertices) {
@@ -326,16 +331,14 @@ void MeshCompression::compressAndIntegrate(
       active_vertices_index_.push_back(all_vertices_.size() - 1);
       vertices_latest_time_.push_back(stamp_in_sec);
       // Upate reindex
-      reindex[potential_new_vertices[i]] = all_vertices_.size() - 1;
-      remapping->insert(
-          VoxbloxIndexPair(count_to_block[potential_new_vertices[i]].first,
-                           std::map<size_t, size_t>()));
-      remapping->at(count_to_block[potential_new_vertices[i]].first)
-          .insert({count_to_block[potential_new_vertices[i]].second,
-                   all_vertices_.size() - 1});
+      reindex[input_idx] = all_vertices_.size() - 1;
+      remapping->insert(VoxbloxIndexPair(count_to_block[input_idx].first,
+                                         std::map<size_t, size_t>()));
+      remapping->at(count_to_block[input_idx].first)
+          .insert({count_to_block[input_idx].second, all_vertices_.size() - 1});
       for (size_t m = 0; m < temp_reindex.size(); m++) {
-        if (potential_new_vertices[i] != m &&
-            temp_reindex[i] == temp_reindex[m]) {
+        if (input_idx != m && temp_reindex[input_idx] == temp_reindex[m]) {
+          reindex[m] = all_vertices_.size() - 1;
           remapping->insert(VoxbloxIndexPair(count_to_block[m].first,
                                              std::map<size_t, size_t>()));
           remapping->at(count_to_block[m].first)
