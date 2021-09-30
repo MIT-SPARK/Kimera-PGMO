@@ -20,6 +20,7 @@ MeshFrontend::MeshFrontend()
       graph_vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>),
       triangles_(new std::vector<pcl::Vertices>),
       graph_triangles_(new std::vector<pcl::Vertices>),
+      vxblx_msg_to_graph_idx_(new VoxbloxIndexMapping),
       initilized_log_(false),
       voxblox_queue_size_(20),
       voxblox_update_called_(false) {}
@@ -142,12 +143,13 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
       boost::make_shared<std::vector<pcl::Vertices> >();
   boost::shared_ptr<std::vector<size_t> > new_indices =
       boost::make_shared<std::vector<size_t> >();
-  VoxbloxIndexMapping unused_remappings;
+  boost::shared_ptr<VoxbloxIndexMapping> unused_remappings =
+      boost::make_shared<VoxbloxIndexMapping>();
   full_mesh_compression_->compressAndIntegrate(*msg,
                                                new_vertices,
                                                new_triangles,
                                                new_indices,
-                                               &unused_remappings,
+                                               unused_remappings,
                                                msg_time);
 
   // Add to deformation graph mesh compressor
@@ -162,7 +164,7 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
                                              new_graph_vertices,
                                              new_graph_triangles,
                                              new_graph_indices,
-                                             &vxblx_msg_to_graph_idx_,
+                                             vxblx_msg_to_graph_idx_,
                                              msg_time);
 
   // Update the mesh vertices and surfaces for class variables

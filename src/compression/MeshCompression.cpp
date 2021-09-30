@@ -203,7 +203,7 @@ void MeshCompression::compressAndIntegrate(
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
     boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
     boost::shared_ptr<std::vector<size_t> > new_indices,
-    VoxbloxIndexMapping* remapping,
+    boost::shared_ptr<VoxbloxIndexMapping> remapping,
     const double& stamp_in_sec) {
   // Avoid nullptr pointers
   assert(nullptr != new_vertices);

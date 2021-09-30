@@ -75,7 +75,7 @@ class MeshFrontend {
   /*! \brief Get the mappings from vxblx msg to graph index for tracking.
    */
   inline const VoxbloxIndexMapping& getVoxbloxMsgMapping() const {
-    return vxblx_msg_to_graph_idx_;
+    return *vxblx_msg_to_graph_idx_;
   }
 
   /*! \brief Main callback of this class: receives the updated incremental mesh
@@ -184,7 +184,7 @@ class MeshFrontend {
   pose_graph_tools::PoseGraph last_mesh_graph_;
 
   // Book keeping for indices
-  VoxbloxIndexMapping vxblx_msg_to_graph_idx_;
+  boost::shared_ptr<VoxbloxIndexMapping> vxblx_msg_to_graph_idx_;
 
   // Save output
   std::string log_path_;
