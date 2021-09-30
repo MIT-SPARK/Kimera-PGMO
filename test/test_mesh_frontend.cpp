@@ -24,6 +24,7 @@ class MeshFrontendTest : public ::testing::Test {
     system("rosparam set horizon 1.0");
     system("rosparam set robot_id 0");
     system("rosparam set d_graph_resolution 0.5");
+    system("rosparam set output_mesh_resolution 0.05");
     system("rosparam set compression_method 0");
   }
 
@@ -610,7 +611,8 @@ TEST_F(MeshFrontendTest, vxblxIndexMapping1) {
 TEST_F(MeshFrontendTest, vxblxIndexMapping2) {
   // Test index mappings
   ros::NodeHandle nh;
-  system("rosparam set d_graph_resolution 1.2");
+  system("rosparam set output_mesh_resolution 0.1");
+  system("rosparam set d_graph_resolution 1.3");
   vp_.initialize(nh);
 
   voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);

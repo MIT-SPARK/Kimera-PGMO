@@ -239,6 +239,11 @@ void MeshCompression::compressAndIntegrate(
     assert(mesh_block.x.size() % 3 == 0);
     const voxblox::BlockIndex block_index(
         mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
+    // Add to remapping if not yet added previously
+    if (remapping->find(block_index) == remapping->end()) {
+      remapping->insert(
+          VoxbloxIndexPair(block_index, std::map<size_t, size_t>()));
+    }
 
     // Iterate through vertices of mesh block
     for (size_t i = 0; i < mesh_block.x.size(); ++i) {
@@ -332,15 +337,11 @@ void MeshCompression::compressAndIntegrate(
       vertices_latest_time_.push_back(stamp_in_sec);
       // Upate reindex
       reindex[input_idx] = all_vertices_.size() - 1;
-      remapping->insert(VoxbloxIndexPair(count_to_block[input_idx].first,
-                                         std::map<size_t, size_t>()));
       remapping->at(count_to_block[input_idx].first)
           .insert({count_to_block[input_idx].second, all_vertices_.size() - 1});
       for (size_t m = 0; m < temp_reindex.size(); m++) {
         if (input_idx != m && temp_reindex[input_idx] == temp_reindex[m]) {
           reindex[m] = all_vertices_.size() - 1;
-          remapping->insert(VoxbloxIndexPair(count_to_block[m].first,
-                                             std::map<size_t, size_t>()));
           remapping->at(count_to_block[m].first)
               .insert({count_to_block[m].second, all_vertices_.size() - 1});
         }
