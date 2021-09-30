@@ -26,7 +26,8 @@ MeshFrontend::MeshFrontend()
 MeshFrontend::~MeshFrontend() {}
 
 // Initialize parameters, publishers, and subscribers
-bool MeshFrontend::initialize(const ros::NodeHandle& n, bool should_register_callbacks) {
+bool MeshFrontend::initialize(const ros::NodeHandle& n,
+                              bool should_register_callbacks) {
   if (!loadParameters(n)) {
     ROS_ERROR("MeshFrontend: Failed to load parameters.");
   }
@@ -127,44 +128,12 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
   // Start timer
   auto start = std::chrono::high_resolution_clock::now();
 
-  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr mesh_vertices(
-      new pcl::PointCloud<pcl::PointXYZRGBA>);
-  boost::shared_ptr<std::vector<pcl::Vertices> > mesh_surfaces =
-      boost::make_shared<std::vector<pcl::Vertices> >();
-
   // First prune the mesh blocks
   const double msg_time = msg->header.stamp.toSec();
   full_mesh_compression_->pruneStoredMesh(msg_time - time_horizon_);
   d_graph_compression_->pruneStoredMesh(msg_time - time_horizon_);
 
-  // Iterate through the mesh blocks
-  for (const voxblox_msgs::MeshBlock& mesh_block : msg->mesh_blocks) {
-    // For each mesh block
-    // Convert it into a vertices - surfaces format and input to compressor
-    // Full mesh will then be extracted from compressor
-    // While mesh blocks are combined to build a partial mesh to be returned
-    boost::shared_ptr<std::map<size_t, size_t> > msg_vertex_ind_map =
-        boost::make_shared<std::map<size_t, size_t> >();
-    if (mesh_block.x.size() > 3) {
-      // Convert to vertices and surfaces
-      VoxbloxMeshBlockToPolygonMesh(mesh_block,
-                                    msg->block_edge_length,
-                                    mesh_vertices,
-                                    msg_vertex_ind_map,
-                                    mesh_surfaces);
-    }
-    // push to mesh block index and mesh vertices
-    const voxblox::BlockIndex block_index(
-        mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
-    if (vxblx_msg_to_graph_idx_.count(block_index) > 0) {
-      vxblx_msg_to_graph_idx_[block_index] = *msg_vertex_ind_map;
-    } else {
-      vxblx_msg_to_graph_idx_.insert(
-          VoxbloxIndexPair{block_index, *msg_vertex_ind_map});
-    }
-  }
-
-  if (mesh_vertices->size() < 3 || mesh_surfaces->size() == 0) return;
+  // Feed to full mesh and simplified mesh compressor
 
   // Add to full mesh compressor
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
@@ -173,18 +142,13 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
       boost::make_shared<std::vector<pcl::Vertices> >();
   boost::shared_ptr<std::vector<size_t> > new_indices =
       boost::make_shared<std::vector<size_t> >();
-  boost::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
-      boost::make_shared<std::unordered_map<size_t, size_t> >();
-  full_mesh_compression_->compressAndIntegrate(*mesh_vertices,
-                                               *mesh_surfaces,
+  VoxbloxIndexMapping unused_remappings;
+  full_mesh_compression_->compressAndIntegrate(*msg,
                                                new_vertices,
                                                new_triangles,
                                                new_indices,
-                                               index_remappings,
+                                               &unused_remappings,
                                                msg_time);
-  // Update the mesh vertices and surfaces for class variables
-  full_mesh_compression_->getVertices(vertices_);
-  full_mesh_compression_->getStoredPolygons(triangles_);
 
   // Add to deformation graph mesh compressor
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_graph_vertices(
@@ -193,33 +157,21 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
       boost::make_shared<std::vector<pcl::Vertices> >();
   boost::shared_ptr<std::vector<size_t> > new_graph_indices =
       boost::make_shared<std::vector<size_t> >();
-  boost::shared_ptr<std::unordered_map<size_t, size_t> >
-      graph_index_remappings =
-          boost::make_shared<std::unordered_map<size_t, size_t> >();
-  d_graph_compression_->compressAndIntegrate(*mesh_vertices,
-                                             *mesh_surfaces,
+
+  d_graph_compression_->compressAndIntegrate(*msg,
                                              new_graph_vertices,
                                              new_graph_triangles,
                                              new_graph_indices,
-                                             graph_index_remappings,
+                                             &vxblx_msg_to_graph_idx_,
                                              msg_time);
+
+  // Update the mesh vertices and surfaces for class variables
+  full_mesh_compression_->getVertices(vertices_);
+  full_mesh_compression_->getStoredPolygons(triangles_);
+
   // Update the simplified mesh vertices and surfaces for class variables
   d_graph_compression_->getVertices(graph_vertices_);
   d_graph_compression_->getStoredPolygons(graph_triangles_);
-
-  // Update the vxblx_msg_to_graph_idx_ mapping after first compression
-  for (const voxblox_msgs::MeshBlock& mesh_block : msg->mesh_blocks) {
-    const voxblox::BlockIndex block_index(
-        mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
-    for (size_t i = 0; i < mesh_block.x.size(); i++) {
-      try {
-        vxblx_msg_to_graph_idx_[block_index][i] =
-            graph_index_remappings->at(vxblx_msg_to_graph_idx_[block_index][i]);
-      } catch (const std::out_of_range& e) {
-        vxblx_msg_to_graph_idx_[block_index].erase(i);
-      }
-    }
-  }
 
   std::vector<Edge> new_graph_edges;
   if (new_graph_indices->size() > 0 && new_graph_triangles->size() > 0) {

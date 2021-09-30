@@ -12,6 +12,9 @@
 #include <utility>
 #include <vector>
 
+#include <voxblox/core/block_hash.h>
+#include <voxblox/core/common.h>
+
 #include <pcl/PolygonMesh.h>
 
 namespace kimera_pgmo {
@@ -20,6 +23,12 @@ typedef std::uint64_t Vertex;
 typedef std::vector<Vertex> Vertices;
 typedef std::map<Vertex, Vertices> Edges;
 typedef std::pair<Vertex, Vertex> Edge;
+
+typedef voxblox::AnyIndexHashMapType<std::map<size_t, size_t>>::type
+    VoxbloxIndexMapping;
+typedef std::pair<voxblox::BlockIndex, std::map<size_t, size_t>>
+    VoxbloxIndexPair;
+typedef std::pair<voxblox::BlockIndex, size_t> VoxbloxBlockIndexPair;
 
 class Graph {
  public:

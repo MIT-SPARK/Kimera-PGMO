@@ -16,8 +16,6 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pose_graph_tools/PoseGraph.h>
-#include <voxblox/core/block_hash.h>
-#include <voxblox/core/common.h>
 #include <voxblox_msgs/Mesh.h>
 
 #include "kimera_pgmo/compression/MeshCompression.h"
@@ -25,11 +23,6 @@
 #include "kimera_pgmo/utils/VoxbloxUtils.h"
 
 namespace kimera_pgmo {
-
-typedef voxblox::AnyIndexHashMapType<std::map<size_t, size_t>>::type
-    VoxbloxIndexMapping;
-typedef std::pair<voxblox::BlockIndex, std::map<size_t, size_t>>
-    VoxbloxIndexPair;
 
 class MeshFrontend {
   friend class MeshFrontendTest;
