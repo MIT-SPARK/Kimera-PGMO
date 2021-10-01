@@ -300,7 +300,7 @@ void MeshCompression::compressAndIntegrate(
             has_new_vertex = true;
           reindex_s.vertices.push_back(temp_reindex.at(j));
         }
-        input_surfaces.push_back(orig_s);  // Track original input
+
         if (!has_new_vertex) {
           count++;
           continue;  // no need to check
@@ -313,6 +313,9 @@ void MeshCompression::compressAndIntegrate(
           count++;
           continue;  // degenerate
         }
+
+        input_surfaces.push_back(orig_s);  // Track original input
+
         // Passed degeneracy test so has at least one adjacent polygon. Pass
         // check
         for (size_t v : reindex_s.vertices) {
