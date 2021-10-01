@@ -282,7 +282,11 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
     }
     gtsam::Key key = gtsam::Symbol(GetVertexPrefix(n.robot_id), n.key);
     gtsam::Pose3 node_pose = RosToGtsam(n.pose);
-    new_mesh_nodes.insert(key, node_pose);
+    try {
+      new_mesh_nodes.insert(key, node_pose);
+    } catch (const gtsam::ValuesKeyAlreadyExists& e) {
+      ROS_WARN("processing mesh node duplicate\n");
+    }
   }
 
   // Add to deformation graph
