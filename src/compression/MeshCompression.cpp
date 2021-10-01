@@ -66,6 +66,9 @@ void MeshCompression::compressAndIntegrate(
   std::vector<size_t> potential_new_vertices;
   std::vector<bool> potential_new_vertices_check;
 
+  // Vertices that end up on each other after compression
+  std::unordered_map<size_t, std::vector<size_t> > converged_vertices;
+
   // Temporary octree / cell for the points not stored
   PointCloudXYZ::Ptr temp_new_vertices(new PointCloudXYZ);
   initializeTempStructure(temp_new_vertices);
@@ -85,9 +88,11 @@ void MeshCompression::compressAndIntegrate(
         potential_new_vertices_check.push_back(false);
         temp_reindex.push_back(num_original_vertices +
                                temp_new_vertices->size() - 1);
+        converged_vertices.insert({i, std::vector<size_t>()});
       } else {
         // Add reindex index
         temp_reindex.push_back(num_original_vertices + result_idx);
+        converged_vertices[potential_new_vertices[result_idx]].push_back(i);
       }
     } else {
       // This is a reobservation. Add to remap and new indices
@@ -143,15 +148,14 @@ void MeshCompression::compressAndIntegrate(
       active_vertices_index_.push_back(all_vertices_.size() - 1);
       vertices_latest_time_.push_back(stamp_in_sec);
       // Upate reindex
-      reindex[potential_new_vertices[i]] = all_vertices_.size() - 1;
-      remapping->insert(std::pair<size_t, size_t>{potential_new_vertices[i],
-                                                  all_vertices_.size() - 1});
-      for (size_t m = 0; m < temp_reindex.size(); m++) {
-        if (potential_new_vertices[i] != m &&
-            temp_reindex[i] == temp_reindex[m]) {
-          remapping->insert(
-              std::pair<size_t, size_t>{m, all_vertices_.size() - 1});
-        }
+      reindex[input_idx] = all_vertices_.size() - 1;
+      remapping->insert(
+          std::pair<size_t, size_t>{input_idx, all_vertices_.size() - 1});
+      for (const auto& m : converged_vertices[input_idx]) {
+        assert(temp_reindex[input_idx] == temp_reindex[m]);
+        reindex[m] = all_vertices_.size() - 1;
+        remapping->insert(
+            std::pair<size_t, size_t>{m, all_vertices_.size() - 1});
       }
       // Add to new indices
       new_indices->push_back(all_vertices_.size() - 1);
@@ -280,6 +284,8 @@ void MeshCompression::compressAndIntegrate(
       } else {
         // This is a reobservation. Add to remap and new indices
         // Add reindex index
+        reindex[count] = active_vertices_index_[result_idx];
+        remapping->at(block_index)[i] = active_vertices_index_[result_idx];
         temp_reindex.push_back(active_vertices_index_[result_idx]);
         // Push to new indices if does not already yet
         if (std::find(new_indices->begin(),
@@ -291,40 +297,44 @@ void MeshCompression::compressAndIntegrate(
       }
       // Every 3 vertices is a surface
       if (i % 3 == 2) {
-        pcl::Vertices orig_s;
-        pcl::Vertices reindex_s;
-        bool has_new_vertex = false;
-        for (size_t j = count - 2; j <= count; j++) {
-          orig_s.vertices.push_back(j);
-          if (temp_reindex.at(j) >= num_original_vertices)
-            has_new_vertex = true;
-          reindex_s.vertices.push_back(temp_reindex.at(j));
-        }
+        // Get the new indices of face
+        size_t r_idx_0 = temp_reindex.at(count - 2);
+        size_t r_idx_1 = temp_reindex.at(count - 1);
+        size_t r_idx_2 = temp_reindex.at(count);
+
+        // First check if there's a new vertex
+        bool has_new_vertex = (r_idx_0 >= num_original_vertices ||
+                               r_idx_1 >= num_original_vertices ||
+                               r_idx_2 >= num_original_vertices);
 
         if (!has_new_vertex) {
           count++;
           continue;  // no need to check
         }
-        // Now check if new surface is acceptable
-        if (reindex_s.vertices.size() < 3 ||
-            reindex_s.vertices[0] == reindex_s.vertices[1] ||
-            reindex_s.vertices[1] == reindex_s.vertices[2] ||
-            reindex_s.vertices[2] == reindex_s.vertices[0]) {
+
+        // Then check if face is degenerate
+        bool degenerate =
+            (r_idx_0 == r_idx_1 || r_idx_0 == r_idx_2 || r_idx_1 == r_idx_2);
+
+        if (degenerate) {
           count++;
-          continue;  // degenerate
+          continue;
         }
 
-        input_surfaces.push_back(orig_s);  // Track original input
+        // Add to input surfaces
+        pcl::Vertices orig_s;
+        orig_s.vertices.push_back(count - 2);
+        orig_s.vertices.push_back(count - 1);
+        orig_s.vertices.push_back(count);
+        input_surfaces.push_back(orig_s);
 
-        // Passed degeneracy test so has at least one adjacent polygon. Pass
-        // check
-        for (size_t v : reindex_s.vertices) {
-          if (v >= num_original_vertices) {
-            // This check is the main objective of this iteration through the
-            // faces
-            potential_new_vertices_check[v - num_original_vertices] = true;
-          }
-        }
+        // Mark vertices as pass check (has at least one adjacent polygon)
+        if (r_idx_0 >= num_original_vertices)
+          potential_new_vertices_check[r_idx_0 - num_original_vertices] = true;
+        if (r_idx_1 >= num_original_vertices)
+          potential_new_vertices_check[r_idx_1 - num_original_vertices] = true;
+        if (r_idx_2 >= num_original_vertices)
+          potential_new_vertices_check[r_idx_2 - num_original_vertices] = true;
       }
       count++;
     }
