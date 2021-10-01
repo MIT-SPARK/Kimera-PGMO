@@ -216,7 +216,7 @@ void MeshCompression::compressAndIntegrate(
 
   // Remaps from index in input vertices to index in all_vertices_
   std::unordered_map<size_t, size_t> reindex;
-  // temporary reindex for all input vertices
+  // temporary reindex for all new input vertices
   std::vector<size_t> temp_reindex;
 
   // Track possible new vertices
@@ -233,6 +233,9 @@ void MeshCompression::compressAndIntegrate(
   // For book keeping track count to mesh block and index
   std::map<size_t, VoxbloxBlockIndexPair> count_to_block;
   PointCloud all_parsed_points;
+
+  // Vertices that end up on each other after compression
+  std::unordered_map<size_t, std::vector<size_t> > converged_vertices;
 
   // Iterate through the blocks
   for (const auto& mesh_block : mesh.mesh_blocks) {
@@ -267,9 +270,12 @@ void MeshCompression::compressAndIntegrate(
           potential_new_vertices_check.push_back(false);
           temp_reindex.push_back(num_original_vertices +
                                  temp_new_vertices->size() - 1);
+          converged_vertices.insert({count, std::vector<size_t>()});
         } else {
           // Add reindex index
           temp_reindex.push_back(num_original_vertices + result_idx);
+          converged_vertices[potential_new_vertices[result_idx]].push_back(
+              count);
         }
       } else {
         // This is a reobservation. Add to remap and new indices
@@ -339,12 +345,11 @@ void MeshCompression::compressAndIntegrate(
       reindex[input_idx] = all_vertices_.size() - 1;
       remapping->at(count_to_block[input_idx].first)
           .insert({count_to_block[input_idx].second, all_vertices_.size() - 1});
-      for (size_t m = 0; m < temp_reindex.size(); m++) {
-        if (input_idx != m && temp_reindex[input_idx] == temp_reindex[m]) {
-          reindex[m] = all_vertices_.size() - 1;
-          remapping->at(count_to_block[m].first)
-              .insert({count_to_block[m].second, all_vertices_.size() - 1});
-        }
+      for (const auto& m : converged_vertices[input_idx]) {
+        assert(temp_reindex[input_idx] == temp_reindex[m]);
+        reindex[m] = all_vertices_.size() - 1;
+        remapping->at(count_to_block[m].first)
+            .insert({count_to_block[m].second, all_vertices_.size() - 1});
       }
       // Add to new indices
       new_indices->push_back(all_vertices_.size() - 1);
