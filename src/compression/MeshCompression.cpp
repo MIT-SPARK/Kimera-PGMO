@@ -55,7 +55,6 @@ void MeshCompression::compressAndIntegrate(
   new_vertices->clear();
   new_triangles->clear();
   new_indices->clear();
-  remapping->clear();
 
   const size_t num_original_active_vertices = active_vertices_xyz_->size();
   const size_t num_original_vertices = all_vertices_.size();
@@ -192,10 +191,8 @@ void MeshCompression::compressAndIntegrate(
         reindex_s.vertices[2] == reindex_s.vertices[0])
       continue;
 
-    // Check if it is a new surface constructed from existing points
-    if (!new_surface) {
-      new_surface = !SurfaceExists(reindex_s, adjacent_polygons_, polygons_);
-    }
+    // TODO: Check assumption that new surface cannot be constructed from
+    // existing points. Topologically this makes sense.
 
     // If it is a new surface, add
     if (new_surface) {
@@ -226,7 +223,6 @@ void MeshCompression::compressAndIntegrate(
   new_vertices->clear();
   new_triangles->clear();
   new_indices->clear();
-  remapping->clear();
 
   const size_t num_original_active_vertices = active_vertices_xyz_->size();
   const size_t num_original_vertices = all_vertices_.size();
@@ -260,10 +256,8 @@ void MeshCompression::compressAndIntegrate(
     const voxblox::BlockIndex block_index(
         mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
     // Add to remapping if not yet added previously
-    if (remapping->find(block_index) == remapping->end()) {
-      remapping->insert(
-          VoxbloxIndexPair(block_index, std::map<size_t, size_t>()));
-    }
+    remapping->insert(
+        VoxbloxIndexPair(block_index, std::map<size_t, size_t>()));
 
     // Iterate through vertices of mesh block
     for (size_t i = 0; i < mesh_block.x.size(); ++i) {
@@ -408,10 +402,8 @@ void MeshCompression::compressAndIntegrate(
         reindex_s.vertices[2] == reindex_s.vertices[0])
       continue;
 
-    // Check if it is a new surface constructed from existing points
-    if (!new_surface) {
-      new_surface = !SurfaceExists(reindex_s, adjacent_polygons_, polygons_);
-    }
+    // TODO: Check assumption that new surface cannot be constructed from
+    // existing points. Topologically this makes sense.
 
     // If it is a new surface, add
     if (new_surface) {
