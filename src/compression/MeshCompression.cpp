@@ -52,6 +52,10 @@ void MeshCompression::compressAndIntegrate(
   assert(nullptr != new_triangles);
   assert(nullptr != new_indices);
   assert(nullptr != remapping);
+  new_vertices->clear();
+  new_triangles->clear();
+  new_indices->clear();
+  remapping->clear();
 
   const size_t num_original_active_vertices = active_vertices_xyz_->size();
   const size_t num_original_vertices = all_vertices_.size();
@@ -100,10 +104,15 @@ void MeshCompression::compressAndIntegrate(
       reindex[i] = active_vertices_index_[result_idx];
       temp_reindex.push_back(active_vertices_index_[result_idx]);
       // Push to new indices if does not already yet
-      if (std::find(new_indices->begin(),
-                    new_indices->end(),
-                    active_vertices_index_[result_idx]) == new_indices->end())
-        new_indices->push_back(active_vertices_index_[result_idx]);
+      if (!std::binary_search(new_indices->begin(),
+                              new_indices->end(),
+                              active_vertices_index_[result_idx])) {
+        new_indices->insert(
+            std::lower_bound(new_indices->begin(),
+                             new_indices->end(),
+                             active_vertices_index_[result_idx]),
+            active_vertices_index_[result_idx]);
+      }
       // Update the last seen time of the vertex
       vertices_latest_time_[result_idx] = stamp_in_sec;
     }
@@ -170,7 +179,7 @@ void MeshCompression::compressAndIntegrate(
     bool new_surface = false;
     for (size_t idx : s.vertices) {
       // Check if reindex key exists, if not, already pruned earlier
-      if (reindex.find(idx) == reindex.end()) continue;
+      if (reindex.find(idx) == reindex.end()) break;
       reindex_s.vertices.push_back(reindex[idx]);
       if (reindex[idx] >= num_original_vertices) new_surface = true;
     }
@@ -214,6 +223,10 @@ void MeshCompression::compressAndIntegrate(
   assert(nullptr != new_triangles);
   assert(nullptr != new_indices);
   assert(nullptr != remapping);
+  new_vertices->clear();
+  new_triangles->clear();
+  new_indices->clear();
+  remapping->clear();
 
   const size_t num_original_active_vertices = active_vertices_xyz_->size();
   const size_t num_original_vertices = all_vertices_.size();
@@ -288,10 +301,15 @@ void MeshCompression::compressAndIntegrate(
         remapping->at(block_index)[i] = active_vertices_index_[result_idx];
         temp_reindex.push_back(active_vertices_index_[result_idx]);
         // Push to new indices if does not already yet
-        if (std::find(new_indices->begin(),
-                      new_indices->end(),
-                      active_vertices_index_[result_idx]) == new_indices->end())
-          new_indices->push_back(active_vertices_index_[result_idx]);
+        if (!std::binary_search(new_indices->begin(),
+                                new_indices->end(),
+                                active_vertices_index_[result_idx])) {
+          new_indices->insert(
+              std::lower_bound(new_indices->begin(),
+                               new_indices->end(),
+                               active_vertices_index_[result_idx]),
+              active_vertices_index_[result_idx]);
+        }
         // Update the last seen time of the vertex
         vertices_latest_time_[result_idx] = stamp_in_sec;
       }
@@ -377,7 +395,7 @@ void MeshCompression::compressAndIntegrate(
     bool new_surface = false;
     for (size_t idx : s.vertices) {
       // Check if reindex key exists, if not, already pruned earlier
-      if (reindex.find(idx) == reindex.end()) continue;
+      if (reindex.find(idx) == reindex.end()) break;
       reindex_s.vertices.push_back(reindex[idx]);
       if (reindex[idx] >= num_original_vertices) new_surface = true;
     }
