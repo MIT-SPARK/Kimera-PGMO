@@ -38,7 +38,8 @@ class MeshFrontend {
   /*! \brief Initializes callbacks and publishers, and also parse the parameters
    *  - n: ROS node handle.
    */
-  bool initialize(const ros::NodeHandle& n, bool should_register_callbacks = true);
+  bool initialize(const ros::NodeHandle& n,
+                  bool should_register_callbacks = true);
 
   /*! /brief Get curent frontend vertices
    *  /returns Current vertex pointcloud
@@ -137,15 +138,22 @@ class MeshFrontend {
   }
 
   /*! \brief Log the stats and the timing
-   *  - filename: file to log to
    *  - callback_duration: callback time (mu-s)
    *  - num_indices: number of new indices to add to deformation graph
    *  - num_edges: number of new edges to add to deformation graph
    */
-  void logTiming(const std::string& filename,
-                 const int& callback_duration = 0,
+  void logStatus(const int& callback_duration = 0,
                  const size_t& num_indices = 0,
                  const size_t& num_edges = 0) const;
+
+  /*! \brief Log timing breakdown in callback
+   *  - callback_duration: callback time (mu-s)
+   *  - comp_full_duration: duration for compressing the full mesh
+   *  - comp_graph_duration: duration for compressiong graph mesh
+   */
+  void logTiming(const int& callback_duration = 0,
+                 const int& comp_full_duration = 0,
+                 const int& comp_graph_duration = 0) const;
 
   // Class arguments
   ros::Subscriber voxblox_sub_;
@@ -167,7 +175,8 @@ class MeshFrontend {
 
   int robot_id_;
 
-  bool initilized_log_;
+  bool init_status_log_;
+  bool init_timing_log_;
 
   ros::Time last_mesh_msg_time_;  // last message processed timestamp
 

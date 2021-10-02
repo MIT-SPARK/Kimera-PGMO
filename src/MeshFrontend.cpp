@@ -21,7 +21,8 @@ MeshFrontend::MeshFrontend()
       triangles_(new std::vector<pcl::Vertices>),
       graph_triangles_(new std::vector<pcl::Vertices>),
       vxblx_msg_to_graph_idx_(new VoxbloxIndexMapping),
-      initilized_log_(false),
+      init_status_log_(false),
+      init_timing_log_(false),
       voxblox_queue_size_(20),
       voxblox_update_called_(false) {}
 MeshFrontend::~MeshFrontend() {}
@@ -47,9 +48,10 @@ bool MeshFrontend::initialize(const ros::NodeHandle& n,
 
   // Log header to file
   if (log_output_) {
-    std::string log_file = log_path_ + std::string("/mesh_frontend_log.csv");
-    logTiming(log_file);
-    initilized_log_ = true;
+    logTiming();
+    logStatus();
+    init_timing_log_ = true;
+    init_status_log_ = true;
   }
 
   ROS_INFO("Initialized MeshFrontend.");
@@ -84,8 +86,7 @@ bool MeshFrontend::loadParameters(const ros::NodeHandle& n) {
   if (n.getParam("log_path", log_path_)) {
     n.getParam("log_output", log_output_);
     if (log_output_) {
-      ROS_INFO("Logging output to: %s/mesh_frontend_log.csv",
-               log_path_.c_str());
+      ROS_INFO("Logging output to: %s", log_path_.c_str());
     }
   }
 
@@ -137,6 +138,7 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
   // Feed to full mesh and simplified mesh compressor
 
   // Add to full mesh compressor
+  auto f_comp_start = std::chrono::high_resolution_clock::now();
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
   boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles =
@@ -152,7 +154,12 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
                                                unused_remappings,
                                                msg_time);
 
+  auto f_comp_stop = std::chrono::high_resolution_clock::now();
+  auto f_comp_duration = std::chrono::duration_cast<std::chrono::microseconds>(
+      f_comp_stop - f_comp_start);
+
   // Add to deformation graph mesh compressor
+  auto g_comp_start = std::chrono::high_resolution_clock::now();
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_graph_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
   boost::shared_ptr<std::vector<pcl::Vertices> > new_graph_triangles =
@@ -166,6 +173,10 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
                                              new_graph_indices,
                                              vxblx_msg_to_graph_idx_,
                                              msg_time);
+
+  auto g_comp_stop = std::chrono::high_resolution_clock::now();
+  auto g_comp_duration = std::chrono::duration_cast<std::chrono::microseconds>(
+      g_comp_stop - g_comp_start);
 
   // Update the mesh vertices and surfaces for class variables
   full_mesh_compression_->getVertices(vertices_);
@@ -191,11 +202,12 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
       std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
   // Log to file
   if (log_output_) {
-    std::string log_file = log_path_ + std::string("/mesh_frontend_log.csv");
-    logTiming(log_file,
-              spin_duration.count(),
+    logStatus(spin_duration.count(),
               new_graph_indices->size(),
               new_graph_edges.size());
+    logTiming(spin_duration.count(),
+              f_comp_duration.count(),
+              g_comp_duration.count());
   }
 
   return;
@@ -289,13 +301,12 @@ pose_graph_tools::PoseGraph MeshFrontend::publishMeshGraph(
   return pose_graph_msg;
 }
 
-void MeshFrontend::logTiming(const std::string& filename,
-                             const int& callback_duration,
+void MeshFrontend::logStatus(const int& callback_duration,
                              const size_t& num_indices,
                              const size_t& num_edges) const {
   std::ofstream file;
-
-  if (!initilized_log_) {
+  std::string filename = log_path_ + std::string("/mesh_frontend_status.csv");
+  if (!init_status_log_) {
     file.open(filename);
     // file format
     file << "num-vertices,num-vertices-simplified,num-vertices-new,num-edges-"
@@ -307,6 +318,26 @@ void MeshFrontend::logTiming(const std::string& filename,
   file << vertices_->size() << "," << graph_vertices_->size() << ","
        << num_indices << "," << num_edges << "," << callback_duration
        << std::endl;
+  file.close();
+  return;
+}
+
+void MeshFrontend::logTiming(const int& callback_duration,
+                             const int& comp_full_duration,
+                             const int& comp_graph_duration) const {
+  std::ofstream file;
+  std::string filename = log_path_ + std::string("/mesh_frontend_timing.csv");
+  if (!init_timing_log_) {
+    file.open(filename);
+    // file format
+    file << "cb-time(mu-s),full-mesh-compression(mu-s),graph-compression(mu-s)"
+            "\n";
+    return;
+  }
+
+  file.open(filename, std::ofstream::out | std::ofstream::app);
+  file << callback_duration << "," << comp_full_duration << ","
+       << comp_graph_duration << std::endl;
   file.close();
   return;
 }
