@@ -184,15 +184,16 @@ void MeshCompression::compressAndIntegrate(
     }
     if (reindex_s.vertices.size() < 3) continue;
 
+    // TODO: Check assumption that new surface cannot be constructed from
+    // existing points. Topologically this makes sense.
+    if (!new_surface) continue;
+
     // Check if polygon has actual three diferent vertices
     // To avoid degeneracy
     if (reindex_s.vertices[0] == reindex_s.vertices[1] ||
         reindex_s.vertices[1] == reindex_s.vertices[2] ||
         reindex_s.vertices[2] == reindex_s.vertices[0])
       continue;
-
-    // TODO: Check assumption that new surface cannot be constructed from
-    // existing points. Topologically this makes sense.
 
     // If it is a new surface, add
     if (new_surface) {
@@ -308,7 +309,7 @@ void MeshCompression::compressAndIntegrate(
         vertices_latest_time_[result_idx] = stamp_in_sec;
       }
       // Every 3 vertices is a surface
-      if (i % 3 == 2) {
+      if (i % 3 == 2 && temp_reindex.at(count) != temp_reindex.at(count - 1)) {
         // Get the new indices of face
         size_t r_idx_0 = temp_reindex.at(count - 2);
         size_t r_idx_1 = temp_reindex.at(count - 1);
@@ -395,15 +396,16 @@ void MeshCompression::compressAndIntegrate(
     }
     if (reindex_s.vertices.size() < 3) continue;
 
+    // TODO: Check assumption that new surface cannot be constructed from
+    // existing points. Topologically this makes sense.
+    if (!new_surface) continue;
+
     // Check if polygon has actual three diferent vertices
     // To avoid degeneracy
     if (reindex_s.vertices[0] == reindex_s.vertices[1] ||
         reindex_s.vertices[1] == reindex_s.vertices[2] ||
         reindex_s.vertices[2] == reindex_s.vertices[0])
       continue;
-
-    // TODO: Check assumption that new surface cannot be constructed from
-    // existing points. Topologically this makes sense.
 
     // If it is a new surface, add
     if (new_surface) {
