@@ -17,7 +17,9 @@ namespace kimera_pgmo {
 
 // Constructor
 KimeraPgmoInterface::KimeraPgmoInterface()
-    : deformation_graph_(new DeformationGraph), full_mesh_updated_(false) {}
+    : deformation_graph_(new DeformationGraph),
+      full_mesh_updated_(false),
+      num_loop_closures_(0) {}
 
 KimeraPgmoInterface::~KimeraPgmoInterface() {}
 
