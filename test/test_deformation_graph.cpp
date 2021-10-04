@@ -142,7 +142,7 @@ void MeshToEdgesAndNodes(
 
 TEST(test_deformation_graph, addNewMeshEdgesAndNodes) {
   DeformationGraph graph;
-  graph.initialize(100, 100);
+  graph.initialize(100, 100, 0);
 
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
@@ -174,7 +174,7 @@ TEST(test_deformation_graph, addNewMeshEdgesAndNodes) {
 
 TEST(test_deformation_graph, reconstructMesh) {
   DeformationGraph graph;
-  graph.initialize(100, 100);
+  graph.initialize(100, 100, 0);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
@@ -218,7 +218,7 @@ TEST(test_deformation_graph, reconstructMesh) {
 
 TEST(test_deformation_graph, deformMeshtranslation) {
   DeformationGraph graph;
-  graph.initialize(100, 100);
+  graph.initialize(100, 100, 0);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
@@ -269,7 +269,7 @@ TEST(test_deformation_graph, deformMesh) {
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
   // deform mesh
   DeformationGraph graph;
-  graph.initialize(100, 100);
+  graph.initialize(100, 100, 0);
 
   gtsam::Values mesh_nodes;
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
@@ -317,7 +317,7 @@ TEST(test_deformation_graph, deformMesh) {
 
 TEST(test_deformation_graph, updateMesh) {
   DeformationGraph graph;
-  graph.initialize(100, 100);
+  graph.initialize(100, 100, 0);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
@@ -392,7 +392,7 @@ TEST(test_deformation_graph, updateMesh) {
 
 TEST(test_deformation_graph, addNodeMeasurement) {
   DeformationGraph graph;
-  graph.initialize(100, 100);
+  graph.initialize(100, 100, 0);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
@@ -450,7 +450,7 @@ TEST(test_deformation_graph, addNodeMeasurement) {
 
 TEST(test_deformation_graph, addNodeMeasurements) {
   DeformationGraph graph;
-  graph.initialize(100, 100);
+  graph.initialize(100, 100, 0);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
@@ -520,7 +520,7 @@ TEST(test_deformation_graph, addNodeMeasurements) {
 
 TEST(test_deformation_graph, removePriorsWithPrefix) {
   DeformationGraph graph;
-  graph.initialize(100, 100);
+  graph.initialize(100, 100, 0);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
@@ -597,7 +597,7 @@ TEST(test_deformation_graph, removePriorsWithPrefix) {
 
 TEST(test_deformation_graph, addNewBetween) {
   DeformationGraph graph;
-  graph.initialize(100, 100);
+  graph.initialize(100, 100, 0);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
@@ -736,7 +736,7 @@ TEST(test_deformation_graph, addNewBetween) {
 
 TEST(test_deformation_graph, addTemporary) {
   DeformationGraph graph;
-  graph.initialize(100, 100);
+  graph.initialize(100, 100, 0);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
