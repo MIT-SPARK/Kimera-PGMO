@@ -214,8 +214,11 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
 
     gtsam::Pose3 initial_estimate = initial_pose;
     if (to_idx > 0) {
-      initial_estimate =
-          pg_initial_poses_[to_prefix].at(to_idx - 1).compose(meas);
+      if (values_.exists(key_from)) {
+        initial_estimate = values_.at<gtsam::Pose3>(key_from).compose(meas);
+      } else if (new_values.exists(key_from)) {
+        initial_estimate = new_values.at<gtsam::Pose3>(key_from).compose(meas);
+      }
     }
     new_values.insert(key_to, initial_estimate);
   }
