@@ -38,8 +38,11 @@ bool KimeraPgmoInterface::loadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("rpgo/rotation_threshold", pgo_rot_threshold)) return false;
   if (!n.getParam("rpgo/gnc_alpha", gnc_alpha)) return false;
 
+  std::string log_path;
+  n.param<std::string>("output_prefix", log_path, "");
+
   if (!deformation_graph_->initialize(
-          pgo_trans_threshold, pgo_rot_threshold, gnc_alpha)) {
+          pgo_trans_threshold, pgo_rot_threshold, gnc_alpha, log_path)) {
     ROS_ERROR("KimeraPgmo: Failed to initialize deformation graph.");
     return false;
   }
