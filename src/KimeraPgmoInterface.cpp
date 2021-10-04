@@ -17,7 +17,9 @@ namespace kimera_pgmo {
 
 // Constructor
 KimeraPgmoInterface::KimeraPgmoInterface()
-    : deformation_graph_(new DeformationGraph), full_mesh_updated_(false) {}
+    : deformation_graph_(new DeformationGraph),
+      full_mesh_updated_(false),
+      num_loop_closures_(0) {}
 
 KimeraPgmoInterface::~KimeraPgmoInterface() {}
 
@@ -217,7 +219,8 @@ void KimeraPgmoInterface::processOptimizedPath(
 
 bool KimeraPgmoInterface::optimizeFullMesh(
     const kimera_pgmo::TriangleMeshIdStamped& mesh_msg,
-    pcl::PolygonMesh::Ptr optimized_mesh) {
+    pcl::PolygonMesh::Ptr optimized_mesh,
+    bool no_optimize) {
   const pcl::PolygonMesh& input_mesh =
       TriangleMeshMsgToPolygonMesh(mesh_msg.mesh);
   // check if empty
@@ -229,7 +232,7 @@ bool KimeraPgmoInterface::optimizeFullMesh(
 
   // Optimize mesh
   try {
-    if (run_mode_ == RunMode::DPGMO) {
+    if (run_mode_ == RunMode::DPGMO || no_optimize) {
       *optimized_mesh = deformation_graph_->deformMesh(
           input_mesh, GetVertexPrefix(robot_id), dpgmo_values_);
     } else {
