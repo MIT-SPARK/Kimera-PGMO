@@ -6,8 +6,8 @@
 #pragma once
 
 #include <ros/ros.h>
-#include <map>
-#include <queue>
+#include <deque>
+#include <thread>
 #include <unordered_map>
 
 #include <mesh_msgs/TriangleMeshStamped.h>
@@ -69,10 +69,6 @@ class MeshFrontend {
    */
   inline double getMeshTimeHorizon() const { return time_horizon_; }
 
-  /*! \brief Get the last message's timestamps
-   */
-  inline ros::Time getLastMsgTime() const { return last_mesh_msg_time_; }
-
   /*! \brief Get the mappings from vxblx msg to graph index for tracking.
    */
   inline const VoxbloxIndexMapping& getVoxbloxMsgMapping() const {
@@ -105,7 +101,22 @@ class MeshFrontend {
    * callback and add the partial mesh to the full mesh and compress
    *  - msg: mesh msg from Voxblox or Kimera Semantics
    */
-  void processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg);
+  void processVoxbloxMeshFull(const voxblox_msgs::Mesh::ConstPtr& msg);
+
+  /*! \brief Process the latest incremental mesh from the
+   * callback and add the partial mesh to the graph mesh and compress
+   *  - msg: mesh msg from Voxblox or Kimera Semantics
+   */
+  void processVoxbloxMeshGraph(const voxblox_msgs::Mesh::ConstPtr& msg);
+
+  /*! \brief Update loop for updating the full mesh
+   */
+  void fullMeshUpdateSpin();
+
+  /*! \brief Update loop for updating the simplified mesh and creating the mesh
+   * graph
+   */
+  void graphMeshUpdateSpin();
 
   /*! \brief Publish the full (compressed) mesh stored
    *  - stamp: timestamp
@@ -178,8 +189,6 @@ class MeshFrontend {
   bool init_status_log_;
   bool init_timing_log_;
 
-  ros::Time last_mesh_msg_time_;  // last message processed timestamp
-
   // Vertices of full mesh
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices_;
   // Triangles (connections) of full mesh
@@ -206,5 +215,15 @@ class MeshFrontend {
   // whether or not voxbloxCallback triggered since wasFrontendUpdated was
   // called
   bool voxblox_update_called_;
+
+  std::atomic<bool> shutdown_{false};
+
+  // Run full mesh compression and graph compression on separate thread
+  std::unique_ptr<std::thread> full_mesh_thread_;
+  std::unique_ptr<std::thread> graph_mesh_thread_;
+
+  // Buffer input voxblx meshes
+  std::deque<voxblox_msgs::Mesh::ConstPtr> full_mesh_input_;
+  std::deque<voxblox_msgs::Mesh::ConstPtr> graph_mesh_input_;
 };
 }  // namespace kimera_pgmo

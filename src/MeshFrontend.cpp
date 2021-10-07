@@ -25,7 +25,17 @@ MeshFrontend::MeshFrontend()
       init_timing_log_(false),
       voxblox_queue_size_(20),
       voxblox_update_called_(false) {}
-MeshFrontend::~MeshFrontend() {}
+MeshFrontend::~MeshFrontend() {
+  shutdown_ = true;
+
+  if (full_mesh_thread_) {
+    full_mesh_thread_->join();
+  }
+
+  if (graph_mesh_thread_) {
+    graph_mesh_thread_->join();
+  }
+}
 
 // Initialize parameters, publishers, and subscribers
 bool MeshFrontend::initialize(const ros::NodeHandle& n,
@@ -53,6 +63,12 @@ bool MeshFrontend::initialize(const ros::NodeHandle& n,
     init_timing_log_ = true;
     init_status_log_ = true;
   }
+
+  // Start compression threads
+  full_mesh_thread_.reset(
+      new std::thread(&MeshFrontend::fullMeshUpdateSpin, this));
+  graph_mesh_thread_.reset(
+      new std::thread(&MeshFrontend::graphMeshUpdateSpin, this));
 
   ROS_INFO("Initialized MeshFrontend.");
 
@@ -114,28 +130,55 @@ bool MeshFrontend::registerCallbacks(const ros::NodeHandle& n) {
 }
 
 void MeshFrontend::voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg) {
-  last_mesh_msg_time_ = msg->header.stamp;
-  processVoxbloxMesh(msg);
+  full_mesh_input_.push_back(msg);
+  graph_mesh_input_.push_back(msg);
 
-  // Publish partial and full mesh
-  publishFullMesh(msg->header.stamp);
-  publishSimplifiedMesh(msg->header.stamp);
   voxblox_update_called_ = true;
   return;
 }
 
-// Creates partial mesh while updating the full mesh and also the last detected
-// mesh blocks
-void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
-  // Start timer
-  auto start = std::chrono::high_resolution_clock::now();
+void MeshFrontend::fullMeshUpdateSpin() {
+  ROS_INFO("Started full mesh update thread. ");
+  ros::Rate r(1.0);
+  while (ros::ok() && !shutdown_) {
+    const size_t n_msg = full_mesh_input_.size();
+    ros::Time stamp;
+    for (size_t i = 0; i < n_msg; i++) {
+      processVoxbloxMeshFull(full_mesh_input_.front());
+      stamp = full_mesh_input_.front()->header.stamp;
+      full_mesh_input_.pop_front();
+    }
+    if (n_msg > 0) publishFullMesh(stamp);
 
+    r.sleep();
+  }
+  ROS_INFO("Shutting down full mesh update thread. ");
+}
+
+void MeshFrontend::graphMeshUpdateSpin() {
+  ROS_INFO("Started graph mesh update thread. ");
+  ros::Rate r(10.0);
+  while (ros::ok() && !shutdown_) {
+    const size_t n_msg = graph_mesh_input_.size();
+    ros::Time stamp;
+    for (size_t i = 0; i < n_msg; i++) {
+      processVoxbloxMeshGraph(graph_mesh_input_.front());
+      stamp = graph_mesh_input_.front()->header.stamp;
+      graph_mesh_input_.pop_front();
+    }
+    if (n_msg > 0) publishSimplifiedMesh(stamp);
+
+    r.sleep();
+  }
+  ROS_INFO("Shutting down graph mesh update thread. ");
+}
+
+// Update full mesh
+void MeshFrontend::processVoxbloxMeshFull(
+    const voxblox_msgs::Mesh::ConstPtr& msg) {
   // First prune the mesh blocks
   const double msg_time = msg->header.stamp.toSec();
   full_mesh_compression_->pruneStoredMesh(msg_time - time_horizon_);
-  d_graph_compression_->pruneStoredMesh(msg_time - time_horizon_);
-
-  // Feed to full mesh and simplified mesh compressor
 
   // Add to full mesh compressor
   auto f_comp_start = std::chrono::high_resolution_clock::now();
@@ -158,6 +201,19 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
   auto f_comp_duration = std::chrono::duration_cast<std::chrono::microseconds>(
       f_comp_stop - f_comp_start);
 
+  // Update the mesh vertices and surfaces for class variables
+  full_mesh_compression_->getVertices(vertices_);
+  full_mesh_compression_->getStoredPolygons(triangles_);
+  return;
+}
+
+// Creates and update graph mesh and publish mesh graph
+void MeshFrontend::processVoxbloxMeshGraph(
+    const voxblox_msgs::Mesh::ConstPtr& msg) {
+  // First prune the mesh blocks
+  const double msg_time = msg->header.stamp.toSec();
+  d_graph_compression_->pruneStoredMesh(msg_time - time_horizon_);
+
   // Add to deformation graph mesh compressor
   auto g_comp_start = std::chrono::high_resolution_clock::now();
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_graph_vertices(
@@ -178,10 +234,6 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
   auto g_comp_duration = std::chrono::duration_cast<std::chrono::microseconds>(
       g_comp_stop - g_comp_start);
 
-  // Update the mesh vertices and surfaces for class variables
-  full_mesh_compression_->getVertices(vertices_);
-  full_mesh_compression_->getStoredPolygons(triangles_);
-
   // Update the simplified mesh vertices and surfaces for class variables
   d_graph_compression_->getVertices(graph_vertices_);
   d_graph_compression_->getStoredPolygons(graph_triangles_);
@@ -194,20 +246,6 @@ void MeshFrontend::processVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
     // Publish edges and nodes
     last_mesh_graph_ = publishMeshGraph(
         new_graph_edges, *new_graph_indices.get(), msg->header);
-  }
-
-  // Stop timer and save
-  auto stop = std::chrono::high_resolution_clock::now();
-  auto spin_duration =
-      std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-  // Log to file
-  if (log_output_) {
-    logStatus(spin_duration.count(),
-              new_graph_indices->size(),
-              new_graph_edges.size());
-    logTiming(spin_duration.count(),
-              f_comp_duration.count(),
-              g_comp_duration.count());
   }
 
   return;
