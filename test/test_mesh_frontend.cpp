@@ -36,8 +36,12 @@ class MeshFrontendTest : public ::testing::Test {
   }
 
   // Test update called in timer event
-  void ProcessVoxbloxMesh(const voxblox_msgs::Mesh::ConstPtr& msg) {
-    vp_.processVoxbloxMesh(msg);
+  void ProcessVoxbloxMeshFull(const voxblox_msgs::Mesh::ConstPtr& msg) {
+    vp_.processVoxbloxMeshFull(msg);
+  }
+
+  void ProcessVoxbloxMeshGraph(const voxblox_msgs::Mesh::ConstPtr& msg) {
+    vp_.processVoxbloxMeshGraph(msg);
   }
 
   voxblox_msgs::MeshBlock CreateMeshBlock(
@@ -228,7 +232,7 @@ TEST_F(MeshFrontendTest, simplifiedMesh_high_res) {
   voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
   *mesh1 = CreateSimpleMesh1();
 
-  ProcessVoxbloxMesh(mesh1);
+  ProcessVoxbloxMeshGraph(mesh1);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr simplified_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -247,7 +251,7 @@ TEST_F(MeshFrontendTest, simplifiedMesh_high_res) {
   // Add second mesh
   voxblox_msgs::Mesh::Ptr mesh2(new voxblox_msgs::Mesh);
   *mesh2 = CreateSimpleMesh2();
-  ProcessVoxbloxMesh(mesh2);
+  ProcessVoxbloxMeshGraph(mesh2);
   GetSimplifiedMesh(simplified_vertices, &triangles);
 
   EXPECT_EQ(size_t(12), simplified_vertices->points.size());
@@ -268,7 +272,7 @@ TEST_F(MeshFrontendTest, simplifiedMesh_high_res) {
   // meaning that for duplicated blocks, won't check if points duplicated
   voxblox_msgs::Mesh::Ptr mesh3(new voxblox_msgs::Mesh);
   *mesh3 = CreateSimpleMesh3();
-  ProcessVoxbloxMesh(mesh3);
+  ProcessVoxbloxMeshGraph(mesh3);
   GetSimplifiedMesh(simplified_vertices, &triangles);
 
   EXPECT_EQ(size_t(20), simplified_vertices->points.size());
@@ -298,7 +302,7 @@ TEST_F(MeshFrontendTest, simplifiedMesh_low_res) {
   voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
   *mesh1 = CreateSimpleMesh1();
 
-  ProcessVoxbloxMesh(mesh1);
+  ProcessVoxbloxMeshGraph(mesh1);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr simplified_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -311,7 +315,7 @@ TEST_F(MeshFrontendTest, simplifiedMesh_low_res) {
   // Add second mesh
   voxblox_msgs::Mesh::Ptr mesh2(new voxblox_msgs::Mesh);
   *mesh2 = CreateSimpleMesh2();
-  ProcessVoxbloxMesh(mesh2);
+  ProcessVoxbloxMeshGraph(mesh2);
   GetSimplifiedMesh(simplified_vertices, &triangles);
 
   EXPECT_EQ(size_t(0), simplified_vertices->points.size());
@@ -321,7 +325,7 @@ TEST_F(MeshFrontendTest, simplifiedMesh_low_res) {
   // meaning that for duplicated blocks, won't check if points duplicated
   voxblox_msgs::Mesh::Ptr mesh3(new voxblox_msgs::Mesh);
   *mesh3 = CreateSimpleMesh3();
-  ProcessVoxbloxMesh(mesh3);
+  ProcessVoxbloxMeshGraph(mesh3);
   GetSimplifiedMesh(simplified_vertices, &triangles);
 
   EXPECT_EQ(size_t(0), simplified_vertices->points.size());
@@ -337,7 +341,7 @@ TEST_F(MeshFrontendTest, fullMesh) {
   voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
   *mesh1 = CreateSimpleMesh1();
 
-  ProcessVoxbloxMesh(mesh1);
+  ProcessVoxbloxMeshFull(mesh1);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr full_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -356,7 +360,7 @@ TEST_F(MeshFrontendTest, fullMesh) {
   // Add second mesh
   voxblox_msgs::Mesh::Ptr mesh2(new voxblox_msgs::Mesh);
   *mesh2 = CreateSimpleMesh2();
-  ProcessVoxbloxMesh(mesh2);
+  ProcessVoxbloxMeshFull(mesh2);
   GetFullMesh(full_vertices, &triangles);
 
   EXPECT_EQ(size_t(12), full_vertices->points.size());
@@ -377,7 +381,7 @@ TEST_F(MeshFrontendTest, fullMesh) {
   // meaning that for duplicated blocks, won't check if points duplicated
   voxblox_msgs::Mesh::Ptr mesh3(new voxblox_msgs::Mesh);
   *mesh3 = CreateSimpleMesh3();
-  ProcessVoxbloxMesh(mesh3);
+  ProcessVoxbloxMeshFull(mesh3);
   GetFullMesh(full_vertices, &triangles);
 
   EXPECT_EQ(size_t(20), full_vertices->points.size());
@@ -405,7 +409,7 @@ TEST_F(MeshFrontendTest, compression1) {
   voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
   *mesh1 = CreateSimpleMesh1();
 
-  ProcessVoxbloxMesh(mesh1);
+  ProcessVoxbloxMeshFull(mesh1);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr full_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -418,7 +422,7 @@ TEST_F(MeshFrontendTest, compression1) {
   // Add second mesh
   voxblox_msgs::Mesh::Ptr mesh2(new voxblox_msgs::Mesh);
   *mesh2 = CreateSimpleMesh2();
-  ProcessVoxbloxMesh(mesh2);
+  ProcessVoxbloxMeshFull(mesh2);
   GetFullMesh(full_vertices, &triangles);
 
   EXPECT_EQ(size_t(0), full_vertices->points.size());
@@ -428,7 +432,7 @@ TEST_F(MeshFrontendTest, compression1) {
   // meaning that for duplicated blocks, won't check if points duplicated
   voxblox_msgs::Mesh::Ptr mesh3(new voxblox_msgs::Mesh);
   *mesh3 = CreateSimpleMesh3();
-  ProcessVoxbloxMesh(mesh3);
+  ProcessVoxbloxMeshFull(mesh3);
   GetFullMesh(full_vertices, &triangles);
 
   EXPECT_EQ(size_t(0), full_vertices->points.size());
@@ -444,7 +448,7 @@ TEST_F(MeshFrontendTest, compression2) {
   voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
   *mesh1 = CreateSimpleMesh1();
 
-  ProcessVoxbloxMesh(mesh1);
+  ProcessVoxbloxMeshFull(mesh1);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr full_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -457,7 +461,7 @@ TEST_F(MeshFrontendTest, compression2) {
   // process another mesh
   voxblox_msgs::Mesh::Ptr mesh4(new voxblox_msgs::Mesh);
   *mesh4 = CreateSimpleMesh4();
-  ProcessVoxbloxMesh(mesh4);
+  ProcessVoxbloxMeshFull(mesh4);
   GetFullMesh(full_vertices, &triangles);
 
   EXPECT_EQ(size_t(0), full_vertices->points.size());
@@ -473,7 +477,7 @@ TEST_F(MeshFrontendTest, meshGraph) {
   voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
   *mesh1 = CreateSimpleMesh1();
 
-  ProcessVoxbloxMesh(mesh1);
+  ProcessVoxbloxMeshGraph(mesh1);
 
   pose_graph_tools::PoseGraph last_mesh_graph = GetLastProcessedMeshGraph();
 
@@ -517,7 +521,7 @@ TEST_F(MeshFrontendTest, meshGraph) {
   // process another mesh
   voxblox_msgs::Mesh::Ptr mesh4(new voxblox_msgs::Mesh);
   *mesh4 = CreateSimpleMesh4();
-  ProcessVoxbloxMesh(mesh4);
+  ProcessVoxbloxMeshGraph(mesh4);
 
   last_mesh_graph = GetLastProcessedMeshGraph();
 
@@ -567,12 +571,12 @@ TEST_F(MeshFrontendTest, vxblxIndexMapping1) {
   voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
   *mesh1 = CreateSimpleMesh1();
 
-  ProcessVoxbloxMesh(mesh1);
+  ProcessVoxbloxMeshGraph(mesh1);
 
   // process another mesh
   voxblox_msgs::Mesh::Ptr mesh5(new voxblox_msgs::Mesh);
   *mesh5 = CreateSimpleMesh5();
-  ProcessVoxbloxMesh(mesh5);
+  ProcessVoxbloxMeshGraph(mesh5);
 
   VoxbloxIndexMapping mappings = GetVoxbloxMsgMapping();
 
@@ -618,12 +622,12 @@ TEST_F(MeshFrontendTest, vxblxIndexMapping2) {
   voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
   *mesh1 = CreateSimpleMesh1();
 
-  ProcessVoxbloxMesh(mesh1);
+  ProcessVoxbloxMeshGraph(mesh1);
 
   // process another mesh
   voxblox_msgs::Mesh::Ptr mesh5(new voxblox_msgs::Mesh);
   *mesh5 = CreateSimpleMesh5();
-  ProcessVoxbloxMesh(mesh5);
+  ProcessVoxbloxMeshGraph(mesh5);
 
   VoxbloxIndexMapping mappings = GetVoxbloxMsgMapping();
 
