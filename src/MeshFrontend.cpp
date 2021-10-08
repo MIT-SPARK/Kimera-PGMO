@@ -21,8 +21,8 @@ MeshFrontend::MeshFrontend()
       triangles_(new std::vector<pcl::Vertices>),
       graph_triangles_(new std::vector<pcl::Vertices>),
       vxblx_msg_to_graph_idx_(new VoxbloxIndexMapping),
-      init_status_log_(false),
-      init_timing_log_(false),
+      init_graph_log_(false),
+      init_full_log_(false),
       voxblox_queue_size_(20),
       voxblox_update_called_(false) {}
 MeshFrontend::~MeshFrontend() {
@@ -58,10 +58,10 @@ bool MeshFrontend::initialize(const ros::NodeHandle& n,
 
   // Log header to file
   if (log_output_) {
-    logTiming();
-    logStatus();
-    init_timing_log_ = true;
-    init_status_log_ = true;
+    logGraphProcess();
+    logFullProcess();
+    init_graph_log_ = true;
+    init_full_log_ = true;
   }
 
   // Start compression threads
@@ -206,6 +206,10 @@ void MeshFrontend::processVoxbloxMeshFull(
   // Update the mesh vertices and surfaces for class variables
   full_mesh_compression_->getVertices(vertices_);
   full_mesh_compression_->getStoredPolygons(triangles_);
+
+  if (log_output_) {
+    logFullProcess(f_comp_duration.count());
+  }
   return;
 }
 
@@ -249,7 +253,11 @@ void MeshFrontend::processVoxbloxMeshGraph(
     last_mesh_graph_ = publishMeshGraph(
         new_graph_edges, *new_graph_indices.get(), msg->header);
   }
-
+  if (log_output_) {
+    logGraphProcess(g_comp_duration.count(),
+                    new_graph_indices->size(),
+                    new_graph_edges.size());
+  }
   return;
 }
 
@@ -341,43 +349,39 @@ pose_graph_tools::PoseGraph MeshFrontend::publishMeshGraph(
   return pose_graph_msg;
 }
 
-void MeshFrontend::logStatus(const int& callback_duration,
-                             const size_t& num_indices,
-                             const size_t& num_edges) const {
+void MeshFrontend::logGraphProcess(const int& duration,
+                                   const size_t& num_indices,
+                                   const size_t& num_edges) const {
   std::ofstream file;
-  std::string filename = log_path_ + std::string("/mesh_frontend_status.csv");
-  if (!init_status_log_) {
+  std::string filename = log_path_ + std::string("/mf_graph_log.csv");
+  if (!init_graph_log_) {
     file.open(filename);
     // file format
-    file << "num-vertices,num-vertices-simplified,num-vertices-new,num-edges-"
-            "new,cb-time(mu-s)\n";
+    file << "num-vertices-simplified,num-vertices-new,num-edges-new,compress-"
+            "time(mu-s)\n";
     return;
   }
 
   file.open(filename, std::ofstream::out | std::ofstream::app);
-  file << vertices_->size() << "," << graph_vertices_->size() << ","
-       << num_indices << "," << num_edges << "," << callback_duration
-       << std::endl;
+  file << graph_vertices_->size() << "," << num_indices << "," << num_edges
+       << "," << duration << std::endl;
   file.close();
   return;
 }
 
-void MeshFrontend::logTiming(const int& callback_duration,
-                             const int& comp_full_duration,
-                             const int& comp_graph_duration) const {
+void MeshFrontend::logFullProcess(const int& duration) const {
   std::ofstream file;
-  std::string filename = log_path_ + std::string("/mesh_frontend_timing.csv");
-  if (!init_timing_log_) {
+  std::string filename = log_path_ + std::string("/mf_full_log.csv");
+  if (!init_full_log_) {
     file.open(filename);
     // file format
-    file << "cb-time(mu-s),full-mesh-compression(mu-s),graph-compression(mu-s)"
-            "\n";
+    file << "num-vertices-full,num-triangles-full,process-time(mu-s)\n";
     return;
   }
 
   file.open(filename, std::ofstream::out | std::ofstream::app);
-  file << callback_duration << "," << comp_full_duration << ","
-       << comp_graph_duration << std::endl;
+  file << vertices_->size() << "," << triangles_->size() << "," << duration
+       << std::endl;
   file.close();
   return;
 }

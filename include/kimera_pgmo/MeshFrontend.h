@@ -148,23 +148,19 @@ class MeshFrontend {
     return last_mesh_graph_;
   }
 
-  /*! \brief Log the stats and the timing
-   *  - callback_duration: callback time (mu-s)
+  /*! \brief Log the stats and the timing for graph compression thread
+   *  - duration: callback time (mu-s)
    *  - num_indices: number of new indices to add to deformation graph
    *  - num_edges: number of new edges to add to deformation graph
    */
-  void logStatus(const int& callback_duration = 0,
-                 const size_t& num_indices = 0,
-                 const size_t& num_edges = 0) const;
+  void logGraphProcess(const int& duration = 0,
+                       const size_t& num_indices = 0,
+                       const size_t& num_edges = 0) const;
 
-  /*! \brief Log timing breakdown in callback
-   *  - callback_duration: callback time (mu-s)
-   *  - comp_full_duration: duration for compressing the full mesh
-   *  - comp_graph_duration: duration for compressiong graph mesh
+  /*! \brief Log the stats and timing for full mesh processing thread
+   *  - duration: callback time (mu-s)
    */
-  void logTiming(const int& callback_duration = 0,
-                 const int& comp_full_duration = 0,
-                 const int& comp_graph_duration = 0) const;
+  void logFullProcess(const int& duration = 0) const;
 
   // Class arguments
   ros::Subscriber voxblox_sub_;
@@ -186,8 +182,8 @@ class MeshFrontend {
 
   int robot_id_;
 
-  bool init_status_log_;
-  bool init_timing_log_;
+  bool init_graph_log_;
+  bool init_full_log_;
 
   // Vertices of full mesh
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices_;
