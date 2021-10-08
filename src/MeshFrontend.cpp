@@ -139,17 +139,18 @@ void MeshFrontend::voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg) {
 
 void MeshFrontend::fullMeshUpdateSpin() {
   ROS_INFO("Started full mesh update thread. ");
-  ros::Rate r(1.0);
+  ros::Rate r(10.0);
   while (ros::ok() && !shutdown_) {
     const size_t n_msg = full_mesh_input_.size();
-    ros::Time stamp;
-    for (size_t i = 0; i < n_msg; i++) {
-      processVoxbloxMeshFull(full_mesh_input_.front());
-      stamp = full_mesh_input_.front()->header.stamp;
-      full_mesh_input_.pop_front();
+    if (n_msg > 0) {
+      ros::Time stamp;
+      for (size_t i = 0; i < n_msg; i++) {
+        processVoxbloxMeshFull(full_mesh_input_.front());
+        stamp = full_mesh_input_.front()->header.stamp;
+        full_mesh_input_.pop_front();
+      }
+      publishFullMesh(stamp);
     }
-    if (n_msg > 0) publishFullMesh(stamp);
-
     r.sleep();
   }
   ROS_INFO("Shutting down full mesh update thread. ");
@@ -160,14 +161,15 @@ void MeshFrontend::graphMeshUpdateSpin() {
   ros::Rate r(10.0);
   while (ros::ok() && !shutdown_) {
     const size_t n_msg = graph_mesh_input_.size();
-    ros::Time stamp;
-    for (size_t i = 0; i < n_msg; i++) {
-      processVoxbloxMeshGraph(graph_mesh_input_.front());
-      stamp = graph_mesh_input_.front()->header.stamp;
-      graph_mesh_input_.pop_front();
+    if (n_msg > 0) {
+      ros::Time stamp;
+      for (size_t i = 0; i < n_msg; i++) {
+        processVoxbloxMeshGraph(graph_mesh_input_.front());
+        stamp = graph_mesh_input_.front()->header.stamp;
+        graph_mesh_input_.pop_front();
+      }
+      publishSimplifiedMesh(stamp);
     }
-    if (n_msg > 0) publishSimplifiedMesh(stamp);
-
     r.sleep();
   }
   ROS_INFO("Shutting down graph mesh update thread. ");
