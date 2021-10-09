@@ -139,7 +139,7 @@ void MeshFrontend::voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg) {
 
 void MeshFrontend::fullMeshUpdateSpin() {
   ROS_INFO("Started full mesh update thread. ");
-  ros::Rate r(10.0);
+  ros::Rate r(30.0);
   while (ros::ok() && !shutdown_) {
     const size_t n_msg = full_mesh_input_.size();
     if (n_msg > 0) {
@@ -158,7 +158,7 @@ void MeshFrontend::fullMeshUpdateSpin() {
 
 void MeshFrontend::graphMeshUpdateSpin() {
   ROS_INFO("Started graph mesh update thread. ");
-  ros::Rate r(10.0);
+  ros::Rate r(30.0);
   while (ros::ok() && !shutdown_) {
     const size_t n_msg = graph_mesh_input_.size();
     if (n_msg > 0) {
@@ -300,7 +300,9 @@ pose_graph_tools::PoseGraph MeshFrontend::publishMeshGraph(
   pose_graph_msg.header = header;
 
   // Encode the edges as factors
-  for (auto e : new_edges) {
+  pose_graph_msg.edges.resize(new_edges.size());
+  for (size_t i = 0; i < new_edges.size(); i++) {
+    const Edge& e = new_edges[i];
     pose_graph_tools::PoseGraphEdge pg_edge;
     pg_edge.header = header;
 
@@ -322,11 +324,13 @@ pose_graph_tools::PoseGraph MeshFrontend::publishMeshGraph(
     pg_edge.type = pose_graph_tools::PoseGraphEdge::MESH;
 
     // Add edge to pose graph
-    pose_graph_msg.edges.push_back(pg_edge);
+    pose_graph_msg.edges[i] = pg_edge;
   }
 
   // Encode the new vertices as nodes
-  for (auto n : new_indices) {
+  pose_graph_msg.nodes.resize(new_indices.size());
+  for (size_t i = 0; i < new_indices.size(); i++) {
+    const size_t& n = new_indices[i];
     pose_graph_tools::PoseGraphNode pg_node;
     pg_node.header = header;
     pg_node.robot_id = robot_id_;
@@ -338,7 +342,7 @@ pose_graph_tools::PoseGraph MeshFrontend::publishMeshGraph(
     pg_node.pose = GtsamToRos(gtsam::Pose3(gtsam::Rot3(), node_pos));
 
     // Add node to pose graph
-    pose_graph_msg.nodes.push_back(pg_node);
+    pose_graph_msg.nodes[i] = pg_node;
   }
 
   // Publish if subscribed

@@ -117,7 +117,7 @@ void MeshCompression::compressAndIntegrate(
     }
   }
   // First iteration through the faces to check the potential new vertices
-  for (auto s : input_surfaces) {
+  for (const auto& s : input_surfaces) {
     pcl::Vertices reindex_s;
     bool has_new_vertex = false;
     for (size_t i : s.vertices) {
@@ -385,7 +385,7 @@ void MeshCompression::compressAndIntegrate(
 
   // Second iteration through the faces to add to new_triangles and update
   // compressed mesh surfaces
-  for (auto s : input_surfaces) {
+  for (const auto& s : input_surfaces) {
     pcl::Vertices reindex_s;
     bool new_surface = false;
     for (size_t idx : s.vertices) {
