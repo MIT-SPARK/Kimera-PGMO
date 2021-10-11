@@ -34,13 +34,18 @@ DeformationGraph::~DeformationGraph() {}
 
 bool DeformationGraph::initialize(double pgo_trans_threshold,
                                   double pgo_rot_threshold,
-                                  double gnc_alpha) {
+                                  double gnc_alpha,
+                                  const std::string& log_path) {
   // Initialize pgo_:
   pgo_params_.setPcmSimple3DParams(
       pgo_trans_threshold, pgo_rot_threshold, KimeraRPGO::Verbosity::UPDATE);
   // Use GNC (confidence value)
   if (gnc_alpha > 0 && gnc_alpha < 1)
     pgo_params_.setGncInlierCostThresholdsAtProbability(gnc_alpha);
+  // Log output
+  if (!log_path.empty()) {
+    pgo_params_.logOutput(log_path);
+  }
   // Initialize RPGO
   pgo_ = std::unique_ptr<KimeraRPGO::RobustSolver>(
       new KimeraRPGO::RobustSolver(pgo_params_));
@@ -214,8 +219,11 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
 
     gtsam::Pose3 initial_estimate = initial_pose;
     if (to_idx > 0) {
-      initial_estimate =
-          pg_initial_poses_[to_prefix].at(to_idx - 1).compose(meas);
+      if (values_.exists(key_from)) {
+        initial_estimate = values_.at<gtsam::Pose3>(key_from).compose(meas);
+      } else if (new_values.exists(key_from)) {
+        initial_estimate = new_values.at<gtsam::Pose3>(key_from).compose(meas);
+      }
     }
     new_values.insert(key_to, initial_estimate);
   }

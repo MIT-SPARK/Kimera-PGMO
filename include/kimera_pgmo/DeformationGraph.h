@@ -107,7 +107,8 @@ class DeformationGraph {
    */
   bool initialize(double pgo_trans_threshold,
                   double pgo_rot_threshold,
-                  double gnc_alpha = 0);
+                  double gnc_alpha,
+                  const std::string& log_path = "");
 
   /*! \brief Fix the transform of a node corresponding to a sampled mesh vertex
    * in deformation graph. Note that all vertices has an original rotation of

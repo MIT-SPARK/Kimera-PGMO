@@ -40,8 +40,11 @@ bool KimeraPgmoInterface::loadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("rpgo/rotation_threshold", pgo_rot_threshold)) return false;
   if (!n.getParam("rpgo/gnc_alpha", gnc_alpha)) return false;
 
+  std::string log_path;
+  n.param<std::string>("output_prefix", log_path, "");
+
   if (!deformation_graph_->initialize(
-          pgo_trans_threshold, pgo_rot_threshold, gnc_alpha)) {
+          pgo_trans_threshold, pgo_rot_threshold, gnc_alpha, log_path)) {
     ROS_ERROR("KimeraPgmo: Failed to initialize deformation graph.");
     return false;
   }
@@ -216,7 +219,8 @@ void KimeraPgmoInterface::processOptimizedPath(
 
 bool KimeraPgmoInterface::optimizeFullMesh(
     const kimera_pgmo::TriangleMeshIdStamped& mesh_msg,
-    pcl::PolygonMesh::Ptr optimized_mesh) {
+    pcl::PolygonMesh::Ptr optimized_mesh,
+    bool no_optimize) {
   const pcl::PolygonMesh& input_mesh =
       TriangleMeshMsgToPolygonMesh(mesh_msg.mesh);
   // check if empty
@@ -228,7 +232,7 @@ bool KimeraPgmoInterface::optimizeFullMesh(
 
   // Optimize mesh
   try {
-    if (run_mode_ == RunMode::DPGMO) {
+    if (run_mode_ == RunMode::DPGMO || no_optimize) {
       *optimized_mesh = deformation_graph_->deformMesh(
           input_mesh, GetVertexPrefix(robot_id), dpgmo_values_);
     } else {

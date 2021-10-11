@@ -139,11 +139,13 @@ class KimeraPgmoInterface {
    * then publish the deformed mesh
    *  - mesh_msg: the full unoptimized mesh in mesh_msgs TriangleMeshStamped
    * format
-   * - publisher: associated publisher
-   * returns the optimized mesh
+   * - optimized_mesh: ptr to optimized (deformed) mesh
+   * - no_optimize: do not call optimize. deform mesh only based on existing
+   * estimates
    */
   bool optimizeFullMesh(const kimera_pgmo::TriangleMeshIdStamped& mesh_msg,
-                        pcl::PolygonMesh::Ptr optimized_mesh);
+                        pcl::PolygonMesh::Ptr optimized_mesh,
+                        bool no_optimize = false);
 
   /*! \brief Process the mesh graph that consists of the new mesh edges and mesh
    * nodes to be added to the deformation graph
@@ -166,7 +168,6 @@ class KimeraPgmoInterface {
    */
   void processOptimizedPath(const nav_msgs::Path::ConstPtr& path_msg,
                             const size_t& robot_id = 0);
-
 
   /*! \brief Saves mesh as a ply file. Triggers through a rosservice call
    * and saves to file [output_prefix_][id].ply
@@ -230,7 +231,7 @@ class KimeraPgmoInterface {
   RunMode run_mode_;
   bool use_msg_time_;  // use msg time or call back time
 
-  bool verbose_; // whether or not to print messages
+  bool verbose_;  // whether or not to print messages
 
   bool full_mesh_updated_;
 
