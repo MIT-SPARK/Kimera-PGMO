@@ -12,6 +12,7 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
+#include <mutex>
 
 #include <pcl/PolygonMesh.h>
 #include <pcl/octree/octree_search.h>

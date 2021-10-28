@@ -53,7 +53,8 @@ class MeshFrontend {
    * mesh
    */
   inline const std::vector<size_t>& getActiveFullMeshVertices() const {
-    return full_mesh_compression_->getActiveVerticesIndex();
+    std::unique_lock<std::mutex>(compression_mutex_);
+    return active_indices_;
   }
 
   /*! /brief Check if the frontend has received input from voxblox since the
@@ -80,6 +81,12 @@ class MeshFrontend {
    *  - msg: mesh msg from Voxblox or Kimera Semantics
    */
   void voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg);
+
+  inline ros::Time getLastFullCompressionStamp() const {
+    ros::Time last_stamp;
+    last_stamp.fromNSec(last_full_compression_stamp_.load());
+    return last_stamp;
+  }
 
  protected:
   /*! \brief Load the parameters required by this class through ROS
@@ -213,6 +220,10 @@ class MeshFrontend {
   bool voxblox_update_called_;
 
   std::atomic<bool> shutdown_{false};
+
+  std::mutex compression_mutex_;
+  std::vector<size_t> active_indices_;
+  std::atomic<uint64_t> last_full_compression_stamp_;
 
   // Run full mesh compression and graph compression on separate thread
   std::unique_ptr<std::thread> full_mesh_thread_;
