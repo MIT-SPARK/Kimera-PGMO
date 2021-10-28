@@ -147,6 +147,7 @@ void MeshFrontend::fullMeshUpdateSpin() {
       for (size_t i = 0; i < n_msg; i++) {
         processVoxbloxMeshFull(full_mesh_input_.front());
         stamp = full_mesh_input_.front()->header.stamp;
+        last_full_compression_stamp_ = stamp.toNSec();
         full_mesh_input_.pop_front();
       }
       publishFullMesh(stamp);
@@ -203,9 +204,14 @@ void MeshFrontend::processVoxbloxMeshFull(
   auto f_comp_duration = std::chrono::duration_cast<std::chrono::microseconds>(
       f_comp_stop - f_comp_start);
 
-  // Update the mesh vertices and surfaces for class variables
-  full_mesh_compression_->getVertices(vertices_);
-  full_mesh_compression_->getStoredPolygons(triangles_);
+  { // start critical section
+    std::unique_lock<std::mutex>(compression_mutex_);
+    // Update the mesh vertices and surfaces for class variables
+    full_mesh_compression_->getVertices(vertices_);
+    full_mesh_compression_->getStoredPolygons(triangles_);
+    // save the active indices
+    active_indices_ = full_mesh_compression_->getActiveVerticesIndex();
+  } // end critical section
 
   if (log_output_) {
     logFullProcess(f_comp_duration.count());
