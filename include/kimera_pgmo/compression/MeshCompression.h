@@ -12,12 +12,14 @@
 #include <memory>
 #include <unordered_map>
 #include <vector>
+#include <mutex>
 
 #include <pcl/PolygonMesh.h>
 #include <pcl/octree/octree_search.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <Eigen/Dense>
+#include <voxblox_msgs/Mesh.h>
 
 #include "kimera_pgmo/utils/CommonStructs.h"
 
@@ -101,6 +103,21 @@ class MeshCompression {
       boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
       boost::shared_ptr<std::vector<size_t> > new_indices,
       boost::shared_ptr<std::unordered_map<size_t, size_t> > remapping,
+      const double& stamp_in_sec = ros::Time::now().toSec());
+
+  /*! \brief Compress and integrate with the full compressed mesh
+   *  - mesh: input mesh as voxblox mesh type
+   *  - new_vertices: new vertices added after compression
+   *  - new_triangles: new mesh surfaces (as triangles) added after compression
+   *  - new_indices: indices of the vertices of the compressed partial mesh
+   *  - stamp_in_sec: current time stamp in seconds
+   */
+  virtual void compressAndIntegrate(
+      const voxblox_msgs::Mesh& mesh,
+      pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
+      boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
+      boost::shared_ptr<std::vector<size_t> > new_indices,
+      boost::shared_ptr<VoxbloxIndexMapping> remapping,
       const double& stamp_in_sec = ros::Time::now().toSec());
 
   /*! \brief Discard parts of the stored compressed full mesh by detection time

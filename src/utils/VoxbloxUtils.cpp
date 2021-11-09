@@ -22,6 +22,39 @@
 
 namespace kimera_pgmo {
 
+pcl::PointXYZRGBA ExtractPoint(const voxblox_msgs::MeshBlock& mesh_block,
+                               const float& block_edge_length,
+                               const size_t& idx) {
+  // (2*block_size), see mesh_vis.h for the slightly convoluted
+  // justification of the 2.
+  constexpr float point_conv_factor =
+      2.0f / std::numeric_limits<uint16_t>::max();
+  const float mesh_x =
+      (static_cast<float>(mesh_block.x.at(idx)) * point_conv_factor +
+       static_cast<float>(mesh_block.index[0])) *
+      block_edge_length;
+  const float mesh_y =
+      (static_cast<float>(mesh_block.y.at(idx)) * point_conv_factor +
+       static_cast<float>(mesh_block.index[1])) *
+      block_edge_length;
+  const float mesh_z =
+      (static_cast<float>(mesh_block.z.at(idx)) * point_conv_factor +
+       static_cast<float>(mesh_block.index[2])) *
+      block_edge_length;
+
+  // Create point
+  pcl::PointXYZRGBA point;
+  point.x = mesh_x;
+  point.y = mesh_y;
+  point.z = mesh_z;
+  point.r = mesh_block.r[idx];
+  point.g = mesh_block.g[idx];
+  point.b = mesh_block.b[idx];
+  point.a = std::numeric_limits<uint8_t>::max();
+
+  return point;
+}
+
 pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
     const voxblox_msgs::MeshBlock& mesh_block,
     const float& block_edge_length,
@@ -50,41 +83,16 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
   pcl::Vertices triangle_new;  // triangle with indices for partial mesh
   bool new_triangle = false;
   for (size_t i = 0; i < mesh_block.x.size(); ++i) {
-    // (2*block_size), see mesh_vis.h for the slightly convoluted
-    // justification of the 2.
-    constexpr float point_conv_factor =
-        2.0f / std::numeric_limits<uint16_t>::max();
-    const float mesh_x =
-        (static_cast<float>(mesh_block.x[i]) * point_conv_factor +
-         static_cast<float>(mesh_block.index[0])) *
-        block_edge_length;
-    const float mesh_y =
-        (static_cast<float>(mesh_block.y[i]) * point_conv_factor +
-         static_cast<float>(mesh_block.index[1])) *
-        block_edge_length;
-    const float mesh_z =
-        (static_cast<float>(mesh_block.z[i]) * point_conv_factor +
-         static_cast<float>(mesh_block.index[2])) *
-        block_edge_length;
-
-    // Create point
-    pcl::PointXYZRGBA point;
-    point.x = mesh_x;
-    point.y = mesh_y;
-    point.z = mesh_z;
-    point.r = mesh_block.r[i];
-    point.g = mesh_block.g[i];
-    point.b = mesh_block.b[i];
-    point.a = std::numeric_limits<uint8_t>::max();
-
+    pcl::PointXYZRGBA point = ExtractPoint(mesh_block, block_edge_length, i);
     // Search if vertex inserted
     size_t vidx;
     size_t vidx_new;  // idx for the partial mesh
     bool point_exists = false;
     bool point_exists_in_new = false;  // does point exist in the partial mesh
     for (size_t j : original_indices) {
-      if (mesh_x == vertices->points[j].x && mesh_y == vertices->points[j].y &&
-          mesh_z == vertices->points[j].z) {
+      if (point.x == vertices->points[j].x &&
+          point.y == vertices->points[j].y &&
+          point.z == vertices->points[j].z) {
         vidx = j;
         point_exists = true;
         break;
@@ -94,8 +102,9 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
     // Also check the new vertices
     for (size_t j = 0; j < updated_indices->size(); j++) {
       size_t k = updated_indices->at(j);
-      if (mesh_x == vertices->points[k].x && mesh_y == vertices->points[k].y &&
-          mesh_z == vertices->points[k].z) {
+      if (point.x == vertices->points[k].x &&
+          point.y == vertices->points[k].y &&
+          point.z == vertices->points[k].z) {
         vidx = k;
         // For partial mesh, the indices should start with 0
         vidx_new = updated_indices_partial.at(j);
@@ -209,40 +218,16 @@ void VoxbloxMeshBlockToPolygonMesh(
   // translate vertex data from message to voxblox mesh
   pcl::Vertices triangle;
   for (size_t i = 0; i < mesh_block.x.size(); ++i) {
-    // (2*block_size), see mesh_vis.h for the slightly convoluted
-    // justification of the 2.
-    constexpr float point_conv_factor =
-        2.0f / std::numeric_limits<uint16_t>::max();
-    const float mesh_x =
-        (static_cast<float>(mesh_block.x[i]) * point_conv_factor +
-         static_cast<float>(mesh_block.index[0])) *
-        block_edge_length;
-    const float mesh_y =
-        (static_cast<float>(mesh_block.y[i]) * point_conv_factor +
-         static_cast<float>(mesh_block.index[1])) *
-        block_edge_length;
-    const float mesh_z =
-        (static_cast<float>(mesh_block.z[i]) * point_conv_factor +
-         static_cast<float>(mesh_block.index[2])) *
-        block_edge_length;
-
-    // Create point
-    pcl::PointXYZRGBA point;
-    point.x = mesh_x;
-    point.y = mesh_y;
-    point.z = mesh_z;
-    point.r = mesh_block.r[i];
-    point.g = mesh_block.g[i];
-    point.b = mesh_block.b[i];
-    point.a = std::numeric_limits<uint8_t>::max();
+    pcl::PointXYZRGBA point = ExtractPoint(mesh_block, block_edge_length, i);
 
     // Search if vertex inserted
     size_t vidx;
     bool point_exists = false;
     // Check for duplicates.
     for (size_t k = first_index_to_check; k < vertices->points.size(); k++) {
-      if (mesh_x == vertices->points[k].x && mesh_y == vertices->points[k].y &&
-          mesh_z == vertices->points[k].z) {
+      if (point.x == vertices->points[k].x &&
+          point.y == vertices->points[k].y &&
+          point.z == vertices->points[k].z) {
         vidx = k;
         point_exists = true;
         vertices->points[k] = point;

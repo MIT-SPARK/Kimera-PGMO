@@ -30,6 +30,15 @@ struct less<BlockIndex> {
 }  // namespace std
 
 namespace kimera_pgmo {
+/*! \brief Extract point in pcl format from voxblox mesh block
+ *  - mesh_block: voxblox mesh block to update mesh with
+ *  - block_edge_length: block_edge_length as given in voxblox msg
+ *  - vertices: the vertices of the mesh to be updated
+ *  - idx: index of point to be extracted
+ */
+pcl::PointXYZRGBA ExtractPoint(const voxblox_msgs::MeshBlock& mesh_block,
+                               const float& block_edge_length,
+                               const size_t& idx);
 
 /*! \brief Update a polygon mesh from a voxblox mesh block
  *  outputs the polygon mesh corresponding to mesh block

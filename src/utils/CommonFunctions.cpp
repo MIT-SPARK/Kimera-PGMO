@@ -220,12 +220,14 @@ mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
   mesh_msgs::TriangleMesh new_mesh;
   if (vertices.size() == 0) return new_mesh;
   // Convert vertices
+  new_mesh.vertices.resize(vertices.size());
+  new_mesh.vertex_colors.resize(vertices.size());
   for (size_t i = 0; i < vertices.points.size(); i++) {
     geometry_msgs::Point p;
     p.x = vertices.points[i].x;
     p.y = vertices.points[i].y;
     p.z = vertices.points[i].z;
-    new_mesh.vertices.push_back(p);
+    new_mesh.vertices[i] = p;
     // Point color
     std_msgs::ColorRGBA color;
     constexpr float color_conv_factor =
@@ -234,17 +236,17 @@ mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
     color.g = color_conv_factor * static_cast<float>(vertices.points[i].g);
     color.b = color_conv_factor * static_cast<float>(vertices.points[i].b);
     color.a = color_conv_factor * static_cast<float>(vertices.points[i].a);
-    new_mesh.vertex_colors.push_back(color);
+    new_mesh.vertex_colors[i] = color;
   }
 
   // Convert polygons
-  for (pcl::Vertices polygon : polygons) {
+  new_mesh.triangles.resize(polygons.size());
+  for (size_t i = 0; i < polygons.size(); i++) {
     mesh_msgs::TriangleIndices triangle;
-    triangle.vertex_indices[0] = polygon.vertices[0];
-    triangle.vertex_indices[1] = polygon.vertices[1];
-    triangle.vertex_indices[2] = polygon.vertices[2];
-
-    new_mesh.triangles.push_back(triangle);
+    triangle.vertex_indices[0] = polygons[i].vertices[0];
+    triangle.vertex_indices[1] = polygons[i].vertices[1];
+    triangle.vertex_indices[2] = polygons[i].vertices[2];
+    new_mesh.triangles[i] = triangle;
   }
 
   return new_mesh;
@@ -276,7 +278,7 @@ pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
   }
   pcl::toPCLPointCloud2(vertices_cloud, mesh.cloud);
   // Convert polygons
-  for (mesh_msgs::TriangleIndices triangle : mesh_msg.triangles) {
+  for (const mesh_msgs::TriangleIndices& triangle : mesh_msg.triangles) {
     pcl::Vertices polygon;
     for (size_t i = 0; i < 3; i++) {
       polygon.vertices.push_back(triangle.vertex_indices[i]);
@@ -361,7 +363,7 @@ pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
   }
 
   // Now iterate throught the polygons in mesh two and combine using new indices
-  for (pcl::Vertices tri : mesh2.polygons) {
+  for (const pcl::Vertices& tri : mesh2.polygons) {
     pcl::Vertices new_triangle;
     bool to_add = false;
     for (size_t v : tri.vertices) {
@@ -417,7 +419,7 @@ pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
   // if no new points assume no new polygons
   if (new_index > orig_num_vertices) {
     // Iterate throught the polygons in mesh2 and combine using new indices
-    for (pcl::Vertices tri : mesh2.polygons) {
+    for (const pcl::Vertices& tri : mesh2.polygons) {
       pcl::Vertices new_triangle;
       bool to_add = false;
       for (size_t v : tri.vertices) {
@@ -569,7 +571,7 @@ bool SurfaceExists(
     return false;
   }
 
-  for (auto s_idx : adjacent_surfaces.at(idx0)) {
+  for (const auto& s_idx : adjacent_surfaces.at(idx0)) {
     pcl::Vertices p = surfaces.at(s_idx);
     if (p.vertices == new_surface.vertices) {
       return true;
