@@ -22,7 +22,7 @@
     <remap from="~voxblox_mesh" to="kimera_semantics_node/mesh" />
   </node> 
 
-  <node type="kimera_pgmo_node" name="kimera_pgmo_node" pkg="kimera_pgmo" output="screen" >
+  <node launch-prefix="xterm -e" type="kimera_pgmo_node" name="kimera_pgmo_node" pkg="kimera_pgmo" output="screen" >
     <rosparam file="$(find kimera_pgmo)/params/$(arg dataset)/parameters.yaml" />
     <param name="output_prefix" value="$(arg output_path)" />
     <param name="robot_id" value="$(arg robot_id)" />
