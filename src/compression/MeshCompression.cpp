@@ -186,6 +186,9 @@ void MeshCompression::compressAndIntegrate(
 
     // TODO: Check assumption that new surface cannot be constructed from
     // existing points. Topologically this makes sense.
+    if (!new_surface) {
+      new_surface = !SurfaceExists(reindex_s, adjacent_polygons_, polygons_);
+    }
     if (!new_surface) continue;
 
     // Check if polygon has actual three diferent vertices
@@ -398,6 +401,9 @@ void MeshCompression::compressAndIntegrate(
 
     // TODO: Check assumption that new surface cannot be constructed from
     // existing points. Topologically this makes sense.
+    if (!new_surface) {
+      new_surface = !SurfaceExists(reindex_s, adjacent_polygons_, polygons_);
+    }
     if (!new_surface) continue;
 
     // Check if polygon has actual three diferent vertices
