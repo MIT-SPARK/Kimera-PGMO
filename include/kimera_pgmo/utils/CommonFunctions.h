@@ -292,13 +292,22 @@ pcl::PointCloud<point_type> deformPoints(
     gtsam::Point3 new_point(0, 0, 0);
     double d_max =
         std::sqrt(nearest_nodes_sq_dist[nearest_nodes_index.size() - 1]);
+    if (d_max == 0) {
+      new_points.push_back(p);
+      continue;
+    }
+    bool use_const_weight = false;
+    if (std::sqrt(nearest_nodes_sq_dist[0]) == d_max) {
+      use_const_weight = true;
+    }
     double weight_sum = 0;
     for (size_t j = 0; j < nearest_nodes_index.size() - 1; j++) {
       const pcl::PointXYZ& p_g =
           search_cloud->points.at(nearest_nodes_index[j]);
       gtsam::Point3 gj(p_g.x, p_g.y, p_g.z);
-      double weight = (1 - std::sqrt(nearest_nodes_sq_dist[j]) / d_max);
-      if (weight_sum == 0 && weight == 0) weight = 1;
+      double weight = use_const_weight
+                          ? 1
+                          : (1 - std::sqrt(nearest_nodes_sq_dist[j]) / d_max);
       weight_sum = weight_sum + weight;
       gtsam::Pose3 node_transform = values.at<gtsam::Pose3>(
           gtsam::Symbol(prefix, nearest_nodes_index[j]));
