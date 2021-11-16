@@ -229,7 +229,7 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
   }
 
   static const gtsam::SharedNoiseModel& noise =
-      gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
+      gtsam::noiseModel::Isotropic::Variance(6, 1e-6);
   new_factors.add(
       gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
 
