@@ -100,13 +100,19 @@ class DeformationGraph {
   inline void setVerboseFlag(bool verbose) { verbose_ = verbose; }
 
   /*! \brief Initialize deformation graph along with robust solver backend.
-   *  - pgo_trans_threshold: translation threshold (meters of error per node)
+   *  - odom_trans_threshold: translation threshold (meters of error per node)
+   * for odometry check outlier rejection
+   *  - odom_rot_threshold: rotation threshold (radians of error per node) for
+   * odometry check outlier rejection
+   *  - pcm_trans_threshold: translation threshold (meters of error per node)
    * for backend PCM outlier rejection
-   *  - pgo_rot_threshold: rotation threshold (radians of error per node) for
+   *  - pcm_rot_threshold: rotation threshold (radians of error per node) for
    * backend PCM outlier rejection
    */
-  bool initialize(double pgo_trans_threshold,
-                  double pgo_rot_threshold,
+  bool initialize(double odom_trans_threshold,
+                  double odom_rot_threshold,
+                  double pcm_trans_threshold,
+                  double pcm_rot_threshold,
                   double gnc_alpha,
                   const std::string& log_path = "");
 

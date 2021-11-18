@@ -1,6 +1,8 @@
 frame_id: "world"
 embed_trajectory_delta_t: 5 # seconds (prints warning if delta exceeds, not strictly enforced. ) 
 rpgo:
-  translation_threshold: 0.01
-  rotation_threshold: 0.005
+  odom_trans_threshold: 0.001
+  odom_rot_threshold: 0.005
+  pcm_trans_threshold: 0.001
+  pcm_rot_threshold: 0.005
   gnc_alpha: 0

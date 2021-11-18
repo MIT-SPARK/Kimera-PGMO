@@ -26,8 +26,10 @@ class KimeraDpgmoTest : public ::testing::Test {
     system("rosparam set run_mode 2");
     system("rosparam set use_msg_time true");
     system("rosparam set embed_trajectory_delta_t 3.0");
-    system("rosparam set rpgo/translation_threshold 10.0");
-    system("rosparam set rpgo/rotation_threshold 10.0");
+    system("rosparam set rpgo/odom_trans_threshold 10.0");
+    system("rosparam set rpgo/odom_rot_threshold 10.0");
+    system("rosparam set rpgo/pcm_trans_threshold 10.0");
+    system("rosparam set rpgo/pcm_rot_threshold 10.0");
     system("rosparam set rpgo/gnc_alpha 0");
   }
   ~KimeraDpgmoTest() {}
