@@ -276,7 +276,7 @@ void DeformationGraph::addNewTempBetween(const gtsam::Key& key_from,
   // Note that unlike the typical addNewBetween, this one only adds the
   // temporary between factors without any values
   static const gtsam::SharedNoiseModel& noise =
-      gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
+      gtsam::noiseModel::Isotropic::Variance(6, 9e-2);
   new_factors.add(
       gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
 
