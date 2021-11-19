@@ -129,7 +129,7 @@ void KimeraPgmoInterface::processIncrementalPoseGraph(
     const gtsam::Symbol key_symb(GetRobotPrefix(robot_id), 0);
     const gtsam::Pose3& init_pose = RosToGtsam(msg->nodes[0].pose);
     // Initiate first node but do not add prior
-    deformation_graph_->addNewNode(key_symb.key(), init_pose, false);
+    deformation_graph_->addNewNode(key_symb.key(), init_pose, true);
     // Add to trajectory and timestamp map
     initial_trajectory->push_back(init_pose);
     if (use_msg_time_) {
