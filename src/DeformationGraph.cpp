@@ -108,7 +108,7 @@ void DeformationGraph::addTempNodeValence(const gtsam::Key& key,
 
     // Define noise. Hardcoded for now
     static const gtsam::SharedNoiseModel& noise =
-        gtsam::noiseModel::Isotropic::Variance(3, 1e-4);
+        gtsam::noiseModel::Isotropic::Variance(3, 1e-2);
     // Create deformation edge factor
     const DeformationEdgeFactor new_edge_1(
         key, vertex, node_pose, vertex_pose.translation(), noise);
@@ -276,7 +276,7 @@ void DeformationGraph::addNewTempBetween(const gtsam::Key& key_from,
   // Note that unlike the typical addNewBetween, this one only adds the
   // temporary between factors without any values
   static const gtsam::SharedNoiseModel& noise =
-      gtsam::noiseModel::Isotropic::Variance(6, 9e-2);
+      gtsam::noiseModel::Isotropic::Variance(6, 1e-2);
   new_factors.add(
       gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
 
