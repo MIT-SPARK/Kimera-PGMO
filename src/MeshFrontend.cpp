@@ -205,7 +205,7 @@ void MeshFrontend::processVoxbloxMeshFull(
       f_comp_stop - f_comp_start);
 
   { // start critical section
-    std::unique_lock<std::mutex>(compression_mutex_);
+    std::unique_lock<std::mutex> lock(compression_mutex_);
     // Update the mesh vertices and surfaces for class variables
     full_mesh_compression_->getVertices(vertices_);
     full_mesh_compression_->getStoredPolygons(triangles_);

@@ -53,7 +53,6 @@ class MeshFrontend {
    * mesh
    */
   inline const std::vector<size_t>& getActiveFullMeshVertices() const {
-    std::unique_lock<std::mutex>(compression_mutex_);
     return active_indices_;
   }
 
