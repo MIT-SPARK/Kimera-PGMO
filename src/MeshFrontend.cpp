@@ -205,17 +205,16 @@ void MeshFrontend::processVoxbloxMeshFull(
       f_comp_stop - f_comp_start);
 
   { // start critical section
-    std::unique_lock<std::mutex> lock(compression_mutex_);
+    std::unique_lock<std::mutex> lock(full_mutex_);
     // Update the mesh vertices and surfaces for class variables
     full_mesh_compression_->getVertices(vertices_);
     full_mesh_compression_->getStoredPolygons(triangles_);
     // save the active indices
     active_indices_ = full_mesh_compression_->getActiveVerticesIndex();
-  } // end critical section
-
-  if (log_output_) {
-    logFullProcess(f_comp_duration.count());
-  }
+    if (log_output_) {
+      logFullProcess(f_comp_duration.count());
+    }
+  }  // end critical section
   return;
 }
 
@@ -246,23 +245,26 @@ void MeshFrontend::processVoxbloxMeshGraph(
   auto g_comp_duration = std::chrono::duration_cast<std::chrono::microseconds>(
       g_comp_stop - g_comp_start);
 
-  // Update the simplified mesh vertices and surfaces for class variables
-  d_graph_compression_->getVertices(graph_vertices_);
-  d_graph_compression_->getStoredPolygons(graph_triangles_);
+  {  // start critical section
+    std::unique_lock<std::mutex> lock(graph_mutex_);
+    // Update the simplified mesh vertices and surfaces for class variables
+    d_graph_compression_->getVertices(graph_vertices_);
+    d_graph_compression_->getStoredPolygons(graph_triangles_);
 
-  std::vector<Edge> new_graph_edges;
-  if (new_graph_indices->size() > 0 && new_graph_triangles->size() > 0) {
-    // Add nodes and edges to graph
-    new_graph_edges = simplified_mesh_graph_.addPointsAndSurfaces(
-        *new_graph_indices.get(), *new_graph_triangles.get());
-    // Publish edges and nodes
-    last_mesh_graph_ = publishMeshGraph(
-        new_graph_edges, *new_graph_indices.get(), msg->header);
-  }
-  if (log_output_) {
-    logGraphProcess(g_comp_duration.count(),
-                    new_graph_indices->size(),
-                    new_graph_edges.size());
+    std::vector<Edge> new_graph_edges;
+    if (new_graph_indices->size() > 0 && new_graph_triangles->size() > 0) {
+      // Add nodes and edges to graph
+      new_graph_edges = simplified_mesh_graph_.addPointsAndSurfaces(
+          *new_graph_indices.get(), *new_graph_triangles.get());
+      // Publish edges and nodes
+      last_mesh_graph_ = publishMeshGraph(
+          new_graph_edges, *new_graph_indices.get(), msg->header);
+    }
+    if (log_output_) {
+      logGraphProcess(g_comp_duration.count(),
+                      new_graph_indices->size(),
+                      new_graph_edges.size());
+    }
   }
   return;
 }

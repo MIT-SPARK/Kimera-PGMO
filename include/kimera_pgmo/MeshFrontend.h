@@ -220,7 +220,9 @@ class MeshFrontend {
 
   std::atomic<bool> shutdown_{false};
 
-  std::mutex compression_mutex_;
+  std::mutex full_mutex_; // mutex for full mesh related structures
+  std::mutex graph_mutex_; // mutex for deformation graph related structures
+
   std::vector<size_t> active_indices_;
   std::atomic<uint64_t> last_full_compression_stamp_;
 
