@@ -190,6 +190,7 @@ class DeformationGraph {
   void addNewMeshEdgesAndNodes(
       const std::vector<std::pair<gtsam::Key, gtsam::Key> >& mesh_edges,
       const gtsam::Values& mesh_nodes,
+      const ros::Time& stamp,
       std::vector<size_t>* added_indices,
       bool optimize = false);
 
@@ -227,6 +228,40 @@ class DeformationGraph {
    *  - prefix: prefix of the nodes to query best estimate
    */
   std::vector<gtsam::Pose3> getOptimizedTrajectory(char prefix) const;
+
+  /*! \brief Deform a mesh based on the deformation graph
+   * - original_mesh: mesh to deform
+   * - stamps: timestamp of vertices in mesh to deform
+   * - prefix: the prefixes of the key of the nodes corresponding to mesh
+   * - k: how many nearby nodes to use to adjust new position of vertices when
+   * interpolating for deformed mesh
+   * - tol_t: largest difference in time such that a control point can be
+   * considered for association
+   */
+  pcl::PolygonMesh deformMeshWithTimeCheck(
+      const pcl::PolygonMesh& original_mesh,
+      const std::vector<ros::Time>& stamps,
+      const char& prefix,
+      size_t k,
+      double tol_t);
+
+  /*! \brief Deform a mesh based on the deformation graph
+   * - original_mesh: mesh to deform
+   * - stamps: timestamp of vertices in mesh to deform
+   * - prefix: the prefixes of the key of the nodes corresponding to mesh
+   * - optimized_values: values of the optimized control points
+   * - k: how many nearby nodes to use to adjust new position of vertices when
+   * interpolating for deformed mesh
+   * - tol_t: largest difference in time such that a control point can be
+   * considered for association
+   */
+  pcl::PolygonMesh deformMeshWithTimeCheck(
+      const pcl::PolygonMesh& original_mesh,
+      const std::vector<ros::Time>& stamps,
+      const char& prefix,
+      const gtsam::Values& optimized_values,
+      size_t k,
+      double tol_t);
 
   /*! \brief Deform a mesh based on the deformation graph
    * - original_mesh: mesh to deform
@@ -376,6 +411,7 @@ class DeformationGraph {
   std::unordered_map<gtsam::Key, gtsam::Pose3> temp_pg_initial_poses_;
 
   std::map<char, std::vector<gtsam::Point3> > vertex_positions_;
+  std::map<char, std::vector<ros::Time> > vertex_stamps_;
   // Number of mesh vertices corresponding a particular prefix thus far
   std::map<char, size_t> num_vertices_;
 

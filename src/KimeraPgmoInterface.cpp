@@ -304,8 +304,11 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
   }
 
   // Add to deformation graph
-  deformation_graph_->addNewMeshEdgesAndNodes(
-      new_mesh_edges, new_mesh_nodes, &new_indices, false);
+  deformation_graph_->addNewMeshEdgesAndNodes(new_mesh_edges,
+                                              new_mesh_nodes,
+                                              mesh_graph_msg->header.stamp,
+                                              &new_indices,
+                                              false);
 
   double msg_time;
   if (use_msg_time_) {
