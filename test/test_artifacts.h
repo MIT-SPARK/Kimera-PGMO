@@ -14,7 +14,7 @@
 #include <pcl_msgs/PolygonMesh.h>
 #include <pose_graph_tools/PoseGraph.h>
 
-#include "kimera_pgmo/TriangleMeshIdStamped.h"
+#include "kimera_pgmo/KimeraPgmoMesh.h"
 #include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 #include "kimera_pgmo/utils/CommonStructs.h"

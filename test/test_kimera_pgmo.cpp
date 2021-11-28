@@ -41,8 +41,7 @@ class KimeraPgmoTest : public ::testing::Test {
     pgmo_.incrementalPoseGraphCallback(msg);
   }
 
-  void FullMeshCallback(
-      const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
+  void FullMeshCallback(const KimeraPgmoMesh::ConstPtr& mesh_msg) {
     pgmo_.fullMeshCallback(mesh_msg);
     ros::TimerEvent timer_event;
     timer_event.current_real = ros::Time::now();
@@ -403,9 +402,14 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
 
   // Add mesh to be deformed
   pcl::PolygonMesh full_mesh = createMesh(2, 2, 2);
-  kimera_pgmo::TriangleMeshIdStamped::Ptr full_mesh_msg(
-      new kimera_pgmo::TriangleMeshIdStamped);
-  full_mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(full_mesh);
+  KimeraPgmoMesh::Ptr full_mesh_msg(new kimera_pgmo::KimeraPgmoMesh);
+  std::vector<ros::Time> full_vertex_stamps;
+  for (size_t i = 0; i < full_mesh.cloud.width * full_mesh.cloud.height; i++) {
+    full_vertex_stamps.push_back(ros::Time(13.0));
+  }
+
+  *full_mesh_msg =
+      PolygonMeshToPgmoMeshMsg(0, full_mesh, full_vertex_stamps, "world");
   FullMeshCallback(full_mesh_msg);
 
   pcl::PolygonMesh optimized_mesh = getOptimizedMesh();

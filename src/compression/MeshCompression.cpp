@@ -113,7 +113,7 @@ void MeshCompression::compressAndIntegrate(
             active_vertices_index_[result_idx]);
       }
       // Update the last seen time of the vertex
-      vertices_latest_time_[result_idx] = stamp_in_sec;
+      active_vertex_stamps_[result_idx] = stamp_in_sec;
     }
   }
   // First iteration through the faces to check the potential new vertices
@@ -152,9 +152,10 @@ void MeshCompression::compressAndIntegrate(
       updateStructure(active_vertices_xyz_);
       // Add to all vertices
       all_vertices_.push_back(p);
+      all_vertex_stamps_.push_back(ros::Time(stamp_in_sec));
       // Add to active vertices index
       active_vertices_index_.push_back(all_vertices_.size() - 1);
-      vertices_latest_time_.push_back(stamp_in_sec);
+      active_vertex_stamps_.push_back(stamp_in_sec);
       // Upate reindex
       reindex[input_idx] = all_vertices_.size() - 1;
       remapping->insert(
@@ -309,7 +310,7 @@ void MeshCompression::compressAndIntegrate(
               active_vertices_index_[result_idx]);
         }
         // Update the last seen time of the vertex
-        vertices_latest_time_[result_idx] = stamp_in_sec;
+        active_vertex_stamps_[result_idx] = stamp_in_sec;
       }
       // Every 3 vertices is a surface
       if (i % 3 == 2 && temp_reindex.at(count) != temp_reindex.at(count - 1)) {
@@ -367,9 +368,10 @@ void MeshCompression::compressAndIntegrate(
       updateStructure(active_vertices_xyz_);
       // Add to all vertices
       all_vertices_.push_back(p);
+      all_vertex_stamps_.push_back(ros::Time(stamp_in_sec));
       // Add to active vertices index
       active_vertices_index_.push_back(all_vertices_.size() - 1);
-      vertices_latest_time_.push_back(stamp_in_sec);
+      active_vertex_stamps_.push_back(stamp_in_sec);
       // Upate reindex
       reindex[input_idx] = all_vertices_.size() - 1;
       remapping->at(count_to_block[input_idx].first)
@@ -429,8 +431,8 @@ void MeshCompression::compressAndIntegrate(
 
 void MeshCompression::pruneStoredMesh(const double& earliest_time_sec) {
   if (active_vertices_xyz_->size() == 0) return;  // nothing to prune
-  // Entries in vertices_latest_time_ shoudl correspond to number of points
-  if (vertices_latest_time_.size() != active_vertices_xyz_->size()) {
+  // Entries in active_vertex_stamps_ shoudl correspond to number of points
+  if (active_vertex_stamps_.size() != active_vertices_xyz_->size()) {
     ROS_ERROR(
         "Length of book-keeped vertex time does not match number of active "
         "points. ");
@@ -450,10 +452,10 @@ void MeshCompression::pruneStoredMesh(const double& earliest_time_sec) {
     std::vector<size_t> temp_vertices_index;
     std::map<size_t, std::vector<size_t> > temp_adjacent_polygons;
 
-    for (size_t i = 0; i < vertices_latest_time_.size(); i++) {
-      if (vertices_latest_time_[i] > earliest_time_sec) {
+    for (size_t i = 0; i < active_vertex_stamps_.size(); i++) {
+      if (active_vertex_stamps_[i] > earliest_time_sec) {
         temp_active_vertices.push_back(active_vertices_xyz_->points[i]);
-        temp_vertices_time.push_back(vertices_latest_time_[i]);
+        temp_vertices_time.push_back(active_vertex_stamps_[i]);
         temp_vertices_index.push_back(active_vertices_index_[i]);
         temp_adjacent_polygons[active_vertices_index_[i]] =
             adjacent_polygons_[active_vertices_index_[i]];
@@ -462,7 +464,7 @@ void MeshCompression::pruneStoredMesh(const double& earliest_time_sec) {
 
     if (temp_active_vertices.size() < active_vertices_xyz_->size()) {
       active_vertices_xyz_->swap(temp_active_vertices);
-      std::swap(vertices_latest_time_, temp_vertices_time);
+      std::swap(active_vertex_stamps_, temp_vertices_time);
       std::swap(active_vertices_index_, temp_vertices_index);
       std::swap(adjacent_polygons_, temp_adjacent_polygons);
 

@@ -41,6 +41,15 @@ class MeshCompression {
     *vertices = all_vertices_;
   }
 
+  /*! \brief Get the timestamps of the vertices of the full compressed mesh
+   *  - vertex_stamps: pointer to timestamps of the vertices of full compressed
+   * mesh
+   */
+  inline void getVertexStamps(
+      boost::shared_ptr<std::vector<ros::Time> > vertex_stamps) {
+    *vertex_stamps = all_vertex_stamps_;
+  }
+
   /*! \brief Get the vertices currently in the octree (actively being checked
    * for duplication according to resolution)
    *  - vertices: pointer to vertices in octree
@@ -64,7 +73,7 @@ class MeshCompression {
    */
   inline void getActiveVerticesTimestamps(
       boost::shared_ptr<std::vector<double> > timestamps) {
-    *timestamps = vertices_latest_time_;
+    *timestamps = active_vertex_stamps_;
   }
 
   inline size_t getNumVertices() const { return all_vertices_.size(); }
@@ -158,6 +167,8 @@ class MeshCompression {
   PointCloudXYZ::Ptr active_vertices_xyz_;
   // All verices
   PointCloud all_vertices_;
+  // All vertex timestamps
+  std::vector<ros::Time> all_vertex_stamps_;
   // Maps index of active vertices to index of all vertices
   std::vector<size_t> active_vertices_index_;
   // Mesh surfaces (all)
@@ -165,7 +176,7 @@ class MeshCompression {
   // Keep track of adjacent faces of active part of mesh
   std::map<size_t, std::vector<size_t> > adjacent_polygons_;
 
-  std::vector<double> vertices_latest_time_;  // timestamps of active vertices
+  std::vector<double> active_vertex_stamps_;  // timestamps of active vertices
 
   double resolution_;
 };

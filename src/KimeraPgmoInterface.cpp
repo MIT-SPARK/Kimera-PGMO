@@ -225,12 +225,12 @@ void KimeraPgmoInterface::processOptimizedPath(
   deformation_graph_->addNodeMeasurements(node_estimates);
 }
 
-bool KimeraPgmoInterface::optimizeFullMesh(
-    const kimera_pgmo::TriangleMeshIdStamped& mesh_msg,
-    pcl::PolygonMesh::Ptr optimized_mesh,
-    bool no_optimize) {
+bool KimeraPgmoInterface::optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
+                                           pcl::PolygonMesh::Ptr optimized_mesh,
+                                           bool no_optimize) {
+  std::vector<ros::Time> mesh_vertex_stamps;
   const pcl::PolygonMesh& input_mesh =
-      TriangleMeshMsgToPolygonMesh(mesh_msg.mesh);
+      PgmoMeshMsgToPolygonMesh(mesh_msg, &mesh_vertex_stamps);
   // check if empty
   if (input_mesh.cloud.height * input_mesh.cloud.width == 0) return false;
 

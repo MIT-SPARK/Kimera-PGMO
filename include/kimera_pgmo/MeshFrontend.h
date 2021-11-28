@@ -127,7 +127,7 @@ class MeshFrontend {
   /*! \brief Publish the full (compressed) mesh stored
    *  - stamp: timestamp
    */
-  void publishFullMesh(const ros::Time& stamp) const;
+  void publishFullMesh() const;
 
   /*! \brief Publish the simplified mesh (used as the mesh part of deformation
    * graph)
@@ -195,6 +195,8 @@ class MeshFrontend {
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices_;
   // Triangles (connections) of full mesh
   boost::shared_ptr<std::vector<pcl::Vertices>> triangles_;
+  // Vertices time stamps of full mesh
+  boost::shared_ptr<std::vector<ros::Time>> vertex_stamps_;
   // Vertices of simplified mesh used for the deformation graph
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr graph_vertices_;
   // Triangles of the simplified mesh used for the deformation graph
