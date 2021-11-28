@@ -241,12 +241,15 @@ bool KimeraPgmoInterface::optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
   // Optimize mesh
   try {
     if (run_mode_ == RunMode::DPGMO || no_optimize) {
-      *optimized_mesh = deformation_graph_->deformMesh(
-          input_mesh, GetVertexPrefix(robot_id), dpgmo_values_);
+      *optimized_mesh =
+          deformation_graph_->deformMesh(input_mesh,
+                                         mesh_vertex_stamps,
+                                         GetVertexPrefix(robot_id),
+                                         dpgmo_values_);
     } else {
       deformation_graph_->optimize();
-      *optimized_mesh =
-          deformation_graph_->deformMesh(input_mesh, GetVertexPrefix(robot_id));
+      *optimized_mesh = deformation_graph_->deformMesh(
+          input_mesh, mesh_vertex_stamps, GetVertexPrefix(robot_id));
     }
   } catch (const std::out_of_range& e) {
     ROS_ERROR("Failed to deform mesh. Out of range error. ");

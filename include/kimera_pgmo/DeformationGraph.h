@@ -238,12 +238,11 @@ class DeformationGraph {
    * - tol_t: largest difference in time such that a control point can be
    * considered for association
    */
-  pcl::PolygonMesh deformMeshWithTimeCheck(
-      const pcl::PolygonMesh& original_mesh,
-      const std::vector<ros::Time>& stamps,
-      const char& prefix,
-      size_t k,
-      double tol_t);
+  pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
+                              const std::vector<ros::Time>& stamps,
+                              const char& prefix,
+                              size_t k = 4,
+                              double tol_t = 10.0);
 
   /*! \brief Deform a mesh based on the deformation graph
    * - original_mesh: mesh to deform
@@ -255,37 +254,12 @@ class DeformationGraph {
    * - tol_t: largest difference in time such that a control point can be
    * considered for association
    */
-  pcl::PolygonMesh deformMeshWithTimeCheck(
-      const pcl::PolygonMesh& original_mesh,
-      const std::vector<ros::Time>& stamps,
-      const char& prefix,
-      const gtsam::Values& optimized_values,
-      size_t k,
-      double tol_t);
-
-  /*! \brief Deform a mesh based on the deformation graph
-   * - original_mesh: mesh to deform
-   * - k: how many nearby nodes to use to adjust new position of vertices when
-   * - prefix: the prefixes of the key of the nodes corresponding to mesh
-   * vertices
-   * deforming
-   */
   pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
+                              const std::vector<ros::Time>& stamps,
                               const char& prefix,
-                              size_t k = 4);
-
-  /*! \brief Deform a mesh based on the deformation graph
-   * - original_mesh: mesh to deform
-   * - k: how many nearby nodes to use to adjust new position of vertices when
-   * - prefix: the prefixes of the key of the nodes corresponding to mesh
-   * vertices deforming
-   * - values: values consisting of the key-pose pairs of the optimized mesh
-   * vertices
-   */
-  pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
-                              const char& prefix,
-                              const gtsam::Values& values,
-                              size_t k = 4);
+                              const gtsam::Values& optimized_values,
+                              size_t k = 4,
+                              double tol_t = 10.0);
 
   /*! \brief Get the number of mesh vertices nodes in the deformation graph
    * - outputs the number of mesh vertices nodes

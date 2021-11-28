@@ -434,17 +434,16 @@ void DeformationGraph::removePriorsWithPrefix(const char& prefix) {
   return;
 }
 
-pcl::PolygonMesh DeformationGraph::deformMeshWithTimeCheck(
+pcl::PolygonMesh DeformationGraph::deformMesh(
     const pcl::PolygonMesh& original_mesh,
     const std::vector<ros::Time>& stamps,
     const char& prefix,
     size_t k,
     double tol_t) {
-  return deformMeshWithTimeCheck(
-      original_mesh, stamps, prefix, values_, k, tol_t);
+  return deformMesh(original_mesh, stamps, prefix, values_, k, tol_t);
 }
 
-pcl::PolygonMesh DeformationGraph::deformMeshWithTimeCheck(
+pcl::PolygonMesh DeformationGraph::deformMesh(
     const pcl::PolygonMesh& original_mesh,
     const std::vector<ros::Time>& stamps,
     const char& prefix,
@@ -486,61 +485,6 @@ pcl::PolygonMesh DeformationGraph::deformMeshWithTimeCheck(
                                                    optimized_values,
                                                    k,
                                                    tol_t);
-  new_vertices += new_vertices_to_deform;
-
-  // With new vertices, construct new polygon mesh
-  pcl::PolygonMesh new_mesh;
-  new_mesh.polygons = original_mesh.polygons;
-  pcl::toPCLPointCloud2(new_vertices, new_mesh.cloud);
-  last_calculated_vertices_[prefix] = new_vertices;
-  recalculate_vertices_ = false;
-  return new_mesh;
-}
-
-pcl::PolygonMesh DeformationGraph::deformMesh(
-    const pcl::PolygonMesh& original_mesh,
-    const char& prefix,
-    size_t k) {
-  return deformMesh(original_mesh, prefix, values_, k);
-}
-
-pcl::PolygonMesh DeformationGraph::deformMesh(
-    const pcl::PolygonMesh& original_mesh,
-    const char& prefix,
-    const gtsam::Values& optimized_values,
-    size_t k) {
-  // Cannot deform if no nodes in the deformation graph
-  if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
-    ROS_DEBUG(
-        "Deformation graph has no vertices associated with mesh prefix. No "
-        "deformation. ");
-    return original_mesh;
-  }
-
-  // extract original vertices
-  pcl::PointCloud<pcl::PointXYZRGBA> original_vertices;
-  pcl::fromPCLPointCloud2(original_mesh.cloud, original_vertices);
-
-  pcl::PointCloud<pcl::PointXYZRGBA> new_vertices, vertices_to_deform;
-  // iterate through original vertices to create new vertices
-  size_t start_idx = 0;
-  if (!recalculate_vertices_ && last_calculated_vertices_.find(prefix) !=
-                                    last_calculated_vertices_.end()) {
-    start_idx = last_calculated_vertices_[prefix].points.size();
-    new_vertices = last_calculated_vertices_[prefix];
-  }
-
-  std::vector<int> to_add_indices(original_vertices.size() - start_idx);
-  std::iota(std::begin(to_add_indices), std::end(to_add_indices), start_idx);
-  vertices_to_deform =
-      pcl::PointCloud<pcl::PointXYZRGBA>(original_vertices, to_add_indices);
-
-  pcl::PointCloud<pcl::PointXYZRGBA> new_vertices_to_deform =
-      deformPoints<pcl::PointXYZRGBA>(vertices_to_deform,
-                                      prefix,
-                                      vertex_positions_[prefix],
-                                      optimized_values,
-                                      k);
   new_vertices += new_vertices_to_deform;
 
   // With new vertices, construct new polygon mesh
