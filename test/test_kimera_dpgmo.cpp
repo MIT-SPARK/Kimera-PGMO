@@ -26,6 +26,8 @@ class KimeraDpgmoTest : public ::testing::Test {
     system("rosparam set run_mode 2");
     system("rosparam set use_msg_time true");
     system("rosparam set embed_trajectory_delta_t 3.0");
+    system("rosparam set num_interp_pts 4");
+    system("rosparam set interp_horizon 10.0");
     system("rosparam set rpgo/odom_trans_threshold 10.0");
     system("rosparam set rpgo/odom_rot_threshold 10.0");
     system("rosparam set rpgo/pcm_trans_threshold 10.0");

@@ -33,6 +33,11 @@ bool KimeraPgmoInterface::loadParameters(const ros::NodeHandle& n) {
 
   if (!n.getParam("embed_trajectory_delta_t", embed_delta_t_)) return false;
 
+  if (!n.getParam("num_interp_pts", num_interp_pts_)) return false;
+  assert(num_interp_pts_ > 1);
+
+  if (!n.getParam("interp_horizon", interp_horizon_)) return false;
+
   // start deformation graph module
   double odom_trans_threshold, odom_rot_threshold, pcm_trans_threshold,
       pcm_rot_threshold, gnc_alpha;
@@ -245,11 +250,17 @@ bool KimeraPgmoInterface::optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
           deformation_graph_->deformMesh(input_mesh,
                                          mesh_vertex_stamps,
                                          GetVertexPrefix(robot_id),
-                                         dpgmo_values_);
+                                         dpgmo_values_,
+                                         num_interp_pts_,
+                                         interp_horizon_);
     } else {
       deformation_graph_->optimize();
-      *optimized_mesh = deformation_graph_->deformMesh(
-          input_mesh, mesh_vertex_stamps, GetVertexPrefix(robot_id));
+      *optimized_mesh =
+          deformation_graph_->deformMesh(input_mesh,
+                                         mesh_vertex_stamps,
+                                         GetVertexPrefix(robot_id),
+                                         num_interp_pts_,
+                                         interp_horizon_);
     }
   } catch (const std::out_of_range& e) {
     ROS_ERROR("Failed to deform mesh. Out of range error. ");

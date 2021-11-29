@@ -241,6 +241,12 @@ class KimeraPgmoInterface {
   // time horizon when creating simplifed mesh
   double compression_time_horizon_;
 
+  // number of control pts to consider when interpolating for full mesh (k)
+  int num_interp_pts_;
+
+  // time horizon within which a control point is valid
+  double interp_horizon_;
+
   // Track number of loop closures
   size_t num_loop_closures_;
 
