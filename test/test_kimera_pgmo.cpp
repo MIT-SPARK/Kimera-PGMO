@@ -215,10 +215,6 @@ TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
   IncrementalPoseGraphCallback(inc_graph);
   // At this point should have two nodes (0, 0, 0), (1, 0, 0) and a between
   // factor
-  gtsam::NonlinearFactorGraph factors = getFactors();
-  gtsam::Values values = getValues();
-  EXPECT_EQ(size_t(2), factors.size());  // 1 odom + 1 prior
-  EXPECT_EQ(size_t(2), values.size());
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
@@ -231,8 +227,8 @@ TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
 
   // Now should have 7 values (2 nodes + 5 vertices)
   // And 28 factors (1 odom + 1 prior + 16 edges + 10 connections)
-  factors = getFactors();
-  values = getValues();
+  gtsam::NonlinearFactorGraph factors = getFactors();
+  gtsam::Values values = getValues();
   EXPECT_EQ(size_t(28), factors.size());
   EXPECT_EQ(size_t(7), values.size());
 
@@ -285,43 +281,7 @@ TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
   EXPECT_EQ(gtsam::Symbol('s', 9), factor53.back());
 }
 
-TEST_F(KimeraPgmoTest, nodeToMeshConnectionDeltaT) {
-  // Here we check the functionality of connecting the nodes to the mesh
-  // Case: mesh recieved after embed time
-
-  // Here we should test if the mesh is added to the deformation graph correctly
-  ros::NodeHandle nh;
-  pgmo_.initialize(nh);
-  OctreeCompressionPtr compression(new OctreeCompression(0.5));
-  Graph graph_struct;
-
-  // Check callback
-  pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
-  *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
-  IncrementalPoseGraphCallback(inc_graph);
-  // At this point should have two nodes (0, 0, 0), (1, 0, 0) and a between
-  // factor
-  gtsam::NonlinearFactorGraph factors = getFactors();
-  gtsam::Values values = getValues();
-  EXPECT_EQ(size_t(2), factors.size());  // 1 odom + 1 prior
-  EXPECT_EQ(size_t(2), values.size());
-
-  pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(
-      new pose_graph_tools::PoseGraph);
-  *mesh_graph_msg =
-      processMeshToGraph(mesh1, 0, ros::Time(13.5), compression, &graph_struct);
-  IncrementalMeshGraphCallback(mesh_graph_msg);
-
-  // Now should have 7 values (2 nodes + 5 vertices)
-  // And 28 factors (1 odom + 16 edges + 1 prior + 10 connections)
-  factors = getFactors();
-  values = getValues();
-  EXPECT_EQ(size_t(28), factors.size());
-  EXPECT_EQ(size_t(7), values.size());
-}
-
-TEST_F(KimeraPgmoTest, nodeToMeshConnectionDelay) {
+TEST_F(KimeraPgmoTest, nodeToMeshConnection) {
   // Here we check the functionality of connecting the nodes to the mesh
   // Case: multiple pose graph msgs recieved before mesh
 
@@ -337,20 +297,10 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnectionDelay) {
   IncrementalPoseGraphCallback(inc_graph);
   // At this point should have two nodes (0, 0, 0), (1, 0, 0) and a between
   // factor
-  gtsam::NonlinearFactorGraph factors = getFactors();
-  gtsam::Values values = getValues();
-  EXPECT_EQ(size_t(2), factors.size());  // 1 odom + 1 prior
-  EXPECT_EQ(size_t(2), values.size());
 
   // load second incremental pose graph
   *inc_graph = OdomLoopclosureGraph(ros::Time(11.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
-
-  // At this point should have 3 nodes 3 between factors
-  factors = getFactors();
-  values = getValues();
-  EXPECT_EQ(size_t(4), factors.size());  // 2 odom + 1 prior + 1 lc
-  EXPECT_EQ(size_t(3), values.size());
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
@@ -362,8 +312,8 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnectionDelay) {
 
   // Now should have 8 values (3 nodes + 5 vertices)
   // And 30 factors (2 odom + 16 edges + 1 prior + 1 lc + 10 connections)
-  factors = getFactors();
-  values = getValues();
+  gtsam::NonlinearFactorGraph factors = getFactors();
+  gtsam::Values values = getValues();
   EXPECT_EQ(size_t(30), factors.size());
   EXPECT_EQ(size_t(8), values.size());
 }
@@ -583,10 +533,6 @@ TEST_F(KimeraPgmoTest, checkRobotIdMeshCallback) {
   IncrementalPoseGraphCallback(inc_graph);
   // At this point should have two nodes (0, 0, 0), (1, 0, 0) and a between
   // factor
-  gtsam::NonlinearFactorGraph factors = getFactors();
-  gtsam::Values values = getValues();
-  EXPECT_EQ(size_t(2), factors.size());
-  EXPECT_EQ(size_t(2), values.size());
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
@@ -595,13 +541,6 @@ TEST_F(KimeraPgmoTest, checkRobotIdMeshCallback) {
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 2, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
-
-  // Now should have 7 values (2 nodes + 5 vertices)
-  // And 27 factors (1 odom + 16 edges + 1 prior + 10 connections)
-  factors = getFactors();
-  values = getValues();
-  EXPECT_EQ(size_t(28), factors.size());
-  EXPECT_EQ(size_t(7), values.size());
 
   // load second incremental pose graph
   *inc_graph = OdomLoopclosureGraph(ros::Time(12.8), 2);
@@ -615,8 +554,8 @@ TEST_F(KimeraPgmoTest, checkRobotIdMeshCallback) {
 
   // Now should have 13 values (3 nodes + 10 vertices)
   // And 56 factors (2 odom + 1 prior + 32 edges + 20 connections + 1 lc)
-  factors = getFactors();
-  values = getValues();
+  gtsam::NonlinearFactorGraph factors = getFactors();
+  gtsam::Values values = getValues();
   EXPECT_EQ(size_t(56), factors.size());
   EXPECT_EQ(size_t(13), values.size());
 
