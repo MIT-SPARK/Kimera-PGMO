@@ -450,7 +450,8 @@ pcl::PointCloud<point_type> deformPointsWithTimeCheck(
     }
 
     if (pruned_nn_idx.size() < 2) {
-      ROS_WARN(
+      ROS_WARN_THROTTLE(
+          10,
           "Not enough valid control points within time tolerance. Defaulting "
           "to use closest point. ");
       k_ii = 1;
