@@ -345,6 +345,112 @@ TEST(test_common_functions, MeshSurfaceExist) {
   EXPECT_TRUE(SurfaceExists(poly_3, adj_surfaces, surfaces));
 }
 
+TEST(test_common_functions, InOctreeBoundingBox) {
+  typedef pcl::PointXYZ Point;
+  typedef pcl::PointCloud<Point> PointCloud;
+  typedef pcl::octree::OctreePointCloudSearch<Point> Octree;
+  Octree octree(1.0);
+  PointCloud::Ptr vertices(new PointCloud);
+
+  vertices->push_back(Point(0.0, 0.0, 0.0));
+  vertices->push_back(Point(1.1, 1.1, 1.1));
+
+  octree.setInputCloud(vertices);
+  octree.addPointsFromInputCloud();
+
+  EXPECT_TRUE(InOctreeBoundingBox<pcl::PointXYZ>(octree, Point(0.5, 0.5, 0.5)));
+  EXPECT_FALSE(InOctreeBoundingBox<pcl::PointXYZ>(octree, Point(10, 10, 10)));
+}
+
+TEST(test_common_functions, deformPoints) {
+  typedef pcl::PointXYZ Point;
+  typedef pcl::PointCloud<Point> PointCloud;
+
+  PointCloud original_points;
+  std::vector<gtsam::Point3> control_points;
+  gtsam::Values optimized_values;
+  char prefix = 'a';
+  for (size_t i = 0; i < 100; i++) {
+    original_points.push_back(Point(static_cast<double>(i), 0.0, 0.0));
+    if (i % 10 == 0) {
+      control_points.push_back(gtsam::Point3(static_cast<double>(i), 0.0, 0.0));
+
+      optimized_values.insert(
+          gtsam::Symbol(prefix, static_cast<int>(i / 10)),
+          gtsam::Pose3(gtsam::Rot3(),
+                       gtsam::Point3(static_cast<double>(i), 1.0, 0.0)));
+    }
+  }
+  PointCloud deformed_points =
+      deformPoints(original_points, prefix, control_points, optimized_values);
+
+  EXPECT_EQ(100, deformed_points.size());
+  for (size_t i = 0; i < 100; i++) {
+    EXPECT_EQ(static_cast<double>(i), deformed_points.points[i].x);
+    EXPECT_EQ(1.0, deformed_points.points[i].y);
+    EXPECT_EQ(0.0, deformed_points.points[i].z);
+  }
+}
+
+TEST(test_common_functions, deformPointsWithTimeCheck) {
+  typedef pcl::PointXYZ Point;
+  typedef pcl::PointCloud<Point> PointCloud;
+
+  PointCloud original_points;
+  std::vector<ros::Time> stamps;
+  std::vector<gtsam::Point3> control_points;
+  std::vector<ros::Time> control_point_stamps;
+  gtsam::Values optimized_values;
+  char prefix = 'a';
+  for (size_t i = 0; i < 100; i++) {
+    original_points.push_back(Point(static_cast<double>(i), 0.0, 0.0));
+    if (i % 10 == 0) {
+      control_points.push_back(gtsam::Point3(static_cast<double>(i), 0.0, 0.0));
+
+      if (i > 50) {
+        optimized_values.insert(
+            gtsam::Symbol(prefix, static_cast<int>(i / 10)),
+            gtsam::Pose3(gtsam::Rot3(),
+                         gtsam::Point3(static_cast<double>(i), 1.0, 0.0)));
+        control_point_stamps.push_back(ros::Time(20.0));
+      } else {
+        optimized_values.insert(
+            gtsam::Symbol(prefix, static_cast<int>(i / 10)),
+            gtsam::Pose3(gtsam::Rot3(),
+                         gtsam::Point3(static_cast<double>(i), -1.0, 0.0)));
+        control_point_stamps.push_back(ros::Time(0.0));
+      }
+    }
+
+    if (i < 50) {
+      stamps.push_back(ros::Time(0.0));
+    } else {
+      stamps.push_back(ros::Time(20.0));
+    }
+  }
+
+  PointCloud deformed_points = deformPointsWithTimeCheck(original_points,
+                                                         stamps,
+                                                         prefix,
+                                                         control_points,
+                                                         control_point_stamps,
+                                                         optimized_values,
+                                                         4,
+                                                         10.0);
+
+  EXPECT_EQ(100, deformed_points.size());
+  for (size_t i = 0; i < 50; i++) {
+    EXPECT_EQ(static_cast<double>(i), deformed_points.points[i].x);
+    EXPECT_EQ(-1.0, deformed_points.points[i].y);
+    EXPECT_EQ(0.0, deformed_points.points[i].z);
+  }
+  for (size_t i = 50; i < 100; i++) {
+    EXPECT_EQ(static_cast<double>(i), deformed_points.points[i].x);
+    EXPECT_EQ(1.0, deformed_points.points[i].y);
+    EXPECT_EQ(0.0, deformed_points.points[i].z);
+  }
+}
+
 }  // namespace kimera_pgmo
 
 int main(int argc, char** argv) {

@@ -291,6 +291,7 @@ void DeformationGraph::addNewTempBetween(const gtsam::Key& key_from,
 void DeformationGraph::addNewMeshEdgesAndNodes(
     const std::vector<std::pair<gtsam::Key, gtsam::Key>>& mesh_edges,
     const gtsam::Values& mesh_nodes,
+    const ros::Time& stamp,
     std::vector<size_t>* added_indices,
     bool optimize) {
   // New mesh edge factors
@@ -313,12 +314,14 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
         while (vertex_positions_.at(node_prefix).size() < node_idx) {
           // Place at inifinity to ignore
           vertex_positions_[node_prefix].push_back(gtsam::Point3(0, 0, 0));
+          vertex_stamps_[node_prefix].push_back(stamp);
           vertices_->push_back(pcl::PointXYZ(0, 0, 0));
         }
       }
       if (node_idx == vertex_positions_.at(node_prefix).size()) {
         // Only add nodes that has not previously been added
         vertex_positions_[node_prefix].push_back(node_pose.translation());
+        vertex_stamps_[node_prefix].push_back(stamp);
         vertices_->push_back(
             GtsamToPcl<pcl::PointXYZ>(node_pose.translation()));
         new_mesh_nodes.insert(k, node_pose);
@@ -330,7 +333,9 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
                         " detected when adding new mesh edges and nodes. ");
       }
       vertex_positions_[node_prefix] = std::vector<gtsam::Point3>{};
+      vertex_stamps_[node_prefix] = std::vector<ros::Time>{};
       vertex_positions_[node_prefix].push_back(node_pose.translation());
+      vertex_stamps_[node_prefix].push_back(stamp);
       vertices_->push_back(GtsamToPcl<pcl::PointXYZ>(node_pose.translation()));
       new_mesh_nodes.insert(k, node_pose);
       added_indices->push_back(node_idx);
@@ -431,16 +436,20 @@ void DeformationGraph::removePriorsWithPrefix(const char& prefix) {
 
 pcl::PolygonMesh DeformationGraph::deformMesh(
     const pcl::PolygonMesh& original_mesh,
+    const std::vector<ros::Time>& stamps,
     const char& prefix,
-    size_t k) {
-  return deformMesh(original_mesh, prefix, values_, k);
+    size_t k,
+    double tol_t) {
+  return deformMesh(original_mesh, stamps, prefix, values_, k, tol_t);
 }
 
 pcl::PolygonMesh DeformationGraph::deformMesh(
     const pcl::PolygonMesh& original_mesh,
+    const std::vector<ros::Time>& stamps,
     const char& prefix,
     const gtsam::Values& optimized_values,
-    size_t k) {
+    size_t k,
+    double tol_t) {
   // Cannot deform if no nodes in the deformation graph
   if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
     ROS_DEBUG(
@@ -468,11 +477,14 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
       pcl::PointCloud<pcl::PointXYZRGBA>(original_vertices, to_add_indices);
 
   pcl::PointCloud<pcl::PointXYZRGBA> new_vertices_to_deform =
-      deformPoints<pcl::PointXYZRGBA>(vertices_to_deform,
-                                      prefix,
-                                      vertex_positions_[prefix],
-                                      optimized_values,
-                                      k);
+      deformPointsWithTimeCheck<pcl::PointXYZRGBA>(vertices_to_deform,
+                                                   stamps,
+                                                   prefix,
+                                                   vertex_positions_[prefix],
+                                                   vertex_stamps_[prefix],
+                                                   optimized_values,
+                                                   k,
+                                                   tol_t);
   new_vertices += new_vertices_to_deform;
 
   // With new vertices, construct new polygon mesh

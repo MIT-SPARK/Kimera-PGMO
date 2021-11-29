@@ -63,7 +63,7 @@ roslaunch kimera_vio_ros kimera_vio_ros_uhumans2.launch
 ```
 Then launch kimera_pgmo:
 ```bash
-rosunch kimera_pgmo kimera_pgmo.launch dataset:=uHumans2
+roslaunch kimera_pgmo kimera_pgmo.launch dataset:=uHumans2
 ```
 Launch Kimera-Semantics:
 ```basg

@@ -1,5 +1,7 @@
 frame_id: "world"
-embed_trajectory_delta_t: 5.0 # seconds (prints warning if delta exceeds, not strictly enforced. ) 
+embed_trajectory_delta_t: 5.0 # seconds (prints warning if delta exceeds, not strictly enforced. )
+num_interp_pts: 4 # use n controls points when interpolating for full deformed mesh
+interp_horizon: 10.0 # only consider control points last observed within t seconds
 rpgo:
   odom_trans_threshold: 0.001
   odom_rot_threshold: 0.005

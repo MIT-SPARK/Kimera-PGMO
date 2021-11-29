@@ -26,6 +26,8 @@ class KimeraDpgmoTest : public ::testing::Test {
     system("rosparam set run_mode 2");
     system("rosparam set use_msg_time true");
     system("rosparam set embed_trajectory_delta_t 3.0");
+    system("rosparam set num_interp_pts 4");
+    system("rosparam set interp_horizon 10.0");
     system("rosparam set rpgo/odom_trans_threshold 10.0");
     system("rosparam set rpgo/odom_rot_threshold 10.0");
     system("rosparam set rpgo/pcm_trans_threshold 10.0");
@@ -39,8 +41,7 @@ class KimeraDpgmoTest : public ::testing::Test {
     pgmo_.incrementalPoseGraphCallback(msg);
   }
 
-  void FullMeshCallback(
-      const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
+  void FullMeshCallback(const KimeraPgmoMesh::ConstPtr& mesh_msg) {
     pgmo_.fullMeshCallback(mesh_msg);
     ros::TimerEvent timer_event;
     timer_event.current_real = ros::Time::now();
@@ -147,9 +148,13 @@ TEST_F(KimeraDpgmoTest, fullMeshCallback) {
 
   // Add mesh to be deformed
   pcl::PolygonMesh full_mesh = createMesh(2, 2, 2);
-  kimera_pgmo::TriangleMeshIdStamped::Ptr full_mesh_msg(
-      new kimera_pgmo::TriangleMeshIdStamped);
-  full_mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(full_mesh);
+  std::vector<ros::Time> full_vertex_stamps;
+  for (size_t i = 0; i < full_mesh.cloud.width * full_mesh.cloud.height; i++) {
+    full_vertex_stamps.push_back(ros::Time(13.0));
+  }
+  KimeraPgmoMesh::Ptr full_mesh_msg(new KimeraPgmoMesh);
+  *full_mesh_msg =
+      PolygonMeshToPgmoMeshMsg(0, full_mesh, full_vertex_stamps, "world");
   FullMeshCallback(full_mesh_msg);
 
   pcl::PolygonMesh optimized_mesh = getOptimizedMesh();
@@ -861,9 +866,13 @@ TEST_F(KimeraDpgmoTest, dpgmoCallbackDeform) {
   DpgmoCallback(dpgmo_msg);
 
   pcl::PolygonMesh full_mesh = createMesh(1, 0, 0);
-  kimera_pgmo::TriangleMeshIdStamped::Ptr full_mesh_msg(
-      new kimera_pgmo::TriangleMeshIdStamped);
-  full_mesh_msg->mesh = PolygonMeshToTriangleMeshMsg(full_mesh);
+  std::vector<ros::Time> full_vertex_stamps;
+  for (size_t i = 0; i < full_mesh.cloud.width * full_mesh.cloud.height; i++) {
+    full_vertex_stamps.push_back(ros::Time(13.0));
+  }
+  KimeraPgmoMesh::Ptr full_mesh_msg(new KimeraPgmoMesh);
+  *full_mesh_msg =
+      PolygonMeshToPgmoMeshMsg(0, full_mesh, full_vertex_stamps, "world");
   FullMeshCallback(full_mesh_msg);
 
   pcl::PolygonMesh opt_mesh = getOptimizedMesh();
