@@ -17,6 +17,7 @@ namespace kimera_pgmo {
 
 MeshFrontend::MeshFrontend()
     : vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>),
+      vertex_stamps_(new std::vector<ros::Time>),
       graph_vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>),
       triangles_(new std::vector<pcl::Vertices>),
       graph_triangles_(new std::vector<pcl::Vertices>),
