@@ -140,7 +140,7 @@ void MeshFrontend::voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg) {
 
 void MeshFrontend::fullMeshUpdateSpin() {
   ROS_INFO("Started full mesh update thread. ");
-  ros::Rate r(30.0);
+  ros::WallRate r(30.0);
   while (ros::ok() && !shutdown_) {
     const size_t n_msg = full_mesh_input_.size();
     if (n_msg > 0) {
@@ -160,7 +160,7 @@ void MeshFrontend::fullMeshUpdateSpin() {
 
 void MeshFrontend::graphMeshUpdateSpin() {
   ROS_INFO("Started graph mesh update thread. ");
-  ros::Rate r(30.0);
+  ros::WallRate r(30.0);
   while (ros::ok() && !shutdown_) {
     const size_t n_msg = graph_mesh_input_.size();
     if (n_msg > 0) {
