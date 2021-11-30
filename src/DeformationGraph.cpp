@@ -123,6 +123,14 @@ void DeformationGraph::addTempNodeValence(const gtsam::Key& key,
   temp_values_ = pgo_->getTempValues();
 }
 
+void DeformationGraph::addTempFactors(
+    const gtsam::NonlinearFactorGraph& factors,
+    const gtsam::Values& values) {
+  pgo_->updateTempFactorsValues(factors, values);
+  temp_nfg_ = pgo_->getTempFactorsUnsafe();
+  temp_values_ = pgo_->getTempValues();
+}
+
 void DeformationGraph::addMeasurement(const Vertex& v,
                                       const geometry_msgs::Pose& pose,
                                       const char& prefix) {
@@ -508,6 +516,37 @@ std::vector<gtsam::Pose3> DeformationGraph::getOptimizedTrajectory(
   return optimized_traj;
 }
 
+void DeformationGraph::getGtsamTempValuesFiltered(gtsam::Values* values,
+                                                  const gtsam::Key& min,
+                                                  const gtsam::Key& max) const {
+  assert(nullptr != values);
+  for (const auto& key_value : temp_values_) {
+    if (key_value.key >= min && key_value.key < max) {
+      values->insert(key_value.key, key_value.value);
+    }
+  }
+}
+
+void DeformationGraph::getGtsamTempFactorsFiltered(
+    gtsam::NonlinearFactorGraph* nfg,
+    const gtsam::Key& min,
+    const gtsam::Key& max) const {
+  assert(nullptr != nfg);
+  for (const auto& f : temp_nfg_) {
+    bool in_range = false;
+    for (const auto& k : f->keys()) {
+      if (k > max) {
+        in_range = false;
+        break;
+      } else if (k >= min) {
+        in_range = true;
+      }
+    }
+    if (in_range) {
+      nfg->add(f);
+    }
+  }
+}
 
 void DeformationGraph::setParams(const KimeraRPGO::RobustSolverParams& params) {
   pgo_params_ = params;

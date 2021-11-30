@@ -181,6 +181,13 @@ class DeformationGraph {
                          const gtsam::Pose3& meas,
                          const gtsam::Pose3& initial_pose = gtsam::Pose3());
 
+  /*! \brief Directly add factors and values as temporary factors and values
+   *  - factors: GTSAM nonlinear factor graph container of factors
+   *  - values: GTSAM values container of values
+   */
+  void addTempFactors(const gtsam::NonlinearFactorGraph& factors,
+                      const gtsam::Values& values);
+
   /*! \brief Add a new mesh edge to deformation graph
    *  - mesh_edges: edges storing key-key pairs
    *  - mesh_nodes: gtsam values encoding key value pairs of new nodes
@@ -371,6 +378,25 @@ class DeformationGraph {
   inline const KimeraRPGO::RobustSolverParams& getParams() const { return pgo_params_; }
 
   void setParams(const KimeraRPGO::RobustSolverParams& params);
+
+  /*! \brief Gets the temp values since last optimization
+   *  - min: get values with key above this value
+   *  - max: get values with key less than this value
+   *  - outputs last temp values as GTSAM Values
+   */
+  void getGtsamTempValuesFiltered(gtsam::Values* values,
+                                  const gtsam::Key& min,
+                                  const gtsam::Key& max) const;
+
+  /*! \brief Gets the temp factors added to the backend, minus the detected
+   * outliers
+   *  - min: get factors with at least one key above this value
+   *  - max: get factors with both keys below this value
+   *  - outputs the factors as a GTSAM NonlinearFactorGraph
+   */
+  void getGtsamTempFactorsFiltered(gtsam::NonlinearFactorGraph* nfg,
+                                   const gtsam::Key& min,
+                                   const gtsam::Key& max) const;
 
  private:
   bool verbose_;
