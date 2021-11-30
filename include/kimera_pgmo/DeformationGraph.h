@@ -159,6 +159,19 @@ class DeformationGraph {
                       const gtsam::Pose3& initial_pose,
                       bool add_prior);
 
+  /*! \brief Add nodes and their valences, but keep them temporary
+   *  - keys: vector of keys of the nodes to be added
+   *  - initial_poses: poses of the nodes to be added
+   *  - valences: mesh graph vertices that are valences of the nodes
+   *  - valence_prefix: prefix of the valences (associated to robot id)
+   *  - add_prior: boolean - add a Prior Factor or not
+   */
+  void addNewTempNodesValences(const std::vector<gtsam::Key>& keys,
+                               const std::vector<gtsam::Pose3>& initial_poses,
+                               const std::vector<Vertices>& valences,
+                               const char& valence_prefix,
+                               bool add_prior);
+
   /*! \brief Add a new between factor to the deformation graph
    *  - key_from: Key of front node to connect between factor
    *  - key_to: Key of back node to connect between factor
@@ -180,6 +193,11 @@ class DeformationGraph {
                          const gtsam::Key& key_to,
                          const gtsam::Pose3& meas,
                          const gtsam::Pose3& initial_pose = gtsam::Pose3());
+
+  /*! \brief Add new edges as temporary between factor to the deformation graph
+   *  - edges: pose_graph_tools::PoseGraph type with the edges to add
+   */
+  void addNewTempEdges(const pose_graph_tools::PoseGraph& edges);
 
   /*! \brief Directly add factors and values as temporary factors and values
    *  - factors: GTSAM nonlinear factor graph container of factors

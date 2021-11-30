@@ -266,11 +266,6 @@ void DeformationGraph::addNewTempBetween(const gtsam::Key& key_from,
                                          const gtsam::Pose3& initial_pose) {
   gtsam::Values new_values;
   gtsam::NonlinearFactorGraph new_factors;
-  const char& from_prefix = gtsam::Symbol(key_from).chr();
-  const char& to_prefix = gtsam::Symbol(key_to).chr();
-  const size_t& from_idx = gtsam::Symbol(key_from).index();
-  const size_t& to_idx = gtsam::Symbol(key_to).index();
-
   if (!values_.exists(key_from) && !temp_values_.exists(key_from)) {
     ROS_ERROR("Key does not exist when adding temporary between factor. ");
     return;
@@ -293,6 +288,38 @@ void DeformationGraph::addNewTempBetween(const gtsam::Key& key_from,
   temp_values_ = pgo_->getTempValues();
 
   recalculate_vertices_ = true;
+  return;
+}
+
+// TODO(yun) add unittest
+void DeformationGraph::addNewTempEdges(
+    const pose_graph_tools::PoseGraph& edges) {
+  gtsam::Values new_values;
+  gtsam::NonlinearFactorGraph new_factors;
+
+  static const gtsam::SharedNoiseModel& noise =
+      gtsam::noiseModel::Isotropic::Variance(6, 1e-2);
+
+  for (const auto& e : edges.edges) {
+    if (!values_.exists(e.key_from) && !temp_values_.exists(e.key_from)) {
+      ROS_ERROR("Key does not exist when adding temporary between factor. ");
+      continue;
+    }
+
+    if (!values_.exists(e.key_to) && !temp_values_.exists(e.key_to)) {
+      ROS_ERROR("Key does not exist when adding temporary between factor. ");
+      continue;
+    }
+
+    new_factors.add(gtsam::BetweenFactor<gtsam::Pose3>(
+        e.key_from, e.key_to, RosToGtsam(e.pose), noise));
+  }
+
+  // Note that unlike the typical addNewBetween, this one only adds the
+  // temporary between factors without any values
+  pgo_->updateTempFactorsValues(new_factors, new_values);
+  temp_nfg_ = pgo_->getTempFactorsUnsafe();
+  temp_values_ = pgo_->getTempValues();
   return;
 }
 
@@ -426,6 +453,58 @@ void DeformationGraph::addNewTempNode(const gtsam::Key& key,
   new_values.insert(key, initial_pose);
   if (add_prior) {
     new_factors.add(gtsam::PriorFactor<gtsam::Pose3>(key, initial_pose, noise));
+  }
+
+  pgo_->updateTempFactorsValues(new_factors, new_values);
+  temp_nfg_ = pgo_->getTempFactorsUnsafe();
+  temp_values_ = pgo_->getTempValues();
+  return;
+}
+
+// TODO(yun) add unittests
+void DeformationGraph::addNewTempNodesValences(
+    const std::vector<gtsam::Key>& keys,
+    const std::vector<gtsam::Pose3>& initial_poses,
+    const std::vector<Vertices>& valences,
+    const char& valence_prefix,
+    bool add_prior) {
+  gtsam::Values new_values;
+  gtsam::NonlinearFactorGraph new_factors;
+
+  assert(keys.size() == initial_poses.size());
+  assert(keys.size() == valences.size());
+
+  static const gtsam::SharedNoiseModel& noise =
+      gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
+
+  for (size_t i = 0; i < keys.size(); i++) {
+    temp_pg_initial_poses_[keys[i]] = initial_poses[i];
+    new_values.insert(keys[i], initial_poses[i]);
+    if (add_prior) {
+      new_factors.add(
+          gtsam::PriorFactor<gtsam::Pose3>(keys[i], initial_poses[i], noise));
+    }
+
+    for (Vertex v : valences[i]) {
+      const gtsam::Symbol vertex(valence_prefix, v);
+      if (!values_.exists(vertex)) continue;
+
+      const gtsam::Pose3& node_pose = initial_poses[i];
+      const gtsam::Pose3 vertex_pose(gtsam::Rot3(),
+                                     vertex_positions_[valence_prefix].at(v));
+
+      // Define noise. Hardcoded for now
+      static const gtsam::SharedNoiseModel& noise =
+          gtsam::noiseModel::Isotropic::Variance(3, 1e-2);
+      // Create deformation edge factor
+      const DeformationEdgeFactor new_edge_1(
+          keys[i], vertex, node_pose, vertex_pose.translation(), noise);
+      const DeformationEdgeFactor new_edge_2(
+          vertex, keys[i], vertex_pose, node_pose.translation(), noise);
+      // TODO(Yun) temp_consistency_factors_? For now seems like not needed.
+      new_factors.add(new_edge_1);
+      new_factors.add(new_edge_2);
+    }
   }
 
   pgo_->updateTempFactorsValues(new_factors, new_values);
