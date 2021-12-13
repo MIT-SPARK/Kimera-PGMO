@@ -322,6 +322,7 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
                                               new_mesh_nodes,
                                               mesh_graph_msg->header.stamp,
                                               &new_indices,
+                                              1e-4, // TODO(yun) make it a parameter
                                               false);
 
   double msg_time;
@@ -358,6 +359,7 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
         gtsam::Symbol(GetRobotPrefix(robot_id), closest_node),
         new_indices,
         GetVertexPrefix(robot_id),
+        1e-4,  // TODO(yun) make this a param
         false);
     connection = true;
     if (abs(node_timestamps[closest_node].toSec() - msg_time) >
