@@ -252,5 +252,13 @@ class KimeraPgmoInterface {
 
   // DPGMO optimized values
   gtsam::Values dpgmo_values_;
+
+  bool b_add_initial_prior_;
+  // Covariances
+  double odom_variance_;
+  double lc_variance_;
+  double prior_variance_;
+  double mesh_edge_variance_;
+  double pose_mesh_variance_;
 };
 }  // namespace kimera_pgmo

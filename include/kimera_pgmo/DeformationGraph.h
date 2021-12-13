@@ -123,6 +123,7 @@ class DeformationGraph {
    *  - transform: imposed transform (geometry_msgs Pose)
    *  - prefix: the prefixes of the key of the nodes corresponding to mesh
    * vertices
+   *  - variance: covariance of the prior to attach
    */
   void addMeasurement(const Vertex& v,
                       const geometry_msgs::Pose& transform,
@@ -133,6 +134,7 @@ class DeformationGraph {
    *  - key: Key of the node to transform. Note that this is the key after
    * adding the prefix, etc gtsam::Symbol(prefix, index).key()
    *  - pose: Transform to impose (GTSAM Pose3)
+   *  - variance: covariance of the prior
    */
   void addNodeMeasurement(const gtsam::Key& key,
                           const gtsam::Pose3 pose,
@@ -140,6 +142,7 @@ class DeformationGraph {
 
   /*! \brief Fix the measurements of multiple nodes
    *  - measurements: a vector of key->pose pair of node measurements
+   *  - variance: covariance of the prior factors
    */
   void addNodeMeasurements(
       const std::vector<std::pair<gtsam::Key, gtsam::Pose3> >& measurements,
@@ -149,6 +152,7 @@ class DeformationGraph {
    *  - key: Key of first node in new trajectory
    *  - initial_pose: Initial measurement of first node
    *  - add_prior: boolean - add a Prior Factor or not
+   *  - prior_variance: covariance of the prior
    */
   void addNewNode(const gtsam::Key& key,
                   const gtsam::Pose3& initial_pose,
@@ -159,6 +163,7 @@ class DeformationGraph {
    *  - key: Key of first node in new trajectory
    *  - initial_pose: Initial measurement of first node
    *  - add_prior: boolean - add a Prior Factor or not
+   *  - prior_variance: covariance of the prior
    */
   void addNewTempNode(const gtsam::Key& key,
                       const gtsam::Pose3& initial_pose,
@@ -171,6 +176,8 @@ class DeformationGraph {
    *  - valences: mesh graph vertices that are valences of the nodes
    *  - valence_prefix: prefix of the valences (associated to robot id)
    *  - add_prior: boolean - add a Prior Factor or not
+   *  - edge_variance: covariance of the node to mesh edges
+   *  - prior_variance: if add prior, covariance on the nodes
    */
   void addNewTempNodesValences(const std::vector<gtsam::Key>& keys,
                                const std::vector<gtsam::Pose3>& initial_poses,
@@ -185,6 +192,7 @@ class DeformationGraph {
    *  - key_to: Key of back node to connect between factor
    *  - meas: Measurement of between factor
    *  - Estimated position of new node (the back node if node is new)
+   *  - variance: covariance on the between factor
    */
   void addNewBetween(const gtsam::Key& key_from,
                      const gtsam::Key& key_to,
@@ -197,6 +205,7 @@ class DeformationGraph {
    *  - key_to: Key of back node to connect between factor
    *  - meas: Measurement of between factor
    *  - Estimated position of new node (the back node if node is new)
+   *  - variance: covariance on the temporary between factor
    */
   void addNewTempBetween(const gtsam::Key& key_from,
                          const gtsam::Key& key_to,
@@ -206,6 +215,7 @@ class DeformationGraph {
 
   /*! \brief Add new edges as temporary between factor to the deformation graph
    *  - edges: pose_graph_tools::PoseGraph type with the edges to add
+   *  - variance: covariance on the added temp edges
    */
   void addNewTempEdges(const pose_graph_tools::PoseGraph& edges,
                        double variance = 1e-2);
@@ -221,6 +231,7 @@ class DeformationGraph {
    *  - mesh_edges: edges storing key-key pairs
    *  - mesh_nodes: gtsam values encoding key value pairs of new nodes
    *  - added_indices: indices of nodes that was successfully added
+   *  - variance: covariance of the deformation graph edges
    *  - optimize: optimize or just add to pgo
    */
   void addNewMeshEdgesAndNodes(
@@ -236,6 +247,7 @@ class DeformationGraph {
    *  - valences: The mesh vertices nodes to connect to
    *  - prefix: the prefixes of the key of the nodes corresponding to mesh
    * vertices
+   *  - variance: covariance of the deformation graph edges
    *  - optimize: optimize or just add to pgo
    */
   void addNodeValence(const gtsam::Key& key,
@@ -250,6 +262,7 @@ class DeformationGraph {
    *  - valences: The mesh vertices nodes to connect to
    *  - prefix: the prefixes of the key of the nodes corresponding to mesh
    * vertices
+   *  - variance: covariance of the deformation graph edges
    *  - optimize: optimize or just add to pgo
    */
   void addTempNodeValence(const gtsam::Key& key,

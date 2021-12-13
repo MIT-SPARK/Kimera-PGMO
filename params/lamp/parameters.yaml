@@ -8,3 +8,10 @@ rpgo:
   pcm_trans_threshold: 0.001
   pcm_rot_threshold: 0.005
   gnc_alpha: 0
+add_initial_prior: true
+covariance:
+  odom: 1.0e-06
+  loop_close: 1.0e-04
+  prior: 1.0e-08
+  mesh_mesh: 1.0e-02
+  pose_mesh: 1.0e-04

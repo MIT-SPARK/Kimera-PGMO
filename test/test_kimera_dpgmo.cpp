@@ -33,6 +33,12 @@ class KimeraDpgmoTest : public ::testing::Test {
     system("rosparam set rpgo/pcm_trans_threshold 10.0");
     system("rosparam set rpgo/pcm_rot_threshold 10.0");
     system("rosparam set rpgo/gnc_alpha 0");
+    system("rosparam set add_initial_prior true");
+    system("rosparam set covariance/odom 0.000001");
+    system("rosparam set covariance/loop_close 0.0001");
+    system("rosparam set covariance/prior 0.00000001");
+    system("rosparam set covariance/mesh_mesh 0.001");
+    system("rosparam set covariance/pose_mesh 0.0001");
   }
   ~KimeraDpgmoTest() {}
 
