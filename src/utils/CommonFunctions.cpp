@@ -208,10 +208,7 @@ mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
   pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
   pcl::fromPCLPointCloud2(polygon_mesh.cloud, vertices_cloud);
 
-  mesh_msgs::TriangleMesh new_mesh =
-      PolygonMeshToTriangleMeshMsg(vertices_cloud, polygon_mesh.polygons);
-
-  return new_mesh;
+  return PolygonMeshToTriangleMeshMsg(vertices_cloud, polygon_mesh.polygons);
 }
 
 mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
@@ -252,6 +249,68 @@ mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
   return new_mesh;
 }
 
+KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(
+    const size_t& id,
+    const pcl::PolygonMesh& polygon_mesh,
+    const std::vector<ros::Time>& vertex_timestamps,
+    const std::string& frame_id) {
+  pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
+  pcl::fromPCLPointCloud2(polygon_mesh.cloud, vertices_cloud);
+
+  return PolygonMeshToPgmoMeshMsg(
+      id, vertices_cloud, polygon_mesh.polygons, vertex_timestamps, frame_id);
+}
+
+KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(
+    const size_t& id,
+    const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
+    const std::vector<pcl::Vertices>& polygons,
+    const std::vector<ros::Time>& vertex_timestamps,
+    const std::string& frame_id) {
+  KimeraPgmoMesh new_mesh;
+  if (vertices.size() == 0) {
+    return new_mesh;
+  }
+
+  assert(vertices.size() == vertex_timestamps.size());
+
+  // Convert vertices
+  new_mesh.vertices.resize(vertices.size());
+  new_mesh.vertex_colors.resize(vertices.size());
+  new_mesh.vertex_stamps.resize(vertices.size());
+  for (size_t i = 0; i < vertices.points.size(); i++) {
+    geometry_msgs::Point p;
+    p.x = vertices.points[i].x;
+    p.y = vertices.points[i].y;
+    p.z = vertices.points[i].z;
+    new_mesh.vertices[i] = p;
+    // Point color
+    std_msgs::ColorRGBA color;
+    constexpr float color_conv_factor =
+        1.0f / std::numeric_limits<uint8_t>::max();
+    color.r = color_conv_factor * static_cast<float>(vertices.points[i].r);
+    color.g = color_conv_factor * static_cast<float>(vertices.points[i].g);
+    color.b = color_conv_factor * static_cast<float>(vertices.points[i].b);
+    color.a = color_conv_factor * static_cast<float>(vertices.points[i].a);
+    new_mesh.vertex_colors[i] = color;
+    new_mesh.vertex_stamps[i] = vertex_timestamps[i];
+  }
+
+  // Convert polygons
+  new_mesh.triangles.resize(polygons.size());
+  for (size_t i = 0; i < polygons.size(); i++) {
+    TriangleIndices triangle;
+    triangle.vertex_indices[0] = polygons[i].vertices[0];
+    triangle.vertex_indices[1] = polygons[i].vertices[1];
+    triangle.vertex_indices[2] = polygons[i].vertices[2];
+    new_mesh.triangles[i] = triangle;
+  }
+
+  new_mesh.header.frame_id = frame_id;
+  new_mesh.header.stamp = vertex_timestamps.back();
+  return new_mesh;
+}
+
 pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
     const mesh_msgs::TriangleMesh& mesh_msg) {
   pcl::PolygonMesh mesh;
@@ -285,6 +344,54 @@ pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
     }
     mesh.polygons.push_back(polygon);
   }
+  return mesh;
+}
+
+pcl::PolygonMesh PgmoMeshMsgToPolygonMesh(
+    const KimeraPgmoMesh& mesh_msg,
+    std::vector<ros::Time>* vertex_stamps) {
+  pcl::PolygonMesh mesh;
+
+  assert(mesh_msg.vertices.size() == mesh_msg.vertex_stamps.size());
+  assert(nullptr != vertex_stamps);
+
+  if (mesh_msg.vertices.size() == 0) {
+    return mesh;
+  }
+
+  // Convert vertices
+  pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
+  bool color = (mesh_msg.vertex_colors.size() == mesh_msg.vertices.size());
+  constexpr float color_conv_factor =
+      1.0f * std::numeric_limits<uint8_t>::max();
+  for (size_t i = 0; i < mesh_msg.vertices.size(); i++) {
+    const geometry_msgs::Point& p = mesh_msg.vertices[i];
+    pcl::PointXYZRGBA point;
+    point.x = p.x;
+    point.y = p.y;
+    point.z = p.z;
+    if (color) {
+      const std_msgs::ColorRGBA& c = mesh_msg.vertex_colors[i];
+      point.r = static_cast<uint8_t>(color_conv_factor * c.r);
+      point.g = static_cast<uint8_t>(color_conv_factor * c.g);
+      point.b = static_cast<uint8_t>(color_conv_factor * c.b);
+      point.a = static_cast<uint8_t>(color_conv_factor * c.a);
+    }
+    vertices_cloud.points.push_back(point);
+    vertex_stamps->push_back(mesh_msg.vertex_stamps[i]);
+  }
+
+  pcl::toPCLPointCloud2(vertices_cloud, mesh.cloud);
+
+  // Convert polygons
+  for (const TriangleIndices& triangle : mesh_msg.triangles) {
+    pcl::Vertices polygon;
+    for (size_t i = 0; i < 3; i++) {
+      polygon.vertices.push_back(triangle.vertex_indices[i]);
+    }
+    mesh.polygons.push_back(polygon);
+  }
+
   return mesh;
 }
 

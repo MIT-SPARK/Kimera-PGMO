@@ -32,13 +32,18 @@ DeformationGraph::DeformationGraph()
       do_not_optimize_(false) {}
 DeformationGraph::~DeformationGraph() {}
 
-bool DeformationGraph::initialize(double pgo_trans_threshold,
-                                  double pgo_rot_threshold,
+bool DeformationGraph::initialize(double odom_trans_threshold,
+                                  double odom_rot_threshold,
+                                  double pcm_trans_threshold,
+                                  double pcm_rot_threshold,
                                   double gnc_alpha,
                                   const std::string& log_path) {
   // Initialize pgo_:
-  pgo_params_.setPcmSimple3DParams(
-      pgo_trans_threshold, pgo_rot_threshold, KimeraRPGO::Verbosity::UPDATE);
+  pgo_params_.setPcmSimple3DParams(odom_trans_threshold,
+                                   odom_rot_threshold,
+                                   pcm_trans_threshold,
+                                   pcm_rot_threshold,
+                                   KimeraRPGO::Verbosity::UPDATE);
   // Use GNC (confidence value)
   if (gnc_alpha > 0 && gnc_alpha < 1)
     pgo_params_.setGncInlierCostThresholdsAtProbability(gnc_alpha);
@@ -55,6 +60,7 @@ bool DeformationGraph::initialize(double pgo_trans_threshold,
 void DeformationGraph::addNodeValence(const gtsam::Key& key,
                                       const Vertices& valences,
                                       const char& valence_prefix,
+                                      double variance,
                                       bool optimize) {
   gtsam::NonlinearFactorGraph new_factors;
   gtsam::Values new_values;
@@ -70,7 +76,7 @@ void DeformationGraph::addNodeValence(const gtsam::Key& key,
 
     // Define noise. Hardcoded for now
     static const gtsam::SharedNoiseModel& noise =
-        gtsam::noiseModel::Isotropic::Variance(3, 1e-4);
+        gtsam::noiseModel::Isotropic::Variance(3, variance);
     // Create deformation edge factor
     const DeformationEdgeFactor new_edge_1(
         key, vertex, node_pose, vertex_pose.translation(), noise);
@@ -89,6 +95,7 @@ void DeformationGraph::addNodeValence(const gtsam::Key& key,
 void DeformationGraph::addTempNodeValence(const gtsam::Key& key,
                                           const Vertices& valences,
                                           const char& valence_prefix,
+                                          double variance,
                                           bool optimize) {
   gtsam::NonlinearFactorGraph new_factors;
   gtsam::Values new_values;
@@ -103,7 +110,7 @@ void DeformationGraph::addTempNodeValence(const gtsam::Key& key,
 
     // Define noise. Hardcoded for now
     static const gtsam::SharedNoiseModel& noise =
-        gtsam::noiseModel::Isotropic::Variance(3, 1e-4);
+        gtsam::noiseModel::Isotropic::Variance(3, variance);
     // Create deformation edge factor
     const DeformationEdgeFactor new_edge_1(
         key, vertex, node_pose, vertex_pose.translation(), noise);
@@ -118,15 +125,24 @@ void DeformationGraph::addTempNodeValence(const gtsam::Key& key,
   temp_values_ = pgo_->getTempValues();
 }
 
+void DeformationGraph::addTempFactors(
+    const gtsam::NonlinearFactorGraph& factors,
+    const gtsam::Values& values) {
+  pgo_->updateTempFactorsValues(factors, values);
+  temp_nfg_ = pgo_->getTempFactorsUnsafe();
+  temp_values_ = pgo_->getTempValues();
+}
+
 void DeformationGraph::addMeasurement(const Vertex& v,
                                       const geometry_msgs::Pose& pose,
-                                      const char& prefix) {
+                                      const char& prefix,
+                                      double variance) {
   gtsam::Values new_values;
   gtsam::NonlinearFactorGraph new_factors;
 
   // noise for measurement
   static const gtsam::SharedNoiseModel& noise =
-      gtsam::noiseModel::Isotropic::Variance(6, 1e-10);
+      gtsam::noiseModel::Isotropic::Variance(6, variance);
 
   gtsam::Symbol v_symb(prefix, v);
   gtsam::Pose3 meas = RosToGtsam(pose);
@@ -140,13 +156,14 @@ void DeformationGraph::addMeasurement(const Vertex& v,
 }
 
 void DeformationGraph::addNodeMeasurement(const gtsam::Key& key,
-                                          const gtsam::Pose3 pose) {
+                                          const gtsam::Pose3 pose,
+                                          double variance) {
   // TODO: consider consolidating with addNodeMeasurements
   gtsam::Values new_values;
   gtsam::NonlinearFactorGraph new_factors;
 
   static const gtsam::SharedNoiseModel& noise =
-      gtsam::noiseModel::Isotropic::Variance(6, 1e-6);
+      gtsam::noiseModel::Isotropic::Variance(6, variance);
   gtsam::PriorFactor<gtsam::Pose3> measurement(key, pose, noise);
   new_factors.add(measurement);
 
@@ -165,7 +182,8 @@ void DeformationGraph::addNodeMeasurement(const gtsam::Key& key,
 }
 
 void DeformationGraph::addNodeMeasurements(
-    const std::vector<std::pair<gtsam::Key, gtsam::Pose3>>& measurements) {
+    const std::vector<std::pair<gtsam::Key, gtsam::Pose3>>& measurements,
+    double variance) {
   gtsam::Values new_values;
   gtsam::NonlinearFactorGraph new_factors;
 
@@ -178,7 +196,7 @@ void DeformationGraph::addNodeMeasurements(
       continue;
     }
     static const gtsam::SharedNoiseModel& noise =
-        gtsam::noiseModel::Isotropic::Variance(6, 1e-6);
+        gtsam::noiseModel::Isotropic::Variance(6, variance);
     gtsam::PriorFactor<gtsam::Pose3> measurement(
         keyed_pose.first, keyed_pose.second, noise);
     new_factors.add(measurement);
@@ -193,7 +211,8 @@ void DeformationGraph::addNodeMeasurements(
 void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
                                      const gtsam::Key& key_to,
                                      const gtsam::Pose3& meas,
-                                     const gtsam::Pose3& initial_pose) {
+                                     const gtsam::Pose3& initial_pose,
+                                     double variance) {
   gtsam::Values new_values;
   gtsam::NonlinearFactorGraph new_factors;
   const char& from_prefix = gtsam::Symbol(key_from).chr();
@@ -229,7 +248,7 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
   }
 
   static const gtsam::SharedNoiseModel& noise =
-      gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
+      gtsam::noiseModel::Isotropic::Variance(6, variance);
   new_factors.add(
       gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
 
@@ -250,14 +269,10 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
 void DeformationGraph::addNewTempBetween(const gtsam::Key& key_from,
                                          const gtsam::Key& key_to,
                                          const gtsam::Pose3& meas,
-                                         const gtsam::Pose3& initial_pose) {
+                                         const gtsam::Pose3& initial_pose,
+                                         double variance) {
   gtsam::Values new_values;
   gtsam::NonlinearFactorGraph new_factors;
-  const char& from_prefix = gtsam::Symbol(key_from).chr();
-  const char& to_prefix = gtsam::Symbol(key_to).chr();
-  const size_t& from_idx = gtsam::Symbol(key_from).index();
-  const size_t& to_idx = gtsam::Symbol(key_to).index();
-
   if (!values_.exists(key_from) && !temp_values_.exists(key_from)) {
     ROS_ERROR("Key does not exist when adding temporary between factor. ");
     return;
@@ -271,7 +286,7 @@ void DeformationGraph::addNewTempBetween(const gtsam::Key& key_from,
   // Note that unlike the typical addNewBetween, this one only adds the
   // temporary between factors without any values
   static const gtsam::SharedNoiseModel& noise =
-      gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
+      gtsam::noiseModel::Isotropic::Variance(6, variance);
   new_factors.add(
       gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
 
@@ -283,10 +298,45 @@ void DeformationGraph::addNewTempBetween(const gtsam::Key& key_from,
   return;
 }
 
+// TODO(yun) add unittest
+void DeformationGraph::addNewTempEdges(
+    const pose_graph_tools::PoseGraph& edges,
+    double variance) {
+  gtsam::Values new_values;
+  gtsam::NonlinearFactorGraph new_factors;
+
+  static const gtsam::SharedNoiseModel& noise =
+      gtsam::noiseModel::Isotropic::Variance(6, variance);
+
+  for (const auto& e : edges.edges) {
+    if (!values_.exists(e.key_from) && !temp_values_.exists(e.key_from)) {
+      ROS_ERROR("Key does not exist when adding temporary between factor. ");
+      continue;
+    }
+
+    if (!values_.exists(e.key_to) && !temp_values_.exists(e.key_to)) {
+      ROS_ERROR("Key does not exist when adding temporary between factor. ");
+      continue;
+    }
+
+    new_factors.add(gtsam::BetweenFactor<gtsam::Pose3>(
+        e.key_from, e.key_to, RosToGtsam(e.pose), noise));
+  }
+
+  // Note that unlike the typical addNewBetween, this one only adds the
+  // temporary between factors without any values
+  pgo_->updateTempFactorsValues(new_factors, new_values);
+  temp_nfg_ = pgo_->getTempFactorsUnsafe();
+  temp_values_ = pgo_->getTempValues();
+  return;
+}
+
 void DeformationGraph::addNewMeshEdgesAndNodes(
     const std::vector<std::pair<gtsam::Key, gtsam::Key>>& mesh_edges,
     const gtsam::Values& mesh_nodes,
+    const ros::Time& stamp,
     std::vector<size_t>* added_indices,
+    double variance,
     bool optimize) {
   // New mesh edge factors
   gtsam::NonlinearFactorGraph new_mesh_factors;
@@ -308,12 +358,14 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
         while (vertex_positions_.at(node_prefix).size() < node_idx) {
           // Place at inifinity to ignore
           vertex_positions_[node_prefix].push_back(gtsam::Point3(0, 0, 0));
+          vertex_stamps_[node_prefix].push_back(stamp);
           vertices_->push_back(pcl::PointXYZ(0, 0, 0));
         }
       }
       if (node_idx == vertex_positions_.at(node_prefix).size()) {
         // Only add nodes that has not previously been added
         vertex_positions_[node_prefix].push_back(node_pose.translation());
+        vertex_stamps_[node_prefix].push_back(stamp);
         vertices_->push_back(
             GtsamToPcl<pcl::PointXYZ>(node_pose.translation()));
         new_mesh_nodes.insert(k, node_pose);
@@ -325,7 +377,9 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
                         " detected when adding new mesh edges and nodes. ");
       }
       vertex_positions_[node_prefix] = std::vector<gtsam::Point3>{};
+      vertex_stamps_[node_prefix] = std::vector<ros::Time>{};
       vertex_positions_[node_prefix].push_back(node_pose.translation());
+      vertex_stamps_[node_prefix].push_back(stamp);
       vertices_->push_back(GtsamToPcl<pcl::PointXYZ>(node_pose.translation()));
       new_mesh_nodes.insert(k, node_pose);
       added_indices->push_back(node_idx);
@@ -334,7 +388,7 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
 
   // Define noise. Hardcoded for now
   static const gtsam::SharedNoiseModel& edge_noise =
-      gtsam::noiseModel::Isotropic::Variance(3, 1e-2);
+      gtsam::noiseModel::Isotropic::Variance(3, variance);
   // Iterate and add the new edges
   for (auto e : mesh_edges) {
     const gtsam::Symbol& from = gtsam::Symbol(e.first);
@@ -363,7 +417,8 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
 
 void DeformationGraph::addNewNode(const gtsam::Key& key,
                                   const gtsam::Pose3& initial_pose,
-                                  bool add_prior) {
+                                  bool add_prior,
+                                  double prior_variance) {
   // new node
   // For now push empty valence, valences will be populated when updated
   gtsam::Values new_values;
@@ -382,7 +437,7 @@ void DeformationGraph::addNewNode(const gtsam::Key& key,
   }
 
   static const gtsam::SharedNoiseModel& noise =
-      gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
+      gtsam::noiseModel::Isotropic::Variance(6, prior_variance);
   new_values.insert(key, initial_pose);
   if (add_prior) {
     new_factors.add(gtsam::PriorFactor<gtsam::Pose3>(key, initial_pose, noise));
@@ -396,7 +451,8 @@ void DeformationGraph::addNewNode(const gtsam::Key& key,
 
 void DeformationGraph::addNewTempNode(const gtsam::Key& key,
                                       const gtsam::Pose3& initial_pose,
-                                      bool add_prior) {
+                                      bool add_prior,
+                                      double prior_variance) {
   // new temp node
   gtsam::Values new_values;
   gtsam::NonlinearFactorGraph new_factors;
@@ -404,10 +460,64 @@ void DeformationGraph::addNewTempNode(const gtsam::Key& key,
   temp_pg_initial_poses_[key] = initial_pose;
 
   static const gtsam::SharedNoiseModel& noise =
-      gtsam::noiseModel::Isotropic::Variance(6, 1e-4);
+      gtsam::noiseModel::Isotropic::Variance(6, prior_variance);
   new_values.insert(key, initial_pose);
   if (add_prior) {
     new_factors.add(gtsam::PriorFactor<gtsam::Pose3>(key, initial_pose, noise));
+  }
+
+  pgo_->updateTempFactorsValues(new_factors, new_values);
+  temp_nfg_ = pgo_->getTempFactorsUnsafe();
+  temp_values_ = pgo_->getTempValues();
+  return;
+}
+
+// TODO(yun) add unittests
+void DeformationGraph::addNewTempNodesValences(
+    const std::vector<gtsam::Key>& keys,
+    const std::vector<gtsam::Pose3>& initial_poses,
+    const std::vector<Vertices>& valences,
+    const char& valence_prefix,
+    bool add_prior,
+    double edge_variance,
+    double prior_variance) {
+  gtsam::Values new_values;
+  gtsam::NonlinearFactorGraph new_factors;
+
+  assert(keys.size() == initial_poses.size());
+  assert(keys.size() == valences.size());
+
+  static const gtsam::SharedNoiseModel& noise =
+      gtsam::noiseModel::Isotropic::Variance(6, prior_variance);
+
+  for (size_t i = 0; i < keys.size(); i++) {
+    temp_pg_initial_poses_[keys[i]] = initial_poses[i];
+    new_values.insert(keys[i], initial_poses[i]);
+    if (add_prior) {
+      new_factors.add(
+          gtsam::PriorFactor<gtsam::Pose3>(keys[i], initial_poses[i], noise));
+    }
+
+    for (Vertex v : valences[i]) {
+      const gtsam::Symbol vertex(valence_prefix, v);
+      if (!values_.exists(vertex)) continue;
+
+      const gtsam::Pose3& node_pose = initial_poses[i];
+      const gtsam::Pose3 vertex_pose(gtsam::Rot3(),
+                                     vertex_positions_[valence_prefix].at(v));
+
+      // Define noise. Hardcoded for now
+      static const gtsam::SharedNoiseModel& noise =
+          gtsam::noiseModel::Isotropic::Variance(3, edge_variance);
+      // Create deformation edge factor
+      const DeformationEdgeFactor new_edge_1(
+          keys[i], vertex, node_pose, vertex_pose.translation(), noise);
+      const DeformationEdgeFactor new_edge_2(
+          vertex, keys[i], vertex_pose, node_pose.translation(), noise);
+      // TODO(Yun) temp_consistency_factors_? For now seems like not needed.
+      new_factors.add(new_edge_1);
+      new_factors.add(new_edge_2);
+    }
   }
 
   pgo_->updateTempFactorsValues(new_factors, new_values);
@@ -426,16 +536,20 @@ void DeformationGraph::removePriorsWithPrefix(const char& prefix) {
 
 pcl::PolygonMesh DeformationGraph::deformMesh(
     const pcl::PolygonMesh& original_mesh,
+    const std::vector<ros::Time>& stamps,
     const char& prefix,
-    size_t k) {
-  return deformMesh(original_mesh, prefix, values_, k);
+    size_t k,
+    double tol_t) {
+  return deformMesh(original_mesh, stamps, prefix, values_, k, tol_t);
 }
 
 pcl::PolygonMesh DeformationGraph::deformMesh(
     const pcl::PolygonMesh& original_mesh,
+    const std::vector<ros::Time>& stamps,
     const char& prefix,
     const gtsam::Values& optimized_values,
-    size_t k) {
+    size_t k,
+    double tol_t) {
   // Cannot deform if no nodes in the deformation graph
   if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
     ROS_DEBUG(
@@ -463,11 +577,14 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
       pcl::PointCloud<pcl::PointXYZRGBA>(original_vertices, to_add_indices);
 
   pcl::PointCloud<pcl::PointXYZRGBA> new_vertices_to_deform =
-      deformPoints<pcl::PointXYZRGBA>(vertices_to_deform,
-                                      prefix,
-                                      vertex_positions_[prefix],
-                                      optimized_values,
-                                      k);
+      deformPointsWithTimeCheck<pcl::PointXYZRGBA>(vertices_to_deform,
+                                                   stamps,
+                                                   prefix,
+                                                   vertex_positions_[prefix],
+                                                   vertex_stamps_[prefix],
+                                                   optimized_values,
+                                                   k,
+                                                   tol_t);
   new_vertices += new_vertices_to_deform;
 
   // With new vertices, construct new polygon mesh
@@ -491,6 +608,37 @@ std::vector<gtsam::Pose3> DeformationGraph::getOptimizedTrajectory(
   return optimized_traj;
 }
 
+void DeformationGraph::getGtsamTempValuesFiltered(gtsam::Values* values,
+                                                  const gtsam::Key& min,
+                                                  const gtsam::Key& max) const {
+  assert(nullptr != values);
+  for (const auto& key_value : temp_values_) {
+    if (key_value.key >= min && key_value.key < max) {
+      values->insert(key_value.key, key_value.value);
+    }
+  }
+}
+
+void DeformationGraph::getGtsamTempFactorsFiltered(
+    gtsam::NonlinearFactorGraph* nfg,
+    const gtsam::Key& min,
+    const gtsam::Key& max) const {
+  assert(nullptr != nfg);
+  for (const auto& f : temp_nfg_) {
+    bool in_range = false;
+    for (const auto& k : f->keys()) {
+      if (k > max) {
+        in_range = false;
+        break;
+      } else if (k >= min) {
+        in_range = true;
+      }
+    }
+    if (in_range) {
+      nfg->add(f);
+    }
+  }
+}
 
 void DeformationGraph::setParams(const KimeraRPGO::RobustSolverParams& params) {
   pgo_params_ = params;

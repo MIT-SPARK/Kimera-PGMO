@@ -33,18 +33,39 @@ bool KimeraPgmoInterface::loadParameters(const ros::NodeHandle& n) {
 
   if (!n.getParam("embed_trajectory_delta_t", embed_delta_t_)) return false;
 
+  if (!n.getParam("num_interp_pts", num_interp_pts_)) return false;
+  assert(num_interp_pts_ > 1);
+
+  if (!n.getParam("interp_horizon", interp_horizon_)) return false;
+
+  if (!n.getParam("add_initial_prior", b_add_initial_prior_)) return false;
+
+  if (!n.getParam("covariance/odom", odom_variance_)) return false;
+  if (!n.getParam("covariance/loop_close", lc_variance_)) return false;
+  if (!n.getParam("covariance/prior", prior_variance_)) return false;
+  if (!n.getParam("covariance/mesh_mesh", mesh_edge_variance_)) return false;
+  if (!n.getParam("covariance/pose_mesh", pose_mesh_variance_)) return false;
+
   // start deformation graph module
-  double pgo_trans_threshold, pgo_rot_threshold, gnc_alpha;
-  if (!n.getParam("rpgo/translation_threshold", pgo_trans_threshold))
+  double odom_trans_threshold, odom_rot_threshold, pcm_trans_threshold,
+      pcm_rot_threshold, gnc_alpha;
+  if (!n.getParam("rpgo/odom_trans_threshold", odom_trans_threshold))
     return false;
-  if (!n.getParam("rpgo/rotation_threshold", pgo_rot_threshold)) return false;
+  if (!n.getParam("rpgo/odom_rot_threshold", odom_rot_threshold)) return false;
+  if (!n.getParam("rpgo/pcm_trans_threshold", pcm_trans_threshold))
+    return false;
+  if (!n.getParam("rpgo/pcm_rot_threshold", pcm_rot_threshold)) return false;
   if (!n.getParam("rpgo/gnc_alpha", gnc_alpha)) return false;
 
   std::string log_path;
   n.param<std::string>("output_prefix", log_path, "");
 
-  if (!deformation_graph_->initialize(
-          pgo_trans_threshold, pgo_rot_threshold, gnc_alpha, log_path)) {
+  if (!deformation_graph_->initialize(odom_trans_threshold,
+                                      odom_rot_threshold,
+                                      pcm_trans_threshold,
+                                      pcm_rot_threshold,
+                                      gnc_alpha,
+                                      log_path)) {
     ROS_ERROR("KimeraPgmo: Failed to initialize deformation graph.");
     return false;
   }
@@ -121,7 +142,8 @@ void KimeraPgmoInterface::processIncrementalPoseGraph(
     const gtsam::Symbol key_symb(GetRobotPrefix(robot_id), 0);
     const gtsam::Pose3& init_pose = RosToGtsam(msg->nodes[0].pose);
     // Initiate first node but do not add prior
-    deformation_graph_->addNewNode(key_symb.key(), init_pose, false);
+    deformation_graph_->addNewNode(
+        key_symb.key(), init_pose, b_add_initial_prior_, prior_variance_);
     // Add to trajectory and timestamp map
     initial_trajectory->push_back(init_pose);
     if (use_msg_time_) {
@@ -178,12 +200,14 @@ void KimeraPgmoInterface::processIncrementalPoseGraph(
         unconnected_nodes->push(current_node);
         // Add the pose estimate of new node and between factor (odometry) to
         // deformation graph
-        deformation_graph_->addNewBetween(from_key, to_key, measure, new_pose);
+        deformation_graph_->addNewBetween(
+            from_key, to_key, measure, new_pose, odom_variance_);
       } else if (pg_edge.type == pose_graph_tools::PoseGraphEdge::LOOPCLOSE &&
                  run_mode_ == RunMode::FULL) {
         // Loop closure edge (only add if we are in full optimization mode )
         // Add to deformation graph
-        deformation_graph_->addNewBetween(from_key, to_key, measure);
+        deformation_graph_->addNewBetween(
+            from_key, to_key, measure, gtsam::Pose3(), lc_variance_);
         ROS_INFO(
             "KimeraPgmo: Loop closure detected between robot %d node %d and "
             "robot %d node %d.",
@@ -214,15 +238,15 @@ void KimeraPgmoInterface::processOptimizedPath(
         gtsam::Symbol(GetRobotPrefix(robot_id), i).key(),
         RosToGtsam(path_msg->poses[i].pose)));
   }
-  deformation_graph_->addNodeMeasurements(node_estimates);
+  deformation_graph_->addNodeMeasurements(node_estimates, prior_variance_);
 }
 
-bool KimeraPgmoInterface::optimizeFullMesh(
-    const kimera_pgmo::TriangleMeshIdStamped& mesh_msg,
-    pcl::PolygonMesh::Ptr optimized_mesh,
-    bool no_optimize) {
+bool KimeraPgmoInterface::optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
+                                           pcl::PolygonMesh::Ptr optimized_mesh,
+                                           bool no_optimize) {
+  std::vector<ros::Time> mesh_vertex_stamps;
   const pcl::PolygonMesh& input_mesh =
-      TriangleMeshMsgToPolygonMesh(mesh_msg.mesh);
+      PgmoMeshMsgToPolygonMesh(mesh_msg, &mesh_vertex_stamps);
   // check if empty
   if (input_mesh.cloud.height * input_mesh.cloud.width == 0) return false;
 
@@ -233,12 +257,21 @@ bool KimeraPgmoInterface::optimizeFullMesh(
   // Optimize mesh
   try {
     if (run_mode_ == RunMode::DPGMO || no_optimize) {
-      *optimized_mesh = deformation_graph_->deformMesh(
-          input_mesh, GetVertexPrefix(robot_id), dpgmo_values_);
+      *optimized_mesh =
+          deformation_graph_->deformMesh(input_mesh,
+                                         mesh_vertex_stamps,
+                                         GetVertexPrefix(robot_id),
+                                         dpgmo_values_,
+                                         num_interp_pts_,
+                                         interp_horizon_);
     } else {
       deformation_graph_->optimize();
       *optimized_mesh =
-          deformation_graph_->deformMesh(input_mesh, GetVertexPrefix(robot_id));
+          deformation_graph_->deformMesh(input_mesh,
+                                         mesh_vertex_stamps,
+                                         GetVertexPrefix(robot_id),
+                                         num_interp_pts_,
+                                         interp_horizon_);
     }
   } catch (const std::out_of_range& e) {
     ROS_ERROR("Failed to deform mesh. Out of range error. ");
@@ -296,8 +329,12 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
   }
 
   // Add to deformation graph
-  deformation_graph_->addNewMeshEdgesAndNodes(
-      new_mesh_edges, new_mesh_nodes, &new_indices, false);
+  deformation_graph_->addNewMeshEdgesAndNodes(new_mesh_edges,
+                                              new_mesh_nodes,
+                                              mesh_graph_msg->header.stamp,
+                                              &new_indices,
+                                              mesh_edge_variance_,
+                                              false);
 
   double msg_time;
   if (use_msg_time_) {
@@ -333,6 +370,7 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
         gtsam::Symbol(GetRobotPrefix(robot_id), closest_node),
         new_indices,
         GetVertexPrefix(robot_id),
+        pose_mesh_variance_,
         false);
     connection = true;
     if (abs(node_timestamps[closest_node].toSec() - msg_time) >

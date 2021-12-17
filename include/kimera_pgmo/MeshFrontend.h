@@ -53,7 +53,6 @@ class MeshFrontend {
    * mesh
    */
   inline const std::vector<size_t>& getActiveFullMeshVertices() const {
-    std::unique_lock<std::mutex>(compression_mutex_);
     return active_indices_;
   }
 
@@ -128,7 +127,7 @@ class MeshFrontend {
   /*! \brief Publish the full (compressed) mesh stored
    *  - stamp: timestamp
    */
-  void publishFullMesh(const ros::Time& stamp) const;
+  void publishFullMesh() const;
 
   /*! \brief Publish the simplified mesh (used as the mesh part of deformation
    * graph)
@@ -196,6 +195,8 @@ class MeshFrontend {
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices_;
   // Triangles (connections) of full mesh
   boost::shared_ptr<std::vector<pcl::Vertices>> triangles_;
+  // Vertices time stamps of full mesh
+  boost::shared_ptr<std::vector<ros::Time>> vertex_stamps_;
   // Vertices of simplified mesh used for the deformation graph
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr graph_vertices_;
   // Triangles of the simplified mesh used for the deformation graph
@@ -221,7 +222,9 @@ class MeshFrontend {
 
   std::atomic<bool> shutdown_{false};
 
-  std::mutex compression_mutex_;
+  std::mutex full_mutex_; // mutex for full mesh related structures
+  std::mutex graph_mutex_; // mutex for deformation graph related structures
+
   std::vector<size_t> active_indices_;
   std::atomic<uint64_t> last_full_compression_stamp_;
 

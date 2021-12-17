@@ -100,13 +100,19 @@ class DeformationGraph {
   inline void setVerboseFlag(bool verbose) { verbose_ = verbose; }
 
   /*! \brief Initialize deformation graph along with robust solver backend.
-   *  - pgo_trans_threshold: translation threshold (meters of error per node)
+   *  - odom_trans_threshold: translation threshold (meters of error per node)
+   * for odometry check outlier rejection
+   *  - odom_rot_threshold: rotation threshold (radians of error per node) for
+   * odometry check outlier rejection
+   *  - pcm_trans_threshold: translation threshold (meters of error per node)
    * for backend PCM outlier rejection
-   *  - pgo_rot_threshold: rotation threshold (radians of error per node) for
+   *  - pcm_rot_threshold: rotation threshold (radians of error per node) for
    * backend PCM outlier rejection
    */
-  bool initialize(double pgo_trans_threshold,
-                  double pgo_rot_threshold,
+  bool initialize(double odom_trans_threshold,
+                  double odom_rot_threshold,
+                  double pcm_trans_threshold,
+                  double pcm_rot_threshold,
                   double gnc_alpha,
                   const std::string& log_path = "");
 
@@ -117,74 +123,123 @@ class DeformationGraph {
    *  - transform: imposed transform (geometry_msgs Pose)
    *  - prefix: the prefixes of the key of the nodes corresponding to mesh
    * vertices
+   *  - variance: covariance of the prior to attach
    */
   void addMeasurement(const Vertex& v,
                       const geometry_msgs::Pose& transform,
-                      const char& prefix);
+                      const char& prefix,
+                      double variance = 1e-10);
 
   /*! \brief Fix the transform of a node corresponding to a pose graph node
    *  - key: Key of the node to transform. Note that this is the key after
    * adding the prefix, etc gtsam::Symbol(prefix, index).key()
    *  - pose: Transform to impose (GTSAM Pose3)
+   *  - variance: covariance of the prior
    */
-  void addNodeMeasurement(const gtsam::Key& key, const gtsam::Pose3 pose);
+  void addNodeMeasurement(const gtsam::Key& key,
+                          const gtsam::Pose3 pose,
+                          double variance = 1e-4);
 
   /*! \brief Fix the measurements of multiple nodes
    *  - measurements: a vector of key->pose pair of node measurements
+   *  - variance: covariance of the prior factors
    */
   void addNodeMeasurements(
-      const std::vector<std::pair<gtsam::Key, gtsam::Pose3> >& measurements);
+      const std::vector<std::pair<gtsam::Key, gtsam::Pose3> >& measurements,
+      double variance = 1e-4);
 
   /*! \brief Initialize with new node of a trajectory
    *  - key: Key of first node in new trajectory
    *  - initial_pose: Initial measurement of first node
    *  - add_prior: boolean - add a Prior Factor or not
+   *  - prior_variance: covariance of the prior
    */
   void addNewNode(const gtsam::Key& key,
                   const gtsam::Pose3& initial_pose,
-                  bool add_prior);
+                  bool add_prior,
+                  double prior_variance = 1e-8);
 
   /*! \brief Initialize with new node of a trajectory, but keep it temporary
    *  - key: Key of first node in new trajectory
    *  - initial_pose: Initial measurement of first node
    *  - add_prior: boolean - add a Prior Factor or not
+   *  - prior_variance: covariance of the prior
    */
   void addNewTempNode(const gtsam::Key& key,
                       const gtsam::Pose3& initial_pose,
-                      bool add_prior);
+                      bool add_prior,
+                      double prior_variance = 1e-8);
+
+  /*! \brief Add nodes and their valences, but keep them temporary
+   *  - keys: vector of keys of the nodes to be added
+   *  - initial_poses: poses of the nodes to be added
+   *  - valences: mesh graph vertices that are valences of the nodes
+   *  - valence_prefix: prefix of the valences (associated to robot id)
+   *  - add_prior: boolean - add a Prior Factor or not
+   *  - edge_variance: covariance of the node to mesh edges
+   *  - prior_variance: if add prior, covariance on the nodes
+   */
+  void addNewTempNodesValences(const std::vector<gtsam::Key>& keys,
+                               const std::vector<gtsam::Pose3>& initial_poses,
+                               const std::vector<Vertices>& valences,
+                               const char& valence_prefix,
+                               bool add_prior,
+                               double edge_variance = 1e-2,
+                               double prior_variance = 1e-8);
 
   /*! \brief Add a new between factor to the deformation graph
    *  - key_from: Key of front node to connect between factor
    *  - key_to: Key of back node to connect between factor
    *  - meas: Measurement of between factor
    *  - Estimated position of new node (the back node if node is new)
+   *  - variance: covariance on the between factor
    */
   void addNewBetween(const gtsam::Key& key_from,
                      const gtsam::Key& key_to,
                      const gtsam::Pose3& meas,
-                     const gtsam::Pose3& initial_pose = gtsam::Pose3());
+                     const gtsam::Pose3& initial_pose = gtsam::Pose3(),
+                     double variance = 1e-4);
 
   /*! \brief Add a new temporary between factor to the deformation graph
    *  - key_from: Key of front node to connect between factor
    *  - key_to: Key of back node to connect between factor
    *  - meas: Measurement of between factor
    *  - Estimated position of new node (the back node if node is new)
+   *  - variance: covariance on the temporary between factor
    */
   void addNewTempBetween(const gtsam::Key& key_from,
                          const gtsam::Key& key_to,
                          const gtsam::Pose3& meas,
-                         const gtsam::Pose3& initial_pose = gtsam::Pose3());
+                         const gtsam::Pose3& initial_pose = gtsam::Pose3(),
+                         double variance = 1e-2);
+
+  /*! \brief Add new edges as temporary between factor to the deformation graph
+   *  - edges: pose_graph_tools::PoseGraph type with the edges to add
+   *  - variance: covariance on the added temp edges
+   */
+  void addNewTempEdges(const pose_graph_tools::PoseGraph& edges,
+                       double variance = 1e-2);
+
+  /*! \brief Directly add factors and values as temporary factors and values
+   *  - factors: GTSAM nonlinear factor graph container of factors
+   *  - values: GTSAM values container of values
+   */
+  void addTempFactors(const gtsam::NonlinearFactorGraph& factors,
+                      const gtsam::Values& values);
 
   /*! \brief Add a new mesh edge to deformation graph
    *  - mesh_edges: edges storing key-key pairs
    *  - mesh_nodes: gtsam values encoding key value pairs of new nodes
    *  - added_indices: indices of nodes that was successfully added
+   *  - variance: covariance of the deformation graph edges
    *  - optimize: optimize or just add to pgo
    */
   void addNewMeshEdgesAndNodes(
       const std::vector<std::pair<gtsam::Key, gtsam::Key> >& mesh_edges,
       const gtsam::Values& mesh_nodes,
+      const ros::Time& stamp,
       std::vector<size_t>* added_indices,
+      double variance = 1e-4,
       bool optimize = false);
 
   /*! \brief Add connections from a pose graph node to mesh vertices nodes
@@ -192,11 +247,13 @@ class DeformationGraph {
    *  - valences: The mesh vertices nodes to connect to
    *  - prefix: the prefixes of the key of the nodes corresponding to mesh
    * vertices
+   *  - variance: covariance of the deformation graph edges
    *  - optimize: optimize or just add to pgo
    */
   void addNodeValence(const gtsam::Key& key,
                       const Vertices& valences,
                       const char& valence_prefix,
+                      double variance = 1e-4,
                       bool optimize = false);
 
   /*! \brief Add temporary connections from a pose graph node to mesh vertices
@@ -205,11 +262,13 @@ class DeformationGraph {
    *  - valences: The mesh vertices nodes to connect to
    *  - prefix: the prefixes of the key of the nodes corresponding to mesh
    * vertices
+   *  - variance: covariance of the deformation graph edges
    *  - optimize: optimize or just add to pgo
    */
   void addTempNodeValence(const gtsam::Key& key,
                           const Vertices& valences,
                           const char& valence_prefix,
+                          double variance = 1e-2,
                           bool optimize = false);
 
   /*! \brief Remove sll prior factors of nodes that have given prefix
@@ -224,27 +283,35 @@ class DeformationGraph {
 
   /*! \brief Deform a mesh based on the deformation graph
    * - original_mesh: mesh to deform
-   * - k: how many nearby nodes to use to adjust new position of vertices when
+   * - stamps: timestamp of vertices in mesh to deform
    * - prefix: the prefixes of the key of the nodes corresponding to mesh
-   * vertices
-   * deforming
+   * - k: how many nearby nodes to use to adjust new position of vertices when
+   * interpolating for deformed mesh
+   * - tol_t: largest difference in time such that a control point can be
+   * considered for association
    */
   pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
+                              const std::vector<ros::Time>& stamps,
                               const char& prefix,
-                              size_t k = 4);
+                              size_t k = 4,
+                              double tol_t = 10.0);
 
   /*! \brief Deform a mesh based on the deformation graph
    * - original_mesh: mesh to deform
-   * - k: how many nearby nodes to use to adjust new position of vertices when
+   * - stamps: timestamp of vertices in mesh to deform
    * - prefix: the prefixes of the key of the nodes corresponding to mesh
-   * vertices deforming
-   * - values: values consisting of the key-pose pairs of the optimized mesh
-   * vertices
+   * - optimized_values: values of the optimized control points
+   * - k: how many nearby nodes to use to adjust new position of vertices when
+   * interpolating for deformed mesh
+   * - tol_t: largest difference in time such that a control point can be
+   * considered for association
    */
   pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
+                              const std::vector<ros::Time>& stamps,
                               const char& prefix,
-                              const gtsam::Values& values,
-                              size_t k = 4);
+                              const gtsam::Values& optimized_values,
+                              size_t k = 4,
+                              double tol_t = 10.0);
 
   /*! \brief Get the number of mesh vertices nodes in the deformation graph
    * - outputs the number of mesh vertices nodes
@@ -357,6 +424,25 @@ class DeformationGraph {
 
   void setParams(const KimeraRPGO::RobustSolverParams& params);
 
+  /*! \brief Gets the temp values since last optimization
+   *  - min: get values with key above this value
+   *  - max: get values with key less than this value
+   *  - outputs last temp values as GTSAM Values
+   */
+  void getGtsamTempValuesFiltered(gtsam::Values* values,
+                                  const gtsam::Key& min,
+                                  const gtsam::Key& max) const;
+
+  /*! \brief Gets the temp factors added to the backend, minus the detected
+   * outliers
+   *  - min: get factors with at least one key above this value
+   *  - max: get factors with both keys below this value
+   *  - outputs the factors as a GTSAM NonlinearFactorGraph
+   */
+  void getGtsamTempFactorsFiltered(gtsam::NonlinearFactorGraph* nfg,
+                                   const gtsam::Key& min,
+                                   const gtsam::Key& max) const;
+
  private:
   bool verbose_;
 
@@ -370,6 +456,7 @@ class DeformationGraph {
   std::unordered_map<gtsam::Key, gtsam::Pose3> temp_pg_initial_poses_;
 
   std::map<char, std::vector<gtsam::Point3> > vertex_positions_;
+  std::map<char, std::vector<ros::Time> > vertex_stamps_;
   // Number of mesh vertices corresponding a particular prefix thus far
   std::map<char, size_t> num_vertices_;
 

@@ -26,7 +26,7 @@
 
 #include "kimera_pgmo/AbsolutePoseStamped.h"
 #include "kimera_pgmo/DeformationGraph.h"
-#include "kimera_pgmo/TriangleMeshIdStamped.h"
+#include "kimera_pgmo/KimeraPgmoMesh.h"
 #include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
@@ -137,13 +137,13 @@ class KimeraPgmoInterface {
 
   /*! \brief Optimize the full mesh (and pose graph) using the deformation graph
    * then publish the deformed mesh
-   *  - mesh_msg: the full unoptimized mesh in mesh_msgs TriangleMeshStamped
+   *  - mesh_msg: the full unoptimized mesh in KimeraPgmoMesh format
    * format
    * - optimized_mesh: ptr to optimized (deformed) mesh
    * - no_optimize: do not call optimize. deform mesh only based on existing
    * estimates
    */
-  bool optimizeFullMesh(const kimera_pgmo::TriangleMeshIdStamped& mesh_msg,
+  bool optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
                         pcl::PolygonMesh::Ptr optimized_mesh,
                         bool no_optimize = false);
 
@@ -241,10 +241,24 @@ class KimeraPgmoInterface {
   // time horizon when creating simplifed mesh
   double compression_time_horizon_;
 
+  // number of control pts to consider when interpolating for full mesh (k)
+  int num_interp_pts_;
+
+  // time horizon within which a control point is valid
+  double interp_horizon_;
+
   // Track number of loop closures
   size_t num_loop_closures_;
 
   // DPGMO optimized values
   gtsam::Values dpgmo_values_;
+
+  bool b_add_initial_prior_;
+  // Covariances
+  double odom_variance_;
+  double lc_variance_;
+  double prior_variance_;
+  double mesh_edge_variance_;
+  double pose_mesh_variance_;
 };
 }  // namespace kimera_pgmo

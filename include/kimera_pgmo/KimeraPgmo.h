@@ -7,8 +7,8 @@
 
 #include "kimera_pgmo/AbsolutePoseStamped.h"
 #include "kimera_pgmo/KimeraPgmoInterface.h"
+#include "kimera_pgmo/KimeraPgmoMesh.h"
 #include "kimera_pgmo/RequestMeshFactors.h"
-#include "kimera_pgmo/TriangleMeshIdStamped.h"
 #include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
@@ -92,8 +92,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
    *  - mesh_msg: the full unoptimized mesh in mesh_msgs TriangleMeshStamped
    * format
    */
-  void fullMeshCallback(
-      const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg);
+  void fullMeshCallback(const KimeraPgmoMesh::ConstPtr& mesh_msg);
 
   /*! \brief Publish the transform for each robot id based on the latest node in
    * pose graph
@@ -187,7 +186,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
   int robot_id_;
 
   // Store last received full mesh
-  kimera_pgmo::TriangleMeshIdStamped last_mesh_msg_;
+  KimeraPgmoMesh last_mesh_msg_;
 
   // Track number of loop closures
   size_t num_loop_closures_;

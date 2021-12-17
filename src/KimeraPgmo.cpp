@@ -236,7 +236,7 @@ void KimeraPgmo::optimizedPathCallback(
 }
 
 void KimeraPgmo::fullMeshCallback(
-    const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg) {
+    const kimera_pgmo::KimeraPgmoMesh::ConstPtr& mesh_msg) {
   last_mesh_msg_ = *mesh_msg;
   return;
 }

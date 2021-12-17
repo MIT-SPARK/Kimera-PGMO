@@ -6,7 +6,7 @@
  */
 #include <chrono>
 
-#include "kimera_pgmo/TriangleMeshIdStamped.h"
+#include "kimera_pgmo/KimeraPgmoMesh.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
 #include "kimera_pgmo/MeshFrontend.h"
@@ -17,6 +17,7 @@ namespace kimera_pgmo {
 
 MeshFrontend::MeshFrontend()
     : vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>),
+      vertex_stamps_(new std::vector<ros::Time>),
       graph_vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>),
       triangles_(new std::vector<pcl::Vertices>),
       graph_triangles_(new std::vector<pcl::Vertices>),
@@ -112,7 +113,7 @@ bool MeshFrontend::loadParameters(const ros::NodeHandle& n) {
 bool MeshFrontend::createPublishers(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
   full_mesh_pub_ =
-      nl.advertise<kimera_pgmo::TriangleMeshIdStamped>("full_mesh", 1, false);
+      nl.advertise<kimera_pgmo::KimeraPgmoMesh>("full_mesh", 1, false);
   simplified_mesh_pub_ = nl.advertise<mesh_msgs::TriangleMeshStamped>(
       "deformation_graph_mesh", 10, false);
   mesh_graph_pub_ = nl.advertise<pose_graph_tools::PoseGraph>(
@@ -139,7 +140,7 @@ void MeshFrontend::voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg) {
 
 void MeshFrontend::fullMeshUpdateSpin() {
   ROS_INFO("Started full mesh update thread. ");
-  ros::Rate r(30.0);
+  ros::WallRate r(30.0);
   while (ros::ok() && !shutdown_) {
     const size_t n_msg = full_mesh_input_.size();
     if (n_msg > 0) {
@@ -150,7 +151,7 @@ void MeshFrontend::fullMeshUpdateSpin() {
         last_full_compression_stamp_ = stamp.toNSec();
         full_mesh_input_.pop_front();
       }
-      publishFullMesh(stamp);
+      publishFullMesh();
     }
     r.sleep();
   }
@@ -159,7 +160,7 @@ void MeshFrontend::fullMeshUpdateSpin() {
 
 void MeshFrontend::graphMeshUpdateSpin() {
   ROS_INFO("Started graph mesh update thread. ");
-  ros::Rate r(30.0);
+  ros::WallRate r(30.0);
   while (ros::ok() && !shutdown_) {
     const size_t n_msg = graph_mesh_input_.size();
     if (n_msg > 0) {
@@ -205,17 +206,18 @@ void MeshFrontend::processVoxbloxMeshFull(
       f_comp_stop - f_comp_start);
 
   { // start critical section
-    std::unique_lock<std::mutex>(compression_mutex_);
+    std::unique_lock<std::mutex> lock(full_mutex_);
     // Update the mesh vertices and surfaces for class variables
     full_mesh_compression_->getVertices(vertices_);
     full_mesh_compression_->getStoredPolygons(triangles_);
+    full_mesh_compression_->getVertexStamps(vertex_stamps_);
+    assert(vertex_stamps_.size() == vertices_.size());
     // save the active indices
     active_indices_ = full_mesh_compression_->getActiveVerticesIndex();
-  } // end critical section
-
-  if (log_output_) {
-    logFullProcess(f_comp_duration.count());
-  }
+    if (log_output_) {
+      logFullProcess(f_comp_duration.count());
+    }
+  }  // end critical section
   return;
 }
 
@@ -246,39 +248,38 @@ void MeshFrontend::processVoxbloxMeshGraph(
   auto g_comp_duration = std::chrono::duration_cast<std::chrono::microseconds>(
       g_comp_stop - g_comp_start);
 
-  // Update the simplified mesh vertices and surfaces for class variables
-  d_graph_compression_->getVertices(graph_vertices_);
-  d_graph_compression_->getStoredPolygons(graph_triangles_);
+  {  // start critical section
+    std::unique_lock<std::mutex> lock(graph_mutex_);
+    // Update the simplified mesh vertices and surfaces for class variables
+    d_graph_compression_->getVertices(graph_vertices_);
+    d_graph_compression_->getStoredPolygons(graph_triangles_);
 
-  std::vector<Edge> new_graph_edges;
-  if (new_graph_indices->size() > 0 && new_graph_triangles->size() > 0) {
-    // Add nodes and edges to graph
-    new_graph_edges = simplified_mesh_graph_.addPointsAndSurfaces(
-        *new_graph_indices.get(), *new_graph_triangles.get());
-    // Publish edges and nodes
-    last_mesh_graph_ = publishMeshGraph(
-        new_graph_edges, *new_graph_indices.get(), msg->header);
-  }
-  if (log_output_) {
-    logGraphProcess(g_comp_duration.count(),
-                    new_graph_indices->size(),
-                    new_graph_edges.size());
+    std::vector<Edge> new_graph_edges;
+    if (new_graph_indices->size() > 0 && new_graph_triangles->size() > 0) {
+      // Add nodes and edges to graph
+      new_graph_edges = simplified_mesh_graph_.addPointsAndSurfaces(
+          *new_graph_indices.get(), *new_graph_triangles.get());
+      // Publish edges and nodes
+      last_mesh_graph_ = publishMeshGraph(
+          new_graph_edges, *new_graph_indices.get(), msg->header);
+    }
+    if (log_output_) {
+      logGraphProcess(g_comp_duration.count(),
+                      new_graph_indices->size(),
+                      new_graph_edges.size());
+    }
   }
   return;
 }
 
-void MeshFrontend::publishFullMesh(const ros::Time& stamp) const {
+void MeshFrontend::publishFullMesh() const {
   if (full_mesh_pub_.getNumSubscribers() == 0) return;
+  if (vertices_->size() == 0) return;
   // convert to triangle mesh msg
-  mesh_msgs::TriangleMesh mesh_msg =
-      kimera_pgmo::PolygonMeshToTriangleMeshMsg(*vertices_, *triangles_);
+  KimeraPgmoMesh mesh_msg = kimera_pgmo::PolygonMeshToPgmoMeshMsg(
+      robot_id_, *vertices_, *triangles_, *vertex_stamps_, "world");
   // publish
-  kimera_pgmo::TriangleMeshIdStamped new_msg;
-  new_msg.header.stamp = stamp;
-  new_msg.header.frame_id = "world";
-  new_msg.mesh = mesh_msg;
-  new_msg.id = robot_id_;
-  full_mesh_pub_.publish(new_msg);
+  full_mesh_pub_.publish(mesh_msg);
   return;
 }
 

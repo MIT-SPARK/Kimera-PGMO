@@ -142,7 +142,7 @@ void MeshToEdgesAndNodes(
 
 TEST(test_deformation_graph, addNewMeshEdgesAndNodes) {
   DeformationGraph graph;
-  graph.initialize(100, 100, 0);
+  graph.initialize(100, 100, 100, 100, 0);
 
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
@@ -152,7 +152,8 @@ TEST(test_deformation_graph, addNewMeshEdgesAndNodes) {
   MeshToEdgesAndNodes(simple_mesh, 's', &mesh_nodes, &mesh_edges);
 
   std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
+  graph.addNewMeshEdgesAndNodes(
+      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
 
   // Check sizes
   EXPECT_EQ(3, graph.getNumVertices());
@@ -174,20 +175,27 @@ TEST(test_deformation_graph, addNewMeshEdgesAndNodes) {
 
 TEST(test_deformation_graph, reconstructMesh) {
   DeformationGraph graph;
-  graph.initialize(100, 100, 0);
+  graph.initialize(100, 100, 100, 100, 0);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
+  size_t num_vertices = original_mesh.cloud.width * original_mesh.cloud.height;
+  std::vector<ros::Time> original_mesh_stamps;
+  for (size_t i = 0; i < num_vertices; i++) {
+    original_mesh_stamps.push_back(ros::Time(0));
+  }
 
   gtsam::Values mesh_nodes;
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
   MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
 
   std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
+  graph.addNewMeshEdgesAndNodes(
+      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
 
   // First try deform with k = 1, should not change
-  pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 'v', 1);
+  pcl::PolygonMesh new_mesh =
+      graph.deformMesh(original_mesh, original_mesh_stamps, 'v', 1);
   pcl::PointCloud<pcl::PointXYZRGBA> deformed_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, deformed_vertices);
   EXPECT_EQ(5, deformed_vertices.points.size());
@@ -202,7 +210,7 @@ TEST(test_deformation_graph, reconstructMesh) {
   EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
 
   // Try with k = 2
-  new_mesh = graph.deformMesh(original_mesh, 'v', 2);
+  new_mesh = graph.deformMesh(original_mesh, original_mesh_stamps, 'v', 2);
   pcl::fromPCLPointCloud2(new_mesh.cloud, deformed_vertices);
   EXPECT_EQ(5, deformed_vertices.points.size());
   EXPECT_EQ(1, deformed_vertices.points[1].x);
@@ -218,15 +226,22 @@ TEST(test_deformation_graph, reconstructMesh) {
 
 TEST(test_deformation_graph, deformMeshtranslation) {
   DeformationGraph graph;
-  graph.initialize(100, 100, 0);
+  graph.initialize(100, 100, 100, 100, 0);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
+  size_t num_vertices = original_mesh.cloud.width * original_mesh.cloud.height;
+  std::vector<ros::Time> original_mesh_stamps;
+  for (size_t i = 0; i < num_vertices; i++) {
+    original_mesh_stamps.push_back(ros::Time(0));
+  }
+
   gtsam::Values mesh_nodes;
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
   MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
   std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
+  graph.addNewMeshEdgesAndNodes(
+      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
 
   // deform mesh
   geometry_msgs::Pose distortion;
@@ -247,7 +262,8 @@ TEST(test_deformation_graph, deformMeshtranslation) {
     expected_vertices.push_back(new_point);
   }
   // First try deform with k = 1, should not change
-  pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 'v', 1);
+  pcl::PolygonMesh new_mesh =
+      graph.deformMesh(original_mesh, original_mesh_stamps, 'v', 1);
   pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
 
@@ -256,7 +272,7 @@ TEST(test_deformation_graph, deformMeshtranslation) {
   EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
 
   // Try with k = 2
-  new_mesh = graph.deformMesh(original_mesh, 'v', 2);
+  new_mesh = graph.deformMesh(original_mesh, original_mesh_stamps, 'v', 2);
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
   EXPECT_TRUE(ComparePointcloud(expected_vertices, actual_vertices, 1e-6));
   EXPECT_EQ(original_mesh.polygons[0].vertices, new_mesh.polygons[0].vertices);
@@ -266,16 +282,24 @@ TEST(test_deformation_graph, deformMeshtranslation) {
 TEST(test_deformation_graph, deformMesh) {
   pcl::PolygonMeshPtr cube_mesh(new pcl::PolygonMesh());
   ReadMeshFromPly(std::string(DATASET_PATH) + "/cube.ply", cube_mesh);
+
+  size_t num_vertices = cube_mesh->cloud.width * cube_mesh->cloud.height;
+  std::vector<ros::Time> cube_mesh_stamps;
+  for (size_t i = 0; i < num_vertices; i++) {
+    cube_mesh_stamps.push_back(ros::Time(0));
+  }
+
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
   // deform mesh
   DeformationGraph graph;
-  graph.initialize(100, 100, 0);
+  graph.initialize(100, 100, 100, 100, 0);
 
   gtsam::Values mesh_nodes;
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
   MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
   std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
+  graph.addNewMeshEdgesAndNodes(
+      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
 
   geometry_msgs::Pose distortion;
   distortion.position.x = -0.5;
@@ -294,7 +318,8 @@ TEST(test_deformation_graph, deformMesh) {
     expected_vertices.push_back(new_point);
   }
   // Try with k = 3
-  pcl::PolygonMesh new_mesh = graph.deformMesh(*cube_mesh, 'v', 3);
+  pcl::PolygonMesh new_mesh =
+      graph.deformMesh(*cube_mesh, cube_mesh_stamps, 'v', 3);
   pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
   EXPECT_TRUE(ComparePointcloud(expected_vertices, actual_vertices, 1e-6));
@@ -306,7 +331,7 @@ TEST(test_deformation_graph, deformMesh) {
   distortion2.position.x = 1.5;
   graph.addMeasurement(1, distortion2, 'v');
   // Try with k = 3
-  new_mesh = graph.deformMesh(*cube_mesh, 'v', 2);
+  new_mesh = graph.deformMesh(*cube_mesh, cube_mesh_stamps, 'v', 2);
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
   EXPECT_NEAR(-0.5, actual_vertices.points[0].x, 0.001);
   EXPECT_NEAR(1.273, actual_vertices.points[1].x, 0.001);
@@ -317,7 +342,7 @@ TEST(test_deformation_graph, deformMesh) {
 
 TEST(test_deformation_graph, updateMesh) {
   DeformationGraph graph;
-  graph.initialize(100, 100, 0);
+  graph.initialize(100, 100, 100, 100, 0);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
@@ -326,7 +351,8 @@ TEST(test_deformation_graph, updateMesh) {
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
   MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
   std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
+  graph.addNewMeshEdgesAndNodes(
+      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
 
   EXPECT_EQ(3, graph.getNumVertices());
   EXPECT_EQ(0, graph.getVertices().points[0].x);
@@ -392,15 +418,21 @@ TEST(test_deformation_graph, updateMesh) {
 
 TEST(test_deformation_graph, addNodeMeasurement) {
   DeformationGraph graph;
-  graph.initialize(100, 100, 0);
+  graph.initialize(100, 100, 100, 100, 0);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
+  size_t num_vertices = simple_mesh.cloud.width * simple_mesh.cloud.height;
+  std::vector<ros::Time> simple_mesh_stamps;
+  for (size_t i = 0; i < num_vertices; i++) {
+    simple_mesh_stamps.push_back(ros::Time(0));
+  }
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
   gtsam::Values mesh_nodes;
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
   MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
   std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
+  graph.addNewMeshEdgesAndNodes(
+      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
 
   Vertices new_node_valences{0, 2};
   graph.addNewNode(
@@ -435,7 +467,8 @@ TEST(test_deformation_graph, addNodeMeasurement) {
   EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(
       factors[10]));
 
-  pcl::PolygonMesh new_mesh = graph.deformMesh(simple_mesh, 'v', 1);
+  pcl::PolygonMesh new_mesh =
+      graph.deformMesh(simple_mesh, simple_mesh_stamps, 'v', 1);
   pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
 
@@ -450,15 +483,21 @@ TEST(test_deformation_graph, addNodeMeasurement) {
 
 TEST(test_deformation_graph, addNodeMeasurements) {
   DeformationGraph graph;
-  graph.initialize(100, 100, 0);
+  graph.initialize(100, 100, 100, 100, 0);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
+  size_t num_vertices = simple_mesh.cloud.width * simple_mesh.cloud.height;
+  std::vector<ros::Time> simple_mesh_stamps;
+  for (size_t i = 0; i < num_vertices; i++) {
+    simple_mesh_stamps.push_back(ros::Time(0));
+  }
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
   gtsam::Values mesh_nodes;
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
   MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
   std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
+  graph.addNewMeshEdgesAndNodes(
+      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
 
   Vertices new_node_valences{0, 2};
   graph.addNewNode(
@@ -505,7 +544,8 @@ TEST(test_deformation_graph, addNodeMeasurements) {
   EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(
       factors[11]));
 
-  pcl::PolygonMesh new_mesh = graph.deformMesh(simple_mesh, 'v', 1);
+  pcl::PolygonMesh new_mesh =
+      graph.deformMesh(simple_mesh, simple_mesh_stamps, 'v', 1);
   pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
 
@@ -520,15 +560,21 @@ TEST(test_deformation_graph, addNodeMeasurements) {
 
 TEST(test_deformation_graph, removePriorsWithPrefix) {
   DeformationGraph graph;
-  graph.initialize(100, 100, 0);
+  graph.initialize(100, 100, 100, 100, 0);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
+  size_t num_vertices = simple_mesh.cloud.width * simple_mesh.cloud.height;
+  std::vector<ros::Time> simple_mesh_stamps;
+  for (size_t i = 0; i < num_vertices; i++) {
+    simple_mesh_stamps.push_back(ros::Time(0));
+  }
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
   gtsam::Values mesh_nodes;
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
   MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
   std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
+  graph.addNewMeshEdgesAndNodes(
+      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
 
   Vertices new_node_valences{0, 2};
   graph.addNewNode(
@@ -559,7 +605,8 @@ TEST(test_deformation_graph, removePriorsWithPrefix) {
   EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(
       factors[11]));
 
-  pcl::PolygonMesh new_mesh = graph.deformMesh(simple_mesh, 'v', 1);
+  pcl::PolygonMesh new_mesh =
+      graph.deformMesh(simple_mesh, simple_mesh_stamps, 'v', 1);
   pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
 
@@ -583,7 +630,7 @@ TEST(test_deformation_graph, removePriorsWithPrefix) {
       gtsam::Symbol('a', 0),
       gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)));
 
-  new_mesh = graph.deformMesh(simple_mesh, 'v', 1);
+  new_mesh = graph.deformMesh(simple_mesh, simple_mesh_stamps, 'v', 1);
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
 
   EXPECT_NEAR(0, actual_vertices.points[0].x, 0.001);
@@ -597,15 +644,21 @@ TEST(test_deformation_graph, removePriorsWithPrefix) {
 
 TEST(test_deformation_graph, addNewBetween) {
   DeformationGraph graph;
-  graph.initialize(100, 100, 0);
+  graph.initialize(100, 100, 100, 100, 0);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
+  size_t num_vertices = original_mesh.cloud.width * original_mesh.cloud.height;
+  std::vector<ros::Time> original_mesh_stamps;
+  for (size_t i = 0; i < num_vertices; i++) {
+    original_mesh_stamps.push_back(ros::Time(0));
+  }
   gtsam::Values mesh_nodes;
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
   MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
   std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
+  graph.addNewMeshEdgesAndNodes(
+      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
 
   EXPECT_EQ(3, graph.getNumVertices());
   EXPECT_EQ(0, graph.getVertices().points[0].x);
@@ -659,7 +712,8 @@ TEST(test_deformation_graph, addNewBetween) {
   EXPECT_EQ(gtsam::Symbol('v', 1).key(), factor1.back());
 
   // Expect no change
-  pcl::PolygonMesh new_mesh = graph.deformMesh(original_mesh, 'v', 1);
+  pcl::PolygonMesh new_mesh =
+      graph.deformMesh(original_mesh, original_mesh_stamps, 'v', 1);
   pcl::PointCloud<pcl::PointXYZ> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
 
@@ -736,7 +790,7 @@ TEST(test_deformation_graph, addNewBetween) {
 
 TEST(test_deformation_graph, addTemporary) {
   DeformationGraph graph;
-  graph.initialize(100, 100, 0);
+  graph.initialize(100, 100, 100, 100, 0);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   pcl::PolygonMesh original_mesh = SimpleMesh();
@@ -744,7 +798,8 @@ TEST(test_deformation_graph, addTemporary) {
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
   MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
   std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, &added_node_indices);
+  graph.addNewMeshEdgesAndNodes(
+      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
 
   Vertices new_node_valences{0, 2};
   graph.addNewNode(gtsam::Symbol('a', 0),
