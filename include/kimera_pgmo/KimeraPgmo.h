@@ -7,8 +7,8 @@
 
 #include "kimera_pgmo/AbsolutePoseStamped.h"
 #include "kimera_pgmo/KimeraPgmoInterface.h"
+#include "kimera_pgmo/KimeraPgmoMesh.h"
 #include "kimera_pgmo/RequestMeshFactors.h"
-#include "kimera_pgmo/TriangleMeshIdStamped.h"
 #include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
@@ -30,6 +30,28 @@ class KimeraPgmo : public KimeraPgmoInterface {
    *  - n: ROS node handle.
    */
   bool initialize(const ros::NodeHandle& n) override;
+
+  /*! \brief Get a pointer to the optimized mesh
+   */
+  inline pcl::PolygonMesh::ConstPtr getOptimizedMeshPtr() const {
+    return optimized_mesh_;
+  }
+
+  /*! \brief Get the current robot id
+   */
+  inline int getRobotId() const { return robot_id_; };
+
+  /*! \brief Get the current robot prefix
+   */
+  inline char getRobotPrefix() const { return robot_id_to_prefix.at(robot_id_); }
+
+  /*! \brief Get the timestamps for the robot
+   */
+  inline std::vector<ros::Time> getRobotTimestamps() const { return timestamps_; };
+
+  /*! \brief Timer callback to optimize factors and deform full mesh
+   */
+  void processTimerCallback(const ros::TimerEvent& ev);
 
  protected:
   /*! \brief Load the parameters required by this class through ROS
@@ -70,8 +92,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
    *  - mesh_msg: the full unoptimized mesh in mesh_msgs TriangleMeshStamped
    * format
    */
-  void fullMeshCallback(
-      const kimera_pgmo::TriangleMeshIdStamped::ConstPtr& mesh_msg);
+  void fullMeshCallback(const KimeraPgmoMesh::ConstPtr& mesh_msg);
 
   /*! \brief Publish the transform for each robot id based on the latest node in
    * pose graph
@@ -118,10 +139,6 @@ class KimeraPgmo : public KimeraPgmoInterface {
       kimera_pgmo::RequestMeshFactors::Request& request,
       kimera_pgmo::RequestMeshFactors::Response& response);
 
-  /*! \brief Timer callback to optimize factors and deform full mesh
-   */
-  void processTimerCallback(const ros::TimerEvent& ev);
-
   /*! \brief log the run-time stats such as pose graph size, mesh size, and run
    * time
    */
@@ -129,8 +146,8 @@ class KimeraPgmo : public KimeraPgmoInterface {
 
  protected:
   // optimized mesh for each robot
-  pcl::PolygonMesh optimized_mesh_;
-  std::vector<gtsam::Pose3> optimized_path_;
+  pcl::PolygonMesh::Ptr optimized_mesh_;
+  PathPtr optimized_path_;
   ros::Time last_mesh_stamp_;
 
   // Publishers
@@ -160,7 +177,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
   ros::ServiceServer req_mesh_edges_srv_;
 
   // Trajectory
-  std::vector<gtsam::Pose3> trajectory_;
+  Path trajectory_;
   std::queue<size_t> unconnected_nodes_;
   std::vector<ros::Time> timestamps_;
   std::queue<size_t> dpgmo_num_poses_last_req_;
@@ -169,7 +186,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
   int robot_id_;
 
   // Store last received full mesh
-  kimera_pgmo::TriangleMeshIdStamped last_mesh_msg_;
+  KimeraPgmoMesh last_mesh_msg_;
 
   // Track number of loop closures
   size_t num_loop_closures_;

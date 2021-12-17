@@ -14,6 +14,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_msgs/PolygonMesh.h>
+#include <voxblox/core/common.h>
 #include <voxblox_msgs/Mesh.h>
 
 // Define BlockIndex as used in voxblox
@@ -29,6 +30,15 @@ struct less<BlockIndex> {
 }  // namespace std
 
 namespace kimera_pgmo {
+/*! \brief Extract point in pcl format from voxblox mesh block
+ *  - mesh_block: voxblox mesh block to update mesh with
+ *  - block_edge_length: block_edge_length as given in voxblox msg
+ *  - vertices: the vertices of the mesh to be updated
+ *  - idx: index of point to be extracted
+ */
+pcl::PointXYZRGBA ExtractPoint(const voxblox_msgs::MeshBlock& mesh_block,
+                               const float& block_edge_length,
+                               const size_t& idx);
 
 /*! \brief Update a polygon mesh from a voxblox mesh block
  *  outputs the polygon mesh corresponding to mesh block
@@ -74,6 +84,7 @@ pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
  * mesh (represented as pointcloud of vertices + sets of triangles )
  *  - mesh_block: voxblox mesh block input
  *  - vertices: pointcloud of generated vertices
+ *  - msg_vertex_map: mapping from msg (mesh block) index to vertex index
  *  - triangles: vector of triplet indices inidicating the connections
  *  - check_duplicates_full: check for duplicated vertices against all vertices
  * (including the points already in vertices)
@@ -82,6 +93,7 @@ void VoxbloxMeshBlockToPolygonMesh(
     const voxblox_msgs::MeshBlock& mesh_block,
     float block_edge_length,
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
+    boost::shared_ptr<std::map<size_t, size_t> > msg_vertex_map,
     boost::shared_ptr<std::vector<pcl::Vertices> > triangles,
     const bool& check_duplicates_full = false);
 
@@ -91,5 +103,22 @@ void VoxbloxMeshBlockToPolygonMesh(
  */
 pcl::PolygonMesh VoxbloxToPolygonMesh(
     const voxblox_msgs::Mesh::ConstPtr& voxblox_mesh);
+
+/*! \brief Convert a pcl point to a voxblox longindex type for voxblox cell
+ * hashing
+ *  - pcl_point: pcl point type
+ *  - resolution: double resolution of cells
+ */
+template <class point_type>
+voxblox::LongIndex PclPtToVoxbloxLongIndex(const point_type& pcl_point,
+                                           double resolution) {
+  const double threshold_inv = 1. / resolution;
+  voxblox::Point vertex;
+  vertex << pcl_point.x, pcl_point.y, pcl_point.z;
+  const Eigen::Vector3d scaled_vector = vertex.cast<double>() * threshold_inv;
+  return voxblox::LongIndex(std::round(scaled_vector.x()),
+                            std::round(scaled_vector.y()),
+                            std::round(scaled_vector.z()));
+}
 
 }  // namespace kimera_pgmo

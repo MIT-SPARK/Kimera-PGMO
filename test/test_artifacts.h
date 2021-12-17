@@ -14,7 +14,7 @@
 #include <pcl_msgs/PolygonMesh.h>
 #include <pose_graph_tools/PoseGraph.h>
 
-#include "kimera_pgmo/TriangleMeshIdStamped.h"
+#include "kimera_pgmo/KimeraPgmoMesh.h"
 #include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 #include "kimera_pgmo/utils/CommonStructs.h"
@@ -261,12 +261,15 @@ pose_graph_tools::PoseGraph processMeshToGraph(
       new std::vector<pcl::Vertices>);
   boost::shared_ptr<std::vector<size_t> > graph_indices(
       new std::vector<size_t>);
+  boost::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
+      boost::make_shared<std::unordered_map<size_t, size_t> >();
 
   compressor->compressAndIntegrate(*mesh_vertices,
                                    mesh.polygons,
                                    graph_vertices,
                                    graph_triangles,
                                    graph_indices,
+                                   index_remappings,
                                    msg_time.toSec());
 
   const std::vector<Edge>& new_edges =

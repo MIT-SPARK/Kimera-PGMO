@@ -10,7 +10,7 @@
 #include <pcl/PolygonMesh.h>
 #include <pcl_conversions/pcl_conversions.h>
 
-#include "kimera_pgmo/compression/OctreeCompression.h"
+#include "kimera_pgmo/compression/VoxbloxCompression.h"
 
 namespace kimera_pgmo {
 
@@ -77,8 +77,8 @@ pcl::PolygonMesh createMesh(double scale) {
   return mesh;
 }
 
-TEST(test_octree_compression, constructor) {
-  OctreeCompression compression(1.0);
+TEST(test_voxblox_compression, constructor) {
+  VoxbloxCompression compression(1.0);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -100,8 +100,8 @@ TEST(test_octree_compression, constructor) {
   EXPECT_EQ(size_t(0), vertex_timestamps->size());
 }
 
-TEST(test_octree_compression, returnedValues) {
-  OctreeCompression compression(0.1);
+TEST(test_voxblox_compression, returnedValues) {
+  VoxbloxCompression compression(0.1);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -152,8 +152,8 @@ TEST(test_octree_compression, returnedValues) {
   EXPECT_EQ(6, new_triangles->at(3).vertices[2]);
 }
 
-TEST(test_octree_compression, storedValues) {
-  OctreeCompression compression(0.1);
+TEST(test_voxblox_compression, storedValues) {
+  VoxbloxCompression compression(0.1);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -228,8 +228,8 @@ TEST(test_octree_compression, storedValues) {
   EXPECT_EQ(101.0, vertex_timestamps->at(8));
 }
 
-TEST(test_octree_compression, pruneStoredMesh) {
-  OctreeCompression compression(0.1);
+TEST(test_voxblox_compression, pruneStoredMesh) {
+  VoxbloxCompression compression(0.1);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -333,8 +333,8 @@ TEST(test_octree_compression, pruneStoredMesh) {
   EXPECT_EQ(10, new_triangles->at(3).vertices[2]);
 }
 
-TEST(test_octree_compression, returnedValuesCompressed) {
-  OctreeCompression compression(10.0);
+TEST(test_voxblox_compression, returnedValuesCompressed) {
+  VoxbloxCompression compression(10.0);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -375,8 +375,8 @@ TEST(test_octree_compression, returnedValuesCompressed) {
   EXPECT_EQ(expected_indices, *new_indices);
 }
 
-TEST(test_octree_compression, storedValuesCompressed) {
-  OctreeCompression compression(10.0);
+TEST(test_voxblox_compression, storedValuesCompressed) {
+  VoxbloxCompression compression(10.0);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);

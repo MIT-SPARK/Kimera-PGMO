@@ -9,6 +9,7 @@
 #include <queue>
 #include <string>
 
+#include <mesh_msgs/TriangleMeshStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
 #include <pcl/PolygonMesh.h>
@@ -25,11 +26,15 @@
 
 #include "kimera_pgmo/AbsolutePoseStamped.h"
 #include "kimera_pgmo/DeformationGraph.h"
-#include "kimera_pgmo/TriangleMeshIdStamped.h"
+#include "kimera_pgmo/KimeraPgmoMesh.h"
 #include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
 namespace kimera_pgmo {
+
+typedef std::vector<gtsam::Pose3> Path;
+typedef std::shared_ptr<Path> PathPtr;
+
 class KimeraPgmoInterface {
   friend class KimeraPgmoInterfaceTest;
 
@@ -46,6 +51,39 @@ class KimeraPgmoInterface {
    *  - n: ROS node handle.
    */
   virtual bool initialize(const ros::NodeHandle& n) = 0;
+
+  /*! \brief Get the factors of the underlying deformation graph
+   */
+  inline gtsam::NonlinearFactorGraph getDeformationGraphFactors() const {
+    return deformation_graph_->getGtsamFactors();
+  }
+
+  /*! \brief Get the estimates of the underlying deformation graph
+   */
+  inline gtsam::Values getDeformationGraphValues() const {
+    return deformation_graph_->getGtsamValues();
+  }
+
+  /*! \brief Ptr to deformation graph
+   */
+  inline DeformationGraphPtr getDeformationGraphPtr() const {
+    return deformation_graph_;
+  }
+
+  /*! \brief get whether the mesh has been updated
+   */
+  inline bool wasFullMeshUpdated(bool clear_flag = true) {
+    bool to_return = full_mesh_updated_;
+    if (clear_flag) {
+      full_mesh_updated_ = false;
+    }
+    return to_return;
+  }
+
+  /*! \brief Get the optimized trajectory of a robot
+   * - robot_id: id of the robot referred to in query
+   */
+  Path getOptimizedTrajectory(const size_t& robot_id) const;
 
  protected:
   /*! \brief Load the parameters required by this class through ROS
@@ -77,7 +115,7 @@ class KimeraPgmoInterface {
    * - header: header for published message
    * - publisher: associated publisher
    */
-  bool publishPath(const std::vector<gtsam::Pose3>& path,
+  bool publishPath(const Path& path,
                    const std_msgs::Header& header,
                    const ros::Publisher* publisher) const;
 
@@ -93,19 +131,21 @@ class KimeraPgmoInterface {
    */
   void processIncrementalPoseGraph(
       const pose_graph_tools::PoseGraph::ConstPtr& msg,
-      std::vector<gtsam::Pose3>* initial_trajectory,
+      Path* initial_trajectory,
       std::queue<size_t>* unconnected_nodes,
       std::vector<ros::Time>* node_timestamps);
 
   /*! \brief Optimize the full mesh (and pose graph) using the deformation graph
    * then publish the deformed mesh
-   *  - mesh_msg: the full unoptimized mesh in mesh_msgs TriangleMeshStamped
+   *  - mesh_msg: the full unoptimized mesh in KimeraPgmoMesh format
    * format
-   * - publisher: associated publisher
-   * returns the optimized mesh
+   * - optimized_mesh: ptr to optimized (deformed) mesh
+   * - no_optimize: do not call optimize. deform mesh only based on existing
+   * estimates
    */
-  bool optimizeFullMesh(const kimera_pgmo::TriangleMeshIdStamped& mesh_msg,
-                        pcl::PolygonMesh* optimized_mesh);
+  bool optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
+                        pcl::PolygonMesh::Ptr optimized_mesh,
+                        bool no_optimize = false);
 
   /*! \brief Process the mesh graph that consists of the new mesh edges and mesh
    * nodes to be added to the deformation graph
@@ -129,12 +169,6 @@ class KimeraPgmoInterface {
   void processOptimizedPath(const nav_msgs::Path::ConstPtr& path_msg,
                             const size_t& robot_id = 0);
 
-  /*! \brief Get the optimized trajectory of a robot
-   * - robot_id: id of the robot referred to in query
-   */
-  std::vector<gtsam::Pose3> getOptimizedTrajectory(
-      const size_t& robot_id) const;
-
   /*! \brief Saves mesh as a ply file. Triggers through a rosservice call
    * and saves to file [output_prefix_][id].ply
    * - mesh: mesh to save
@@ -147,7 +181,7 @@ class KimeraPgmoInterface {
    * - trajectory: trajectory to save
    * - csv_file: name of the csv file to save to
    */
-  bool saveTrajectory(const std::vector<gtsam::Pose3>& trajectory,
+  bool saveTrajectory(const Path& trajectory,
                       const std::vector<ros::Time>& timestamps,
                       const std::string& csv_file);
 
@@ -181,6 +215,13 @@ class KimeraPgmoInterface {
       const ros::Publisher* mesh_mesh_pub,
       const ros::Publisher* pose_mesh_pub) const;
 
+  inline void setVerboseFlag(bool verbose) {
+    verbose_ = verbose;
+    if (deformation_graph_) {
+      deformation_graph_->setVerboseFlag(verbose);
+    }
+  }
+
  protected:
   enum class RunMode {
     FULL = 0u,  // Optimize mesh and pose graph
@@ -190,16 +231,34 @@ class KimeraPgmoInterface {
   RunMode run_mode_;
   bool use_msg_time_;  // use msg time or call back time
 
-  DeformationGraph deformation_graph_;
+  bool verbose_;  // whether or not to print messages
+
+  bool full_mesh_updated_;
+
+  DeformationGraphPtr deformation_graph_;
   // maximum time allowed when associating node to mesh
   double embed_delta_t_;
   // time horizon when creating simplifed mesh
   double compression_time_horizon_;
+
+  // number of control pts to consider when interpolating for full mesh (k)
+  int num_interp_pts_;
+
+  // time horizon within which a control point is valid
+  double interp_horizon_;
 
   // Track number of loop closures
   size_t num_loop_closures_;
 
   // DPGMO optimized values
   gtsam::Values dpgmo_values_;
+
+  bool b_add_initial_prior_;
+  // Covariances
+  double odom_variance_;
+  double lc_variance_;
+  double prior_variance_;
+  double mesh_edge_variance_;
+  double pose_mesh_variance_;
 };
 }  // namespace kimera_pgmo

@@ -18,7 +18,7 @@ std::vector<Edge> Graph::getEdges() const {
   std::vector<Edge> edges;
   for (auto it = edges_.begin(); it != edges_.end(); ++it) {
     Vertex v1 = it->first;
-    for (Vertex v2 : it->second) {
+    for (const Vertex& v2 : it->second) {
       Edge e(v1, v2);
       edges.push_back(e);
     }
@@ -30,7 +30,7 @@ void Graph::addVertex(const Vertex& v) {
   if (v > max_vertex_) {
     max_vertex_ = v;
   } else {
-    for (Vertex vertex : vertices_) {
+    for (const Vertex& vertex : vertices_) {
       if (v == vertex) return;
     }
   }
@@ -74,7 +74,7 @@ bool Graph::createFromPclMesh(const pcl::PolygonMesh& mesh) {
   for (Vertex v = 0; v < n; v++) {
     addVertex(v);
   }
-  for (pcl::Vertices polygon : mesh.polygons) {
+  for (const pcl::Vertices& polygon : mesh.polygons) {
     for (size_t i = 0; i < polygon.vertices.size(); i++) {
       size_t i_next = (i + 1) % polygon.vertices.size();
       Edge e(polygon.vertices[i], polygon.vertices[i_next]);
@@ -91,7 +91,7 @@ bool Graph::createFromPclMeshBidirection(const pcl::PolygonMesh& mesh) {
   for (Vertex v = 0; v < n; v++) {
     addVertex(v);
   }
-  for (pcl::Vertices polygon : mesh.polygons) {
+  for (const pcl::Vertices& polygon : mesh.polygons) {
     for (size_t i = 0; i < polygon.vertices.size(); i++) {
       size_t i_next = (i + 1) % polygon.vertices.size();
       Edge e1(polygon.vertices[i], polygon.vertices[i_next]);
@@ -107,12 +107,12 @@ std::vector<Edge> Graph::addPointsAndSurfaces(
     const std::vector<size_t>& vertices,
     const std::vector<pcl::Vertices>& polygons) {
   // return the new edges
-  for (Vertex v : vertices) {
+  for (const Vertex& v : vertices) {
     addVertex(v);
   }
 
   std::vector<Edge> new_edges;
-  for (pcl::Vertices polygon : polygons) {
+  for (const pcl::Vertices& polygon : polygons) {
     for (size_t i = 0; i < polygon.vertices.size(); i++) {
       size_t i_next = (i + 1) % polygon.vertices.size();
       Edge e1(polygon.vertices[i], polygon.vertices[i_next]);
@@ -127,7 +127,7 @@ std::vector<Edge> Graph::addPointsAndSurfaces(
 bool Graph::combineGraph(const Graph& new_graph) {
   const std::vector<Edge>& new_edges = new_graph.getEdges();
 
-  for (Edge e : new_edges) {
+  for (const Edge& e : new_edges) {
     addEdgeAndVertices(e);
   }
 

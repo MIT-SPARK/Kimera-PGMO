@@ -1,0 +1,6 @@
+frame_id: "world"
+embed_trajectory_delta_t: 5 # seconds (prints warning if delta exceeds, not strictly enforced. ) 
+rpgo:
+  translation_threshold: 0.01
+  rotation_threshold: 0.005
+  gnc_alpha: 0
