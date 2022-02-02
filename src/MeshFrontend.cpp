@@ -12,6 +12,7 @@
 #include "kimera_pgmo/MeshFrontend.h"
 #include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/compression/VoxbloxCompression.h"
+#include "kimera_pgmo/compression/VoxelClearingCompression.h"
 
 namespace kimera_pgmo {
 
@@ -26,6 +27,7 @@ MeshFrontend::MeshFrontend()
       init_full_log_(false),
       voxblox_queue_size_(20),
       voxblox_update_called_(false) {}
+
 MeshFrontend::~MeshFrontend() {
   shutdown_ = true;
 
@@ -65,6 +67,8 @@ bool MeshFrontend::initialize(const ros::NodeHandle& n,
     init_full_log_ = true;
   }
 
+  last_full_compression_stamp_ = ros::Time::now().toNSec();
+
   // Start compression threads
   full_mesh_thread_.reset(
       new std::thread(&MeshFrontend::fullMeshUpdateSpin, this));
@@ -83,20 +87,38 @@ bool MeshFrontend::loadParameters(const ros::NodeHandle& n) {
   double mesh_resolution, d_graph_resolution;
   if (!n.getParam("output_mesh_resolution", mesh_resolution)) return false;
   if (!n.getParam("d_graph_resolution", d_graph_resolution)) return false;
-  int compression_method;
-  if (!n.getParam("compression_method", compression_method)) return false;
+
+  int full_compression_method;
+  if (!n.getParam("full_compression_method", full_compression_method)) {
+    return false;
+  }
+
+  int graph_compression_method;
+  if (!n.getParam("graph_compression_method", graph_compression_method)) {
+    return false;
+  }
 
   n.getParam("voxblox_queue_size", voxblox_queue_size_);
 
   // 0 for octree, 1 for voxblox
-  if (compression_method == 0) {
-    full_mesh_compression_.reset(new OctreeCompression(mesh_resolution));
+  if (graph_compression_method == 0) {
     d_graph_compression_.reset(new OctreeCompression(d_graph_resolution));
-  } else if (compression_method == 1) {
-    full_mesh_compression_.reset(new VoxbloxCompression(mesh_resolution));
+  } else if (graph_compression_method == 1) {
     d_graph_compression_.reset(new VoxbloxCompression(d_graph_resolution));
   } else {
-    ROS_ERROR("Invalid compression option. ");
+    ROS_ERROR("Invalid compression option for deformation graph. ");
+    return false;
+  }
+
+  // 0 for octree, 1 for voxblox, 2 for voxel clearing
+  if (full_compression_method == 0) {
+    full_mesh_compression_.reset(new OctreeCompression(mesh_resolution));
+  } else if (full_compression_method == 1) {
+    full_mesh_compression_.reset(new VoxbloxCompression(mesh_resolution));
+  } else if (full_compression_method == 2) {
+    full_mesh_compression_.reset(new VoxelClearingCompression(mesh_resolution));
+  } else {
+    ROS_ERROR("Invalid full mesh compression option. ");
     return false;
   }
 
@@ -214,11 +236,16 @@ void MeshFrontend::processVoxbloxMeshFull(
     assert(vertex_stamps_.size() == vertices_.size());
     // save the active indices
     active_indices_ = full_mesh_compression_->getActiveVerticesIndex();
+    invalid_indices_ = full_mesh_compression_->getInvalidIndices();
     if (log_output_) {
       logFullProcess(f_comp_duration.count());
     }
   }  // end critical section
   return;
+}
+
+void MeshFrontend::clearArchivedMeshFull(const voxblox_msgs::Mesh& msg) {
+  full_mesh_compression_->clearArchivedBlocks(msg);
 }
 
 // Creates and update graph mesh and publish mesh graph
@@ -259,10 +286,12 @@ void MeshFrontend::processVoxbloxMeshGraph(
       // Add nodes and edges to graph
       new_graph_edges = simplified_mesh_graph_.addPointsAndSurfaces(
           *new_graph_indices.get(), *new_graph_triangles.get());
-      // Publish edges and nodes
-      last_mesh_graph_ = publishMeshGraph(
-          new_graph_edges, *new_graph_indices.get(), msg->header);
     }
+
+    // Publish edges and nodes
+    last_mesh_graph_ = publishMeshGraph(
+        new_graph_edges, *new_graph_indices.get(), msg->header);
+
     if (log_output_) {
       logGraphProcess(g_comp_duration.count(),
                       new_graph_indices->size(),

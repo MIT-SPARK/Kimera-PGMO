@@ -109,12 +109,7 @@ class DeformationGraph {
    *  - pcm_rot_threshold: rotation threshold (radians of error per node) for
    * backend PCM outlier rejection
    */
-  bool initialize(double odom_trans_threshold,
-                  double odom_rot_threshold,
-                  double pcm_trans_threshold,
-                  double pcm_rot_threshold,
-                  double gnc_alpha,
-                  const std::string& log_path = "");
+  bool initialize(const KimeraRPGO::RobustSolverParams& params);
 
   /*! \brief Fix the transform of a node corresponding to a sampled mesh vertex
    * in deformation graph. Note that all vertices has an original rotation of
@@ -313,24 +308,20 @@ class DeformationGraph {
                               size_t k = 4,
                               double tol_t = 10.0);
 
+  /*! \brief Get the number of loop closures processed by pgo
+   */
+  inline size_t getNumLoopclosures() const { return pgo_->getNumLC(); }
+
   /*! \brief Get the number of mesh vertices nodes in the deformation graph
    * - outputs the number of mesh vertices nodes
    */
-  inline size_t getNumVertices() const { return vertices_->points.size(); }
-
-  /*! \brief Get the positions of the mesh vertices nodes in the deformation
-   * graph
-   * - outputs the positions of mesh vertices nodes as a pointcloud
-   */
-  inline pcl::PointCloud<pcl::PointXYZ> getVertices() const {
-    return *vertices_;
+  inline size_t getNumVertices() const {
+    size_t num_vertices = 0;
+    for (const auto& pfx_vertices : vertex_positions_) {
+      num_vertices += pfx_vertices.second.size();
+    }
+    return num_vertices;
   }
-
-  /*! \brief Gets the deformation graph as a graph type (currently the pose
-   * graph nodes not included)
-   * - outputs graph
-   */
-  inline Graph getGraph(const char& prefix) const { return graph_.at(prefix); }
 
   /*! \brief Gets the estimated values since last optimization
    *  - outputs last estimated values as GTSAM Values
@@ -349,7 +340,7 @@ class DeformationGraph {
    */
   inline GraphMsgPtr getPoseGraph(
       const std::map<size_t, std::vector<ros::Time> >& timestamps) {
-    return GtsamGraphToRos(nfg_, values_, timestamps);
+    return GtsamGraphToRos(nfg_, values_, timestamps, gnc_weights_);
   }
 
   /*! \brief Get the consistency factors (ie. the deformation edge factors)
@@ -387,13 +378,21 @@ class DeformationGraph {
    */
   inline void storeOnlyNoOptimization() { do_not_optimize_ = true; }
 
+  /*! \brief Set whether or not to force vertex recalculation
+   */
+  inline void setForceRecalculate(bool force_recalculate) { force_recalculate_= force_recalculate; }
+
   /*! \brief Force an optimization of the deformation graph without adding new
    * factors
    */
   inline void optimize() {
     pgo_->forceUpdate();
+    if (force_recalculate_) {
+      recalculate_vertices_ = true;
+    }
     values_ = pgo_->calculateEstimate();
     nfg_ = pgo_->getFactorsUnsafe();
+    gnc_weights_ = pgo_->getGncWeights();
     temp_values_ = pgo_->getTempValues();
     temp_nfg_ = pgo_->getTempFactorsUnsafe();
   }
@@ -443,11 +442,19 @@ class DeformationGraph {
                                    const gtsam::Key& min,
                                    const gtsam::Key& max) const;
 
+  /*! \brief Save deformation graph to file
+   * - filename: output file name
+   */
+  void save(const std::string& filename) const;
+
+  /*! \brief Load deformation graph from file
+   * - filename: input file name
+   */
+  void load(const std::string& filename);
+
  private:
   bool verbose_;
 
-  std::map<char, Graph> graph_;
-  pcl::PointCloud<pcl::PointXYZ>::Ptr vertices_;
   typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
 
   // Keep track of vertices not part of mesh
@@ -457,8 +464,6 @@ class DeformationGraph {
 
   std::map<char, std::vector<gtsam::Point3> > vertex_positions_;
   std::map<char, std::vector<ros::Time> > vertex_stamps_;
-  // Number of mesh vertices corresponding a particular prefix thus far
-  std::map<char, size_t> num_vertices_;
 
   KimeraRPGO::RobustSolverParams pgo_params_;
   std::unique_ptr<KimeraRPGO::RobustSolver> pgo_;
@@ -471,15 +476,18 @@ class DeformationGraph {
   gtsam::NonlinearFactorGraph temp_nfg_;
   // current estimate for temp nodes
   gtsam::Values temp_values_;
+  // gnc weights
+  gtsam::Vector gnc_weights_;
 
   //// Below separated factor types for debugging
   // factor graph encoding the mesh structure
   gtsam::NonlinearFactorGraph consistency_factors_;
-  // factor graph for pose graph related factors
-  gtsam::NonlinearFactorGraph pg_factors_;
 
   // Just store and not optimize
   bool do_not_optimize_;
+
+  // Force deformation of vertices every optimization
+  bool force_recalculate_;
 
   // Recalculate only if new measurements added
   bool recalculate_vertices_;

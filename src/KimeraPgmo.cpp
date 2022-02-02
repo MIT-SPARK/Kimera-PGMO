@@ -385,7 +385,7 @@ void KimeraPgmo::logStats(const std::string filename) const {
   file.open(filename, std::ofstream::out | std::ofstream::app);
   file << 1 << "," << num_keyframes << "," << num_loop_closures_ << ","
        << deformation_graph_->getGtsamFactors().size() << "," << num_vertices
-       << "," << deformation_graph_->getVertices().points.size() << ","
+       << "," << deformation_graph_->getNumVertices() << ","
        << inc_mesh_cb_time_ << "," << full_mesh_cb_time_ << "," << pg_cb_time_
        << "," << path_cb_time_ << std::endl;
   file.close();

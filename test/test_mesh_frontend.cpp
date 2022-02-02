@@ -25,7 +25,9 @@ class MeshFrontendTest : public ::testing::Test {
     system("rosparam set robot_id 0");
     system("rosparam set d_graph_resolution 0.5");
     system("rosparam set output_mesh_resolution 0.05");
-    system("rosparam set compression_method 0");
+    system("rosparam set full_compression_method 0");
+    system("rosparam set graph_compression_method 0");
+    system("rosparam set voxblox_queue_size 100");
   }
 
   ~MeshFrontendTest() {}

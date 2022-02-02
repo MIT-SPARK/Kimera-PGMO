@@ -57,15 +57,45 @@ bool KimeraPgmoInterface::loadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("rpgo/pcm_rot_threshold", pcm_rot_threshold)) return false;
   if (!n.getParam("rpgo/gnc_alpha", gnc_alpha)) return false;
 
+  //  Addditional optional gnc values
+  int gnc_max_it;
+  double gnc_mu_step, gnc_cost_tol, gnc_weight_tol;
+  bool lm_diagonal_damping, gnc_fix_prev_inliers;
+  n.param<bool>("rpgo/lm_diagonal_damping", lm_diagonal_damping, true);
+  n.param<int>("rpgo/gnc_max_iterations", gnc_max_it, 100);
+  n.param<double>("rpgo/gnc_mu_step", gnc_mu_step, 1.4);
+  n.param<double>("rpgo/gnc_cost_tolerance", gnc_cost_tol, 1.0e-5);
+  n.param<double>("rpgo/gnc_weight_tolerance", gnc_weight_tol, 1.0e-4);
+  n.param<bool>("rpgo/gnc_fix_prev_inliers", gnc_fix_prev_inliers, false);
+
   std::string log_path;
   n.param<std::string>("output_prefix", log_path, "");
 
-  if (!deformation_graph_->initialize(odom_trans_threshold,
-                                      odom_rot_threshold,
-                                      pcm_trans_threshold,
-                                      pcm_rot_threshold,
-                                      gnc_alpha,
-                                      log_path)) {
+  // Initialize pgo_:
+  KimeraRPGO::RobustSolverParams pgo_params;
+  pgo_params.setPcmSimple3DParams(odom_trans_threshold,
+                                  odom_rot_threshold,
+                                  pcm_trans_threshold,
+                                  pcm_rot_threshold,
+                                  KimeraRPGO::Verbosity::UPDATE);
+  pgo_params.setLmDiagonalDamping(lm_diagonal_damping);
+  // Use GNC (confidence value)
+  if (gnc_alpha > 0 && gnc_alpha < 1) {
+    pgo_params.setGncInlierCostThresholdsAtProbability(
+        gnc_alpha,
+        static_cast<size_t>(gnc_max_it),
+        gnc_mu_step,
+        gnc_cost_tol,
+        gnc_weight_tol,
+        gnc_fix_prev_inliers);
+  }
+
+  // Log output
+  if (!log_path.empty()) {
+    pgo_params.logOutput(log_path);
+  }
+
+  if (!deformation_graph_->initialize(pgo_params)) {
     ROS_ERROR("KimeraPgmo: Failed to initialize deformation graph.");
     return false;
   }

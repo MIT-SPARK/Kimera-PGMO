@@ -234,11 +234,14 @@ bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2);
  *  - values: gtsam Values storing estimated values
  *  - timestamps: map from robot id to timestamps of the poses in the
  * trajectories
+ *  - gnc_weights: weights obtained from gnc optimizer for inlier-outlier
+ * sorting
  */
 GraphMsgPtr GtsamGraphToRos(
     const gtsam::NonlinearFactorGraph& factors,
     const gtsam::Values& values,
-    const std::map<size_t, std::vector<ros::Time>>& timestamps);
+    const std::map<size_t, std::vector<ros::Time>>& timestamps,
+    const gtsam::Vector& gnc_weights = gtsam::Vector());
 
 /*! \brief Check if a surface exist based on previous tracked adjacent surfaces
  *  - new_surface: new surface to be inserted
@@ -395,8 +398,8 @@ pcl::PointCloud<point_type> deformPointsWithTimeCheck(
   }
 
   // Cannot deform if no nodes in the deformation graph
-  if (control_points.size() == 0) {
-    ROS_WARN("No control points. No deformation. ");
+  if (control_points.size() < k) {
+    ROS_WARN("Not enough valid control points to deform points. ");
     return original_points;
   }
 
@@ -410,20 +413,43 @@ pcl::PointCloud<point_type> deformPointsWithTimeCheck(
   pcl::PointCloud<pcl::PointXYZ>::Ptr search_cloud(
       new pcl::PointCloud<pcl::PointXYZ>);
   search_octree->setInputCloud(search_cloud);
-  for (size_t j = 0; j < control_points.size(); j++) {
-    const gtsam::Point3& position = control_points[j];
-    search_cloud->push_back(
-        pcl::PointXYZ(position.x(), position.y(), position.z()));
-    if (!values.exists(gtsam::Symbol(prefix, j))) continue;
-    search_octree->addPointFromCloud(search_cloud->points.size() - 1, nullptr);
-  }
 
-  if (search_octree->getLeafCount() < k) {
-    ROS_WARN("Not enough valid control points to deform points. ");
-    return original_points;
-  }
-
+  // By doing this implicitly assuming control_point_stamps is increasing
+  // TODO(yun) check this assumption
+  size_t ctrl_pt_idx = 0;
+  size_t lower_ctrl_pt_idx = 0;
   for (size_t ii = 0; ii < original_points.size(); ii++) {
+    size_t num_ctrl_pts = search_octree->getLeafCount();
+    // Add control points to octree until both
+    // exceeds interpolate horizon and have enough points to deform
+    while (ctrl_pt_idx < control_points.size() &&
+           (control_point_stamps[ctrl_pt_idx].toSec() <=
+                stamps[ii].toSec() + tol_t ||
+            num_ctrl_pts < k + 1)) {
+      const gtsam::Point3& position = control_points[ctrl_pt_idx];
+      search_cloud->push_back(
+          pcl::PointXYZ(position.x(), position.y(), position.z()));
+      if (!values.exists(gtsam::Symbol(prefix, ctrl_pt_idx))) {
+        ctrl_pt_idx++;
+        continue;
+      }
+      search_octree->addPointFromCloud(search_cloud->points.size() - 1,
+                                       nullptr);
+      num_ctrl_pts++;
+      ctrl_pt_idx++;
+    }
+
+    if (search_octree->getLeafCount() < k + 1) {
+      ROS_ERROR(
+          "Not enough valid control points in octree to interpolate point. ");
+      if (num_ctrl_pts > 1) {
+        k = num_ctrl_pts - 1;
+      } else {
+        new_points.push_back(original_points.points[ii]);
+        continue;
+      }
+    }
+
     const point_type& p = original_points.points[ii];
     // search for k + 1 nearest nodes
     std::vector<std::pair<size_t, double>> nearest_nodes;
@@ -434,54 +460,22 @@ pcl::PointCloud<point_type> deformPointsWithTimeCheck(
     std::vector<float> nn_sq_dist;
     search_octree->nearestKSearch(p_xyz, k + 1, nn_index, nn_sq_dist);
 
-    // Check time
-    std::vector<int> pruned_nn_idx;
-    std::vector<float> pruned_nn_sq_dist;
-    size_t k_ii = k;
-    for (size_t nj = 0; nj < nn_index.size(); nj++) {
-      int ni = nn_index[nj];
-      if (abs(stamps.at(ii).toSec() - control_point_stamps.at(ni).toSec()) <
-          tol_t) {
-        pruned_nn_idx.push_back(ni);
-        pruned_nn_sq_dist.push_back(nn_sq_dist[nj]);
-      } else {
-        k_ii--;
-      }
-    }
-
-    if (pruned_nn_idx.size() < 2) {
-      ROS_WARN_THROTTLE(
-          10,
-          "Not enough valid control points within time tolerance. Defaulting "
-          "to use closest point. ");
-      k_ii = 1;
-      pruned_nn_idx = std::vector<int>(nn_index.begin(), nn_index.begin() + 2);
-      pruned_nn_sq_dist =
-          std::vector<float>(nn_sq_dist.begin(), nn_sq_dist.begin() + 2);
-      assert(pruned_nn_idx.size() == 2);
-      assert(pruned_nn_sq_dist.size() == 2);
-    }
-
     // Calculate new point location from k points
     gtsam::Point3 new_point(0, 0, 0);
-    double d_max = std::sqrt(pruned_nn_sq_dist[pruned_nn_idx.size() - 1]);
-    if (d_max == 0) {
-      new_points.push_back(p);
-      continue;
-    }
+    double d_max = std::sqrt(nn_sq_dist[nn_index.size() - 1]);
     bool use_const_weight = false;
-    if (std::sqrt(pruned_nn_sq_dist[0]) == d_max) {
+    if (std::sqrt(nn_sq_dist[0]) == d_max || d_max == 0) {
       use_const_weight = true;
     }
     double weight_sum = 0;
-    for (size_t j = 0; j < pruned_nn_idx.size() - 1; j++) {
-      const pcl::PointXYZ& p_g = search_cloud->points.at(pruned_nn_idx[j]);
+    for (size_t j = 0; j < nn_index.size() - 1; j++) {
+      const pcl::PointXYZ& p_g = search_cloud->points.at(nn_index[j]);
       gtsam::Point3 gj(p_g.x, p_g.y, p_g.z);
       double weight =
-          use_const_weight ? 1 : (1 - std::sqrt(pruned_nn_sq_dist[j]) / d_max);
+          use_const_weight ? 1 : (1 - std::sqrt(nn_sq_dist[j]) / d_max);
       weight_sum = weight_sum + weight;
       gtsam::Pose3 node_transform =
-          values.at<gtsam::Pose3>(gtsam::Symbol(prefix, pruned_nn_idx[j]));
+          values.at<gtsam::Pose3>(gtsam::Symbol(prefix, nn_index[j]));
       gtsam::Point3 add = node_transform.rotation().rotate(vi - gj) +
                           node_transform.translation();
       new_point = new_point + weight * add;
@@ -492,8 +486,20 @@ pcl::PointCloud<point_type> deformPointsWithTimeCheck(
     new_pcl_point.y = new_point.y() / weight_sum;
     new_pcl_point.z = new_point.z() / weight_sum;
     new_points.points.push_back(new_pcl_point);
-  }
 
+    size_t num_leaves = search_octree->getLeafCount();
+    while (lower_ctrl_pt_idx < control_points.size() && num_leaves > k + 1 &&
+           control_point_stamps[lower_ctrl_pt_idx].toSec() <
+               stamps[ii].toSec() - tol_t) {
+      if (!values.exists(gtsam::Symbol(prefix, lower_ctrl_pt_idx))) {
+        lower_ctrl_pt_idx++;
+        continue;
+      }
+      search_octree->deleteVoxelAtPoint(lower_ctrl_pt_idx);
+      num_leaves--;
+      lower_ctrl_pt_idx++;
+    }
+  }
   return new_points;
 }
 }  // namespace kimera_pgmo

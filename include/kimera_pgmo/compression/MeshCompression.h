@@ -133,7 +133,7 @@ class MeshCompression {
    *  - earliest_time_sec: discard all vertices added earlier than this time in
    * seconds
    */
-  void pruneStoredMesh(const double& earliest_time_sec);
+  virtual void pruneStoredMesh(const double& earliest_time_sec);
 
   /*! \brief Reinitialize the compression structure (ie. octree or hash cells)
    *  - active_vertices: xyz of the active vertices
@@ -161,6 +161,14 @@ class MeshCompression {
   /*! \brief Update temporary structure
    */
   virtual void updateTempStructure(PointCloudXYZ::Ptr vertices) = 0;
+
+  /*! \brief Get invalid vertice indices (if any)
+   */
+  virtual std::vector<size_t> getInvalidIndices() const { return {}; }
+
+  /*! \brief Archive blocks outside active window
+   */
+  virtual void clearArchivedBlocks(const voxblox_msgs::Mesh&) {}
 
  protected:
   // Vertices in octree (vertices of "active" part of mesh)

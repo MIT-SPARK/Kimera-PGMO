@@ -32,11 +32,13 @@ cs_add_library(${PROJECT_NAME}
 src/compression/MeshCompression.cpp
 src/compression/OctreeCompression.cpp
 src/compression/VoxbloxCompression.cpp
+src/compression/VoxelClearingCompression.cpp
 src/utils/CommonFunctions.cpp
 src/utils/CommonStructs.cpp
 src/utils/VoxbloxUtils.cpp
 src/utils/tinyply.cpp
 src/DeformationGraph.cpp
+src/DeformationGraphIo.cpp
 src/KimeraPgmo.cpp
 src/MeshFrontend.cpp
 src/KimeraPgmoInterface.cpp
@@ -88,6 +90,9 @@ target_link_libraries(${PROJECT_NAME}-test_octree_compression ${PROJECT_NAME})
 
 catkin_add_gtest(${PROJECT_NAME}-test_voxblox_compression test/test_voxblox_compression.cpp)
 target_link_libraries(${PROJECT_NAME}-test_voxblox_compression ${PROJECT_NAME})
+
+catkin_add_gtest(${PROJECT_NAME}-test_voxel_clearing_compression test/test_voxel_clearing_compression.cpp)
+target_link_libraries(${PROJECT_NAME}-test_voxel_clearing_compression ${PROJECT_NAME})
 
 add_rostest_gtest(${PROJECT_NAME}-test_mesh_frontend test/test_mesh_frontend.test test/test_mesh_frontend.cpp)
 target_link_libraries(${PROJECT_NAME}-test_mesh_frontend ${PROJECT_NAME})

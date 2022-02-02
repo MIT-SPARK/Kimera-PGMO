@@ -85,6 +85,17 @@ class KimeraPgmoInterface {
    */
   Path getOptimizedTrajectory(const size_t& robot_id) const;
 
+  /*! \brief Load deformation graph
+   * - input: dgrf file (deformation graph file)
+   */
+  void loadDeformationGraphFromFile(const std::string& input) {
+    KimeraRPGO::RobustSolverParams pgo_params = deformation_graph_->getParams();
+    deformation_graph_.reset(new DeformationGraph);
+    deformation_graph_->initialize(pgo_params);
+    deformation_graph_->load(input);
+    num_loop_closures_ = deformation_graph_->getNumLoopclosures();
+  }
+
  protected:
   /*! \brief Load the parameters required by this class through ROS
    *  - n: ROS node handle

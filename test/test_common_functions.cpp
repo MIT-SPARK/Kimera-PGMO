@@ -435,7 +435,7 @@ TEST(test_common_functions, deformPointsWithTimeCheck) {
                                                          control_points,
                                                          control_point_stamps,
                                                          optimized_values,
-                                                         4,
+                                                         3,
                                                          10.0);
 
   EXPECT_EQ(100, deformed_points.size());
@@ -444,7 +444,7 @@ TEST(test_common_functions, deformPointsWithTimeCheck) {
     EXPECT_EQ(-1.0, deformed_points.points[i].y);
     EXPECT_EQ(0.0, deformed_points.points[i].z);
   }
-  for (size_t i = 50; i < 100; i++) {
+  for (size_t i = 51; i < 100; i++) {
     EXPECT_EQ(static_cast<double>(i), deformed_points.points[i].x);
     EXPECT_EQ(1.0, deformed_points.points[i].y);
     EXPECT_EQ(0.0, deformed_points.points[i].z);

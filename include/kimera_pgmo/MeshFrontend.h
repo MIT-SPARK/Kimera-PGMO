@@ -48,12 +48,27 @@ class MeshFrontend {
     return vertices_;
   }
 
+  inline const std::vector<pcl::Vertices>& getFullMeshFaces() const {
+    return *triangles_;
+  }
+
+  inline const std::vector<ros::Time>& getFullMeshTimes() const {
+    return *vertex_stamps_;
+  }
+
   /*! /brief Get active indices
    *  /returns Active indices (i.e. inside frontend time-horizon) of the full
    * mesh
    */
   inline const std::vector<size_t>& getActiveFullMeshVertices() const {
     return active_indices_;
+  }
+
+  /*! /brief Get invalid indices in the mesh
+   *  /returns Indices of the mesh that mesh compression has deleted
+   */
+  inline const std::vector<size_t>& getInvalidIndices() const {
+    return invalid_indices_;
   }
 
   /*! /brief Check if the frontend has received input from voxblox since the
@@ -86,6 +101,12 @@ class MeshFrontend {
     last_stamp.fromNSec(last_full_compression_stamp_.load());
     return last_stamp;
   }
+
+  /*! \brief Let mesh compression clear archived blocks
+   *
+   *  \warning Not threadsafe, use with caution
+   */
+  void clearArchivedMeshFull(const voxblox_msgs::Mesh& msg);
 
  protected:
   /*! \brief Load the parameters required by this class through ROS
@@ -226,6 +247,7 @@ class MeshFrontend {
   std::mutex graph_mutex_; // mutex for deformation graph related structures
 
   std::vector<size_t> active_indices_;
+  std::vector<size_t> invalid_indices_;
   std::atomic<uint64_t> last_full_compression_stamp_;
 
   // Run full mesh compression and graph compression on separate thread

@@ -359,6 +359,9 @@ pcl::PolygonMesh PgmoMeshMsgToPolygonMesh(
     return mesh;
   }
 
+  // Clear vertex stamps
+  vertex_stamps->clear();
+
   // Convert vertices
   pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
   bool color = (mesh_msg.vertex_colors.size() == mesh_msg.vertices.size());
@@ -559,7 +562,8 @@ bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2) {
 GraphMsgPtr GtsamGraphToRos(
     const gtsam::NonlinearFactorGraph& factors,
     const gtsam::Values& values,
-    const std::map<size_t, std::vector<ros::Time> >& timestamps) {
+    const std::map<size_t, std::vector<ros::Time> >& timestamps,
+    const gtsam::Vector& gnc_weights) {
   std::vector<pose_graph_tools::PoseGraphEdge> edges;
 
   // first store the factors as edges
@@ -592,7 +596,11 @@ GraphMsgPtr GtsamGraphToRos(
         }
 
       } else {
-        edge.type = pose_graph_tools::PoseGraphEdge::LOOPCLOSE;
+        if (gnc_weights.size() > i && gnc_weights(i) < 0.5) {
+          edge.type = pose_graph_tools::PoseGraphEdge::REJECTED_LOOPCLOSE;
+        } else {
+          edge.type = pose_graph_tools::PoseGraphEdge::LOOPCLOSE;
+        }
       }
       // transforms - translation
       const gtsam::Point3& translation = factor.measured().translation();
@@ -626,11 +634,10 @@ GraphMsgPtr GtsamGraphToRos(
   gtsam::KeyVector key_list = values.keys();
   for (size_t i = 0; i < key_list.size(); i++) {
     gtsam::Symbol node_symb(key_list[i]);
-    try {
+    if (robot_prefix_to_id.count(node_symb.chr())) {
       const size_t robot_id = robot_prefix_to_id.at(node_symb.chr());
 
       pose_graph_tools::PoseGraphNode node;
-      node.header.stamp = ros::Time::now();
       node.header.frame_id = "world";
       node.key = node_symb.index();
       node.robot_id = robot_id;
@@ -648,11 +655,16 @@ GraphMsgPtr GtsamGraphToRos(
       node.pose.orientation.z = quaternion.z();
       node.pose.orientation.w = quaternion.w();
 
-      node.header.stamp = timestamps.at(robot_id).at(node_symb.index());
+      if (timestamps.at(robot_id).size() <= node_symb.index()) {
+        ROS_WARN_ONCE(
+            "Invalid timestamp for trajectory poses when converting to "
+            "PoseGraph msg. ");
+        node.header.stamp = ros::Time::now();
+      } else {
+        node.header.stamp = timestamps.at(robot_id).at(node_symb.index());
+      }
 
       nodes.push_back(node);
-    } catch (...) {
-      // ignore
     }
   }
 
