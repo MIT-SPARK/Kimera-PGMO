@@ -401,9 +401,8 @@ void MeshCompression::compressAndIntegrate(
     }
     if (reindex_s.vertices.size() < 3) continue;
 
-    // TODO: Check assumption that new surface cannot be constructed from
-    // existing points. Topologically this makes sense.
     if (!new_surface) {
+      // Check if surface exists already in mesh
       new_surface = !SurfaceExists(reindex_s, adjacent_polygons_, polygons_);
     }
     if (!new_surface) continue;

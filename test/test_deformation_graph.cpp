@@ -142,28 +142,38 @@ void MeshToEdgesAndNodes(
   }
 }
 
-TEST(test_deformation_graph, addNewMeshEdgesAndNodes) {
-  DeformationGraph graph;
+void SetUpDeformationGraph(DeformationGraph* graph) {
   KimeraRPGO::RobustSolverParams pgo_params;
-  pgo_params.setPcmSimple3DParams(
-      100, 100, 100, 100, KimeraRPGO::Verbosity::UPDATE);
-  graph.initialize(pgo_params);
-
+  pgo_params.setPcmSimple3DParams(100, 100, 100, 100,
+                                  KimeraRPGO::Verbosity::UPDATE);
+  graph->initialize(pgo_params);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   gtsam::Values mesh_nodes;
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
-
-  MeshToEdgesAndNodes(simple_mesh, 's', &mesh_nodes, &mesh_edges);
+  MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
 
   std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(
-      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
+  graph->addNewMeshEdgesAndNodes(mesh_edges, mesh_nodes, ros::Time(0),
+                                 &added_node_indices);
+}
+
+void SetUpOriginalMesh(pcl::PolygonMesh* mesh, std::vector<ros::Time>* stamps) {
+  *mesh = SimpleMesh();
+  size_t num_vertices = mesh->cloud.width * mesh->cloud.height;
+  for (size_t i = 0; i < num_vertices; i++) {
+    stamps->push_back(ros::Time(0));
+  }
+}
+
+TEST(test_deformation_graph, addNewMeshEdgesAndNodes) {
+  DeformationGraph graph;
+  SetUpDeformationGraph(&graph);
 
   // Check sizes
   EXPECT_EQ(3, graph.getNumVertices());
-  EXPECT_EQ(0, graph.getInitialPositionVertex('s', 0).x());
-  EXPECT_EQ(1, graph.getInitialPositionVertex('s', 2).y());
+  EXPECT_EQ(0, graph.getInitialPositionVertex('v', 0).x());
+  EXPECT_EQ(1, graph.getInitialPositionVertex('v', 2).y());
 
   // Check that the factors are added
   gtsam::Values values = graph.getGtsamValues();
@@ -180,26 +190,10 @@ TEST(test_deformation_graph, addNewMeshEdgesAndNodes) {
 
 TEST(test_deformation_graph, reconstructMesh) {
   DeformationGraph graph;
-  KimeraRPGO::RobustSolverParams pgo_params;
-  pgo_params.setPcmSimple3DParams(
-      100, 100, 100, 100, KimeraRPGO::Verbosity::UPDATE);
-  graph.initialize(pgo_params);
-  pcl::PolygonMesh simple_mesh = createMeshTriangle();
-
-  pcl::PolygonMesh original_mesh = SimpleMesh();
-  size_t num_vertices = original_mesh.cloud.width * original_mesh.cloud.height;
+  SetUpDeformationGraph(&graph);
+  pcl::PolygonMesh original_mesh;
   std::vector<ros::Time> original_mesh_stamps;
-  for (size_t i = 0; i < num_vertices; i++) {
-    original_mesh_stamps.push_back(ros::Time(0));
-  }
-
-  gtsam::Values mesh_nodes;
-  std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
-  MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
-
-  std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(
-      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
+  SetUpOriginalMesh(&original_mesh, &original_mesh_stamps);
 
   // First try deform with k = 1, should not change
   pcl::PolygonMesh new_mesh =
@@ -234,25 +228,10 @@ TEST(test_deformation_graph, reconstructMesh) {
 
 TEST(test_deformation_graph, deformMeshtranslation) {
   DeformationGraph graph;
-  KimeraRPGO::RobustSolverParams pgo_params;
-  pgo_params.setPcmSimple3DParams(
-      100, 100, 100, 100, KimeraRPGO::Verbosity::UPDATE);
-  graph.initialize(pgo_params);
-  pcl::PolygonMesh simple_mesh = createMeshTriangle();
-
-  pcl::PolygonMesh original_mesh = SimpleMesh();
-  size_t num_vertices = original_mesh.cloud.width * original_mesh.cloud.height;
+  SetUpDeformationGraph(&graph);
+  pcl::PolygonMesh original_mesh;
   std::vector<ros::Time> original_mesh_stamps;
-  for (size_t i = 0; i < num_vertices; i++) {
-    original_mesh_stamps.push_back(ros::Time(0));
-  }
-
-  gtsam::Values mesh_nodes;
-  std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
-  MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
-  std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(
-      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
+  SetUpOriginalMesh(&original_mesh, &original_mesh_stamps);
 
   // deform mesh
   geometry_msgs::Pose distortion;
@@ -300,20 +279,9 @@ TEST(test_deformation_graph, deformMesh) {
     cube_mesh_stamps.push_back(ros::Time(0));
   }
 
-  pcl::PolygonMesh simple_mesh = createMeshTriangle();
   // deform mesh
   DeformationGraph graph;
-  KimeraRPGO::RobustSolverParams pgo_params;
-  pgo_params.setPcmSimple3DParams(
-      100, 100, 100, 100, KimeraRPGO::Verbosity::UPDATE);
-  graph.initialize(pgo_params);
-
-  gtsam::Values mesh_nodes;
-  std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
-  MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
-  std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(
-      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
+  SetUpDeformationGraph(&graph);
 
   geometry_msgs::Pose distortion;
   distortion.position.x = -0.5;
@@ -356,20 +324,7 @@ TEST(test_deformation_graph, deformMesh) {
 
 TEST(test_deformation_graph, updateMesh) {
   DeformationGraph graph;
-  KimeraRPGO::RobustSolverParams pgo_params;
-  pgo_params.setPcmSimple3DParams(
-      100, 100, 100, 100, KimeraRPGO::Verbosity::UPDATE);
-  graph.initialize(pgo_params);
-  pcl::PolygonMesh simple_mesh = createMeshTriangle();
-
-  pcl::PolygonMesh original_mesh = SimpleMesh();
-
-  gtsam::Values mesh_nodes;
-  std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
-  MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
-  std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(
-      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
+  SetUpDeformationGraph(&graph);
 
   EXPECT_EQ(3, graph.getNumVertices());
   EXPECT_EQ(0, graph.getInitialPositionVertex('v', 0).x());
@@ -433,94 +388,15 @@ TEST(test_deformation_graph, updateMesh) {
   EXPECT_EQ(gtsam::Symbol('a', 1).key(), factor12.back());
 }
 
-TEST(test_deformation_graph, addNodeMeasurement) {
-  DeformationGraph graph;
-  KimeraRPGO::RobustSolverParams pgo_params;
-  pgo_params.setPcmSimple3DParams(
-      100, 100, 100, 100, KimeraRPGO::Verbosity::UPDATE);
-  graph.initialize(pgo_params);
-  pcl::PolygonMesh simple_mesh = createMeshTriangle();
-  size_t num_vertices = simple_mesh.cloud.width * simple_mesh.cloud.height;
-  std::vector<ros::Time> simple_mesh_stamps;
-  for (size_t i = 0; i < num_vertices; i++) {
-    simple_mesh_stamps.push_back(ros::Time(0));
-  }
-
-  pcl::PolygonMesh original_mesh = SimpleMesh();
-  gtsam::Values mesh_nodes;
-  std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
-  MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
-  std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(
-      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
-
-  Vertices new_node_valences{0, 2};
-  graph.addNewNode(
-      gtsam::Symbol('a', 0),
-      gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)),
-      false);
-  graph.addNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
-
-  // Check factors added
-  gtsam::Values values = graph.getGtsamValues();
-  gtsam::NonlinearFactorGraph factors = graph.getGtsamFactors();
-
-  EXPECT_EQ(size_t(10), factors.size());
-  EXPECT_EQ(size_t(4), values.size());
-  EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[9]));
-  DeformationEdgeFactor factor6 =
-      *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[6]);
-  EXPECT_TRUE(gtsam::assert_equal(
-      gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)),
-      factor6.fromPose()));
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(0, 0, 0), factor6.toPoint()));
-  EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor6.front());
-  EXPECT_EQ(gtsam::Symbol('v', 0).key(), factor6.back());
-
-  // Add node measurement
-  graph.addNodeMeasurement(gtsam::Symbol('a', 0),
-                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)));
-
-  factors = graph.getGtsamFactors();
-
-  EXPECT_EQ(size_t(11), factors.size());
-  EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(
-      factors[10]));
-
-  pcl::PolygonMesh new_mesh =
-      graph.deformMesh(simple_mesh, simple_mesh_stamps, 'v', 1);
-  pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
-  pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
-
-  EXPECT_NEAR(4, actual_vertices.points[0].x, 0.001);
-  EXPECT_NEAR(4, actual_vertices.points[0].y, 0.001);
-  EXPECT_NEAR(0, actual_vertices.points[0].z, 0.001);
-  EXPECT_NEAR(3, actual_vertices.points[1].x, 0.001);
-  EXPECT_NEAR(3, actual_vertices.points[2].y, 0.001);
-  EXPECT_NEAR(0, actual_vertices.points[1].z, 0.001);
-  EXPECT_NEAR(4, actual_vertices.points[2].x, 0.001);
-}
-
 TEST(test_deformation_graph, addNodeMeasurements) {
   DeformationGraph graph;
-  KimeraRPGO::RobustSolverParams pgo_params;
-  pgo_params.setPcmSimple3DParams(
-      100, 100, 100, 100, KimeraRPGO::Verbosity::UPDATE);
-  graph.initialize(pgo_params);
+  SetUpDeformationGraph(&graph);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
   size_t num_vertices = simple_mesh.cloud.width * simple_mesh.cloud.height;
   std::vector<ros::Time> simple_mesh_stamps;
   for (size_t i = 0; i < num_vertices; i++) {
     simple_mesh_stamps.push_back(ros::Time(0));
   }
-
-  pcl::PolygonMesh original_mesh = SimpleMesh();
-  gtsam::Values mesh_nodes;
-  std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
-  MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
-  std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(
-      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
 
   Vertices new_node_valences{0, 2};
   graph.addNewNode(
@@ -535,18 +411,6 @@ TEST(test_deformation_graph, addNodeMeasurements) {
   // Check factors added
   gtsam::Values values = graph.getGtsamValues();
   gtsam::NonlinearFactorGraph factors = graph.getGtsamFactors();
-
-  EXPECT_EQ(size_t(10), factors.size());
-  EXPECT_EQ(size_t(5), values.size());
-  EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[9]));
-  DeformationEdgeFactor factor6 =
-      *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[6]);
-  EXPECT_TRUE(gtsam::assert_equal(
-      gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)),
-      factor6.fromPose()));
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(0, 0, 0), factor6.toPoint()));
-  EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor6.front());
-  EXPECT_EQ(gtsam::Symbol('v', 0).key(), factor6.back());
 
   // Add node measurement
   std::vector<std::pair<gtsam::Key, gtsam::Pose3> > measurements;
@@ -583,24 +447,13 @@ TEST(test_deformation_graph, addNodeMeasurements) {
 
 TEST(test_deformation_graph, removePriorsWithPrefix) {
   DeformationGraph graph;
-  KimeraRPGO::RobustSolverParams pgo_params;
-  pgo_params.setPcmSimple3DParams(
-      100, 100, 100, 100, KimeraRPGO::Verbosity::UPDATE);
-  graph.initialize(pgo_params);
+  SetUpDeformationGraph(&graph);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
   size_t num_vertices = simple_mesh.cloud.width * simple_mesh.cloud.height;
   std::vector<ros::Time> simple_mesh_stamps;
   for (size_t i = 0; i < num_vertices; i++) {
     simple_mesh_stamps.push_back(ros::Time(0));
   }
-
-  pcl::PolygonMesh original_mesh = SimpleMesh();
-  gtsam::Values mesh_nodes;
-  std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
-  MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
-  std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(
-      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
 
   Vertices new_node_valences{0, 2};
   graph.addNewNode(
@@ -652,9 +505,11 @@ TEST(test_deformation_graph, removePriorsWithPrefix) {
   EXPECT_EQ(size_t(10), factors.size());
 
   // Add another prior to see if mesh reset
-  graph.addNodeMeasurement(
-      gtsam::Symbol('a', 0),
-      gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)));
+  std::vector<std::pair<gtsam::Key, gtsam::Pose3> > priors;
+  priors.push_back(
+      {gtsam::Symbol('a', 0),
+       gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2))});
+  graph.addNodeMeasurements(priors);
 
   new_mesh = graph.deformMesh(simple_mesh, simple_mesh_stamps, 'v', 1);
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
@@ -670,28 +525,10 @@ TEST(test_deformation_graph, removePriorsWithPrefix) {
 
 TEST(test_deformation_graph, addNewBetween) {
   DeformationGraph graph;
-  KimeraRPGO::RobustSolverParams pgo_params;
-  pgo_params.setPcmSimple3DParams(
-      100, 100, 100, 100, KimeraRPGO::Verbosity::UPDATE);
-  graph.initialize(pgo_params);
-  pcl::PolygonMesh simple_mesh = createMeshTriangle();
-
-  pcl::PolygonMesh original_mesh = SimpleMesh();
-  size_t num_vertices = original_mesh.cloud.width * original_mesh.cloud.height;
+  SetUpDeformationGraph(&graph);
+  pcl::PolygonMesh original_mesh;
   std::vector<ros::Time> original_mesh_stamps;
-  for (size_t i = 0; i < num_vertices; i++) {
-    original_mesh_stamps.push_back(ros::Time(0));
-  }
-  gtsam::Values mesh_nodes;
-  std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
-  MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
-  std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(
-      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
-
-  EXPECT_EQ(3, graph.getNumVertices());
-  EXPECT_EQ(0, graph.getInitialPositionVertex('v', 0).x());
-  EXPECT_EQ(1, graph.getInitialPositionVertex('v', 2).y());
+  SetUpOriginalMesh(&original_mesh, &original_mesh_stamps);
 
   Vertices new_node_valences{0, 2};
   graph.addNewNode(gtsam::Symbol('a', 0),
@@ -819,19 +656,7 @@ TEST(test_deformation_graph, addNewBetween) {
 
 TEST(test_deformation_graph, addTemporary) {
   DeformationGraph graph;
-  KimeraRPGO::RobustSolverParams pgo_params;
-  pgo_params.setPcmSimple3DParams(
-      100, 100, 100, 100, KimeraRPGO::Verbosity::UPDATE);
-  graph.initialize(pgo_params);
-  pcl::PolygonMesh simple_mesh = createMeshTriangle();
-
-  pcl::PolygonMesh original_mesh = SimpleMesh();
-  gtsam::Values mesh_nodes;
-  std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
-  MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
-  std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(
-      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
+  SetUpDeformationGraph(&graph);
 
   Vertices new_node_valences{0, 2};
   graph.addNewNode(gtsam::Symbol('a', 0),
@@ -911,21 +736,134 @@ TEST(test_deformation_graph, addTemporary) {
   EXPECT_EQ(size_t(1), temp_values.size());
 }
 
+TEST(test_deformation_graph, addNewTempNodesValences) {
+  DeformationGraph graph;
+  SetUpDeformationGraph(&graph);
+
+  std::vector<gtsam::Key> temp_keys;
+  std::vector<gtsam::Pose3> temp_key_poses;
+  std::vector<Vertices> temp_valences;
+  for (size_t i = 0; i < 3; i++) {
+    temp_keys.push_back(gtsam::Symbol('p', i));
+    temp_key_poses.push_back(gtsam::Pose3(
+        gtsam::Rot3(), gtsam::Point3(static_cast<double>(i), 0, 0)));
+    Vertices temp_node_valences{i};
+    temp_valences.push_back(temp_node_valences);
+  }
+
+  graph.addNewTempNodesValences(
+      temp_keys, temp_key_poses, temp_valences, 'v', false);
+
+  // Check added factors
+  gtsam::Values values = graph.getGtsamValues();
+  gtsam::NonlinearFactorGraph factors = graph.getGtsamFactors();
+
+  EXPECT_EQ(size_t(6), factors.size());
+  EXPECT_EQ(size_t(3), values.size());
+
+  graph.optimize();
+
+  // Check added factors
+  values = graph.getGtsamValues();
+  factors = graph.getGtsamFactors();
+  gtsam::Values temp_values = graph.getGtsamTempValues();
+  gtsam::NonlinearFactorGraph temp_factors = graph.getGtsamTempFactors();
+
+  EXPECT_EQ(size_t(6), factors.size());
+  EXPECT_EQ(size_t(3), values.size());
+
+  for (size_t i = 0; i < 3; i++) {
+    gtsam::Pose3 node_pose(gtsam::Rot3(),
+                           gtsam::Point3(static_cast<double>(i), 0, 0));
+    gtsam::Pose3 vertex_pose = values.at<gtsam::Pose3>(gtsam::Symbol('v', i));
+    EXPECT_TRUE(gtsam::assert_equal(
+        node_pose, temp_values.at<gtsam::Pose3>(gtsam::Symbol('p', i))));
+    DeformationEdgeFactor factor1 =
+        *boost::dynamic_pointer_cast<DeformationEdgeFactor>(
+            temp_factors[2 * i]);
+    DeformationEdgeFactor factor2 =
+        *boost::dynamic_pointer_cast<DeformationEdgeFactor>(
+            temp_factors[2 * i + 1]);
+    EXPECT_TRUE(gtsam::assert_equal(node_pose, factor1.fromPose()));
+    EXPECT_TRUE(
+        gtsam::assert_equal(node_pose.translation(), factor2.toPoint()));
+    EXPECT_TRUE(
+        gtsam::assert_equal(vertex_pose.translation(), factor1.toPoint()));
+    EXPECT_TRUE(gtsam::assert_equal(vertex_pose, factor2.fromPose()));
+    EXPECT_EQ(gtsam::Symbol('p', i).key(), factor1.front());
+    EXPECT_EQ(gtsam::Symbol('v', i).key(), factor1.back());
+    EXPECT_EQ(gtsam::Symbol('v', i).key(), factor2.front());
+    EXPECT_EQ(gtsam::Symbol('p', i).key(), factor2.back());
+  }
+
+  graph.clearTemporaryStructures();
+  graph.optimize();
+  temp_values = graph.getGtsamTempValues();
+  temp_factors = graph.getGtsamTempFactors();
+
+  EXPECT_EQ(size_t(0), temp_factors.size());
+  EXPECT_EQ(size_t(0), temp_values.size());
+}
+
+TEST(test_deformation_graph, addNewTempEdges) {
+  DeformationGraph graph;
+  SetUpDeformationGraph(&graph);
+
+  std::vector<gtsam::Key> temp_keys;
+  std::vector<gtsam::Pose3> temp_key_poses;
+  std::vector<Vertices> temp_valences;
+  for (size_t i = 0; i < 4; i++) {
+    temp_keys.push_back(gtsam::Symbol('p', i));
+    temp_key_poses.push_back(gtsam::Pose3(
+        gtsam::Rot3(), gtsam::Point3(static_cast<double>(i), 0, 0)));
+    Vertices temp_node_valences;
+    temp_valences.push_back(temp_node_valences);
+  }
+  graph.addNewTempNodesValences(
+      temp_keys, temp_key_poses, temp_valences, 'v', false);
+
+
+  pose_graph_tools::PoseGraph temp_edges;
+  for (size_t i = 0; i < 3; i++) {
+    pose_graph_tools::PoseGraphEdge edge;
+    edge.key_from = gtsam::Symbol('p', i);
+    edge.key_to = gtsam::Symbol('p', i + 1);
+    temp_edges.edges.push_back(edge);
+  }
+
+  graph.addNewTempEdges(temp_edges);
+
+  // Check added factors
+  gtsam::Values values = graph.getGtsamValues();
+  gtsam::NonlinearFactorGraph factors = graph.getGtsamFactors();
+  gtsam::Values temp_values = graph.getGtsamTempValues();
+  gtsam::NonlinearFactorGraph temp_factors = graph.getGtsamTempFactors();
+
+  EXPECT_EQ(size_t(3), values.size());
+  EXPECT_EQ(size_t(6), factors.size());
+  EXPECT_EQ(size_t(4), temp_values.size());
+  EXPECT_EQ(size_t(3), temp_factors.size());
+
+  for (size_t i = 0; i < 3; i++) {
+    gtsam::BetweenFactor<gtsam::Pose3> factor =
+        *boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(
+            temp_factors[i]);
+    EXPECT_EQ(gtsam::Symbol('p', i).key(), factor.front());
+    EXPECT_EQ(gtsam::Symbol('p', i + 1).key(), factor.back());
+  }
+
+  graph.clearTemporaryStructures();
+  graph.optimize();
+  temp_values = graph.getGtsamTempValues();
+  temp_factors = graph.getGtsamTempFactors();
+
+  EXPECT_EQ(size_t(0), temp_factors.size());
+  EXPECT_EQ(size_t(0), temp_values.size());
+}
+
 TEST(test_deformation_graph, saveAndLoad) {
   DeformationGraph graph;
-  KimeraRPGO::RobustSolverParams pgo_params;
-  pgo_params.setPcmSimple3DParams(
-      100, 100, 100, 100, KimeraRPGO::Verbosity::UPDATE);
-  graph.initialize(pgo_params);
-  pcl::PolygonMesh simple_mesh = createMeshTriangle();
-
-  pcl::PolygonMesh original_mesh = SimpleMesh();
-  gtsam::Values mesh_nodes;
-  std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
-  MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges);
-  std::vector<size_t> added_node_indices;
-  graph.addNewMeshEdgesAndNodes(
-      mesh_edges, mesh_nodes, ros::Time(0), &added_node_indices);
+  SetUpDeformationGraph(&graph);
 
   Vertices new_node_valences{0, 2};
   graph.addNewNode(gtsam::Symbol('a', 0),
@@ -971,7 +909,7 @@ TEST(test_deformation_graph, saveAndLoad) {
   EXPECT_EQ(size_t(2), temp_values.size());
   graph.save(std::string(DATASET_PATH) + "/graph.dgrf");
   DeformationGraph new_graph;
-  new_graph.initialize(pgo_params);
+  new_graph.initialize(graph.getParams());
   new_graph.load(std::string(DATASET_PATH) + "/graph.dgrf");
 
   values = new_graph.getGtsamValues();

@@ -215,13 +215,6 @@ class DeformationGraph {
   void addNewTempEdges(const pose_graph_tools::PoseGraph& edges,
                        double variance = 1e-2);
 
-  /*! \brief Directly add factors and values as temporary factors and values
-   *  - factors: GTSAM nonlinear factor graph container of factors
-   *  - values: GTSAM values container of values
-   */
-  void addTempFactors(const gtsam::NonlinearFactorGraph& factors,
-                      const gtsam::Values& values);
-
   /*! \brief Add a new mesh edge to deformation graph
    *  - mesh_edges: edges storing key-key pairs
    *  - mesh_nodes: gtsam values encoding key value pairs of new nodes

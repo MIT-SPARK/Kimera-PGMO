@@ -101,19 +101,10 @@ void DeformationGraph::addTempNodeValence(const gtsam::Key& key,
         key, vertex, node_pose, vertex_pose.translation(), noise);
     const DeformationEdgeFactor new_edge_2(
         vertex, key, vertex_pose, node_pose.translation(), noise);
-    // TODO(Yun) temp_consistency_factors_? For now seems like not needed.
     new_factors.add(new_edge_1);
     new_factors.add(new_edge_2);
   }
   pgo_->updateTempFactorsValues(new_factors, new_values);
-  temp_nfg_ = pgo_->getTempFactorsUnsafe();
-  temp_values_ = pgo_->getTempValues();
-}
-
-void DeformationGraph::addTempFactors(
-    const gtsam::NonlinearFactorGraph& factors,
-    const gtsam::Values& values) {
-  pgo_->updateTempFactorsValues(factors, values);
   temp_nfg_ = pgo_->getTempFactorsUnsafe();
   temp_values_ = pgo_->getTempValues();
 }
@@ -145,36 +136,6 @@ void DeformationGraph::addMeasurement(const Vertex& v,
   recalculate_vertices_ = !do_not_optimize_;
 }
 
-void DeformationGraph::addNodeMeasurement(const gtsam::Key& key,
-                                          const gtsam::Pose3 pose,
-                                          double variance) {
-  // TODO: consider consolidating with addNodeMeasurements
-  gtsam::Values new_values;
-  gtsam::NonlinearFactorGraph new_factors;
-
-  gtsam::Vector6 variances;
-  variances.head<3>().setConstant(1e-02 * variance);
-  variances.tail<3>().setConstant(variance);
-  static const gtsam::SharedNoiseModel& noise =
-      gtsam::noiseModel::Diagonal::Variances(variances);
-  gtsam::PriorFactor<gtsam::Pose3> measurement(key, pose, noise);
-  new_factors.add(measurement);
-
-  if (!values_.exists(key)) {
-    ROS_WARN(
-        "DeformationGraph: adding node measurement to a node %s not previously "
-        "seen before. ",
-        gtsam::DefaultKeyFormatter(key));
-    new_values.insert(key, pose);
-  }
-
-  pgo_->update(new_factors, new_values, !do_not_optimize_);
-  values_ = pgo_->calculateEstimate();
-  nfg_ = pgo_->getFactorsUnsafe();
-  gnc_weights_ = pgo_->getGncWeights();
-  recalculate_vertices_ = !do_not_optimize_;
-}
-
 void DeformationGraph::addNodeMeasurements(
     const std::vector<std::pair<gtsam::Key, gtsam::Pose3>>& measurements,
     double variance) {
@@ -187,7 +148,7 @@ void DeformationGraph::addNodeMeasurements(
           "DeformationGraph: adding node measurement to a node %s not "
           "previously seen before. ",
           gtsam::DefaultKeyFormatter(keyed_pose.first));
-      continue;
+      new_values.insert(keyed_pose.first, keyed_pose.second);
     }
     gtsam::Vector6 variances;
     variances.head<3>().setConstant(1e-02 * variance);
@@ -525,7 +486,6 @@ void DeformationGraph::addNewTempNodesValences(
           keys[i], vertex, node_pose, vertex_pose.translation(), noise);
       const DeformationEdgeFactor new_edge_2(
           vertex, keys[i], vertex_pose, node_pose.translation(), noise);
-      // TODO(Yun) temp_consistency_factors_? For now seems like not needed.
       new_factors.add(new_edge_1);
       new_factors.add(new_edge_2);
     }
