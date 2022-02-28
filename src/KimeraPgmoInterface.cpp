@@ -100,6 +100,9 @@ bool KimeraPgmoInterface::loadParameters(const ros::NodeHandle& n) {
     return false;
   }
 
+  // If inliers are not fixed, need to perform interpolation on whole mesh
+  // everytime we optimize
+  deformation_graph_->setForceRecalculate(!gnc_fix_prev_inliers);
   if (run_mode_ != RunMode::FULL) deformation_graph_->storeOnlyNoOptimization();
   return true;
 }
@@ -446,6 +449,13 @@ bool KimeraPgmoInterface::saveTrajectory(
   }
   csvfile.close();
   ROS_INFO("KimeraPgmo: Saved trajectories to file.");
+  return true;
+}
+
+bool KimeraPgmoInterface::saveDeformationGraph(const std::string& dgrf_name) {
+  // Save mesh
+  deformation_graph_->save(dgrf_name);
+  ROS_INFO("KimeraPgmo: Saved deformation graph to file.");
   return true;
 }
 

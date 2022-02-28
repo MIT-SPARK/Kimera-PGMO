@@ -180,21 +180,24 @@ class KimeraPgmoInterface {
   void processOptimizedPath(const nav_msgs::Path::ConstPtr& path_msg,
                             const size_t& robot_id = 0);
 
-  /*! \brief Saves mesh as a ply file. Triggers through a rosservice call
-   * and saves to file [output_prefix_][id].ply
+  /*! \brief Saves mesh as a ply file.
    * - mesh: mesh to save
    * - ply_name: name of the ply file output
    */
   bool saveMesh(const pcl::PolygonMesh& mesh, const std::string& ply_name);
 
-  /*! \brief Saves trajectory to csv files. Triggers
-   * through a rosservice call and saves to file [output_prefix_][id].csv
+  /*! \brief Saves trajectory to csv files.
    * - trajectory: trajectory to save
    * - csv_file: name of the csv file to save to
    */
   bool saveTrajectory(const Path& trajectory,
                       const std::vector<ros::Time>& timestamps,
                       const std::string& csv_file);
+
+  /*! \brief Saves deformation graph to file.
+   * - dgrf_file: name of the file to write to
+   */
+  bool saveDeformationGraph(const std::string& dgrf_name);
 
   /*! \brief Get the consistency factors as pose graph edges
    * - robot_id: the id of the robot in question

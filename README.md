@@ -37,7 +37,9 @@ The following is the diagram of modules in Kimera-PGMO.
 
 #### Mesh Frontend
 - `horizon` is the compressor horizon. We are currently using an geometric octree based mesh simplification technique, vertices that is outside the horizon will no longer be in the octree allowing a new vertex to be places near it. 
-- `output_mesh_resolution` resolution of the full mesh. Set to less than the Kimera-Semantics / Voxblox voxel size if you don't want any simplification on the full mesh. 
+- `output_mesh_resolution` resolution of the full mesh. Set to less than the Kimera-Semantics / Voxblox voxel size if you don't want any simplification on the full mesh.
+- `graph_comppression_method` sets the compression method to extract simplified mesh for deformation graph. Recommended: `1`.
+- `full_compression_method` sets the compression method for the full mesh. Recommended: `2`.
 - `robot_id` can be just set to the default `0` if running single robot. This is really only important for the multirobot case. 
 - `d_graph_resolution` resolution of the simplified mesh to be added to the deformation graph. 
 - `log_path` path to the folder to save the mesh-frontend log file. 
@@ -46,11 +48,12 @@ The following is the diagram of modules in Kimera-PGMO.
 #### Kimera PGMO
 - `output_prefix` path to the folder to save the log file and the optimized mesh and trajectory files. 
 - `robot_id` can be just set to the default `0` if running single robot. This is really only important for the distributed multirobot case. 
-- `run_mode` toggles the different modes.Set to 0 to receive pose graph and mesh and perform simultaneous pose graph and mesh optimization. Set to 1 to optimize the mesh and subscribe to an optimized trajectory. Set to 2 to use with DPGMO and just update mesh based on optimized values. 
+- `run_mode` toggles the different modes. Set to 0 to receive pose graph and mesh and perform simultaneous pose graph and mesh optimization. Set to 1 to optimize the mesh and subscribe to an optimized trajectory.
 - `use_msg_time` toggle to use message header stamp or ROS time when connecting pose graph nodes to mesh vertices. 
 - `log_output` log timing statistics. 
-- `rpgo/translation_threshold` PCM translation threshold. 
-- `rpgo/rotation_threshold` PCM rotation threshold. 
+- `rpgo/` sets various pose graph optimization parameters. See example config.
+- `add_initial_prior` adds a prior factor on first node.
+- `covariance/` sets the covariance. See example config.
 
 ## Running Kimera-PGMO
 
@@ -71,32 +74,27 @@ roslaunch kimera_semantics_ros kimera_semantics_uHumans2.launch
 ```
 For visualization, an rviz configuration is provided: 
 ```bash
-rviz -d $(rospack find kimera_pgmo)/rviz/kimera_pgmo.rviz
+rviz -d $(rospack find kimera_pgmo)/rviz/uHumans2.rviz
 ```
 Finally play the rosbag. 
 ```bash
-rosbag play some_bag.bag --clock --pause -k
+rosbag play some_bag.bag --clock --pause
 ```
 
 To save the mesh, do 
 ```bash
-rosservice call /kimera_pgmo_node/save_mesh
+rosservice call /kimera_pgmo/save_mesh
 ```
 
 and to save optimized trajectory, do 
 ```bash
-rosservice call /kimera_pgmo_node/save_trajectory
+rosservice call /kimera_pgmo/save_trajectory
 ```
 the mesh will be saved to ouput_folder/mesh_pgmo.ply and trajectory will be saved to output_folder/traj_pgmo.csv (see launch file)
 
-#### Euroc dataset 
-Similar to above: 
+You can also save the underlying deformation graph to output_folder/pgmo.dgrf 
 ```bash
-roslaunch kimera_vio_ros kimera_vio_ros_euroc.launch use_lcd:=true run_stereo_dense:=true
-rosbag play V1_02_medium.bag --clock --pause -k
-roslaunch kimera_pgmo kimera_pgmo.launch dataset:=Euroc
-roslaunch kimera_semantics_ros kimera_semantics_euroc.launch
-rviz -d $(rospack find kimera_pgmo)/rviz/kimera_pgmo.rviz
+rosservice call /kimera_pgmo/save_dgrf
 ```
 
 ## Developer notes 
@@ -119,8 +117,8 @@ rosrun kimera_pgmo kimera_pgmo-test_deformation_graph
 ### Plotting the timing 
 We provided some simple python scripts to plot the timing
 ```bash
-python scripts/evaluate_pgmo_timing.py /home/yunchang/catkin_ws/src/kimera_pgmo/log/kimera_pgmo_log.csv
-python scripts/evaluate_frontend_timing.py /home/yunchang/catkin_ws/src/kimera_pgmo/log/mesh_frontend_log.csv
+python scripts/plot_pgmo_timing.py /home/yunchang/catkin_ws/src/kimera_pgmo/log/kimera_pgmo_log.csv
+python scripts/plot_frontend_timing.py /home/yunchang/catkin_ws/src/kimera_pgmo/log
 ```
 
 ### Misc Note

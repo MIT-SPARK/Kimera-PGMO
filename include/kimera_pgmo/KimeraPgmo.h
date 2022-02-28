@@ -122,15 +122,20 @@ class KimeraPgmo : public KimeraPgmoInterface {
   void dpgmoCallback(const pose_graph_tools::PoseGraph::ConstPtr& msg);
 
   /*! \brief Saves mesh as a ply file. Triggers through a rosservice call
-   * and saves to file [output_prefix_].ply
+   * and saves to file [output_prefix_]/mesh_pgmo.ply
    */
   bool saveMeshCallback(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
 
   /*! \brief Saves all the trajectories of all robots to csv files. Triggers
-   * through a rosservice call and saves to file [output_prefix_][robot_id].csv
+   * through a rosservice call and saves to file [output_prefix_]/traj_pgmo.csv
    */
   bool saveTrajectoryCallback(std_srvs::Empty::Request&,
                               std_srvs::Empty::Response&);
+
+  /*! \brief Saves the deformation graph to a custom dgrf file. Triggers
+   * through a rosservice call and saves to file [output_prefix_]/pgmo.dgrf
+   */
+  bool saveGraphCallback(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
 
   /*! \brief Requests the mesh related edges (pose-vertex, vertex-vertex) in the
    * deformation graph.
@@ -174,6 +179,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
   // Service
   ros::ServiceServer save_mesh_srv_;
   ros::ServiceServer save_traj_srv_;
+  ros::ServiceServer save_graph_srv_;
   ros::ServiceServer req_mesh_edges_srv_;
 
   // Trajectory
@@ -187,9 +193,6 @@ class KimeraPgmo : public KimeraPgmoInterface {
 
   // Store last received full mesh
   KimeraPgmoMesh last_mesh_msg_;
-
-  // Track number of loop closures
-  size_t num_loop_closures_;
 
   // Time callback spin time
   int inc_mesh_cb_time_;

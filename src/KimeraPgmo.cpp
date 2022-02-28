@@ -16,8 +16,7 @@ namespace kimera_pgmo {
 
 // Constructor
 KimeraPgmo::KimeraPgmo()
-    : num_loop_closures_(0),
-      inc_mesh_cb_time_(0),
+    : inc_mesh_cb_time_(0),
       full_mesh_cb_time_(0),
       pg_cb_time_(0),
       path_cb_time_(0),
@@ -96,13 +95,13 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
 
   incremental_mesh_graph_sub_ =
       nl.subscribe("mesh_graph_incremental",
-                   100,
+                   5000,
                    &KimeraPgmo::incrementalMeshGraphCallback,
                    this);
 
   pose_graph_incremental_sub_ =
       nl.subscribe("pose_graph_incremental",
-                   100,
+                   5000,
                    &KimeraPgmo::incrementalPoseGraphCallback,
                    this);
 
@@ -122,6 +121,10 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
   // Initialize save trajectory service
   save_traj_srv_ = nl.advertiseService(
       "save_trajectory", &KimeraPgmo::saveTrajectoryCallback, this);
+
+  // Initialize save deformation graph service
+  save_graph_srv_ =
+      nl.advertiseService("save_dgrf", &KimeraPgmo::saveGraphCallback, this);
 
   // Initialize request mesh edges service
   req_mesh_edges_srv_ = nl.advertiseService(
@@ -345,10 +348,19 @@ bool KimeraPgmo::saveMeshCallback(std_srvs::Empty::Request&,
 bool KimeraPgmo::saveTrajectoryCallback(std_srvs::Empty::Request&,
                                         std_srvs::Empty::Response&) {
   // Save trajectory
-  std::ofstream csvfile;
   std::string csv_name = output_prefix_ + std::string("/traj_pgmo.csv");
   saveTrajectory(*optimized_path_, timestamps_, csv_name);
   ROS_INFO("KimeraPgmo: Saved trajectories to file.");
+  return true;
+}
+
+bool KimeraPgmo::saveGraphCallback(std_srvs::Empty::Request&,
+                                   std_srvs::Empty::Response&) {
+  // Save trajectory
+  std::ofstream csvfile;
+  std::string dgrf_name = output_prefix_ + std::string("/pgmo.dgrf");
+  saveDeformationGraph(dgrf_name);
+  ROS_INFO("KimeraPgmo: Saved deformation graph to file.");
   return true;
 }
 
