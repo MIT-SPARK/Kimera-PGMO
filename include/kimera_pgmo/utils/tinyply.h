@@ -37,6 +37,23 @@
 namespace tinyply
 {
 
+    struct timestamp {
+        uint32_t sec;
+        uint32_t nsec;
+    };
+
+    struct uint3 {
+        uint32_t v1, v2, v3;
+    };
+
+    struct float3 {
+        float x, y, z;
+    };
+
+    struct rgba {
+        uint8_t r, g, b, a;
+    };
+
     enum class Type : uint8_t
     {
         INVALID,
@@ -46,6 +63,7 @@ namespace tinyply
         UINT16,
         INT32,
         UINT32,
+        UINT64,
         FLOAT32,
         FLOAT64
     };
@@ -67,6 +85,7 @@ namespace tinyply
         { Type::UINT16,  PropertyInfo(2, std::string("ushort")) },
         { Type::INT32,   PropertyInfo(4, std::string("int")) },
         { Type::UINT32,  PropertyInfo(4, std::string("uint")) },
+        { Type::UINT64,  PropertyInfo(8, std::string("ulong")) },
         { Type::FLOAT32, PropertyInfo(4, std::string("float")) },
         { Type::FLOAT64, PropertyInfo(8, std::string("double")) },
         { Type::INVALID, PropertyInfo(0, std::string("INVALID"))}
@@ -229,6 +248,7 @@ inline Type property_type_from_string(const std::string & t) noexcept
     else if (t == "uint16" || t == "ushort")  return Type::UINT16;
     else if (t == "int32" || t == "int")      return Type::INT32;
     else if (t == "uint32" || t == "uint")    return Type::UINT32;
+    else if (t == "uint64" || t == "ulong")    return Type::UINT64;
     else if (t == "float32" || t == "float")  return Type::FLOAT32;
     else if (t == "float64" || t == "double") return Type::FLOAT64;
     return Type::INVALID;
@@ -445,6 +465,7 @@ size_t PlyFile::PlyFileImpl::read_property_ascii(const Type & t, const size_t & 
     case Type::UINT16:     ply_cast_ascii<uint16_t>(dest, is);                break;
     case Type::INT32:      ply_cast_ascii<int32_t>(dest, is);                 break;
     case Type::UINT32:     ply_cast_ascii<uint32_t>(dest, is);                break;
+    case Type::UINT64:     ply_cast_ascii<uint64_t>(dest, is);                break;
     case Type::FLOAT32:    ply_cast_ascii<float>(dest, is);                   break;
     case Type::FLOAT64:    ply_cast_ascii<double>(dest, is);                  break;
     case Type::INVALID:    throw std::invalid_argument("invalid ply property");
@@ -462,6 +483,7 @@ void PlyFile::PlyFileImpl::write_property_ascii(Type t, std::ostream & os, const
     case Type::UINT16:     os << *reinterpret_cast<const uint16_t*>(src); break;
     case Type::INT32:      os << *reinterpret_cast<const int32_t*>(src);  break;
     case Type::UINT32:     os << *reinterpret_cast<const uint32_t*>(src); break;
+    case Type::UINT64:     os << *reinterpret_cast<const uint64_t*>(src); break;
     case Type::FLOAT32:    os << *reinterpret_cast<const float*>(src);    break;
     case Type::FLOAT64:    os << *reinterpret_cast<const double*>(src);   break;
     case Type::INVALID:    throw std::invalid_argument("invalid ply property");
@@ -546,6 +568,7 @@ void PlyFile::PlyFileImpl::read(std::istream & is)
             case Type::UINT16:  endian_swap_buffer<uint16_t, uint16_t>(data_ptr, buffer_size_bytes, stride); break;
             case Type::INT32:   endian_swap_buffer<int32_t, int32_t>(data_ptr, buffer_size_bytes, stride);   break;
             case Type::UINT32:  endian_swap_buffer<uint32_t, uint32_t>(data_ptr, buffer_size_bytes, stride); break;
+            case Type::UINT64:  endian_swap_buffer<uint64_t, uint64_t>(data_ptr, buffer_size_bytes, stride); break;
             case Type::FLOAT32: endian_swap_buffer<uint32_t, float>(data_ptr, buffer_size_bytes, stride);    break;
             case Type::FLOAT64: endian_swap_buffer<uint64_t, double>(data_ptr, buffer_size_bytes, stride);   break;
             default: break;
@@ -835,6 +858,7 @@ void PlyFile::PlyFileImpl::parse_data(std::istream & is, bool firstPass)
             case Type::UINT16: *(uint16_t*)dst = endian_swap<uint16_t, uint16_t>(*(uint16_t*)dst); break;
             case Type::INT32:  *(int32_t*)dst  = endian_swap<int32_t, int32_t>(*(int32_t*)dst);    break;
             case Type::UINT32: *(uint32_t*)dst = endian_swap<uint32_t, uint32_t>(*(uint32_t*)dst); break;
+            case Type::UINT64: *(uint64_t*)dst = endian_swap<uint64_t, uint64_t>(*(uint64_t*)dst); break;
             default: break;
             }
         }

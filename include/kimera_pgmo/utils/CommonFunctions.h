@@ -99,11 +99,28 @@ typedef pose_graph_tools::PoseGraph::ConstPtr GraphMsgPtr;
  */
 void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh);
 
+/*! \brief Read ply file and convert to polygon mesh type
+ *  - mesh: pcl PolygonMesh pointer
+ *  - vertex_stamps: timestamps associated with mesh vertices
+ */
+void ReadMeshWithStampsFromPly(const std::string& filename,
+                               pcl::PolygonMeshPtr mesh,
+                               std::vector<ros::Time>* vertex_stamps = nullptr);
+
 /*! \brief Write a pcl PolygonMesh mesh to ply file
  *  - filename: name of output ply file
  *  - mesh: mesh to save
  */
 void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh);
+
+/*! \brief Write a pcl PolygonMesh mesh to ply file along with vertex timestamps
+ *  - filename: name of output ply file
+ *  - mesh: mesh to save
+ *  - vertex_stamps: vector of vertex timestamps
+ */
+void WriteMeshWithStampsToPly(const std::string& filename,
+                              const pcl::PolygonMesh& mesh,
+                              const std::vector<ros::Time>& vertex_stamps);
 
 /*! \brief Convert pcl PolygonMesh to mesh_msg TriangleMesh
  *  - polygon_mesh: mesh to convert

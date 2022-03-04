@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.5)
 project(kimera_pgmo)
 
 SET(CMAKE_BUILD_TYPE Release)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(catkin_simple REQUIRED)
 
@@ -61,11 +64,6 @@ cs_add_executable(mesh_frontend_node
   src/mesh_frontend_node.cpp
 )
 target_link_libraries(mesh_frontend_node ${PROJECT_NAME})
-
-cs_add_executable(load_mesh
-  src/load_mesh.cpp
-)
-target_link_libraries(load_mesh ${PROJECT_NAME})
 
 
 # Unit tests 
