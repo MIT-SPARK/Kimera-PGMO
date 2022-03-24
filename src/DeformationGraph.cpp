@@ -508,15 +508,18 @@ void DeformationGraph::removePriorsWithPrefix(const char& prefix) {
 pcl::PolygonMesh DeformationGraph::deformMesh(
     const pcl::PolygonMesh& original_mesh,
     const std::vector<ros::Time>& stamps,
+    const std::vector<int>& graph_indices,
     const char& prefix,
     size_t k,
     double tol_t) {
-  return deformMesh(original_mesh, stamps, prefix, values_, k, tol_t);
+  return deformMesh(
+      original_mesh, stamps, graph_indices, prefix, values_, k, tol_t);
 }
 
 pcl::PolygonMesh DeformationGraph::deformMesh(
     const pcl::PolygonMesh& original_mesh,
     const std::vector<ros::Time>& stamps,
+    const std::vector<int>& graph_indices,
     const char& prefix,
     const gtsam::Values& optimized_values,
     size_t k,
@@ -530,10 +533,9 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
   }
 
   // extract original vertices
-  pcl::PointCloud<pcl::PointXYZRGBA> original_vertices;
-  pcl::fromPCLPointCloud2(original_mesh.cloud, original_vertices);
+  pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
+  pcl::fromPCLPointCloud2(original_mesh.cloud, new_vertices);
 
-  pcl::PointCloud<pcl::PointXYZRGBA> new_vertices, vertices_to_deform;
   // iterate through original vertices to create new vertices
   size_t start_idx = 0;
   if (!recalculate_vertices_ && last_calculated_vertices_.find(prefix) !=
@@ -543,24 +545,40 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
     auto bound = std::upper_bound(stamps.begin(), stamps.end(), min_stamp);
     start_idx = std::min(static_cast<size_t>(bound - stamps.begin()),
                          last_calculated_vertices_[prefix].size());
-    new_vertices.insert(new_vertices.end(),
-                        last_calculated_vertices_[prefix].begin(),
-                        last_calculated_vertices_[prefix].begin() + start_idx);
+    for (size_t i = 0; i < start_idx; i++) {
+      new_vertices.points[i] = last_calculated_vertices_[prefix].points[i];
+    }
   } else {
     ROS_INFO(
         "DeformationGraph: Re-calculating all mesh vertices in deformMesh. ");
   }
 
-  std::vector<int> to_add_indices(original_vertices.size() - start_idx);
-  std::iota(std::begin(to_add_indices), std::end(to_add_indices), start_idx);
-  vertices_to_deform =
-      pcl::PointCloud<pcl::PointXYZRGBA>(original_vertices, to_add_indices);
-  std::vector<ros::Time> stamps_to_deform(stamps.begin() + start_idx,
-                                          stamps.end());
-  if (stamps_to_deform.size() != vertices_to_deform.size()) {
-    ROS_ERROR(
-        "Deform Mesh is most likely wrong as the size of the mesh vertices and "
-        "the vertex time stamps are mis-matched. ");
+  pcl::PointCloud<pcl::PointXYZRGBA> vertices_to_deform;
+  std::vector<ros::Time> stamps_to_deform;
+  std::vector<size_t> indices_to_deform;
+  for (size_t i = start_idx; i < new_vertices.size(); i++) {
+    const int& index = graph_indices.at(i);
+    if (index < 0 || !optimized_values.exists(gtsam::Symbol(prefix, index))) {
+      // Have to check here because sometimes interpolation happen before mesh
+      // graph received TODO(yun) double check this
+      vertices_to_deform.points.push_back(new_vertices.points[i]);
+      stamps_to_deform.push_back(stamps.at(i));
+      indices_to_deform.push_back(i);
+    } else {
+      const pcl::PointXYZRGBA& orig_p = new_vertices.points[i];
+      gtsam::Pose3 node_transform =
+          optimized_values.at<gtsam::Pose3>(gtsam::Symbol(prefix, index));
+      gtsam::Point3 vi(orig_p.x, orig_p.y, orig_p.z);
+      gtsam::Point3 gindex = vertex_positions_[prefix].at(index);
+      gtsam::Point3 deformed_point =
+          node_transform.rotation().rotate(vi - gindex) +
+          node_transform.translation();
+      pcl::PointXYZRGBA new_p = new_vertices.points[i];
+      new_p.x = deformed_point.x();
+      new_p.y = deformed_point.y();
+      new_p.z = deformed_point.z();
+      new_vertices.points[i] = new_p;
+    }
   }
 
   pcl::PointCloud<pcl::PointXYZRGBA> new_vertices_to_deform =
@@ -572,7 +590,11 @@ pcl::PolygonMesh DeformationGraph::deformMesh(
                                                    optimized_values,
                                                    k,
                                                    tol_t);
-  new_vertices += new_vertices_to_deform;
+
+  for (size_t i = 0; i < indices_to_deform.size(); i++) {
+    new_vertices.points[indices_to_deform[i]] =
+        new_vertices_to_deform.points[i];
+  }
 
   // With new vertices, construct new polygon mesh
   pcl::PolygonMesh new_mesh;

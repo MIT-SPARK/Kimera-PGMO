@@ -158,11 +158,18 @@ void SetUpDeformationGraph(DeformationGraph* graph) {
                                  &added_node_indices);
 }
 
-void SetUpOriginalMesh(pcl::PolygonMesh* mesh, std::vector<ros::Time>* stamps) {
+void SetUpOriginalMesh(pcl::PolygonMesh* mesh,
+                       std::vector<ros::Time>* stamps,
+                       std::vector<int>* indices) {
   *mesh = SimpleMesh();
   size_t num_vertices = mesh->cloud.width * mesh->cloud.height;
   for (size_t i = 0; i < num_vertices; i++) {
     stamps->push_back(ros::Time(0));
+    if (i % 2 == 0) {
+      indices->push_back(-1);
+    } else {
+      indices->push_back(0);
+    }
   }
 }
 
@@ -193,11 +200,12 @@ TEST(test_deformation_graph, reconstructMesh) {
   SetUpDeformationGraph(&graph);
   pcl::PolygonMesh original_mesh;
   std::vector<ros::Time> original_mesh_stamps;
-  SetUpOriginalMesh(&original_mesh, &original_mesh_stamps);
+  std::vector<int> original_mesh_inds;
+  SetUpOriginalMesh(&original_mesh, &original_mesh_stamps, &original_mesh_inds);
 
   // First try deform with k = 1, should not change
-  pcl::PolygonMesh new_mesh =
-      graph.deformMesh(original_mesh, original_mesh_stamps, 'v', 1);
+  pcl::PolygonMesh new_mesh = graph.deformMesh(
+      original_mesh, original_mesh_stamps, original_mesh_inds, 'v', 1);
   pcl::PointCloud<pcl::PointXYZRGBA> deformed_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, deformed_vertices);
   EXPECT_EQ(5, deformed_vertices.points.size());
@@ -212,7 +220,8 @@ TEST(test_deformation_graph, reconstructMesh) {
   EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
 
   // Try with k = 2
-  new_mesh = graph.deformMesh(original_mesh, original_mesh_stamps, 'v', 2);
+  new_mesh = graph.deformMesh(
+      original_mesh, original_mesh_stamps, original_mesh_inds, 'v', 2);
   pcl::fromPCLPointCloud2(new_mesh.cloud, deformed_vertices);
   EXPECT_EQ(5, deformed_vertices.points.size());
   EXPECT_EQ(1, deformed_vertices.points[1].x);
@@ -231,7 +240,8 @@ TEST(test_deformation_graph, deformMeshtranslation) {
   SetUpDeformationGraph(&graph);
   pcl::PolygonMesh original_mesh;
   std::vector<ros::Time> original_mesh_stamps;
-  SetUpOriginalMesh(&original_mesh, &original_mesh_stamps);
+  std::vector<int> original_mesh_inds;
+  SetUpOriginalMesh(&original_mesh, &original_mesh_stamps, &original_mesh_inds);
 
   // deform mesh
   geometry_msgs::Pose distortion;
@@ -252,8 +262,8 @@ TEST(test_deformation_graph, deformMeshtranslation) {
     expected_vertices.push_back(new_point);
   }
   // First try deform with k = 1, should not change
-  pcl::PolygonMesh new_mesh =
-      graph.deformMesh(original_mesh, original_mesh_stamps, 'v', 1);
+  pcl::PolygonMesh new_mesh = graph.deformMesh(
+      original_mesh, original_mesh_stamps, original_mesh_inds, 'v', 1);
   pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
 
@@ -262,7 +272,8 @@ TEST(test_deformation_graph, deformMeshtranslation) {
   EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
 
   // Try with k = 2
-  new_mesh = graph.deformMesh(original_mesh, original_mesh_stamps, 'v', 2);
+  new_mesh = graph.deformMesh(
+      original_mesh, original_mesh_stamps, original_mesh_inds, 'v', 2);
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
   EXPECT_TRUE(ComparePointcloud(expected_vertices, actual_vertices, 1e-6));
   EXPECT_EQ(original_mesh.polygons[0].vertices, new_mesh.polygons[0].vertices);
@@ -275,8 +286,10 @@ TEST(test_deformation_graph, deformMesh) {
 
   size_t num_vertices = cube_mesh->cloud.width * cube_mesh->cloud.height;
   std::vector<ros::Time> cube_mesh_stamps;
+  std::vector<int> cube_mesh_inds;
   for (size_t i = 0; i < num_vertices; i++) {
     cube_mesh_stamps.push_back(ros::Time(0));
+    cube_mesh_inds.push_back(-1);
   }
 
   // deform mesh
@@ -301,7 +314,7 @@ TEST(test_deformation_graph, deformMesh) {
   }
   // Try with k = 3
   pcl::PolygonMesh new_mesh =
-      graph.deformMesh(*cube_mesh, cube_mesh_stamps, 'v', 3);
+      graph.deformMesh(*cube_mesh, cube_mesh_stamps, cube_mesh_inds, 'v', 3);
   pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
   EXPECT_TRUE(ComparePointcloud(expected_vertices, actual_vertices, 1e-6));
@@ -313,7 +326,8 @@ TEST(test_deformation_graph, deformMesh) {
   distortion2.position.x = 1.5;
   graph.addMeasurement(1, distortion2, 'v');
   // Try with k = 3
-  new_mesh = graph.deformMesh(*cube_mesh, cube_mesh_stamps, 'v', 2);
+  new_mesh =
+      graph.deformMesh(*cube_mesh, cube_mesh_stamps, cube_mesh_inds, 'v', 2);
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
   EXPECT_NEAR(-0.5, actual_vertices.points[0].x, 0.001);
   EXPECT_NEAR(1.273, actual_vertices.points[1].x, 0.001);
@@ -394,8 +408,10 @@ TEST(test_deformation_graph, addNodeMeasurements) {
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
   size_t num_vertices = simple_mesh.cloud.width * simple_mesh.cloud.height;
   std::vector<ros::Time> simple_mesh_stamps;
+  std::vector<int> simple_mesh_inds;
   for (size_t i = 0; i < num_vertices; i++) {
     simple_mesh_stamps.push_back(ros::Time(0));
+    simple_mesh_inds.push_back(-1);
   }
 
   Vertices new_node_valences{0, 2};
@@ -431,8 +447,8 @@ TEST(test_deformation_graph, addNodeMeasurements) {
   EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(
       factors[11]));
 
-  pcl::PolygonMesh new_mesh =
-      graph.deformMesh(simple_mesh, simple_mesh_stamps, 'v', 1);
+  pcl::PolygonMesh new_mesh = graph.deformMesh(
+      simple_mesh, simple_mesh_stamps, simple_mesh_inds, 'v', 1);
   pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
 
@@ -451,8 +467,10 @@ TEST(test_deformation_graph, removePriorsWithPrefix) {
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
   size_t num_vertices = simple_mesh.cloud.width * simple_mesh.cloud.height;
   std::vector<ros::Time> simple_mesh_stamps;
+  std::vector<int> simple_mesh_inds;
   for (size_t i = 0; i < num_vertices; i++) {
     simple_mesh_stamps.push_back(ros::Time(0));
+    simple_mesh_inds.push_back(-1);
   }
 
   Vertices new_node_valences{0, 2};
@@ -484,8 +502,8 @@ TEST(test_deformation_graph, removePriorsWithPrefix) {
   EXPECT_TRUE(boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(
       factors[11]));
 
-  pcl::PolygonMesh new_mesh =
-      graph.deformMesh(simple_mesh, simple_mesh_stamps, 'v', 1);
+  pcl::PolygonMesh new_mesh = graph.deformMesh(
+      simple_mesh, simple_mesh_stamps, simple_mesh_inds, 'v', 1);
   pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
 
@@ -511,7 +529,8 @@ TEST(test_deformation_graph, removePriorsWithPrefix) {
        gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2))});
   graph.addNodeMeasurements(priors);
 
-  new_mesh = graph.deformMesh(simple_mesh, simple_mesh_stamps, 'v', 1);
+  new_mesh = graph.deformMesh(
+      simple_mesh, simple_mesh_stamps, simple_mesh_inds, 'v', 1);
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
 
   EXPECT_NEAR(0, actual_vertices.points[0].x, 0.001);
@@ -528,7 +547,8 @@ TEST(test_deformation_graph, addNewBetween) {
   SetUpDeformationGraph(&graph);
   pcl::PolygonMesh original_mesh;
   std::vector<ros::Time> original_mesh_stamps;
-  SetUpOriginalMesh(&original_mesh, &original_mesh_stamps);
+  std::vector<int> original_mesh_inds;
+  SetUpOriginalMesh(&original_mesh, &original_mesh_stamps, &original_mesh_inds);
 
   Vertices new_node_valences{0, 2};
   graph.addNewNode(gtsam::Symbol('a', 0),
@@ -578,8 +598,8 @@ TEST(test_deformation_graph, addNewBetween) {
   EXPECT_EQ(gtsam::Symbol('v', 1).key(), factor1.back());
 
   // Expect no change
-  pcl::PolygonMesh new_mesh =
-      graph.deformMesh(original_mesh, original_mesh_stamps, 'v', 1);
+  pcl::PolygonMesh new_mesh = graph.deformMesh(
+      original_mesh, original_mesh_stamps, original_mesh_inds, 'v', 1);
   pcl::PointCloud<pcl::PointXYZ> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
 

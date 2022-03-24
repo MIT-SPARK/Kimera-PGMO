@@ -280,6 +280,7 @@ class DeformationGraph {
    */
   pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
                               const std::vector<ros::Time>& stamps,
+                              const std::vector<int>& graph_indices,
                               const char& prefix,
                               size_t k = 4,
                               double tol_t = 10.0);
@@ -296,6 +297,7 @@ class DeformationGraph {
    */
   pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
                               const std::vector<ros::Time>& stamps,
+                              const std::vector<int>& graph_indices,
                               const char& prefix,
                               const gtsam::Values& optimized_values,
                               size_t k = 4,

@@ -84,9 +84,9 @@ TEST(test_voxblox_compression, constructor) {
       new pcl::PointCloud<pcl::PointXYZRGBA>);
   pcl::PointCloud<pcl::PointXYZ>::Ptr active_vertices(
       new pcl::PointCloud<pcl::PointXYZ>);
-  boost::shared_ptr<std::vector<pcl::Vertices> > triangles(
+  std::shared_ptr<std::vector<pcl::Vertices> > triangles(
       new std::vector<pcl::Vertices>);
-  boost::shared_ptr<std::vector<double> > vertex_timestamps(
+  std::shared_ptr<std::vector<double> > vertex_timestamps(
       new std::vector<double>);
 
   compression.getVertices(vertices);
@@ -105,13 +105,13 @@ TEST(test_voxblox_compression, returnedValues) {
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles(
+  std::shared_ptr<std::vector<pcl::Vertices> > new_triangles(
       new std::vector<pcl::Vertices>);
-  boost::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
+  std::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
 
   pcl::PolygonMesh mesh = createMesh(1.0);
-  boost::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
-      boost::make_shared<std::unordered_map<size_t, size_t> >();
+  std::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
+      std::make_shared<std::unordered_map<size_t, size_t> >();
   compression.compressAndIntegrate(
       mesh, new_vertices, new_triangles, new_indices, index_remappings, 100.0);
 
@@ -157,13 +157,13 @@ TEST(test_voxblox_compression, storedValues) {
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles(
+  std::shared_ptr<std::vector<pcl::Vertices> > new_triangles(
       new std::vector<pcl::Vertices>);
-  boost::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
+  std::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
 
   pcl::PolygonMesh mesh = createMesh(1.0);
-  boost::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
-      boost::make_shared<std::unordered_map<size_t, size_t> >();
+  std::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
+      std::make_shared<std::unordered_map<size_t, size_t> >();
   compression.compressAndIntegrate(
       mesh, new_vertices, new_triangles, new_indices, index_remappings, 100.0);
 
@@ -171,9 +171,9 @@ TEST(test_voxblox_compression, storedValues) {
       new pcl::PointCloud<pcl::PointXYZRGBA>);
   pcl::PointCloud<pcl::PointXYZ>::Ptr active_vertices(
       new pcl::PointCloud<pcl::PointXYZ>);
-  boost::shared_ptr<std::vector<pcl::Vertices> > triangles(
+  std::shared_ptr<std::vector<pcl::Vertices> > triangles(
       new std::vector<pcl::Vertices>);
-  boost::shared_ptr<std::vector<double> > vertex_timestamps(
+  std::shared_ptr<std::vector<double> > vertex_timestamps(
       new std::vector<double>);
 
   compression.getVertices(vertices);
@@ -233,13 +233,13 @@ TEST(test_voxblox_compression, pruneStoredMesh) {
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles(
+  std::shared_ptr<std::vector<pcl::Vertices> > new_triangles(
       new std::vector<pcl::Vertices>);
-  boost::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
+  std::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
 
   pcl::PolygonMesh mesh = createMesh(1.0);
-  boost::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
-      boost::make_shared<std::unordered_map<size_t, size_t> >();
+  std::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
+      std::make_shared<std::unordered_map<size_t, size_t> >();
   compression.compressAndIntegrate(
       mesh, new_vertices, new_triangles, new_indices, index_remappings, 100.0);
 
@@ -257,9 +257,9 @@ TEST(test_voxblox_compression, pruneStoredMesh) {
       new pcl::PointCloud<pcl::PointXYZRGBA>);
   pcl::PointCloud<pcl::PointXYZ>::Ptr active_vertices(
       new pcl::PointCloud<pcl::PointXYZ>);
-  boost::shared_ptr<std::vector<pcl::Vertices> > triangles(
+  std::shared_ptr<std::vector<pcl::Vertices> > triangles(
       new std::vector<pcl::Vertices>);
-  boost::shared_ptr<std::vector<double> > vertex_timestamps(
+  std::shared_ptr<std::vector<double> > vertex_timestamps(
       new std::vector<double>);
 
   // try pruning
@@ -338,13 +338,13 @@ TEST(test_voxblox_compression, returnedValuesCompressed) {
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles(
+  std::shared_ptr<std::vector<pcl::Vertices> > new_triangles(
       new std::vector<pcl::Vertices>);
-  boost::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
+  std::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
 
   pcl::PolygonMesh mesh = createMesh(1.0);
-  boost::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
-      boost::make_shared<std::unordered_map<size_t, size_t> >();
+  std::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
+      std::make_shared<std::unordered_map<size_t, size_t> >();
   compression.compressAndIntegrate(
       mesh, new_vertices, new_triangles, new_indices, index_remappings, 100.0);
 
@@ -380,13 +380,13 @@ TEST(test_voxblox_compression, storedValuesCompressed) {
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles(
+  std::shared_ptr<std::vector<pcl::Vertices> > new_triangles(
       new std::vector<pcl::Vertices>);
-  boost::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
+  std::shared_ptr<std::vector<size_t> > new_indices(new std::vector<size_t>);
 
   pcl::PolygonMesh mesh = createMesh(1.0);
-  boost::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
-      boost::make_shared<std::unordered_map<size_t, size_t> >();
+  std::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
+      std::make_shared<std::unordered_map<size_t, size_t> >();
   compression.compressAndIntegrate(
       mesh, new_vertices, new_triangles, new_indices, index_remappings, 100.0);
 
@@ -394,9 +394,9 @@ TEST(test_voxblox_compression, storedValuesCompressed) {
       new pcl::PointCloud<pcl::PointXYZRGBA>);
   pcl::PointCloud<pcl::PointXYZ>::Ptr active_vertices(
       new pcl::PointCloud<pcl::PointXYZ>);
-  boost::shared_ptr<std::vector<pcl::Vertices> > triangles(
+  std::shared_ptr<std::vector<pcl::Vertices> > triangles(
       new std::vector<pcl::Vertices>);
-  boost::shared_ptr<std::vector<double> > vertex_timestamps(
+  std::shared_ptr<std::vector<double> > vertex_timestamps(
       new std::vector<double>);
 
   compression.getVertices(vertices);

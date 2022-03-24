@@ -47,5 +47,5 @@ class OctreeCompression : public MeshCompression {
   Octree::Ptr temp_octree_;
 };
 
-typedef boost::shared_ptr<OctreeCompression> OctreeCompressionPtr;
+typedef std::shared_ptr<OctreeCompression> OctreeCompressionPtr;
 }  // namespace kimera_pgmo

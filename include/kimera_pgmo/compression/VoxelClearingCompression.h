@@ -31,9 +31,9 @@ public:
   void compressAndIntegrate(
       const voxblox_msgs::Mesh &mesh,
       pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
-      boost::shared_ptr<std::vector<pcl::Vertices>> new_triangles,
-      boost::shared_ptr<std::vector<size_t>> new_indices,
-      boost::shared_ptr<VoxbloxIndexMapping> remapping,
+      std::shared_ptr<std::vector<pcl::Vertices>> new_triangles,
+      std::shared_ptr<std::vector<size_t>> new_indices,
+      std::shared_ptr<VoxbloxIndexMapping> remapping,
       const double &stamp_in_sec) override;
 
   void pruneStoredMesh(const double &earliest_time_sec) override;
@@ -74,7 +74,9 @@ public:
 protected:
   void pruneMeshBlocks(const BlockIndexList& to_clear);
 
-  void updateRemapping(const voxblox_msgs::Mesh &mesh, double stamp_in_sec);
+  void updateRemapping(const voxblox_msgs::Mesh& mesh,
+                       double stamp_in_sec,
+                       std::shared_ptr<VoxbloxIndexMapping> remapping);
 
   void updateVertices();
 
@@ -95,6 +97,6 @@ protected:
   size_t archived_polygon_size_ = 0;
 };
 
-typedef boost::shared_ptr<VoxelClearingCompression> VoxelClearingCompressionPtr;
+typedef std::shared_ptr<VoxelClearingCompression> VoxelClearingCompressionPtr;
 
 } // namespace kimera_pgmo

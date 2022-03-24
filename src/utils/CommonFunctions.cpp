@@ -303,7 +303,8 @@ KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(
     const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
     const std::vector<pcl::Vertices>& polygons,
     const std::vector<ros::Time>& vertex_timestamps,
-    const std::string& frame_id) {
+    const std::string& frame_id,
+    const IndexMapping& vertex_index_mappings) {
   KimeraPgmoMesh new_mesh;
   if (vertices.size() == 0) {
     return new_mesh;
@@ -315,6 +316,7 @@ KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(
   new_mesh.vertices.resize(vertices.size());
   new_mesh.vertex_colors.resize(vertices.size());
   new_mesh.vertex_stamps.resize(vertices.size());
+  new_mesh.vertex_indices.resize(vertices.size());
   for (size_t i = 0; i < vertices.points.size(); i++) {
     geometry_msgs::Point p;
     p.x = vertices.points[i].x;
@@ -331,6 +333,10 @@ KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(
     color.a = color_conv_factor * static_cast<float>(vertices.points[i].a);
     new_mesh.vertex_colors[i] = color;
     new_mesh.vertex_stamps[i] = vertex_timestamps[i];
+    new_mesh.vertex_indices[i] = -1;
+    if (vertex_index_mappings.count(i)) {
+      new_mesh.vertex_indices[i] = vertex_index_mappings.at(i);
+    }
   }
 
   // Convert polygons
@@ -386,7 +392,8 @@ pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
 
 pcl::PolygonMesh PgmoMeshMsgToPolygonMesh(
     const KimeraPgmoMesh& mesh_msg,
-    std::vector<ros::Time>* vertex_stamps) {
+    std::vector<ros::Time>* vertex_stamps,
+    std::vector<int>* vertex_graph_indices) {
   pcl::PolygonMesh mesh;
 
   assert(mesh_msg.vertices.size() == mesh_msg.vertex_stamps.size());
@@ -398,6 +405,7 @@ pcl::PolygonMesh PgmoMeshMsgToPolygonMesh(
 
   // Clear vertex stamps
   vertex_stamps->clear();
+  vertex_graph_indices->clear();
 
   // Convert vertices
   pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
@@ -419,6 +427,7 @@ pcl::PolygonMesh PgmoMeshMsgToPolygonMesh(
     }
     vertices_cloud.points.push_back(point);
     vertex_stamps->push_back(mesh_msg.vertex_stamps[i]);
+    vertex_graph_indices->push_back(mesh_msg.vertex_indices[i]);
   }
 
   pcl::toPCLPointCloud2(vertices_cloud, mesh.cloud);

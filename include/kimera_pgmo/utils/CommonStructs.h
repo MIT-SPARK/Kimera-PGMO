@@ -7,8 +7,8 @@
 #pragma once
 
 #include <cstdint>
-#include <map>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -24,10 +24,9 @@ typedef std::vector<Vertex> Vertices;
 typedef std::map<Vertex, Vertices> Edges;
 typedef std::pair<Vertex, Vertex> Edge;
 
-typedef voxblox::AnyIndexHashMapType<std::map<size_t, size_t>>::type
-    VoxbloxIndexMapping;
-typedef std::pair<voxblox::BlockIndex, std::map<size_t, size_t>>
-    VoxbloxIndexPair;
+typedef std::unordered_map<size_t, size_t> IndexMapping;
+typedef voxblox::AnyIndexHashMapType<IndexMapping>::type VoxbloxIndexMapping;
+typedef std::pair<voxblox::BlockIndex, IndexMapping> VoxbloxIndexPair;
 typedef std::pair<voxblox::BlockIndex, size_t> VoxbloxBlockIndexPair;
 
 class Graph {

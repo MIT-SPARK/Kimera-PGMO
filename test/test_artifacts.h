@@ -257,12 +257,12 @@ pose_graph_tools::PoseGraph processMeshToGraph(
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr graph_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
   pcl::fromPCLPointCloud2(mesh.cloud, *mesh_vertices);
-  boost::shared_ptr<std::vector<pcl::Vertices> > graph_triangles(
+  std::shared_ptr<std::vector<pcl::Vertices> > graph_triangles(
       new std::vector<pcl::Vertices>);
-  boost::shared_ptr<std::vector<size_t> > graph_indices(
+  std::shared_ptr<std::vector<size_t> > graph_indices(
       new std::vector<size_t>);
-  boost::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
-      boost::make_shared<std::unordered_map<size_t, size_t> >();
+  std::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
+      std::make_shared<std::unordered_map<size_t, size_t> >();
 
   compressor->compressAndIntegrate(*mesh_vertices,
                                    mesh.polygons,

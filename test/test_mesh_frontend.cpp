@@ -210,7 +210,7 @@ class MeshFrontendTest : public ::testing::Test {
   }
 
   VoxbloxIndexMapping GetVoxbloxMsgMapping() {
-    return vp_.getVoxbloxMsgMapping();
+    return vp_.getVoxbloxMsgToGraphMapping();
   }
 
   MeshFrontend vp_;

@@ -23,22 +23,14 @@ MeshFrontend::MeshFrontend()
       triangles_(new std::vector<pcl::Vertices>),
       graph_triangles_(new std::vector<pcl::Vertices>),
       vxblx_msg_to_graph_idx_(new VoxbloxIndexMapping),
+      vxblx_msg_to_mesh_idx_(new VoxbloxIndexMapping),
+      mesh_to_graph_idx_(new IndexMapping),
       init_graph_log_(false),
       init_full_log_(false),
       voxblox_queue_size_(20),
       voxblox_update_called_(false) {}
 
-MeshFrontend::~MeshFrontend() {
-  shutdown_ = true;
-
-  if (full_mesh_thread_) {
-    full_mesh_thread_->join();
-  }
-
-  if (graph_mesh_thread_) {
-    graph_mesh_thread_->join();
-  }
-}
+MeshFrontend::~MeshFrontend() {}
 
 // Initialize parameters, publishers, and subscribers
 bool MeshFrontend::initialize(const ros::NodeHandle& n,
@@ -68,12 +60,6 @@ bool MeshFrontend::initialize(const ros::NodeHandle& n,
   }
 
   last_full_compression_stamp_ = ros::Time::now().toNSec();
-
-  // Start compression threads
-  full_mesh_thread_.reset(
-      new std::thread(&MeshFrontend::fullMeshUpdateSpin, this));
-  graph_mesh_thread_.reset(
-      new std::thread(&MeshFrontend::graphMeshUpdateSpin, this));
 
   ROS_INFO("Initialized MeshFrontend.");
 
@@ -153,50 +139,37 @@ bool MeshFrontend::registerCallbacks(const ros::NodeHandle& n) {
 }
 
 void MeshFrontend::voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg) {
-  full_mesh_input_.push_back(msg);
-  graph_mesh_input_.push_back(msg);
+  // Start compression threads
+  std::thread full_mesh_thread(&MeshFrontend::fullMeshUpdate, this, msg);
+  std::thread graph_mesh_thread(&MeshFrontend::graphMeshUpdate, this, msg);
+
+  latest_blocks_.clear();
+  for (const auto& mesh_block : msg->mesh_blocks) {
+    const voxblox::BlockIndex block_index(
+        mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
+    latest_blocks_.push_back(block_index);
+  }
+
+  full_mesh_thread.join();
+  graph_mesh_thread.join();
+
+  updateMeshToGraphMappings(latest_blocks_);
+  publishFullMesh();
 
   voxblox_update_called_ = true;
   return;
 }
 
-void MeshFrontend::fullMeshUpdateSpin() {
-  ROS_INFO("Started full mesh update thread. ");
-  ros::WallRate r(30.0);
-  while (ros::ok() && !shutdown_) {
-    const size_t n_msg = full_mesh_input_.size();
-    if (n_msg > 0) {
-      ros::Time stamp;
-      for (size_t i = 0; i < n_msg; i++) {
-        processVoxbloxMeshFull(full_mesh_input_.front());
-        stamp = full_mesh_input_.front()->header.stamp;
-        last_full_compression_stamp_ = stamp.toNSec();
-        full_mesh_input_.pop_front();
-      }
-      publishFullMesh();
-    }
-    r.sleep();
-  }
-  ROS_INFO("Shutting down full mesh update thread. ");
+void MeshFrontend::fullMeshUpdate(const voxblox_msgs::Mesh::ConstPtr& msg) {
+  processVoxbloxMeshFull(msg);
+  last_full_compression_stamp_ = msg->header.stamp.toNSec();
+  return;
 }
 
-void MeshFrontend::graphMeshUpdateSpin() {
-  ROS_INFO("Started graph mesh update thread. ");
-  ros::WallRate r(30.0);
-  while (ros::ok() && !shutdown_) {
-    const size_t n_msg = graph_mesh_input_.size();
-    if (n_msg > 0) {
-      ros::Time stamp;
-      for (size_t i = 0; i < n_msg; i++) {
-        processVoxbloxMeshGraph(graph_mesh_input_.front());
-        stamp = graph_mesh_input_.front()->header.stamp;
-        graph_mesh_input_.pop_front();
-      }
-      publishSimplifiedMesh(stamp);
-    }
-    r.sleep();
-  }
-  ROS_INFO("Shutting down graph mesh update thread. ");
+void MeshFrontend::graphMeshUpdate(const voxblox_msgs::Mesh::ConstPtr& msg) {
+  processVoxbloxMeshGraph(msg);
+  publishSimplifiedMesh(msg->header.stamp);
+  return;
 }
 
 // Update full mesh
@@ -210,17 +183,15 @@ void MeshFrontend::processVoxbloxMeshFull(
   auto f_comp_start = std::chrono::high_resolution_clock::now();
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles =
-      boost::make_shared<std::vector<pcl::Vertices> >();
-  boost::shared_ptr<std::vector<size_t> > new_indices =
-      boost::make_shared<std::vector<size_t> >();
-  boost::shared_ptr<VoxbloxIndexMapping> unused_remappings =
-      boost::make_shared<VoxbloxIndexMapping>();
+  std::shared_ptr<std::vector<pcl::Vertices> > new_triangles =
+      std::make_shared<std::vector<pcl::Vertices> >();
+  std::shared_ptr<std::vector<size_t> > new_indices =
+      std::make_shared<std::vector<size_t> >();
   full_mesh_compression_->compressAndIntegrate(*msg,
                                                new_vertices,
                                                new_triangles,
                                                new_indices,
-                                               unused_remappings,
+                                               vxblx_msg_to_mesh_idx_,
                                                msg_time);
 
   auto f_comp_stop = std::chrono::high_resolution_clock::now();
@@ -259,10 +230,10 @@ void MeshFrontend::processVoxbloxMeshGraph(
   auto g_comp_start = std::chrono::high_resolution_clock::now();
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_graph_vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  boost::shared_ptr<std::vector<pcl::Vertices> > new_graph_triangles =
-      boost::make_shared<std::vector<pcl::Vertices> >();
-  boost::shared_ptr<std::vector<size_t> > new_graph_indices =
-      boost::make_shared<std::vector<size_t> >();
+  std::shared_ptr<std::vector<pcl::Vertices> > new_graph_triangles =
+      std::make_shared<std::vector<pcl::Vertices> >();
+  std::shared_ptr<std::vector<size_t> > new_graph_indices =
+      std::make_shared<std::vector<size_t> >();
 
   d_graph_compression_->compressAndIntegrate(*msg,
                                              new_graph_vertices,
@@ -301,12 +272,33 @@ void MeshFrontend::processVoxbloxMeshGraph(
   return;
 }
 
+void MeshFrontend::updateMeshToGraphMappings(
+    const std::vector<BlockIndex>& updated_blocks) {
+  for (const auto& block : updated_blocks) {
+    for (const auto& remap : vxblx_msg_to_mesh_idx_->at(block)) {
+      // TODO(Yun) some mesh vertex might not have graph index if part of the
+      // mesh is disconnected and all contained within a block since we remove
+      // degenerate faces
+      if (vxblx_msg_to_graph_idx_->at(block).count(remap.first)) {
+        mesh_to_graph_idx_->insert(
+            {remap.second, vxblx_msg_to_graph_idx_->at(block).at(remap.first)});
+      }
+    }
+  }
+  return;
+}
+
 void MeshFrontend::publishFullMesh() const {
   if (full_mesh_pub_.getNumSubscribers() == 0) return;
   if (vertices_->size() == 0) return;
   // convert to triangle mesh msg
-  KimeraPgmoMesh mesh_msg = kimera_pgmo::PolygonMeshToPgmoMeshMsg(
-      robot_id_, *vertices_, *triangles_, *vertex_stamps_, "world");
+  KimeraPgmoMesh mesh_msg =
+      kimera_pgmo::PolygonMeshToPgmoMeshMsg(robot_id_,
+                                            *vertices_,
+                                            *triangles_,
+                                            *vertex_stamps_,
+                                            "world",
+                                            *mesh_to_graph_idx_);
   // publish
   full_mesh_pub_.publish(mesh_msg);
   return;

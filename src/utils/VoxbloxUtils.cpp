@@ -59,10 +59,10 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
     const voxblox_msgs::MeshBlock& mesh_block,
     const float& block_edge_length,
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
-    boost::shared_ptr<std::vector<pcl::Vertices> > triangles,
+    std::shared_ptr<std::vector<pcl::Vertices> > triangles,
     const std::vector<size_t>& original_indices,
-    boost::shared_ptr<std::vector<size_t> > updated_indices,
-    boost::shared_ptr<std::map<size_t, std::vector<pcl::Vertices> > >
+    std::shared_ptr<std::vector<size_t> > updated_indices,
+    std::shared_ptr<std::map<size_t, std::vector<pcl::Vertices> > >
         adjacent_surfaces) {
   // For speed, assume mesh is incrementally increasing
   if (mesh_block.x.size() <= original_indices.size()) {
@@ -149,7 +149,7 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
 
 bool CheckAndUpdateAdjacentSurfaces(
     const pcl::Vertices& new_triangle,
-    boost::shared_ptr<std::map<size_t, std::vector<pcl::Vertices> > >
+    std::shared_ptr<std::map<size_t, std::vector<pcl::Vertices> > >
         adjacent_surfaces) {
   if (new_triangle.vertices.size() < 3) return false;
   size_t idx0 = new_triangle.vertices.at(0);
@@ -189,14 +189,14 @@ pcl::PolygonMesh VoxbloxMeshBlockToPolygonMesh(
   pcl::PolygonMesh new_mesh;
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices_cloud(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
-  boost::shared_ptr<std::map<size_t, size_t> > msg_vertex_map =
-      boost::make_shared<std::map<size_t, size_t> >();
+  std::shared_ptr<std::map<size_t, size_t> > msg_vertex_map =
+      std::make_shared<std::map<size_t, size_t> >();
   VoxbloxMeshBlockToPolygonMesh(
       mesh_block,
       block_edge_length,
       vertices_cloud,
       msg_vertex_map,
-      boost::make_shared<std::vector<pcl::Vertices> >(new_mesh.polygons));
+      std::make_shared<std::vector<pcl::Vertices> >(new_mesh.polygons));
 
   pcl::toPCLPointCloud2(*vertices_cloud, new_mesh.cloud);
   return new_mesh;
@@ -206,8 +206,8 @@ void VoxbloxMeshBlockToPolygonMesh(
     const voxblox_msgs::MeshBlock& mesh_block,
     float block_edge_length,
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
-    boost::shared_ptr<std::map<size_t, size_t> > msg_vertex_map,
-    boost::shared_ptr<std::vector<pcl::Vertices> > triangles,
+    std::shared_ptr<std::map<size_t, size_t> > msg_vertex_map,
+    std::shared_ptr<std::vector<pcl::Vertices> > triangles,
     const bool& check_duplicates_full) {
   assert(vertices != nullptr);
   assert(triangles != nullptr);

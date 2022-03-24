@@ -51,5 +51,5 @@ class VoxbloxCompression : public MeshCompression {
   voxblox::LongIndexHashMapType<size_t>::type temp_cell_hash_;
 };
 
-typedef boost::shared_ptr<VoxbloxCompression> VoxbloxCompressionPtr;
+typedef std::shared_ptr<VoxbloxCompression> VoxbloxCompressionPtr;
 }  // namespace kimera_pgmo

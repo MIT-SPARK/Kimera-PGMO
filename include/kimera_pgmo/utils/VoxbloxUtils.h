@@ -6,7 +6,6 @@
 
 #pragma once
 
-#include <boost/shared_ptr.hpp>
 #include <string>
 
 #include <pcl/PolygonMesh.h>
@@ -55,10 +54,10 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
     const voxblox_msgs::MeshBlock& mesh_block,
     const float& block_edge_length,
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
-    boost::shared_ptr<std::vector<pcl::Vertices> > triangles,
+    std::shared_ptr<std::vector<pcl::Vertices> > triangles,
     const std::vector<size_t>& original_indices,
-    boost::shared_ptr<std::vector<size_t> > updated_indices,
-    boost::shared_ptr<std::map<size_t, std::vector<pcl::Vertices> > >
+    std::shared_ptr<std::vector<size_t> > updated_indices,
+    std::shared_ptr<std::map<size_t, std::vector<pcl::Vertices> > >
         adjacent_surfaces);
 
 /*! \brief When adding new mesh surface, check first if exist with a stored
@@ -69,7 +68,7 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
  */
 bool CheckAndUpdateAdjacentSurfaces(
     const pcl::Vertices& new_triangle,
-    boost::shared_ptr<std::map<size_t, std::vector<pcl::Vertices> > >
+    std::shared_ptr<std::map<size_t, std::vector<pcl::Vertices> > >
         adjacent_surfaces);
 
 /*! \brief Convert a voxblox mesh block to a polygon mesh type
@@ -93,8 +92,8 @@ void VoxbloxMeshBlockToPolygonMesh(
     const voxblox_msgs::MeshBlock& mesh_block,
     float block_edge_length,
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices,
-    boost::shared_ptr<std::map<size_t, size_t> > msg_vertex_map,
-    boost::shared_ptr<std::vector<pcl::Vertices> > triangles,
+    std::shared_ptr<std::map<size_t, size_t> > msg_vertex_map,
+    std::shared_ptr<std::vector<pcl::Vertices> > triangles,
     const bool& check_duplicates_full = false);
 
 /*! \brief Convert a voxblox mesh ~ consisted of many mesh blocks, to a polygon

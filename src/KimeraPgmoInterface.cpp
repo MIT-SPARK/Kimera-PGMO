@@ -278,8 +278,9 @@ bool KimeraPgmoInterface::optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
                                            pcl::PolygonMesh::Ptr optimized_mesh,
                                            bool no_optimize) {
   std::vector<ros::Time> mesh_vertex_stamps;
-  const pcl::PolygonMesh& input_mesh =
-      PgmoMeshMsgToPolygonMesh(mesh_msg, &mesh_vertex_stamps);
+  std::vector<int> mesh_vertex_graph_inds;
+  const pcl::PolygonMesh& input_mesh = PgmoMeshMsgToPolygonMesh(
+      mesh_msg, &mesh_vertex_stamps, &mesh_vertex_graph_inds);
   // check if empty
   if (input_mesh.cloud.height * input_mesh.cloud.width == 0) return false;
 
@@ -293,6 +294,7 @@ bool KimeraPgmoInterface::optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
       *optimized_mesh =
           deformation_graph_->deformMesh(input_mesh,
                                          mesh_vertex_stamps,
+                                         mesh_vertex_graph_inds,
                                          GetVertexPrefix(robot_id),
                                          dpgmo_values_,
                                          num_interp_pts_,
@@ -302,6 +304,7 @@ bool KimeraPgmoInterface::optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
       *optimized_mesh =
           deformation_graph_->deformMesh(input_mesh,
                                          mesh_vertex_stamps,
+                                         mesh_vertex_graph_inds,
                                          GetVertexPrefix(robot_id),
                                          num_interp_pts_,
                                          interp_horizon_);

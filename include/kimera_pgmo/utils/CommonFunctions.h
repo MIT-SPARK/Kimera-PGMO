@@ -24,6 +24,7 @@
 #include <pose_graph_tools/PoseGraph.h>
 #include <ros/console.h>
 #include <voxblox_msgs/Mesh.h>
+#include "kimera_pgmo/utils/CommonStructs.h"
 
 namespace kimera_pgmo {
 
@@ -163,7 +164,9 @@ KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(
     const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
     const std::vector<pcl::Vertices>& polygons,
     const std::vector<ros::Time>& vertex_timestamps,
-    const std::string& frame_id);
+    const std::string& frame_id,
+    const IndexMapping& vertex_index_mappings =
+        std::unordered_map<size_t, size_t>());
 
 /*! \brief Convert a mesh_msg TriangleMesh to PolygonMesh
  *  - mesh_msg: TriangleMesh mesh to be converted
@@ -175,11 +178,13 @@ pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
 /*! \brief Convert a mesh_msg KimeraPgmoMesh to PolygonMesh
  *  - mesh_msg: TriangleMesh mesh to be converted
  *  - vertex_stamps: pointer to a vector of vertex timestamps
+ *  - vertex_graph_indices: corresponding mesh graph vertex of vertices
  *  - outputs mesh as PolygonMesh type
  */
 pcl::PolygonMesh PgmoMeshMsgToPolygonMesh(
     const KimeraPgmoMesh& mesh_msg,
-    std::vector<ros::Time>* vertex_stamps);
+    std::vector<ros::Time>* vertex_stamps,
+    std::vector<int>* vertex_graph_indices);
 
 /*! \brief Converts a ros pose type to gtsam Pose3
  *  - transform: ros geometry_msgs pose type

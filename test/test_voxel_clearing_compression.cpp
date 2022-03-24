@@ -74,9 +74,9 @@ struct CompressionInputs {
         remappings(new VoxbloxIndexMapping()) {}
 
   Cloud::Ptr vertices;
-  boost::shared_ptr<std::vector<pcl::Vertices>> triangles;
-  boost::shared_ptr<std::vector<size_t>> indices;
-  boost::shared_ptr<VoxbloxIndexMapping> remappings;
+  std::shared_ptr<std::vector<pcl::Vertices>> triangles;
+  std::shared_ptr<std::vector<size_t>> indices;
+  std::shared_ptr<VoxbloxIndexMapping> remappings;
 };
 
 struct CompressionOutput {
@@ -91,10 +91,10 @@ struct CompressionOutput {
   }
 
   Cloud::Ptr vertices;
-  boost::shared_ptr<std::vector<pcl::Vertices>> triangles;
+  std::shared_ptr<std::vector<pcl::Vertices>> triangles;
   std::vector<size_t> invalidated;
   std::vector<size_t> active_indices;
-  boost::shared_ptr<std::vector<ros::Time>> timestamps;
+  std::shared_ptr<std::vector<ros::Time>> timestamps;
 };
 
 bool checkTriangles(const std::vector<std::vector<uint32_t>> &expected,

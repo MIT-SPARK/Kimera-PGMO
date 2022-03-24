@@ -16,9 +16,9 @@ namespace kimera_pgmo {
 void MeshCompression::compressAndIntegrate(
     const pcl::PolygonMesh& input,
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
-    boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
-    boost::shared_ptr<std::vector<size_t> > new_indices,
-    boost::shared_ptr<std::unordered_map<size_t, size_t> > remapping,
+    std::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
+    std::shared_ptr<std::vector<size_t> > new_indices,
+    std::shared_ptr<std::unordered_map<size_t, size_t> > remapping,
     const double& stamp_in_sec) {
   // Extract vertices from input mesh
   PointCloud input_vertices;
@@ -38,9 +38,9 @@ void MeshCompression::compressAndIntegrate(
     const pcl::PointCloud<pcl::PointXYZRGBA>& input_vertices,
     const std::vector<pcl::Vertices>& input_surfaces,
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
-    boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
-    boost::shared_ptr<std::vector<size_t> > new_indices,
-    boost::shared_ptr<std::unordered_map<size_t, size_t> > remapping,
+    std::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
+    std::shared_ptr<std::vector<size_t> > new_indices,
+    std::shared_ptr<std::unordered_map<size_t, size_t> > remapping,
     const double& stamp_in_sec) {
   // If there are no surfaces, return
   if (input_vertices.size() < 3 || input_surfaces.size() == 0) {
@@ -216,9 +216,9 @@ void MeshCompression::compressAndIntegrate(
 void MeshCompression::compressAndIntegrate(
     const voxblox_msgs::Mesh& mesh,
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
-    boost::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
-    boost::shared_ptr<std::vector<size_t> > new_indices,
-    boost::shared_ptr<VoxbloxIndexMapping> remapping,
+    std::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
+    std::shared_ptr<std::vector<size_t> > new_indices,
+    std::shared_ptr<VoxbloxIndexMapping> remapping,
     const double& stamp_in_sec) {
   // Avoid nullptr pointers
   assert(nullptr != new_vertices);
@@ -249,7 +249,7 @@ void MeshCompression::compressAndIntegrate(
 
   size_t count = 0;
   // For book keeping track count to mesh block and index
-  std::map<size_t, VoxbloxBlockIndexPair> count_to_block;
+  std::unordered_map<size_t, VoxbloxBlockIndexPair> count_to_block;
   PointCloud all_parsed_points;
 
   // Vertices that end up on each other after compression
@@ -261,8 +261,7 @@ void MeshCompression::compressAndIntegrate(
     const voxblox::BlockIndex block_index(
         mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
     // Add to remapping if not yet added previously
-    remapping->insert(
-        VoxbloxIndexPair(block_index, std::map<size_t, size_t>()));
+    remapping->insert(VoxbloxIndexPair(block_index, IndexMapping()));
 
     // Iterate through vertices of mesh block
     for (size_t i = 0; i < mesh_block.x.size(); ++i) {

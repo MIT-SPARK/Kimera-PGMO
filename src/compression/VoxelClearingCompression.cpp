@@ -33,9 +33,9 @@ VoxelClearingCompression::VoxelClearingCompression(double resolution)
 void VoxelClearingCompression::compressAndIntegrate(
     const voxblox_msgs::Mesh &mesh,
     pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
-    boost::shared_ptr<std::vector<pcl::Vertices>> new_triangles,
-    boost::shared_ptr<std::vector<size_t>> new_indices,
-    boost::shared_ptr<VoxbloxIndexMapping> remapping,
+    std::shared_ptr<std::vector<pcl::Vertices>> new_triangles,
+    std::shared_ptr<std::vector<size_t>> new_indices,
+    std::shared_ptr<VoxbloxIndexMapping> remapping,
     const double &stamp_in_sec) {
   // Avoid nullptr pointers
   assert(nullptr != new_vertices);
@@ -46,7 +46,7 @@ void VoxelClearingCompression::compressAndIntegrate(
   new_triangles->clear();
   new_indices->clear();
 
-  updateRemapping(mesh, stamp_in_sec);
+  updateRemapping(mesh, stamp_in_sec, remapping);
   updateVertices();
   updateActiveIndices();
 }
@@ -119,8 +119,10 @@ void VoxelClearingCompression::updateVertices() {
   }
 }
 
-void VoxelClearingCompression::updateRemapping(const voxblox_msgs::Mesh &mesh,
-                                               double stamp_in_sec) {
+void VoxelClearingCompression::updateRemapping(
+    const voxblox_msgs::Mesh& mesh,
+    double stamp_in_sec,
+    std::shared_ptr<VoxbloxIndexMapping> remapping) {
   const auto threshold_inv = 1.0 / resolution_;
   const auto block_edge_length = mesh.block_edge_length;
 
@@ -134,6 +136,7 @@ void VoxelClearingCompression::updateRemapping(const voxblox_msgs::Mesh &mesh,
   for (const auto &block : mesh.mesh_blocks) {
     BlockIndex block_index(block.index[0], block.index[1], block.index[2]);
     block_update_times_[block_index] = stamp_in_sec;
+    remapping->insert(VoxbloxIndexPair(block_index, IndexMapping()));
 
     const size_t block_size = block.x.size();
     std::vector<size_t> face_map;
@@ -162,6 +165,7 @@ void VoxelClearingCompression::updateRemapping(const voxblox_msgs::Mesh &mesh,
         all_vertices_.push_back(p);
       }
 
+      remapping->at(block_index)[i] = mesh_index;
       all_vertices_[mesh_index] = p;
       face_map.push_back(mesh_index);
       if (!curr_voxels.count(vertex_index)) {

@@ -86,8 +86,20 @@ class MeshFrontend {
 
   /*! \brief Get the mappings from vxblx msg to graph index for tracking.
    */
-  inline const VoxbloxIndexMapping& getVoxbloxMsgMapping() const {
+  inline const VoxbloxIndexMapping& getVoxbloxMsgToGraphMapping() const {
     return *vxblx_msg_to_graph_idx_;
+  }
+
+  /*! \brief Get the mappings from vxblx msg to graph index for tracking.
+   */
+  inline const VoxbloxIndexMapping& getVoxbloxMsgToMeshMapping() const {
+    return *vxblx_msg_to_mesh_idx_;
+  }
+
+  /*! \brief Get the mappings from vxblx msg to graph index for tracking.
+   */
+  inline const IndexMapping& getFullMeshToGraphMapping() const {
+    return *mesh_to_graph_idx_;
   }
 
   /*! \brief Main callback of this class: receives the updated incremental mesh
@@ -137,13 +149,19 @@ class MeshFrontend {
   void processVoxbloxMeshGraph(const voxblox_msgs::Mesh::ConstPtr& msg);
 
   /*! \brief Update loop for updating the full mesh
+   *  - msg: mesh msg from Voxblox or Kimera Semantics
    */
-  void fullMeshUpdateSpin();
+  void fullMeshUpdate(const voxblox_msgs::Mesh::ConstPtr& msg);
 
   /*! \brief Update loop for updating the simplified mesh and creating the mesh
    * graph
+   *  - msg: mesh msg from Voxblox or Kimera Semantics
    */
-  void graphMeshUpdateSpin();
+  void graphMeshUpdate(const voxblox_msgs::Mesh::ConstPtr& msg);
+
+  /*! \brief Update full mesh to mesh graph index mappings
+   */
+  void updateMeshToGraphMappings(const std::vector<BlockIndex>& updated_blocks);
 
   /*! \brief Publish the full (compressed) mesh stored
    *  - stamp: timestamp
@@ -215,19 +233,22 @@ class MeshFrontend {
   // Vertices of full mesh
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices_;
   // Triangles (connections) of full mesh
-  boost::shared_ptr<std::vector<pcl::Vertices>> triangles_;
+  std::shared_ptr<std::vector<pcl::Vertices>> triangles_;
   // Vertices time stamps of full mesh
-  boost::shared_ptr<std::vector<ros::Time>> vertex_stamps_;
+  std::shared_ptr<std::vector<ros::Time>> vertex_stamps_;
   // Vertices of simplified mesh used for the deformation graph
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr graph_vertices_;
   // Triangles of the simplified mesh used for the deformation graph
-  boost::shared_ptr<std::vector<pcl::Vertices>> graph_triangles_;
+  std::shared_ptr<std::vector<pcl::Vertices>> graph_triangles_;
 
   // Last pose graph msg created for testing purposes
   pose_graph_tools::PoseGraph last_mesh_graph_;
 
   // Book keeping for indices
-  boost::shared_ptr<VoxbloxIndexMapping> vxblx_msg_to_graph_idx_;
+  std::shared_ptr<VoxbloxIndexMapping> vxblx_msg_to_graph_idx_;
+  std::shared_ptr<VoxbloxIndexMapping> vxblx_msg_to_mesh_idx_;
+  std::shared_ptr<IndexMapping> mesh_to_graph_idx_;
+  std::vector<BlockIndex> latest_blocks_;
 
   // Save output
   std::string log_path_;
@@ -241,21 +262,11 @@ class MeshFrontend {
   // called
   bool voxblox_update_called_;
 
-  std::atomic<bool> shutdown_{false};
-
   std::mutex full_mutex_; // mutex for full mesh related structures
   std::mutex graph_mutex_; // mutex for deformation graph related structures
 
   std::vector<size_t> active_indices_;
   std::vector<size_t> invalid_indices_;
   std::atomic<uint64_t> last_full_compression_stamp_;
-
-  // Run full mesh compression and graph compression on separate thread
-  std::unique_ptr<std::thread> full_mesh_thread_;
-  std::unique_ptr<std::thread> graph_mesh_thread_;
-
-  // Buffer input voxblx meshes
-  std::deque<voxblox_msgs::Mesh::ConstPtr> full_mesh_input_;
-  std::deque<voxblox_msgs::Mesh::ConstPtr> graph_mesh_input_;
 };
 }  // namespace kimera_pgmo
