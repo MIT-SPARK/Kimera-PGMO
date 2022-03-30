@@ -3,8 +3,9 @@
   <arg name="robot_id" default="0" />
   <arg name="robot_name" default="kimera" />
   <arg name="run_mode" default="0" /> 
-  <arg name="use_msg_time" default="true" />
+  <arg name="use_msg_time" default="false" />
   <arg name="optimized_path_topic" default="optimized_path" />
+  <arg name="pose_graph_topic" default="pose_graph_incremental" />
   <arg name="dpgmo_topic" default="optimized_pose_graph" />
   <arg name="output_path" default="$(find kimera_pgmo)/log" />
   <arg name="horizon" default="20" />
@@ -34,7 +35,7 @@
       <param name="log_output" value="$(arg log)" />
       <remap from="~mesh_graph_incremental" to="mesh_frontend/mesh_graph_incremental" />
       <remap from="~full_mesh" to="mesh_frontend/full_mesh" />
-      <remap from="~pose_graph_incremental" to="kimera_vio_ros/pose_graph_incremental" />
+      <remap from="~pose_graph_incremental" to="$(arg pose_graph_topic)" />
       <remap from="~input_path" to="$(arg optimized_path_topic)" />
       <remap from="~optimized_values" to="$(arg dpgmo_topic)" />
     </node>
