@@ -100,10 +100,15 @@ bool KimeraPgmoInterface::loadParameters(const ros::NodeHandle& n) {
     return false;
   }
 
-  // If inliers are not fixed, need to perform interpolation on whole mesh
-  // everytime we optimize
-  deformation_graph_->setForceRecalculate(!gnc_fix_prev_inliers);
-  if (run_mode_ != RunMode::FULL) deformation_graph_->storeOnlyNoOptimization();
+  if (run_mode_ == RunMode::FULL) {
+    // If inliers are not fixed, need to perform interpolation on whole mesh
+    // everytime we optimize
+    deformation_graph_->setForceRecalculate(!gnc_fix_prev_inliers);
+  }
+
+  if (run_mode_ == RunMode::DPGMO) {
+    deformation_graph_->storeOnlyNoOptimization();
+  }
   return true;
 }
 
