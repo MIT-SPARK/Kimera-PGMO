@@ -100,15 +100,12 @@ bool KimeraPgmoInterface::loadParameters(const ros::NodeHandle& n) {
     return false;
   }
 
-  if (run_mode_ == RunMode::FULL) {
-    // If inliers are not fixed, need to perform interpolation on whole mesh
-    // everytime we optimize
-    deformation_graph_->setForceRecalculate(!gnc_fix_prev_inliers);
-  }
+  // If inliers are not fixed, need to perform interpolation on whole mesh
+  // everytime we optimize
+  deformation_graph_->setForceRecalculate(!gnc_fix_prev_inliers);
 
-  if (run_mode_ == RunMode::DPGMO) {
-    deformation_graph_->storeOnlyNoOptimization();
-  }
+  // We only optimize when we explicitly call deformation_graph_->optimize()
+  deformation_graph_->storeOnlyNoOptimization();
   return true;
 }
 
@@ -281,7 +278,7 @@ void KimeraPgmoInterface::processOptimizedPath(
 
 bool KimeraPgmoInterface::optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
                                            pcl::PolygonMesh::Ptr optimized_mesh,
-                                           bool no_optimize) {
+                                           bool do_optimize) {
   std::vector<ros::Time> mesh_vertex_stamps;
   std::vector<int> mesh_vertex_graph_inds;
   const pcl::PolygonMesh& input_mesh = PgmoMeshMsgToPolygonMesh(
@@ -295,7 +292,8 @@ bool KimeraPgmoInterface::optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
 
   // Optimize mesh
   try {
-    if (run_mode_ == RunMode::DPGMO || no_optimize) {
+    if (run_mode_ == RunMode::DPGMO) {
+      // Here we are getting the optimized values from the dpgo solver
       *optimized_mesh =
           deformation_graph_->deformMesh(input_mesh,
                                          mesh_vertex_stamps,
@@ -305,7 +303,9 @@ bool KimeraPgmoInterface::optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
                                          num_interp_pts_,
                                          interp_horizon_);
     } else {
-      deformation_graph_->optimize();
+      if (do_optimize) {
+        deformation_graph_->optimize();
+      }
       *optimized_mesh =
           deformation_graph_->deformMesh(input_mesh,
                                          mesh_vertex_stamps,

@@ -9,6 +9,7 @@
   <arg name="horizon" default="20" />
   <arg name="output_resolution" default="0.04" />
   <arg name="d_graph_resolution" default="1.5" />
+  <arg name="track_mesh_graph_mapping" default="true" />
   <arg name="log" default="true" />
 
   <node name="mesh_frontend" pkg="kimera_pgmo" type="mesh_frontend_node" output="screen" >
@@ -20,6 +21,7 @@
     <param name="full_compression_method" value="2" />
     <param name="log_path" value="$(arg output_path)" />
     <param name="log_output" value="$(arg log)" />
+    <param name="track_mesh_graph_mapping" value="$(arg track_mesh_graph_mapping)" />
     <remap from="~voxblox_mesh" to="kimera_semantics_node/mesh" />
   </node> 
 

@@ -250,6 +250,9 @@ class MeshFrontend {
   std::shared_ptr<IndexMapping> mesh_to_graph_idx_;
   std::vector<BlockIndex> latest_blocks_;
 
+  // Track simplified to full mesh vertex mapping or not
+  bool b_track_mesh_graph_mapping_;
+
   // Save output
   std::string log_path_;
   // Log output to output_prefix_ folder

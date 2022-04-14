@@ -14,12 +14,10 @@ rpgo:
   gnc_cost_tolerance: 1.0e-05
   gnc_weight_tolerance: 1.0e-04
   gnc_fix_prev_inliers: true
-add_initial_prior: true
+add_initial_prior: false
 covariance:
   odom: 1.0e-02
   loop_close: 5.0e-02
   prior: 1.0e-02
   mesh_mesh: 1.0e-02
   pose_mesh: 1.0e-02
-  place_mesh: 10.0
-  place_edge: 10.0

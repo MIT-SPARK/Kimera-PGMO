@@ -151,12 +151,11 @@ class KimeraPgmoInterface {
    *  - mesh_msg: the full unoptimized mesh in KimeraPgmoMesh format
    * format
    * - optimized_mesh: ptr to optimized (deformed) mesh
-   * - no_optimize: do not call optimize. deform mesh only based on existing
-   * estimates
+   * - do_optimize: call optimize. Optimize before deforming mesh.
    */
   bool optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
                         pcl::PolygonMesh::Ptr optimized_mesh,
-                        bool no_optimize = false);
+                        bool do_optimize);
 
   /*! \brief Process the mesh graph that consists of the new mesh edges and mesh
    * nodes to be added to the deformation graph

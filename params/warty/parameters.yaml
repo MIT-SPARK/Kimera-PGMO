@@ -21,5 +21,3 @@ covariance:
   prior: 1.0e-02
   mesh_mesh: 1.0e-02
   pose_mesh: 1.0e-02
-  place_mesh: 10.0
-  place_edge: 10.0

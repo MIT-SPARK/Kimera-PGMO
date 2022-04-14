@@ -12,6 +12,10 @@
 #include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
+#include <memory>
+#include <mutex>
+#include <thread>
+
 namespace kimera_pgmo {
 class KimeraPgmo : public KimeraPgmoInterface {
   friend class KimeraPgmoTest;
@@ -49,11 +53,18 @@ class KimeraPgmo : public KimeraPgmoInterface {
    */
   inline std::vector<ros::Time> getRobotTimestamps() const { return timestamps_; };
 
-  /*! \brief Timer callback to optimize factors and deform full mesh
-   */
-  void processTimerCallback(const ros::TimerEvent& ev);
-
  protected:
+  /*! \brief Start the thread doing the mesh graph / pose graph / path
+   * subscription.
+   *  - n: ROS node handle
+   */
+  void startGraphProcess(const ros::NodeHandle& n);
+
+  /*! \brief Start the thread doing the full mesh subscription.
+   *  - n: ROS node handle
+   */
+  void startMeshProcess(const ros::NodeHandle& n);
+
   /*! \brief Load the parameters required by this class through ROS
    *  - n: ROS node handle
    */
@@ -64,10 +75,9 @@ class KimeraPgmo : public KimeraPgmoInterface {
    */
   bool createPublishers(const ros::NodeHandle& n) override;
 
-  /*! \brief Starts the callbacks in this class
-   *  - n: ROS node handle
-   */
-  bool registerCallbacks(const ros::NodeHandle& n) override;
+  virtual bool registerCallbacks(const ros::NodeHandle&) override {
+    return true;
+  }
 
   /*! \brief Publish the optimized mesh (stored after deformation)
    */
@@ -173,9 +183,6 @@ class KimeraPgmo : public KimeraPgmoInterface {
   ros::Subscriber path_callback_sub_;
   ros::Subscriber dpgmo_callback_sub_;
 
-  // Timer
-  ros::Timer update_timer_;
-
   // Service
   ros::ServiceServer save_mesh_srv_;
   ros::ServiceServer save_traj_srv_;
@@ -191,8 +198,9 @@ class KimeraPgmo : public KimeraPgmoInterface {
   std::string frame_id_;
   int robot_id_;
 
-  // Store last received full mesh
-  KimeraPgmoMesh last_mesh_msg_;
+  std::unique_ptr<std::thread> graph_thread_;
+  std::unique_ptr<std::thread> mesh_thread_;
+  std::mutex interface_mutex_;
 
   // Time callback spin time
   int inc_mesh_cb_time_;

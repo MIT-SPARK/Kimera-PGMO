@@ -133,7 +133,7 @@ void DeformationGraph::addMeasurement(const Vertex& v,
   values_ = pgo_->calculateEstimate();
   nfg_ = pgo_->getFactorsUnsafe();
   gnc_weights_ = pgo_->getGncWeights();
-  recalculate_vertices_ = !do_not_optimize_;
+  recalculate_vertices_ = true;
 }
 
 void DeformationGraph::addNodeMeasurements(
@@ -164,7 +164,7 @@ void DeformationGraph::addNodeMeasurements(
   values_ = pgo_->calculateEstimate();
   nfg_ = pgo_->getFactorsUnsafe();
   gnc_weights_ = pgo_->getGncWeights();
-  recalculate_vertices_ = !do_not_optimize_;
+  recalculate_vertices_ = true;
 }
 
 void DeformationGraph::addNewBetween(const gtsam::Key& key_from,

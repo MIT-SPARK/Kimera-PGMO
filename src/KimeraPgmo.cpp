@@ -23,7 +23,17 @@ KimeraPgmo::KimeraPgmo()
       optimized_path_(new Path),
       optimized_mesh_(new pcl::PolygonMesh) {}
 
-KimeraPgmo::~KimeraPgmo() {}
+KimeraPgmo::~KimeraPgmo() {
+  if (graph_thread_) {
+    graph_thread_->join();
+    graph_thread_.reset();
+  }
+
+  if (mesh_thread_) {
+    mesh_thread_->join();
+    mesh_thread_.reset();
+  }
+}
 
 // Initialize parameters, publishers, and subscribers and deformation graph
 bool KimeraPgmo::initialize(const ros::NodeHandle& n) {
@@ -35,15 +45,17 @@ bool KimeraPgmo::initialize(const ros::NodeHandle& n) {
     ROS_ERROR("KimeraPgmo: Failed to create publishers.");
   }
 
-  if (!registerCallbacks(n)) {
-    ROS_ERROR("KimeraPgmo: Failed to register callbacks.");
-  }
-
   // Log header to file
   if (log_output_) {
     std::string log_file = output_prefix_ + std::string("/kimera_pgmo_log.csv");
     logStats(log_file);
   }
+
+  // Start graph thread
+  graph_thread_.reset(new std::thread(&KimeraPgmo::startGraphProcess, this, n));
+
+  // Start full mesh thread
+  mesh_thread_.reset(new std::thread(&KimeraPgmo::startMeshProcess, this, n));
 
   ROS_INFO("Initialized Kimera-PGMO.");
 
@@ -87,12 +99,8 @@ bool KimeraPgmo::createPublishers(const ros::NodeHandle& n) {
 }
 
 // Initialize callbacks
-bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
+void KimeraPgmo::startGraphProcess(const ros::NodeHandle& n) {
   ros::NodeHandle nl(n);
-
-  full_mesh_sub_ =
-      nl.subscribe("full_mesh", 1, &KimeraPgmo::fullMeshCallback, this);
-
   incremental_mesh_graph_sub_ =
       nl.subscribe("mesh_graph_incremental",
                    5000,
@@ -111,13 +119,6 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
   dpgmo_callback_sub_ =
       nl.subscribe("optimized_values", 1, &KimeraPgmo::dpgmoCallback, this);
 
-  update_timer_ = nl.createTimer(
-      ros::Duration(1.0), &KimeraPgmo::processTimerCallback, this);
-
-  // Initialize save mesh service
-  save_mesh_srv_ =
-      nl.advertiseService("save_mesh", &KimeraPgmo::saveMeshCallback, this);
-
   // Initialize save trajectory service
   save_traj_srv_ = nl.advertiseService(
       "save_trajectory", &KimeraPgmo::saveTrajectoryCallback, this);
@@ -129,7 +130,17 @@ bool KimeraPgmo::registerCallbacks(const ros::NodeHandle& n) {
   // Initialize request mesh edges service
   req_mesh_edges_srv_ = nl.advertiseService(
       "get_mesh_edges", &KimeraPgmo::requestMeshEdgesCallback, this);
-  return true;
+}
+
+// Initialize callbacks
+void KimeraPgmo::startMeshProcess(const ros::NodeHandle& n) {
+  ros::NodeHandle nl(n);
+  full_mesh_sub_ =
+      nl.subscribe("full_mesh", 1, &KimeraPgmo::fullMeshCallback, this);
+
+  // Initialize save mesh service
+  save_mesh_srv_ =
+      nl.advertiseService("save_mesh", &KimeraPgmo::saveMeshCallback, this);
 }
 
 // To publish optimized mesh
@@ -184,12 +195,13 @@ void KimeraPgmo::incrementalPoseGraphCallback(
   // Start timer
   auto start = std::chrono::high_resolution_clock::now();
 
-  processIncrementalPoseGraph(
-      msg, &trajectory_, &unconnected_nodes_, &timestamps_);
-
-  // Update optimized path
-  *optimized_path_ = getOptimizedTrajectory(robot_id_);
-
+  {  // start interface critical section
+    std::unique_lock<std::mutex> lock(interface_mutex_);
+    processIncrementalPoseGraph(
+        msg, &trajectory_, &unconnected_nodes_, &timestamps_);
+    // Update optimized path
+    *optimized_path_ = getOptimizedTrajectory(robot_id_);
+  }  // end interface critical section
   // Update transforms
   publishTransforms();
 
@@ -223,7 +235,10 @@ void KimeraPgmo::optimizedPathCallback(
   // Start timer
   auto start = std::chrono::high_resolution_clock::now();
 
-  processOptimizedPath(path_msg, robot_id_);
+  {  // start interface critical section
+    std::unique_lock<std::mutex> lock(interface_mutex_);
+    processOptimizedPath(path_msg, robot_id_);
+  }  // end interface critical section
 
   // Stop timer and save
   auto stop = std::chrono::high_resolution_clock::now();
@@ -240,7 +255,28 @@ void KimeraPgmo::optimizedPathCallback(
 
 void KimeraPgmo::fullMeshCallback(
     const kimera_pgmo::KimeraPgmoMesh::ConstPtr& mesh_msg) {
-  last_mesh_msg_ = *mesh_msg;
+  auto start = std::chrono::high_resolution_clock::now();
+  bool opt_mesh;
+  {  // start interface critical section
+    std::unique_lock<std::mutex> lock(interface_mutex_);
+    // Optimization always happen here only to ensure that the full mesh is
+    // always optimized when published
+    opt_mesh = optimizeFullMesh(*mesh_msg, optimized_mesh_, true);
+  }  // end interface critical section
+  if (opt_mesh && optimized_mesh_pub_.getNumSubscribers() > 0) {
+    std_msgs::Header msg_header = mesh_msg->header;
+    msg_header.stamp = ros::Time::now();
+    publishMesh(*optimized_mesh_, msg_header, &optimized_mesh_pub_);
+  }
+  // Stop timer and save
+  auto stop = std::chrono::high_resolution_clock::now();
+  auto spin_duration =
+      std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
+  full_mesh_cb_time_ = spin_duration.count();
+
+  // Publish deformation graph edges visualization
+  visualizeDeformationGraphMeshEdges(&viz_mesh_mesh_edges_pub_,
+                                     &viz_pose_mesh_edges_pub_);
   return;
 }
 
@@ -249,8 +285,11 @@ void KimeraPgmo::incrementalMeshGraphCallback(
   // Start timer
   auto start = std::chrono::high_resolution_clock::now();
 
-  processIncrementalMeshGraph(mesh_graph_msg, timestamps_, &unconnected_nodes_);
-
+  {  // start interface critical section
+    std::unique_lock<std::mutex> lock(interface_mutex_);
+    processIncrementalMeshGraph(
+        mesh_graph_msg, timestamps_, &unconnected_nodes_);
+  }  // end interface critical section
   // Stop timer and save
   auto stop = std::chrono::high_resolution_clock::now();
   auto spin_duration =
@@ -266,49 +305,30 @@ void KimeraPgmo::dpgmoCallback(
     ROS_ERROR("Mesh factors request queue empty.");
     return;
   }
-  size_t num_poses = dpgmo_num_poses_last_req_.front();
-  dpgmo_num_poses_last_req_.pop();
-  for (auto node : msg->nodes) {
-    if (node.robot_id != robot_id_) {
-      ROS_WARN(
-          "Unexpected robot id in pose graph received in dpgmo callback. ");
-      continue;
+  {  // start interface critical section
+    std::unique_lock<std::mutex> lock(interface_mutex_);
+    size_t num_poses = dpgmo_num_poses_last_req_.front();
+    dpgmo_num_poses_last_req_.pop();
+    for (auto node : msg->nodes) {
+      if (node.robot_id != robot_id_) {
+        ROS_WARN(
+            "Unexpected robot id in pose graph received in dpgmo callback. ");
+        continue;
+      }
+      char prefix = robot_id_to_prefix.at(robot_id_);
+      size_t index = node.key;
+      if (node.key >= num_poses) {
+        prefix = robot_id_to_vertex_prefix.at(robot_id_);
+        index = node.key - num_poses;  // account for offset
+      }
+      gtsam::Symbol key = gtsam::Symbol(prefix, index);
+      gtsam::Pose3 pose = RosToGtsam(node.pose);
+      insertDpgmoValues(key, pose);
     }
-    char prefix = robot_id_to_prefix.at(robot_id_);
-    size_t index = node.key;
-    if (node.key >= num_poses) {
-      prefix = robot_id_to_vertex_prefix.at(robot_id_);
-      index = node.key - num_poses;  // account for offset
-    }
-    gtsam::Symbol key = gtsam::Symbol(prefix, index);
-    gtsam::Pose3 pose = RosToGtsam(node.pose);
-    insertDpgmoValues(key, pose);
-  }
 
-  // Update optimized path
-  *optimized_path_ = getOptimizedTrajectory(robot_id_);
-}
-
-void KimeraPgmo::processTimerCallback(const ros::TimerEvent& ev) {
-  // Start timer
-  auto start = std::chrono::high_resolution_clock::now();
-
-  if (optimizeFullMesh(last_mesh_msg_, optimized_mesh_) &&
-      optimized_mesh_pub_.getNumSubscribers() > 0) {
-    std_msgs::Header msg_header = last_mesh_msg_.header;
-    msg_header.stamp = ros::Time::now();
-    publishMesh(*optimized_mesh_, msg_header, &optimized_mesh_pub_);
-  }
-  // Stop timer and save
-  auto stop = std::chrono::high_resolution_clock::now();
-  auto spin_duration =
-      std::chrono::duration_cast<std::chrono::microseconds>(stop - start);
-  full_mesh_cb_time_ = spin_duration.count();
-
-  // Publish deformation graph edges visualization
-  visualizeDeformationGraphMeshEdges(&viz_mesh_mesh_edges_pub_,
-                                     &viz_pose_mesh_edges_pub_);
-  return;
+    // Update optimized path
+    *optimized_path_ = getOptimizedTrajectory(robot_id_);
+  }  // end interface critical section
 }
 
 void KimeraPgmo::publishTransforms() {

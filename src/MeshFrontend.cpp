@@ -28,6 +28,7 @@ MeshFrontend::MeshFrontend()
       init_graph_log_(false),
       init_full_log_(false),
       voxblox_queue_size_(20),
+      b_track_mesh_graph_mapping_(true),
       voxblox_update_called_(false) {}
 
 MeshFrontend::~MeshFrontend() {}
@@ -83,6 +84,8 @@ bool MeshFrontend::loadParameters(const ros::NodeHandle& n) {
   if (!n.getParam("graph_compression_method", graph_compression_method)) {
     return false;
   }
+
+  n.getParam("track_mesh_graph_mapping", b_track_mesh_graph_mapping_);
 
   n.getParam("voxblox_queue_size", voxblox_queue_size_);
 
@@ -153,7 +156,9 @@ void MeshFrontend::voxbloxCallback(const voxblox_msgs::Mesh::ConstPtr& msg) {
   full_mesh_thread.join();
   graph_mesh_thread.join();
 
-  updateMeshToGraphMappings(latest_blocks_);
+  if (b_track_mesh_graph_mapping_) {
+    updateMeshToGraphMappings(latest_blocks_);
+  }
   publishFullMesh();
 
   voxblox_update_called_ = true;
