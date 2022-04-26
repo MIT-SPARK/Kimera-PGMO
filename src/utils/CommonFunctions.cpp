@@ -350,6 +350,7 @@ KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(
   }
 
   new_mesh.header.frame_id = frame_id;
+  new_mesh.id = id;
   new_mesh.header.stamp = vertex_timestamps.back();
   return new_mesh;
 }
