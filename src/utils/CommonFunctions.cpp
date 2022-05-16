@@ -19,140 +19,76 @@
 #include <voxblox_msgs/MeshBlock.h>
 
 #include "kimera_pgmo/utils/CommonFunctions.h"
-#include "kimera_pgmo/utils/tinyply.h"
+#include "kimera_pgmo/utils/happly/happly.h"
 
 namespace kimera_pgmo {
 
-void ReadMeshWithStampsFromPly(const std::string& filename,
+void ReadMeshWithStampsFromPly(const std::string &filename,
                                pcl::PolygonMeshPtr mesh,
-                               std::vector<ros::Time>* vertex_stamps) {
+                               std::vector<ros::Time> *vertex_stamps) {
   if (NULL == mesh) {
-    std::cout << "Mesh is NULL in ReadMeshFromPly" << std::endl;
     return;
   }
 
-  std::cout << "filename: " << filename << std::endl;
-  std::unique_ptr<std::istream> file_stream;
-  file_stream.reset(new std::ifstream(filename, std::ios::binary));
-  if (!file_stream || file_stream->fail())
-    throw std::runtime_error("file_stream failed to open " + filename);
+  happly::PLYData ply_in(filename);
 
-  file_stream->seekg(0, std::ios::end);
-  const float size_mb = file_stream->tellg() * float(1e-6);
-  file_stream->seekg(0, std::ios::beg);
+  // Get data from the object
+  std::vector<float> vertices_x =
+      ply_in.getElement("vertex").getProperty<float>("x");
+  std::vector<float> vertices_y =
+      ply_in.getElement("vertex").getProperty<float>("y");
+  std::vector<float> vertices_z =
+      ply_in.getElement("vertex").getProperty<float>("z");
+  std::vector<uint8_t> vertices_r =
+      ply_in.getElement("vertex").getProperty<uint8_t>("red");
+  std::vector<uint8_t> vertices_g =
+      ply_in.getElement("vertex").getProperty<uint8_t>("green");
+  std::vector<uint8_t> vertices_b =
+      ply_in.getElement("vertex").getProperty<uint8_t>("blue");
+  std::vector<uint8_t> vertices_a =
+      ply_in.getElement("vertex").getProperty<uint8_t>("alpha");
+  std::vector<std::vector<uint32_t>> faces =
+      ply_in.getElement("face").getListProperty<uint32_t>("vertex_indices");
 
-  tinyply::PlyFile file;
-  file.parse_header(*file_stream);
-
-  std::cout << "\t[ply_header] Type: "
-            << (file.is_binary_file() ? "binary" : "ascii") << std::endl;
-  for (const auto& c : file.get_comments())
-    std::cout << "\t[ply_header] Comment: " << c << std::endl;
-  for (const auto& c : file.get_info())
-    std::cout << "\t[ply_header] Info: " << c << std::endl;
-
-  for (const auto& e : file.get_elements()) {
-    std::cout << "\t[ply_header] element: " << e.name << " (" << e.size << ")"
-              << std::endl;
-    for (const auto& p : e.properties) {
-      std::cout << "\t[ply_header] \tproperty: " << p.name
-                << " (type=" << tinyply::PropertyTable[p.propertyType].str
-                << ")";
-      if (p.isList)
-        std::cout << " (list_type=" << tinyply::PropertyTable[p.listType].str
-                  << ")";
-      std::cout << std::endl;
-    }
-  }
-
-  std::shared_ptr<tinyply::PlyData> vertices, colors, stamps, faces;
-
-  // The header information can be used to programmatically extract properties
-  // on elements known to exist in the header prior to reading the data. For
-  // brevity of this sample, properties like vertex position are hard-coded:
-  try {
-    vertices = file.request_properties_from_element("vertex", {"x", "y", "z"});
-  } catch (const std::exception& e) {
-    std::cerr << "tinyply exception: " << e.what() << std::endl;
-  }
-
-  try {
-    colors = file.request_properties_from_element(
-        "vertex", {"red", "green", "blue", "alpha"});
-  } catch (const std::exception& e) {
-    std::cerr << "tinyply exception: " << e.what() << std::endl;
-  }
-
-  if (NULL != vertex_stamps) {
-    try {
-      stamps =
-          file.request_properties_from_element("vertex", {"secs", "nsecs"});
-    } catch (const std::exception& e) {
-      std::cerr << "tinyply exception: " << e.what() << std::endl;
-    }
-  }
-
-  // Providing a list size hint (the last argument) is a 2x performance
-  // improvement. If you have arbitrary ply files, it is best to leave this 0.
-  try {
-    faces = file.request_properties_from_element("face", {"vertex_indices"}, 3);
-  } catch (const std::exception& e) {
-    std::cerr << "tinyply exception: " << e.what() << std::endl;
-  }
-
-  file.read(*file_stream);
-
-  // Extract vertices data
-  const size_t numVerticesBytes = vertices->buffer.size_bytes();
-  std::vector<tinyply::float3> verts(vertices->count);
-  std::memcpy(verts.data(), vertices->buffer.get(), numVerticesBytes);
-
-  std::vector<tinyply::rgba> colrs;
-  if (colors) {
-    colrs = std::vector<tinyply::rgba>(colors->count);
-    const size_t numColorBytes = colors->buffer.size_bytes();
-    std::memcpy(colrs.data(), colors->buffer.get(), numColorBytes);
-  }
-
-  if (stamps) {
-    std::vector<tinyply::timestamp> times =
-        std::vector<tinyply::timestamp>(stamps->count);
-    const size_t numStampBytes = stamps->buffer.size_bytes();
-    std::memcpy(times.data(), stamps->buffer.get(), numStampBytes);
-    // Extract stamps
-    vertex_stamps->clear();
-    for (const auto t : times) {
-      vertex_stamps->push_back(ros::Time(t.sec, t.nsec));
-    }
-  }
+  size_t num_vertices = vertices_x.size();
+  size_t num_faces = faces.size();
 
   // Convert to pointcloud
   pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
-  for (size_t i = 0; i < verts.size(); i++) {
+  for (size_t i = 0; i < num_vertices; i++) {
     pcl::PointXYZRGBA pcl_pt;
-    pcl_pt.x = verts[i].x;
-    pcl_pt.y = verts[i].y;
-    pcl_pt.z = verts[i].z;
-    if (colors) {
-      pcl_pt.r = colrs[i].r;
-      pcl_pt.g = colrs[i].g;
-      pcl_pt.b = colrs[i].b;
-      pcl_pt.a = colrs[i].a;
+    pcl_pt.x = vertices_x[i];
+    pcl_pt.y = vertices_y[i];
+    pcl_pt.z = vertices_z[i];
+    if (vertices_r.size() == num_vertices) {
+      pcl_pt.r = vertices_r[i];
+      pcl_pt.g = vertices_g[i];
+      pcl_pt.b = vertices_b[i];
+      pcl_pt.a = vertices_a[i];
     }
     vertices_cloud.points.push_back(pcl_pt);
   }
   pcl::toPCLPointCloud2(vertices_cloud, mesh->cloud);
 
+  if (NULL != vertex_stamps) {
+    std::vector<uint32_t> vertices_sec =
+        ply_in.getElement("vertex").getProperty<uint32_t>("secs");
+    std::vector<uint32_t> vertices_nsec =
+        ply_in.getElement("vertex").getProperty<uint32_t>("nsecs");
+    // Extract stamps
+    vertex_stamps->clear();
+    for (size_t i = 0; i < num_vertices; i++) {
+      vertex_stamps->push_back(
+          ros::Time(vertices_sec.at(i), vertices_nsec.at(i)));
+    }
+  }
+
   // Extract surface data
-  const size_t numFacesByets = faces->buffer.size_bytes();
-  std::vector<tinyply::uint3> triangles(faces->count);
-  std::memcpy(triangles.data(), faces->buffer.get(), numFacesByets);
-  // Convert to polygon mesh type
-  for (auto t : triangles) {
+  for (size_t i = 0; i < num_faces; i++) {
     pcl::Vertices tri;
-    tri.vertices.push_back(t.v1);
-    tri.vertices.push_back(t.v2);
-    tri.vertices.push_back(t.v3);
+    for (const auto &v : faces[i]) {
+      tri.vertices.push_back(v);
+    }
     mesh->polygons.push_back(tri);
   }
 }
@@ -166,16 +102,16 @@ void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh) {
   WriteMeshWithStampsToPly(filename, mesh, unused);
 }
 
-void WriteMeshWithStampsToPly(const std::string& filename,
-                              const pcl::PolygonMesh& mesh,
-                              const std::vector<ros::Time>& vertex_stamps) {
+void WriteMeshWithStampsToPly(const std::string &filename,
+                              const pcl::PolygonMesh &mesh,
+                              const std::vector<ros::Time> &vertex_stamps) {
   std::filebuf fb_ascii;
   fb_ascii.open(filename, std::ios::out);
   std::ostream outstream_ascii(&fb_ascii);
   if (outstream_ascii.fail())
     throw std::runtime_error("failed to open " + filename);
 
-  std::vector<tinyply::uint3> triangles;
+  std::vector<std::vector<uint32_t>> triangles;
   // Convert to polygon mesh type
   for (pcl::Vertices tri : mesh.polygons) {
     triangles.push_back({tri.vertices[0], tri.vertices[1], tri.vertices[2]});
@@ -184,60 +120,50 @@ void WriteMeshWithStampsToPly(const std::string& filename,
   pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
   pcl::fromPCLPointCloud2(mesh.cloud, vertices_cloud);
 
-  std::vector<tinyply::float3> vertices;
-  std::vector<tinyply::rgba> colors;
+  std::vector<float> vertices_x;
+  std::vector<float> vertices_y;
+  std::vector<float> vertices_z;
+  std::vector<uint8_t> colors_r;
+  std::vector<uint8_t> colors_g;
+  std::vector<uint8_t> colors_b;
+  std::vector<uint8_t> colors_a;
   for (pcl::PointXYZRGBA p : vertices_cloud) {
-    vertices.push_back({p.x, p.y, p.z});
-    colors.push_back({p.r, p.g, p.b, p.a});
+    vertices_x.push_back(p.x);
+    vertices_y.push_back(p.y);
+    vertices_z.push_back(p.z);
+    colors_r.push_back(p.r);
+    colors_g.push_back(p.g);
+    colors_b.push_back(p.b);
+    colors_a.push_back(p.a);
   }
 
-  tinyply::PlyFile output_file;
-  output_file.add_properties_to_element(
-      "vertex",
-      {"x", "y", "z"},
-      tinyply::Type::FLOAT32,
-      vertices.size(),
-      reinterpret_cast<uint8_t*>(vertices.data()),
-      tinyply::Type::INVALID,
-      0);
-
-  output_file.add_properties_to_element(
-      "vertex",
-      {"red", "green", "blue", "alpha"},
-      tinyply::Type::UINT8,
-      colors.size(),
-      reinterpret_cast<uint8_t*>(colors.data()),
-      tinyply::Type::INVALID,
-      0);
+  happly::PLYData output_file;
+  output_file.addElement("vertex", vertices_cloud.size());
+  output_file.getElement("vertex").addProperty<float>("x", vertices_x);
+  output_file.getElement("vertex").addProperty<float>("y", vertices_y);
+  output_file.getElement("vertex").addProperty<float>("z", vertices_z);
+  output_file.getElement("vertex").addProperty<uint8_t>("red", colors_r);
+  output_file.getElement("vertex").addProperty<uint8_t>("green", colors_g);
+  output_file.getElement("vertex").addProperty<uint8_t>("blue", colors_b);
+  output_file.getElement("vertex").addProperty<uint8_t>("alpha", colors_a);
 
   if (vertex_stamps.size() > 0) {
     // Write vertex stamps to ply
-    std::vector<tinyply::timestamp> stamps;
+    std::vector<uint32_t> stamps_sec;
+    std::vector<uint32_t> stamps_nsec;
     for (auto ros_time : vertex_stamps) {
-      stamps.push_back({ros_time.sec, ros_time.nsec});
+      stamps_sec.push_back(ros_time.sec);
+      stamps_nsec.push_back(ros_time.nsec);
     }
-
-    output_file.add_properties_to_element(
-        "vertex",
-        {"secs", "nsecs"},
-        tinyply::Type::UINT32,
-        stamps.size(),
-        reinterpret_cast<uint8_t*>(stamps.data()),
-        tinyply::Type::INVALID,
-        0);
+    output_file.getElement("vertex").addProperty<uint32_t>("secs", stamps_sec);
+    output_file.getElement("vertex").addProperty<uint32_t>("nsecs",
+                                                           stamps_nsec);
   }
 
-  output_file.add_properties_to_element(
-      "face",
-      {"vertex_indices"},
-      tinyply::Type::UINT32,
-      triangles.size(),
-      reinterpret_cast<uint8_t*>(triangles.data()),
-      tinyply::Type::UINT8,
-      3);
+  output_file.addElement("face", triangles.size());
+  output_file.getElement("face").addListProperty("vertex_indices", triangles);
 
-  // Write an ASCII file
-  output_file.write(outstream_ascii, false);
+  output_file.write(filename, happly::DataFormat::ASCII);
 }
 
 mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(

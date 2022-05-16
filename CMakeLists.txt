@@ -39,7 +39,6 @@ src/compression/VoxelClearingCompression.cpp
 src/utils/CommonFunctions.cpp
 src/utils/CommonStructs.cpp
 src/utils/VoxbloxUtils.cpp
-src/utils/tinyply.cpp
 src/DeformationGraph.cpp
 src/DeformationGraphIo.cpp
 src/KimeraPgmo.cpp
