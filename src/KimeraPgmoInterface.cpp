@@ -692,4 +692,25 @@ Path KimeraPgmoInterface::getOptimizedTrajectory(const size_t& robot_id) const {
   return optimized_traj;
 }
 
+bool KimeraPgmoInterface::loadGraphAndMesh(const size_t& robot_id,
+                                           const std::string& ply_path,
+                                           const std::string& dgrf_path,
+                                           pcl::PolygonMesh::Ptr optimized_mesh,
+                                           bool do_optimize) {
+  pcl::PolygonMeshPtr mesh(new pcl::PolygonMesh());
+  std::vector<ros::Time> mesh_vertex_stamps;
+  kimera_pgmo::ReadMeshWithStampsFromPly(ply_path, mesh, &mesh_vertex_stamps);
+
+  KimeraPgmoMesh mesh_msg =
+      PolygonMeshToPgmoMeshMsg(robot_id, *mesh, mesh_vertex_stamps, "world");
+
+  loadDeformationGraphFromFile(dgrf_path);
+  ROS_INFO(
+      "Loaded new graph. Currently have %d vertices in deformatio graph and %d loop "
+      "closures. ",
+      deformation_graph_->getNumVertices(),
+      num_loop_closures_);
+  return optimizeFullMesh(mesh_msg, optimized_mesh, do_optimize);
+}
+
 }  // namespace kimera_pgmo

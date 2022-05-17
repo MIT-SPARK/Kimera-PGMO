@@ -8,6 +8,7 @@
 #include "kimera_pgmo/AbsolutePoseStamped.h"
 #include "kimera_pgmo/KimeraPgmoInterface.h"
 #include "kimera_pgmo/KimeraPgmoMesh.h"
+#include "kimera_pgmo/LoadGraphMesh.h"
 #include "kimera_pgmo/RequestMeshFactors.h"
 #include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
@@ -147,6 +148,11 @@ class KimeraPgmo : public KimeraPgmoInterface {
    */
   bool saveGraphCallback(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
 
+  /*! \brief Loads a deformation graph and associated mesh.
+   */
+  bool loadGraphMeshCallback(kimera_pgmo::LoadGraphMesh::Request& request,
+                             kimera_pgmo::LoadGraphMesh::Response& response);
+
   /*! \brief Requests the mesh related edges (pose-vertex, vertex-vertex) in the
    * deformation graph.
    */
@@ -158,6 +164,13 @@ class KimeraPgmo : public KimeraPgmoInterface {
    * time
    */
   void logStats(const std::string filename) const;
+
+  /*! \brief Clear and reset the deformation graph.
+   */
+  bool resetGraphCallback(std_srvs::Empty::Request&, std_srvs::Empty::Response&) {
+    resetDeformationGraph();
+    return true;
+  }
 
  protected:
   // optimized mesh for each robot
@@ -187,6 +200,8 @@ class KimeraPgmo : public KimeraPgmoInterface {
   ros::ServiceServer save_mesh_srv_;
   ros::ServiceServer save_traj_srv_;
   ros::ServiceServer save_graph_srv_;
+  ros::ServiceServer load_graph_mesh_srv_;
+  ros::ServiceServer reset_srv_;
   ros::ServiceServer req_mesh_edges_srv_;
 
   // Trajectory

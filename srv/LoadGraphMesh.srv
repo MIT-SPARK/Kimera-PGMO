@@ -1,0 +1,5 @@
+uint32 robot_id
+string dgrf_file
+string ply_file
+---
+bool success

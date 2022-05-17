@@ -127,6 +127,14 @@ void KimeraPgmo::startGraphProcess(const ros::NodeHandle& n) {
   save_graph_srv_ =
       nl.advertiseService("save_dgrf", &KimeraPgmo::saveGraphCallback, this);
 
+  // Initialize save deformation graph service
+  load_graph_mesh_srv_ =
+      nl.advertiseService("load_graph_mesh", &KimeraPgmo::loadGraphMeshCallback, this);
+
+  // Reset the deformation graph service
+  reset_srv_ =
+      nl.advertiseService("reset_graph", &KimeraPgmo::resetGraphCallback, this);
+
   // Initialize request mesh edges service
   req_mesh_edges_srv_ = nl.advertiseService(
       "get_mesh_edges", &KimeraPgmo::requestMeshEdgesCallback, this);
@@ -382,6 +390,25 @@ bool KimeraPgmo::saveGraphCallback(std_srvs::Empty::Request&,
   saveDeformationGraph(dgrf_name);
   ROS_INFO("KimeraPgmo: Saved deformation graph to file.");
   return true;
+}
+
+bool KimeraPgmo::loadGraphMeshCallback(kimera_pgmo::LoadGraphMesh::Request& request,
+                                       kimera_pgmo::LoadGraphMesh::Response& response) {
+  ROS_INFO("Loading deformation graph file: %s and ply file: %s. ",
+           request.dgrf_file.c_str(),
+           request.ply_file.c_str());
+  {  // start interface critical section
+    std::unique_lock<std::mutex> lock(interface_mutex_);
+    response.success = loadGraphAndMesh(
+        request.robot_id, request.ply_file, request.dgrf_file, optimized_mesh_, true);
+  }  // end interface critical section
+  if (response.success && optimized_mesh_pub_.getNumSubscribers() > 0) {
+    std_msgs::Header msg_header;
+    msg_header.frame_id = frame_id_;
+    msg_header.stamp = ros::Time::now();
+    publishMesh(*optimized_mesh_, msg_header, &optimized_mesh_pub_);
+  }
+  return response.success;
 }
 
 bool KimeraPgmo::requestMeshEdgesCallback(
