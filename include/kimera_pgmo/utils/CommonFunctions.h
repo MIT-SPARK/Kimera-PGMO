@@ -39,7 +39,7 @@ const std::map<size_t, char> robot_id_to_prefix = {
     {7, 'h'},
 };
 
-const std::map<size_t, char> robot_prefix_to_id = {
+const std::map<char, size_t> robot_prefix_to_id = {
     {'a', 0},
     {'b', 1},
     {'c', 2},
@@ -61,7 +61,7 @@ const std::map<size_t, char> robot_id_to_vertex_prefix = {
     {7, 'z'},
 };
 
-const std::map<size_t, char> vertex_prefix_to_id = {
+const std::map<char, size_t> vertex_prefix_to_id = {
     {'s', 0},
     {'t', 1},
     {'u', 2},
