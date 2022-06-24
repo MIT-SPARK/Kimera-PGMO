@@ -9,15 +9,11 @@ Kimera-PGMO (Pose Graph and Mesh Optimizer) is an optimizer that takes in a mesh
 ## Dependencies 
 In addition to PCL, OpenCV, and GTSAM, Kimera-PGMO is designed as part of Kimera, so the following Kimera packages and their dependencies are needed:
 
-[Kimera-VIO](https://github.mit.edu/SPARK/Kimera-VIO) branch: feature/kimera_pgmo
+[Kimera-RPGO](https://github.com/MIT-SPARK/Kimera-RPGO)
 
-[Kimera-VIO-ROS](https://github.mit.edu/SPARK/Kimera-VIO-ROS) branch: feature/kimera_pgmo
+[pose_graph_tools](https://github.com/MIT-SPARK/pose_graph_tools)
 
-[Kimera-RPGO](https://github.com/MIT-SPARK/Kimera-RPGO) branch: feature/kimera_pgmo
-
-[pose_graph_tools](https://github.mit.edu/SPARK/pose_graph_tools) branch: feature/kimera_pgmo
-
-[Kimera-Semantics](https://github.mit.edu/SPARK/Kimera-Semantics) branch: master
+[Kimera-Semantics](https://github.com/MIT-SPARK/Kimera-Semantics)
 
 For the immediate dependencies, check out the rosinstall files. 
 
@@ -27,11 +23,6 @@ wstool merge Kimera-PGMO/install/kimera_pgmo_ssh.rosinstall
 wstool update
 catkin build kimera_pgmo
 ```
-Note: doing a full `catkin build` might cause problems with some of the dependencies of Kimera-Semantics, so it is recommended to build the modules one by one.
-
-## Architecture 
-The following is the diagram of modules in Kimera-PGMO.
-![Basic system setup in the single robot case](images/PGMO_modules.png)
 
 ## Parameters 
 
@@ -95,6 +86,20 @@ the mesh will be saved to ouput_folder/mesh_pgmo.ply and trajectory will be save
 You can also save the underlying deformation graph to output_folder/pgmo.dgrf 
 ```bash
 rosservice call /kimera_pgmo/save_dgrf
+```
+
+#### Loading a mesh and deformation graph
+You may also directly load a .ply and .dgrf file to Kimera-PGMO
+```bash
+roslaunch kimera_pgmo kimera_pgmo.launch dataset:=uHumans2
+```
+Start rviz:
+```bash
+rviz -d $(rospack find kimera_pgmo)/rviz/uHumans2.rviz
+```
+And load mesh and deformation graph:
+```bash
+rosservice call /kimera_pgmo/load_graph_mesh '{robot_id: 0, dgrf_file: /home/yunchang/catkin_ws/src/kimera_pgmo/log/pgmo.dgrf, ply_file: /home/yunchang/catkin_ws/src/kimera_pgmo/log/mesh_pgmo.ply}'
 ```
 
 ## Developer notes 
