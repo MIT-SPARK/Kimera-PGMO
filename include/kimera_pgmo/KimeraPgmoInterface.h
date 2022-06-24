@@ -112,6 +112,7 @@ class KimeraPgmoInterface {
                         const std::string& ply_path,
                         const std::string& dgrf_path,
                         pcl::PolygonMesh::Ptr optimized_mesh,
+                        std::vector<ros::Time>* mesh_vertex_stamps,
                         bool do_optimize);
 
  protected:
@@ -173,6 +174,7 @@ class KimeraPgmoInterface {
    */
   bool optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
                         pcl::PolygonMesh::Ptr optimized_mesh,
+                        std::vector<ros::Time>* mesh_vertex_stamps,
                         bool do_optimize);
 
   /*! \brief Process the mesh graph that consists of the new mesh edges and mesh

@@ -175,6 +175,8 @@ class KimeraPgmo : public KimeraPgmoInterface {
  protected:
   // optimized mesh for each robot
   pcl::PolygonMesh::Ptr optimized_mesh_;
+  std::vector<ros::Time> mesh_vertex_stamps_;
+
   PathPtr optimized_path_;
   ros::Time last_mesh_stamp_;
 

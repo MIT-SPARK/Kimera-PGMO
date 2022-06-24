@@ -269,7 +269,7 @@ void KimeraPgmo::fullMeshCallback(
     std::unique_lock<std::mutex> lock(interface_mutex_);
     // Optimization always happen here only to ensure that the full mesh is
     // always optimized when published
-    opt_mesh = optimizeFullMesh(*mesh_msg, optimized_mesh_, true);
+    opt_mesh = optimizeFullMesh(*mesh_msg, optimized_mesh_, &mesh_vertex_stamps_, true);
   }  // end interface critical section
   if (opt_mesh && optimized_mesh_pub_.getNumSubscribers() > 0) {
     std_msgs::Header msg_header = mesh_msg->header;
@@ -368,7 +368,7 @@ bool KimeraPgmo::saveMeshCallback(std_srvs::Empty::Request&,
                                   std_srvs::Empty::Response&) {
   // Save mesh
   std::string ply_name = output_prefix_ + std::string("/mesh_pgmo.ply");
-  saveMesh(*optimized_mesh_, ply_name);
+  WriteMeshWithStampsToPly(ply_name, *optimized_mesh_, mesh_vertex_stamps_);
   ROS_INFO("KimeraPgmo: Saved mesh to file.");
   return true;
 }
@@ -399,8 +399,12 @@ bool KimeraPgmo::loadGraphMeshCallback(kimera_pgmo::LoadGraphMesh::Request& requ
            request.ply_file.c_str());
   {  // start interface critical section
     std::unique_lock<std::mutex> lock(interface_mutex_);
-    response.success = loadGraphAndMesh(
-        request.robot_id, request.ply_file, request.dgrf_file, optimized_mesh_, true);
+    response.success = loadGraphAndMesh(request.robot_id,
+                                        request.ply_file,
+                                        request.dgrf_file,
+                                        optimized_mesh_,
+                                        &mesh_vertex_stamps_,
+                                        true);
   }  // end interface critical section
   if (response.success && optimized_mesh_pub_.getNumSubscribers() > 0) {
     std_msgs::Header msg_header;

@@ -278,11 +278,11 @@ void KimeraPgmoInterface::processOptimizedPath(
 
 bool KimeraPgmoInterface::optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
                                            pcl::PolygonMesh::Ptr optimized_mesh,
+                                           std::vector<ros::Time>* mesh_vertex_stamps,
                                            bool do_optimize) {
-  std::vector<ros::Time> mesh_vertex_stamps;
   std::vector<int> mesh_vertex_graph_inds;
   const pcl::PolygonMesh& input_mesh = PgmoMeshMsgToPolygonMesh(
-      mesh_msg, &mesh_vertex_stamps, &mesh_vertex_graph_inds);
+      mesh_msg, mesh_vertex_stamps, &mesh_vertex_graph_inds);
   // check if empty
   if (input_mesh.cloud.height * input_mesh.cloud.width == 0) return false;
 
@@ -296,7 +296,7 @@ bool KimeraPgmoInterface::optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
       // Here we are getting the optimized values from the dpgo solver
       *optimized_mesh =
           deformation_graph_->deformMesh(input_mesh,
-                                         mesh_vertex_stamps,
+                                         *mesh_vertex_stamps,
                                          mesh_vertex_graph_inds,
                                          GetVertexPrefix(robot_id),
                                          dpgmo_values_,
@@ -308,7 +308,7 @@ bool KimeraPgmoInterface::optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
       }
       *optimized_mesh =
           deformation_graph_->deformMesh(input_mesh,
-                                         mesh_vertex_stamps,
+                                         *mesh_vertex_stamps,
                                          mesh_vertex_graph_inds,
                                          GetVertexPrefix(robot_id),
                                          num_interp_pts_,
@@ -696,13 +696,13 @@ bool KimeraPgmoInterface::loadGraphAndMesh(const size_t& robot_id,
                                            const std::string& ply_path,
                                            const std::string& dgrf_path,
                                            pcl::PolygonMesh::Ptr optimized_mesh,
+                                           std::vector<ros::Time>* mesh_vertex_stamps,
                                            bool do_optimize) {
   pcl::PolygonMeshPtr mesh(new pcl::PolygonMesh());
-  std::vector<ros::Time> mesh_vertex_stamps;
-  kimera_pgmo::ReadMeshWithStampsFromPly(ply_path, mesh, &mesh_vertex_stamps);
+  kimera_pgmo::ReadMeshWithStampsFromPly(ply_path, mesh, mesh_vertex_stamps);
 
   KimeraPgmoMesh mesh_msg =
-      PolygonMeshToPgmoMeshMsg(robot_id, *mesh, mesh_vertex_stamps, "world");
+      PolygonMeshToPgmoMeshMsg(robot_id, *mesh, *mesh_vertex_stamps, "world");
 
   loadDeformationGraphFromFile(dgrf_path);
   ROS_INFO(
@@ -710,7 +710,7 @@ bool KimeraPgmoInterface::loadGraphAndMesh(const size_t& robot_id,
       "closures. ",
       deformation_graph_->getNumVertices(),
       num_loop_closures_);
-  return optimizeFullMesh(mesh_msg, optimized_mesh, do_optimize);
+  return optimizeFullMesh(mesh_msg, optimized_mesh, mesh_vertex_stamps, do_optimize);
 }
 
 }  // namespace kimera_pgmo
