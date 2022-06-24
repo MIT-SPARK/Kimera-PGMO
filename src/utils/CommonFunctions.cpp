@@ -39,18 +39,22 @@ void ReadMeshWithStampsFromPly(const std::string &filename,
       ply_in.getElement("vertex").getProperty<float>("y");
   std::vector<float> vertices_z =
       ply_in.getElement("vertex").getProperty<float>("z");
-  std::vector<uint8_t> vertices_r =
-      ply_in.getElement("vertex").getProperty<uint8_t>("red");
-  std::vector<uint8_t> vertices_g =
-      ply_in.getElement("vertex").getProperty<uint8_t>("green");
-  std::vector<uint8_t> vertices_b =
-      ply_in.getElement("vertex").getProperty<uint8_t>("blue");
-  std::vector<uint8_t> vertices_a =
-      ply_in.getElement("vertex").getProperty<uint8_t>("alpha");
+  size_t num_vertices = vertices_x.size();
+  std::vector<uint8_t> vertices_r, vertices_g, vertices_b, vertices_a;
+  try {
+    vertices_r = ply_in.getElement("vertex").getProperty<uint8_t>("red");
+    vertices_g = ply_in.getElement("vertex").getProperty<uint8_t>("green");
+    vertices_b = ply_in.getElement("vertex").getProperty<uint8_t>("blue");
+    vertices_a = ply_in.getElement("vertex").getProperty<uint8_t>("alpha");
+  } catch (...) {
+    size_t n_vertices = vertices_x.size();
+    vertices_r = std::vector<uint8_t>(num_vertices, 0);
+    vertices_g = std::vector<uint8_t>(num_vertices, 0);
+    vertices_b = std::vector<uint8_t>(num_vertices, 0);
+    vertices_a = std::vector<uint8_t>(num_vertices, 0);
+  }
   std::vector<std::vector<uint32_t>> faces =
       ply_in.getElement("face").getListProperty<uint32_t>("vertex_indices");
-
-  size_t num_vertices = vertices_x.size();
   size_t num_faces = faces.size();
 
   // Convert to pointcloud

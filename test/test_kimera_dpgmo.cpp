@@ -49,10 +49,6 @@ class KimeraDpgmoTest : public ::testing::Test {
 
   void FullMeshCallback(const KimeraPgmoMesh::ConstPtr& mesh_msg) {
     pgmo_.fullMeshCallback(mesh_msg);
-    ros::TimerEvent timer_event;
-    timer_event.current_real = ros::Time::now();
-    timer_event.current_expected = ros::Time::now();
-    pgmo_.processTimerCallback(timer_event);
   }
 
   void IncrementalMeshGraphCallback(

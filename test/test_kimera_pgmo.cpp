@@ -51,10 +51,6 @@ class KimeraPgmoTest : public ::testing::Test {
 
   void FullMeshCallback(const KimeraPgmoMesh::ConstPtr& mesh_msg) {
     pgmo_.fullMeshCallback(mesh_msg);
-    ros::TimerEvent timer_event;
-    timer_event.current_real = ros::Time::now();
-    timer_event.current_expected = ros::Time::now();
-    pgmo_.processTimerCallback(timer_event);
   }
 
   void IncrementalMeshGraphCallback(
@@ -431,6 +427,18 @@ TEST_F(KimeraPgmoTest, optimizedPathCallback) {
 
   OptimizedPathCallback(path_msg);
 
+  // Call full mesh callback to trigger optimization
+  pcl::PolygonMesh full_mesh = createMesh(2, 2, 2);
+  KimeraPgmoMesh::Ptr full_mesh_msg(new kimera_pgmo::KimeraPgmoMesh);
+  std::vector<ros::Time> full_vertex_stamps;
+  for (size_t i = 0; i < full_mesh.cloud.width * full_mesh.cloud.height; i++) {
+    full_vertex_stamps.push_back(ros::Time(13.0));
+  }
+
+  *full_mesh_msg =
+      PolygonMeshToPgmoMeshMsg(0, full_mesh, full_vertex_stamps, "world");
+  FullMeshCallback(full_mesh_msg);
+
   std::vector<gtsam::Pose3> traj = getTrajectory();
   std::queue<size_t> unconnected_nodes = getUnconnectedNodes();
   std::vector<ros::Time> stamps = getTimestamps();
@@ -488,6 +496,8 @@ TEST_F(KimeraPgmoTest, optimizedPathCallback) {
   path_msg->poses.push_back(pose1);
 
   OptimizedPathCallback(path_msg);
+  // Call full mesh callback to trigger optimization
+  FullMeshCallback(full_mesh_msg);
 
   traj = getTrajectory();
   unconnected_nodes = getUnconnectedNodes();
