@@ -119,12 +119,5 @@ Or
 rosrun kimera_pgmo kimera_pgmo-test_deformation_graph
 ```
 
-### Plotting the timing 
-We provided some simple python scripts to plot the timing
-```bash
-python scripts/plot_pgmo_timing.py /home/yunchang/catkin_ws/src/kimera_pgmo/log/kimera_pgmo_log.csv
-python scripts/plot_frontend_timing.py /home/yunchang/catkin_ws/src/kimera_pgmo/log
-```
-
 ### Misc Note
 One thing to note if a developer is working with GTSAM and want to add other factors into the system is that here we specify different prefixes for different types of nodes in the deformation graph, take a look at `utils/CommonFunctions.h` for reference. By prefix we mean the key character as described [here](https://borg.cc.gatech.edu/sites/edu.borg/html/a00244.html). 
