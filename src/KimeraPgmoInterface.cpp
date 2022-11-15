@@ -393,8 +393,11 @@ void KimeraPgmoInterface::processIncrementalMeshGraph(
     while (!unconnected_nodes->empty()) {
       const size_t node = unconnected_nodes->front();
       if (abs(node_timestamps[node].toSec() - msg_time) < min_difference) {
-        min_difference = abs(node_timestamps[node].toSec());
+        min_difference = abs(node_timestamps[node].toSec() - msg_time);
         closest_node = node;
+        if (unconnected_nodes->size() == 1) {
+          break;
+        }
         unconnected_nodes->pop();
       } else {
         break;
