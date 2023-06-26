@@ -21,13 +21,13 @@ namespace kimera_pgmo {
 class MeshFrontendTest : public ::testing::Test {
  protected:
   MeshFrontendTest() {
-    system("rosparam set horizon 1.0");
-    system("rosparam set robot_id 0");
-    system("rosparam set d_graph_resolution 0.5");
-    system("rosparam set output_mesh_resolution 0.05");
-    system("rosparam set full_compression_method 0");
-    system("rosparam set graph_compression_method 0");
-    system("rosparam set voxblox_queue_size 100");
+    EXPECT_EQ(system("rosparam set horizon 1.0"), 0);
+    EXPECT_EQ(system("rosparam set robot_id 0"), 0);
+    EXPECT_EQ(system("rosparam set d_graph_resolution 0.5"), 0);
+    EXPECT_EQ(system("rosparam set output_mesh_resolution 0.05"), 0);
+    EXPECT_EQ(system("rosparam set full_compression_method 0"), 0);
+    EXPECT_EQ(system("rosparam set graph_compression_method 0"), 0);
+    EXPECT_EQ(system("rosparam set voxblox_queue_size 100"), 0);
   }
 
   ~MeshFrontendTest() {}
@@ -39,25 +39,23 @@ class MeshFrontendTest : public ::testing::Test {
 
   // Test update called in timer event
   void ProcessVoxbloxMeshFull(const voxblox_msgs::Mesh::ConstPtr& msg) {
-    vp_.processVoxbloxMeshFull(msg);
+    vp_.processVoxbloxMeshFull(*msg);
   }
 
   void ProcessVoxbloxMeshGraph(const voxblox_msgs::Mesh::ConstPtr& msg) {
-    vp_.processVoxbloxMeshGraph(msg);
+    vp_.processVoxbloxMeshGraph(*msg);
   }
 
-  voxblox_msgs::MeshBlock CreateMeshBlock(
-      const BlockIndex& index,
-      const float& block_edge_length,
-      const std::vector<float>& x_coords,
-      const std::vector<float>& y_coords,
-      const std::vector<float>& z_coords) const {
+  voxblox_msgs::MeshBlock CreateMeshBlock(const BlockIndex& index,
+                                          const float& block_edge_length,
+                                          const std::vector<float>& x_coords,
+                                          const std::vector<float>& y_coords,
+                                          const std::vector<float>& z_coords) const {
     voxblox_msgs::MeshBlock mesh_block;
     mesh_block.index[0] = index[0];
     mesh_block.index[1] = index[1];
     mesh_block.index[2] = index[2];
-    constexpr float point_conv_factor =
-        2.0f / std::numeric_limits<uint16_t>::max();
+    constexpr float point_conv_factor = 2.0f / std::numeric_limits<uint16_t>::max();
     for (size_t i = 0; i < x_coords.size(); i++) {
       mesh_block.x.push_back(static_cast<uint16_t>(
           (x_coords[i] / block_edge_length - static_cast<float>(index[0])) /
@@ -219,7 +217,7 @@ class MeshFrontendTest : public ::testing::Test {
 TEST_F(MeshFrontendTest, initialize) {
   // Test initialization
   ros::NodeHandle nh;
-  system("rosparam set output_mesh_resolution 0.1");
+  EXPECT_EQ(system("rosparam set output_mesh_resolution 0.1"), 0);
   bool init = vp_.initialize(nh);
   ASSERT_TRUE(init);
 }
@@ -228,7 +226,7 @@ TEST_F(MeshFrontendTest, simplifiedMesh_high_res) {
   // Test the construction of the simplified mesh during callback
   // Case where graph resolution is higher than input mesh
   ros::NodeHandle nh;
-  system("rosparam set output_mesh_resolution 0.1");
+  EXPECT_EQ(system("rosparam set output_mesh_resolution 0.1"), 0);
   vp_.initialize(nh);
 
   voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
@@ -297,8 +295,8 @@ TEST_F(MeshFrontendTest, simplifiedMesh_low_res) {
   // Test the construction of the simplified mesh during callback
   // Case where graph resolution is lower than input mesh
   ros::NodeHandle nh;
-  system("rosparam set output_mesh_resolution 0.1");
-  system("rosparam set d_graph_resolution 1.5");
+  EXPECT_EQ(system("rosparam set output_mesh_resolution 0.1"), 0);
+  EXPECT_EQ(system("rosparam set d_graph_resolution 1.5"), 0);
   vp_.initialize(nh);
 
   voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
@@ -337,7 +335,7 @@ TEST_F(MeshFrontendTest, simplifiedMesh_low_res) {
 TEST_F(MeshFrontendTest, fullMesh) {
   // Test the updated full mesh after callback
   ros::NodeHandle nh;
-  system("rosparam set output_mesh_resolution 0.1");
+  EXPECT_EQ(system("rosparam set output_mesh_resolution 0.1"), 0);
   vp_.initialize(nh);
 
   voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
@@ -405,7 +403,7 @@ TEST_F(MeshFrontendTest, fullMesh) {
 TEST_F(MeshFrontendTest, compression1) {
   // Test with higher resolution to see if compression works
   ros::NodeHandle nh;
-  system("rosparam set output_mesh_resolution 4.0");
+  EXPECT_EQ(system("rosparam set output_mesh_resolution 4.0"), 0);
   vp_.initialize(nh);
 
   voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
@@ -444,7 +442,7 @@ TEST_F(MeshFrontendTest, compression1) {
 TEST_F(MeshFrontendTest, compression2) {
   // Test with higher resolution to see if compression works
   ros::NodeHandle nh;
-  system("rosparam set output_mesh_resolution 4.0");
+  EXPECT_EQ(system("rosparam set output_mesh_resolution 4.0"), 0);
   vp_.initialize(nh);
 
   voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
@@ -473,7 +471,7 @@ TEST_F(MeshFrontendTest, compression2) {
 TEST_F(MeshFrontendTest, meshGraph) {
   // Test with higher resolution to see if compression works
   ros::NodeHandle nh;
-  system("rosparam set output_mesh_resolution 4.0");
+  EXPECT_EQ(system("rosparam set output_mesh_resolution 4.0"), 0);
   vp_.initialize(nh);
 
   voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);
@@ -492,33 +490,29 @@ TEST_F(MeshFrontendTest, meshGraph) {
   EXPECT_EQ(0, last_mesh_graph.edges[0].robot_to);
   EXPECT_EQ(0, last_mesh_graph.edges[0].key_from);
   EXPECT_EQ(1, last_mesh_graph.edges[0].key_to);
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
-                          RosToGtsam(last_mesh_graph.edges[0].pose),
-                          1e-4));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
+                                  RosToGtsam(last_mesh_graph.edges[0].pose),
+                                  1e-4));
   EXPECT_EQ(0, last_mesh_graph.edges[9].robot_from);
   EXPECT_EQ(0, last_mesh_graph.edges[9].robot_to);
   EXPECT_EQ(2, last_mesh_graph.edges[9].key_from);
   EXPECT_EQ(3, last_mesh_graph.edges[9].key_to);
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
-                          RosToGtsam(last_mesh_graph.edges[9].pose),
-                          1e-4));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
+                                  RosToGtsam(last_mesh_graph.edges[9].pose),
+                                  1e-4));
 
   // Check first and last node
   EXPECT_EQ(0, last_mesh_graph.nodes[0].robot_id);
   EXPECT_EQ(0, last_mesh_graph.nodes[0].key);
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, 0)),
-                          RosToGtsam(last_mesh_graph.nodes[0].pose),
-                          1e-4));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, 0)),
+                                  RosToGtsam(last_mesh_graph.nodes[0].pose),
+                                  1e-4));
 
   EXPECT_EQ(0, last_mesh_graph.nodes[3].robot_id);
   EXPECT_EQ(3, last_mesh_graph.nodes[3].key);
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
-                          RosToGtsam(last_mesh_graph.nodes[3].pose),
-                          1e-4));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
+                                  RosToGtsam(last_mesh_graph.nodes[3].pose),
+                                  1e-4));
 
   // process another mesh
   voxblox_msgs::Mesh::Ptr mesh4(new voxblox_msgs::Mesh);
@@ -536,33 +530,31 @@ TEST_F(MeshFrontendTest, meshGraph) {
   EXPECT_EQ(0, last_mesh_graph.edges[0].robot_to);
   EXPECT_EQ(4, last_mesh_graph.edges[0].key_from);
   EXPECT_EQ(5, last_mesh_graph.edges[0].key_to);
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
-                          RosToGtsam(last_mesh_graph.edges[0].pose),
-                          1e-4));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
+                                  RosToGtsam(last_mesh_graph.edges[0].pose),
+                                  1e-4));
   EXPECT_EQ(0, last_mesh_graph.edges[19].robot_from);
   EXPECT_EQ(0, last_mesh_graph.edges[19].robot_to);
   EXPECT_EQ(10, last_mesh_graph.edges[19].key_from);
   EXPECT_EQ(11, last_mesh_graph.edges[19].key_to);
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
-                          RosToGtsam(last_mesh_graph.edges[9].pose),
-                          1e-4));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
+                                  RosToGtsam(last_mesh_graph.edges[9].pose),
+                                  1e-4));
 
   // Check first and last node
   EXPECT_EQ(0, last_mesh_graph.nodes[0].robot_id);
   EXPECT_EQ(4, last_mesh_graph.nodes[0].key);
-  EXPECT_TRUE(gtsam::assert_equal(
-      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3.5, 3.5, 0)),
-      RosToGtsam(last_mesh_graph.nodes[0].pose),
-      1e-4));
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3.5, 3.5, 0)),
+                          RosToGtsam(last_mesh_graph.nodes[0].pose),
+                          1e-4));
 
   EXPECT_EQ(0, last_mesh_graph.nodes[7].robot_id);
   EXPECT_EQ(11, last_mesh_graph.nodes[7].key);
-  EXPECT_TRUE(gtsam::assert_equal(
-      gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(4.5, 4.5, 3.5)),
-      RosToGtsam(last_mesh_graph.nodes[7].pose),
-      1e-4));
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(4.5, 4.5, 3.5)),
+                          RosToGtsam(last_mesh_graph.nodes[7].pose),
+                          1e-4));
 }
 
 TEST_F(MeshFrontendTest, vxblxIndexMapping1) {
@@ -617,8 +609,8 @@ TEST_F(MeshFrontendTest, vxblxIndexMapping1) {
 TEST_F(MeshFrontendTest, vxblxIndexMapping2) {
   // Test index mappings
   ros::NodeHandle nh;
-  system("rosparam set output_mesh_resolution 0.1");
-  system("rosparam set d_graph_resolution 1.3");
+  EXPECT_EQ(system("rosparam set output_mesh_resolution 0.1"), 0);
+  EXPECT_EQ(system("rosparam set d_graph_resolution 1.3"), 0);
   vp_.initialize(nh);
 
   voxblox_msgs::Mesh::Ptr mesh1(new voxblox_msgs::Mesh);

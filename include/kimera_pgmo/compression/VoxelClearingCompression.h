@@ -23,58 +23,54 @@ using BlockFaceMap = voxblox::AnyIndexHashMapType<std::vector<size_t>>::type;
 using voxblox::BlockIndexList;
 
 class VoxelClearingCompression : public MeshCompression {
-public:
+ public:
   explicit VoxelClearingCompression(double resolution);
 
   virtual ~VoxelClearingCompression() = default;
 
-  void compressAndIntegrate(
-      const voxblox_msgs::Mesh &mesh,
-      pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
-      std::shared_ptr<std::vector<pcl::Vertices>> new_triangles,
-      std::shared_ptr<std::vector<size_t>> new_indices,
-      std::shared_ptr<VoxbloxIndexMapping> remapping,
-      const double &stamp_in_sec) override;
+  void compressAndIntegrate(const voxblox_msgs::Mesh &mesh,
+                            pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
+                            std::shared_ptr<std::vector<pcl::Vertices>> new_triangles,
+                            std::shared_ptr<std::vector<size_t>> new_indices,
+                            std::shared_ptr<VoxbloxIndexMapping> remapping,
+                            const double &stamp_in_sec) override;
 
   void pruneStoredMesh(const double &earliest_time_sec) override;
 
-  inline void
-  reInitializeStructure(PointCloudXYZ::Ptr active_vertices) override {
+  inline void reInitializeStructure(PointCloudXYZ::Ptr /*active_vertices*/) override {
     throw std::logic_error("not implemented");
   }
 
-  inline bool checkIfVertexUnique(const pcl::PointXYZ &v,
-                                  int *matched_ind) const override {
+  inline bool checkIfVertexUnique(const pcl::PointXYZ & /*v*/,
+                                  int * /*matched_ind*/) const override {
     throw std::logic_error("not implemented");
   }
 
-  inline void updateStructure(PointCloudXYZ::Ptr vertices) override {
+  inline void updateStructure(PointCloudXYZ::Ptr /*vertices*/) override {
     throw std::logic_error("not implemented");
   }
 
-  bool checkIfVertexTempUnique(const pcl::PointXYZ &v,
-                               int *matched_ind) const override {
+  bool checkIfVertexTempUnique(const pcl::PointXYZ & /*v*/,
+                               int * /*matched_ind*/) const override {
     throw std::logic_error("not implemented");
   }
 
-  void initializeTempStructure(PointCloudXYZ::Ptr vertices) override {
+  void initializeTempStructure(PointCloudXYZ::Ptr /*vertices*/) override {
     throw std::logic_error("not implemented");
   }
 
-  void updateTempStructure(PointCloudXYZ::Ptr vertices) override {
+  void updateTempStructure(PointCloudXYZ::Ptr /*vertices*/) override {
     throw std::logic_error("not implemented");
   }
 
-  inline std::vector<size_t> getInvalidIndices() const override {
-    return empty_slots_;
-  }
+  inline std::vector<size_t> getInvalidIndices() const override { return empty_slots_; }
 
-  void clearArchivedBlocks(const voxblox_msgs::Mesh& mesh) override;
+  void clearArchivedBlocks(const voxblox_msgs::Mesh &mesh) override;
 
-protected:
-  void pruneMeshBlocks(const BlockIndexList& to_clear);
+ protected:
+  void pruneMeshBlocks(const BlockIndexList &to_clear);
 
-  void updateRemapping(const voxblox_msgs::Mesh& mesh,
+  void updateRemapping(const voxblox_msgs::Mesh &mesh,
                        double stamp_in_sec,
                        std::shared_ptr<VoxbloxIndexMapping> remapping);
 
@@ -99,4 +95,4 @@ protected:
 
 typedef std::shared_ptr<VoxelClearingCompression> VoxelClearingCompressionPtr;
 
-} // namespace kimera_pgmo
+}  // namespace kimera_pgmo

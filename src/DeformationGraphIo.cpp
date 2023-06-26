@@ -183,8 +183,23 @@ void DeformationGraph::save(const std::string& filename) const {
   stream.close();
 }
 
+gtsam::Key rekey(gtsam::Symbol key, size_t robot_id) {
+  char new_prefix = kimera_pgmo::robot_id_to_prefix.at(robot_id);
+  char new_vertex_prefix = kimera_pgmo::robot_id_to_vertex_prefix.at(robot_id);
+  if (kimera_pgmo::robot_prefix_to_id.count(key.chr())) {
+    return gtsam::Symbol(new_prefix, key.index());
+  }
+  if (kimera_pgmo::vertex_prefix_to_id.count(key.chr())) {
+    return gtsam::Symbol(new_vertex_prefix, key.index());
+  }
+  return key;
+}
+
 // TODO(Yun) clean up / move to another file
-void DeformationGraph::load(const std::string& filename) {
+void DeformationGraph::load(const std::string& filename,
+                            bool include_temp,
+                            bool set_robot_id,
+                            size_t new_robot_id) {
   gtsam::Values new_vals, new_temp_vals;
   gtsam::NonlinearFactorGraph new_factors, new_temp_factors;
 
@@ -198,11 +213,23 @@ void DeformationGraph::load(const std::string& filename) {
       size_t key;
       double x, y, z, qx, qy, qz, qw;
       ss >> key >> x >> y >> z >> qx >> qy >> qz >> qw;
+      gtsam::Symbol gtsam_key(key);
+      if (set_robot_id) {
+        gtsam_key = rekey(gtsam_key, new_robot_id);
+      }
       gtsam::Pose3 pose(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
       if (tag == "NODE") {
-        new_vals.insert(gtsam::Key(key), pose);
-      } else {
-        new_temp_vals.insert(gtsam::Key(key), pose);
+        new_vals.insert(gtsam_key, pose);
+        // TODO this is different from the initial pose before save
+        char node_prefix = gtsam_key.chr();
+        if (pg_initial_poses_.count(node_prefix) == 0) {
+          pg_initial_poses_[node_prefix] = std::vector<gtsam::Pose3>();
+        }
+        // Implicit assumption that node is in order
+        pg_initial_poses_[node_prefix].push_back(pose);
+      } else if (include_temp) {
+        new_temp_vals.insert(gtsam_key, pose);
+        temp_pg_initial_poses_[gtsam_key] = pose;
       }
     } else if (tag == "BETWEEN" || tag == "BETWEEN_TEMP") {
       size_t key1, key2;
@@ -217,15 +244,21 @@ void DeformationGraph::load(const std::string& filename) {
           m(j, i) = e_ij;
         }
       }
+      gtsam::Symbol gtsam_key1(key1);
+      gtsam::Symbol gtsam_key2(key2);
+      if (set_robot_id) {
+        gtsam_key1 = rekey(gtsam_key1, new_robot_id);
+        gtsam_key2 = rekey(gtsam_key2, new_robot_id);
+      }
       gtsam::Pose3 meas(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
       gtsam::SharedNoiseModel noise =
           gtsam::noiseModel::Gaussian::Information(m);
       if (tag == "BETWEEN") {
-        new_factors.add(gtsam::BetweenFactor<gtsam::Pose3>(
-            gtsam::Key(key1), gtsam::Key(key2), meas, noise));
-      } else {
-        new_temp_factors.add(gtsam::BetweenFactor<gtsam::Pose3>(
-            gtsam::Key(key1), gtsam::Key(key2), meas, noise));
+        new_factors.add(
+            gtsam::BetweenFactor<gtsam::Pose3>(gtsam_key1, gtsam_key2, meas, noise));
+      } else if (include_temp) {
+        new_temp_factors.add(
+            gtsam::BetweenFactor<gtsam::Pose3>(gtsam_key1, gtsam_key2, meas, noise));
       }
     } else if (tag == "DEDGE" || tag == "DEDGE_TEMP") {
       size_t key1, key2;
@@ -241,19 +274,24 @@ void DeformationGraph::load(const std::string& filename) {
           m(j, i) = e_ij;
         }
       }
-      gtsam::Pose3 from_pose(gtsam::Rot3(qw, qx, qy, qz),
-                             gtsam::Point3(x, y, z));
+      gtsam::Symbol gtsam_key1(key1);
+      gtsam::Symbol gtsam_key2(key2);
+      if (set_robot_id) {
+        gtsam_key1 = rekey(key1, new_robot_id);
+        gtsam_key2 = rekey(key2, new_robot_id);
+      }
+      gtsam::Pose3 from_pose(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
       gtsam::Point3 to_point(to_x, to_y, to_z);
       gtsam::SharedNoiseModel noise =
           gtsam::noiseModel::Gaussian::Information(m);
       if (tag == "DEDGE") {
-        new_factors.add(DeformationEdgeFactor(
-            gtsam::Key(key1), gtsam::Key(key2), from_pose, to_point, noise));
-        consistency_factors_.add(DeformationEdgeFactor(
-            gtsam::Key(key1), gtsam::Key(key2), from_pose, to_point, noise));
-      } else {
-        new_temp_factors.add(DeformationEdgeFactor(
-            gtsam::Key(key1), gtsam::Key(key2), from_pose, to_point, noise));
+        new_factors.add(
+            DeformationEdgeFactor(gtsam_key1, gtsam_key2, from_pose, to_point, noise));
+        consistency_factors_.add(
+            DeformationEdgeFactor(gtsam_key1, gtsam_key2, from_pose, to_point, noise));
+      } else if (include_temp) {
+        new_temp_factors.add(
+            DeformationEdgeFactor(gtsam_key1, gtsam_key2, from_pose, to_point, noise));
       }
     } else if (tag == "PRIOR") {
       size_t key;
@@ -268,25 +306,31 @@ void DeformationGraph::load(const std::string& filename) {
           m(j, i) = e_ij;
         }
       }
+      gtsam::Symbol gtsam_key(key);
+      if (set_robot_id) {
+        gtsam_key = rekey(gtsam_key, new_robot_id);
+      }
       gtsam::Pose3 meas(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
       gtsam::SharedNoiseModel noise =
           gtsam::noiseModel::Gaussian::Information(m);
-      new_factors.add(
-          gtsam::PriorFactor<gtsam::Pose3>(gtsam::Key(key), meas, noise));
+      new_factors.add(gtsam::PriorFactor<gtsam::Pose3>(gtsam_key, meas, noise));
     } else if (tag == "VERTEX") {
       size_t key;
       double x, y, z, n_sec;
       ss >> key >> n_sec >> x >> y >> z;
-      gtsam::Symbol node_symb(key);
-      char node_prefix = node_symb.chr();
-      size_t node_index = node_symb.index();
-      if (node_index == 0) {
-        vertex_positions_[node_prefix] = std::vector<gtsam::Point3>{};
-        vertex_stamps_[node_prefix] = std::vector<ros::Time>{};
+      gtsam::Symbol vertex_symb(key);
+      char vertex_prefix = vertex_symb.chr();
+      if (set_robot_id && kimera_pgmo::vertex_prefix_to_id.count(vertex_prefix) > 0) {
+        vertex_prefix = kimera_pgmo::robot_id_to_vertex_prefix.at(new_robot_id);
       }
-      assert(node_index == vertex_positions_[node_prefix].size());
-      vertex_positions_[node_prefix].push_back(gtsam::Point3(x, y, z));
-      vertex_stamps_[node_prefix].push_back(ros::Time(n_sec * 1e-9));
+      size_t vertex_index = vertex_symb.index();
+      if (vertex_index == 0) {
+        vertex_positions_[vertex_prefix] = std::vector<gtsam::Point3>{};
+        vertex_stamps_[vertex_prefix] = std::vector<ros::Time>{};
+      }
+      assert(vertex_index == vertex_positions_[vertex_prefix].size());
+      vertex_positions_[vertex_prefix].push_back(gtsam::Point3(x, y, z));
+      vertex_stamps_[vertex_prefix].push_back(ros::Time(n_sec * 1e-9));
     } else {
       std::invalid_argument("DeformationGraph load: unknown tag. ");
     }

@@ -54,7 +54,6 @@ catkin build kimera_pgmo
 - `output_prefix` path to the folder to save the log file and the optimized mesh and trajectory files. 
 - `robot_id` can be just set to the default `0` if running single robot. This is really only important for the distributed multirobot case. 
 - `run_mode` toggles the different modes. Set to 0 to receive pose graph and mesh and perform simultaneous pose graph and mesh optimization. Set to 1 to optimize the mesh and subscribe to an optimized trajectory.
-- `use_msg_time` toggle to use message header stamp or ROS time when connecting pose graph nodes to mesh vertices. 
 - `log_output` log timing statistics. 
 - `rpgo/` sets various pose graph optimization parameters. See example config.
 - `add_initial_prior` adds a prior factor on first node.

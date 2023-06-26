@@ -14,6 +14,8 @@
 
 namespace kimera_pgmo {
 
+namespace {
+
 pcl::PolygonMesh createMesh(double scale) {
   // Create simple pcl mesh
   pcl::PolygonMesh mesh;
@@ -76,6 +78,8 @@ pcl::PolygonMesh createMesh(double scale) {
 
   return mesh;
 }
+
+} // namespace
 
 TEST(test_voxblox_compression, constructor) {
   VoxbloxCompression compression(1.0);
@@ -431,8 +435,3 @@ TEST(test_voxblox_compression, storedValuesCompressed) {
 }
 
 }  // namespace kimera_pgmo
-
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}

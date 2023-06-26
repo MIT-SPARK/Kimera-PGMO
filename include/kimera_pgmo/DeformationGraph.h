@@ -23,6 +23,7 @@
 #include <pcl/octree/octree_search.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <visualization_msgs/Marker.h>
 
 #include "kimera_pgmo/utils/CommonFunctions.h"
 #include "kimera_pgmo/utils/CommonStructs.h"
@@ -52,11 +53,10 @@ class DeformationEdgeFactor
         node2_position(node2_point) {}
   ~DeformationEdgeFactor() {}
 
-  gtsam::Vector evaluateError(
-      const gtsam::Pose3& p1,
-      const gtsam::Pose3& p2,
-      boost::optional<gtsam::Matrix&> H1 = boost::none,
-      boost::optional<gtsam::Matrix&> H2 = boost::none) const {
+  gtsam::Vector evaluateError(const gtsam::Pose3& p1,
+                              const gtsam::Pose3& p2,
+                              boost::optional<gtsam::Matrix&> H1 = boost::none,
+                              boost::optional<gtsam::Matrix&> H2 = boost::none) const {
     // position of node 2 in frame of node 1
     gtsam::Point3 t_12 = node1_pose.rotation().inverse().rotate(
         node2_position - node1_pose.translation());
@@ -180,6 +180,7 @@ class DeformationGraph {
                                const char& valence_prefix,
                                bool add_prior,
                                double edge_variance = 1e-2,
+                               const std::vector<gtsam::Pose3>& initial_guesses = {},
                                double prior_variance = 1e-8);
 
   /*! \brief Add a new between factor to the deformation graph
@@ -213,7 +214,8 @@ class DeformationGraph {
    *  - variance: covariance on the added temp edges
    */
   void addNewTempEdges(const pose_graph_tools::PoseGraph& edges,
-                       double variance = 1e-2);
+                       double variance = 1e-2,
+                       bool rotations_known = true);
 
   /*! \brief Add a new mesh edge to deformation graph
    *  - mesh_edges: edges storing key-key pairs
@@ -225,10 +227,10 @@ class DeformationGraph {
   void addNewMeshEdgesAndNodes(
       const std::vector<std::pair<gtsam::Key, gtsam::Key> >& mesh_edges,
       const gtsam::Values& mesh_nodes,
-      const ros::Time& stamp,
+      const std::unordered_map<gtsam::Key, ros::Time>& node_stamps,
       std::vector<size_t>* added_indices,
-      double variance = 1e-4,
-      bool optimize = false);
+      std::vector<ros::Time>* added_index_stamps,
+      double variance = 1e-4);
 
   /*! \brief Add connections from a pose graph node to mesh vertices nodes
    *  - key: Key of pose graph node
@@ -241,8 +243,7 @@ class DeformationGraph {
   void addNodeValence(const gtsam::Key& key,
                       const Vertices& valences,
                       const char& valence_prefix,
-                      double variance = 1e-4,
-                      bool optimize = false);
+                      double variance = 1e-4);
 
   /*! \brief Add temporary connections from a pose graph node to mesh vertices
    * nodes
@@ -256,8 +257,7 @@ class DeformationGraph {
   void addTempNodeValence(const gtsam::Key& key,
                           const Vertices& valences,
                           const char& valence_prefix,
-                          double variance = 1e-2,
-                          bool optimize = false);
+                          double variance = 1e-2);
 
   /*! \brief Remove sll prior factors of nodes that have given prefix
    *  - prefix: prefix of nodes to remove prior
@@ -268,6 +268,12 @@ class DeformationGraph {
    *  - prefix: prefix of the nodes to query best estimate
    */
   std::vector<gtsam::Pose3> getOptimizedTrajectory(char prefix) const;
+
+  /*! \brief Get the current (including unoptimized) estimates for nodes with certain
+   * prefix
+   *  - prefix: prefix of the nodes to query estimate
+   */
+  std::vector<gtsam::Pose3> getQueuedTrajectory(char prefix) const;
 
   /*! \brief Deform a mesh based on the deformation graph
    * - original_mesh: mesh to deform
@@ -303,9 +309,41 @@ class DeformationGraph {
                               size_t k = 4,
                               double tol_t = 10.0);
 
+  /*! \brief Deform a mesh vertices based on the deformation graph
+   * - original_vertices: undeformed vertices
+   * - stamps: timestamp of vertices in mesh to deform
+   * - prefix: the prefixes of the key of the nodes corresponding to mesh
+   * - optimized_values: values of the optimized control points
+   * - new_vertices: deformed vertices
+   * - k: how many nearby nodes to use to adjust new position of vertices when
+   * interpolating for deformed mesh
+   * - tol_t: largest difference in time such that a control point can be
+   * considered for association
+   */
+  void deformPoints(pcl::PointCloud<pcl::PointXYZRGBA>& new_vertices,
+                    const pcl::PointCloud<pcl::PointXYZRGBA>& original_vertices,
+                    const std::vector<ros::Time>& stamps,
+                    char prefix,
+                    const gtsam::Values& optimized_values,
+                    size_t k = 4,
+                    double tol_t = 10.0,
+                    const std::vector<int>* graph_indices = nullptr,
+                    int start_index_hint = -1,
+                    std::vector<std::set<size_t>>* vertex_graph_map = nullptr);
+
   /*! \brief Get the number of loop closures processed by pgo
    */
   inline size_t getNumLoopclosures() const { return pgo_->getNumLC(); }
+
+  /*! \brief Get the GNC weights from optimization
+   */
+  inline gtsam::Vector getGncWeights() const { return pgo_->getGncWeights(); }
+
+  inline gtsam::Vector getTempFactorGncWeights() const {
+    return pgo_->getGncTempWeights();
+  }
+
+  inline gtsam::Vector getAllGncWeights() const { return pgo_->getGncWeights(); }
 
   /*! \brief Get the number of mesh vertices nodes in the deformation graph
    * - outputs the number of mesh vertices nodes
@@ -321,12 +359,22 @@ class DeformationGraph {
   /*! \brief Gets the estimated values since last optimization
    *  - outputs last estimated values as GTSAM Values
    */
-  inline gtsam::Values getGtsamValues() const { return values_; }
+  inline const gtsam::Values& getGtsamValues() const { return values_; }
 
   /*! \brief Gets the factors added to the backend, minus the detected outliers
    *  - outputs the factors as a GTSAM NonlinearFactorGraph
    */
   inline gtsam::NonlinearFactorGraph getGtsamFactors() const { return nfg_; }
+
+  /*! \brief Gets the new estimated values
+   *  - outputs new estimated values as GTSAM Values
+   */
+  inline gtsam::Values getGtsamNewValues() const { return new_values_; }
+
+  /*! \brief Gets the new factors added
+   *  - outputs the new factors as a GTSAM NonlinearFactorGraph
+   */
+  inline gtsam::NonlinearFactorGraph getGtsamNewFactors() const { return new_factors_; }
 
   /*! \brief Gets the pose graph from the backend
    *   - timestamps: map of robot id to sequential timestamps in order to stamp
@@ -334,7 +382,7 @@ class DeformationGraph {
    *  - outputs the pose graph in pose_graph_tools PoseGraph type
    */
   inline GraphMsgPtr getPoseGraph(
-      const std::map<size_t, std::vector<ros::Time> >& timestamps) {
+      const std::map<size_t, std::vector<ros::Time> >& timestamps) const {
     return GtsamGraphToRos(nfg_, values_, timestamps, gnc_weights_);
   }
 
@@ -346,8 +394,7 @@ class DeformationGraph {
 
   /*! \brief Get the intial pose of a keyframe node
    */
-  inline gtsam::Pose3 getInitialPose(const char& prefix,
-                                     const size_t& index) const {
+  inline gtsam::Pose3 getInitialPose(const char& prefix, const size_t& index) const {
     return pg_initial_poses_.at(prefix).at(index);
   }
 
@@ -369,41 +416,30 @@ class DeformationGraph {
     return vertex_positions_.count(prefix);
   }
 
-  /*! \brief Never optimize graph, store factors only
-   */
-  inline void storeOnlyNoOptimization() { do_not_optimize_ = true; }
-
   /*! \brief Set whether or not to force vertex recalculation
    */
-  inline void setForceRecalculate(bool force_recalculate) { force_recalculate_= force_recalculate; }
-
-  /*! \brief Force an optimization of the deformation graph without adding new
-   * factors
-   */
-  inline void optimize() {
-    pgo_->forceUpdate();
-    if (force_recalculate_) {
-      recalculate_vertices_ = true;
-    }
-    values_ = pgo_->calculateEstimate();
-    nfg_ = pgo_->getFactorsUnsafe();
-    gnc_weights_ = pgo_->getGncWeights();
-    temp_values_ = pgo_->getTempValues();
-    temp_nfg_ = pgo_->getTempFactorsUnsafe();
+  inline void setForceRecalculate(bool force_recalculate) {
+    force_recalculate_ = force_recalculate;
   }
+
+  /*! \brief Recalculate vertices getter
+   */
+  inline bool getRecalculateVertices() { return recalculate_vertices_; }
+
+  /*! \brief Recalculate vertices setter
+   */
+  inline void setRecalculateVertices() { recalculate_vertices_ = true; }
 
   /*! \brief Gets the temp values since last optimization
    *  - outputs last temp values as GTSAM Values
    */
-  inline gtsam::Values getGtsamTempValues() const { return temp_values_; }
+  inline const gtsam::Values& getGtsamTempValues() const { return temp_values_; }
 
   /*! \brief Gets the temp factors added to the backend, minus the detected
    * outliers
    *  - outputs the factors as a GTSAM NonlinearFactorGraph
    */
-  inline gtsam::NonlinearFactorGraph getGtsamTempFactors() const {
-    return temp_nfg_;
-  }
+  inline gtsam::NonlinearFactorGraph getGtsamTempFactors() const { return temp_nfg_; }
 
   /*! \brief Clear all temporary values, factors, and related structures
    */
@@ -416,6 +452,24 @@ class DeformationGraph {
 
   inline const KimeraRPGO::RobustSolverParams& getParams() const { return pgo_params_; }
 
+  /*! \brief Force an optimization of the deformation graph without adding new
+   * factors
+   */
+  void optimize();
+
+  /*! \brief Add and update the new factors and values. Let RPGO naturally decide to
+   * optimize or not
+   */
+  void update();
+
+  /*! \brief Update the values. Use to update initial estimate. Use with caution since
+   * initial estimate and result shares same variable. (only depends on if you call
+   * before or after optimize)
+   */
+  void updateValues(const gtsam::Values& updates);
+
+  /*! \brief Set RPGO parameters
+   */
   void setParams(const KimeraRPGO::RobustSolverParams& params);
 
   /*! \brief Gets the temp values since last optimization
@@ -445,7 +499,27 @@ class DeformationGraph {
   /*! \brief Load deformation graph from file
    * - filename: input file name
    */
-  void load(const std::string& filename);
+  void load(const std::string& filename,
+            bool include_temp = true,
+            bool set_robot_id = false,
+            size_t new_robot_id = 0);
+
+  inline bool hasPrefixPoses(char prefix) const {
+    return pg_initial_poses_.count(prefix);
+  }
+
+  size_t findStartIndex(char prefix,
+                        int start_index_hint,
+                        const std::vector<ros::Time>& stamps,
+                        double tol_t) const;
+
+  void predeformPoints(pcl::PointCloud<pcl::PointXYZRGBA>& new_vertices,
+                       const pcl::PointCloud<pcl::PointXYZRGBA>& old_vertices,
+                       const gtsam::Values& optimized_values,
+                       const std::vector<int>& graph_indices,
+                       std::vector<size_t>& indices_to_deform,
+                       char prefix,
+                       size_t start_index);
 
  private:
   bool verbose_;
@@ -474,12 +548,13 @@ class DeformationGraph {
   // gnc weights
   gtsam::Vector gnc_weights_;
 
+  // new factors and values
+  gtsam::NonlinearFactorGraph new_factors_;
+  gtsam::Values new_values_;
+
   //// Below separated factor types for debugging
   // factor graph encoding the mesh structure
   gtsam::NonlinearFactorGraph consistency_factors_;
-
-  // Just store and not optimize
-  bool do_not_optimize_;
 
   // Force deformation of vertices every optimization
   bool force_recalculate_;
@@ -490,4 +565,16 @@ class DeformationGraph {
 };
 
 typedef std::shared_ptr<DeformationGraph> DeformationGraphPtr;
+
+/*! \brief fill rviz markers for the deformation graph
+ * - graph: deformation graph to make the message for
+ * - stamp: ros timestamp of messages
+ * - mesh_mesh_viz: marker for mesh-mesh edges
+ * - pose_mesh_viz: marker for pose-mesh edges
+ */
+void fillDeformationGraphMarkers(const DeformationGraph& graph,
+                                 const ros::Time& stamp,
+                                 visualization_msgs::Marker& mesh_mesh_viz,
+                                 visualization_msgs::Marker& pose_mesh_viz);
+
 }  // namespace kimera_pgmo

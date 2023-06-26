@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <utility>
 #include <vector>
+#include <map>
 
 #include <voxblox/core/block_hash.h>
 #include <voxblox/core/common.h>
@@ -28,6 +29,24 @@ typedef std::unordered_map<size_t, size_t> IndexMapping;
 typedef voxblox::AnyIndexHashMapType<IndexMapping>::type VoxbloxIndexMapping;
 typedef std::pair<voxblox::BlockIndex, IndexMapping> VoxbloxIndexPair;
 typedef std::pair<voxblox::BlockIndex, size_t> VoxbloxBlockIndexPair;
+
+enum class ProcessPoseGraphStatus {
+  EMPTY,
+  INVALID,
+  MISSING,
+  UNKNOWN,
+  DUPLICATE,
+  SUCCESS,
+  LC_MISSING_NODES
+};
+enum class ProcessMeshGraphStatus {
+  EMPTY,
+  INVALID,
+  UNKNOWN,
+  DUPLICATE,
+  SUCCESS,
+  WAITING
+};
 
 class Graph {
  public:

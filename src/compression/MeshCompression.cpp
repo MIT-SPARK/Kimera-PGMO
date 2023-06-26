@@ -3,12 +3,14 @@
  * @brief  Mesh compression base class
  * @author Yun Chang
  */
+#include "kimera_pgmo/compression/MeshCompression.h"
+
 #include <algorithm>
 #include <iterator>
 #include <utility>
 
-#include "kimera_pgmo/compression/MeshCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
+#include "kimera_pgmo/utils/VoxbloxMsgInterface.h"
 #include "kimera_pgmo/utils/VoxbloxUtils.h"
 
 namespace kimera_pgmo {
@@ -89,8 +91,7 @@ void MeshCompression::compressAndIntegrate(
         updateTempStructure(temp_new_vertices);
         potential_new_vertices.push_back(i);
         potential_new_vertices_check.push_back(false);
-        temp_reindex.push_back(num_original_vertices +
-                               temp_new_vertices->size() - 1);
+        temp_reindex.push_back(num_original_vertices + temp_new_vertices->size() - 1);
         converged_vertices.insert({i, std::vector<size_t>()});
       } else {
         // Add reindex index
@@ -106,11 +107,10 @@ void MeshCompression::compressAndIntegrate(
       if (!std::binary_search(new_indices->begin(),
                               new_indices->end(),
                               active_vertices_index_[result_idx])) {
-        new_indices->insert(
-            std::lower_bound(new_indices->begin(),
-                             new_indices->end(),
-                             active_vertices_index_[result_idx]),
-            active_vertices_index_[result_idx]);
+        new_indices->insert(std::lower_bound(new_indices->begin(),
+                                             new_indices->end(),
+                                             active_vertices_index_[result_idx]),
+                            active_vertices_index_[result_idx]);
       }
       // Update the last seen time of the vertex
       active_vertex_stamps_[result_idx] = stamp_in_sec;
@@ -158,13 +158,11 @@ void MeshCompression::compressAndIntegrate(
       active_vertex_stamps_.push_back(stamp_in_sec);
       // Upate reindex
       reindex[input_idx] = all_vertices_.size() - 1;
-      remapping->insert(
-          std::pair<size_t, size_t>{input_idx, all_vertices_.size() - 1});
+      remapping->insert(std::pair<size_t, size_t>{input_idx, all_vertices_.size() - 1});
       for (const auto& m : converged_vertices[input_idx]) {
         assert(temp_reindex[input_idx] == temp_reindex[m]);
         reindex[m] = all_vertices_.size() - 1;
-        remapping->insert(
-            std::pair<size_t, size_t>{m, all_vertices_.size() - 1});
+        remapping->insert(std::pair<size_t, size_t>{m, all_vertices_.size() - 1});
       }
       // Add to new indices
       new_indices->push_back(all_vertices_.size() - 1);
@@ -220,6 +218,18 @@ void MeshCompression::compressAndIntegrate(
     std::shared_ptr<std::vector<size_t> > new_indices,
     std::shared_ptr<VoxbloxIndexMapping> remapping,
     const double& stamp_in_sec) {
+  VoxbloxMsgInterface interface(&mesh);
+  compressAndIntegrate(
+      mesh, new_vertices, new_triangles, new_indices, remapping, stamp_in_sec);
+}
+
+void MeshCompression::compressAndIntegrate(
+    MeshInterface& mesh,
+    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
+    std::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
+    std::shared_ptr<std::vector<size_t> > new_indices,
+    std::shared_ptr<VoxbloxIndexMapping> remapping,
+    const double& stamp_in_sec) {
   // Avoid nullptr pointers
   assert(nullptr != new_vertices);
   assert(nullptr != new_triangles);
@@ -256,17 +266,15 @@ void MeshCompression::compressAndIntegrate(
   std::unordered_map<size_t, std::vector<size_t> > converged_vertices;
 
   // Iterate through the blocks
-  for (const auto& mesh_block : mesh.mesh_blocks) {
-    assert(mesh_block.x.size() % 3 == 0);
-    const voxblox::BlockIndex block_index(
-        mesh_block.index[0], mesh_block.index[1], mesh_block.index[2]);
+  for (const auto& block_index : mesh.blockIndices()) {
+    mesh.markBlockActive(block_index);
+    assert(mesh.activeBlockSize() % 3 == 0);
     // Add to remapping if not yet added previously
     remapping->insert(VoxbloxIndexPair(block_index, IndexMapping()));
 
     // Iterate through vertices of mesh block
-    for (size_t i = 0; i < mesh_block.x.size(); ++i) {
-      const pcl::PointXYZRGBA p =
-          ExtractPoint(mesh_block, mesh.block_edge_length, i);
+    for (size_t i = 0; i < mesh.activeBlockSize(); ++i) {
+      const pcl::PointXYZRGBA p = mesh.getActiveVertex(i);
       const pcl::PointXYZ p_xyz(p.x, p.y, p.z);
       // Book keep to track block index
       count_to_block[count] = VoxbloxBlockIndexPair(block_index, i);
@@ -283,14 +291,12 @@ void MeshCompression::compressAndIntegrate(
           updateTempStructure(temp_new_vertices);
           potential_new_vertices.push_back(count);
           potential_new_vertices_check.push_back(false);
-          temp_reindex.push_back(num_original_vertices +
-                                 temp_new_vertices->size() - 1);
+          temp_reindex.push_back(num_original_vertices + temp_new_vertices->size() - 1);
           converged_vertices.insert({count, std::vector<size_t>()});
         } else {
           // Add reindex index
           temp_reindex.push_back(num_original_vertices + result_idx);
-          converged_vertices[potential_new_vertices[result_idx]].push_back(
-              count);
+          converged_vertices[potential_new_vertices[result_idx]].push_back(count);
         }
       } else {
         // This is a reobservation. Add to remap and new indices
@@ -302,11 +308,10 @@ void MeshCompression::compressAndIntegrate(
         if (!std::binary_search(new_indices->begin(),
                                 new_indices->end(),
                                 active_vertices_index_[result_idx])) {
-          new_indices->insert(
-              std::lower_bound(new_indices->begin(),
-                               new_indices->end(),
-                               active_vertices_index_[result_idx]),
-              active_vertices_index_[result_idx]);
+          new_indices->insert(std::lower_bound(new_indices->begin(),
+                                               new_indices->end(),
+                                               active_vertices_index_[result_idx]),
+                              active_vertices_index_[result_idx]);
         }
         // Update the last seen time of the vertex
         active_vertex_stamps_[result_idx] = stamp_in_sec;
@@ -319,9 +324,9 @@ void MeshCompression::compressAndIntegrate(
         size_t r_idx_2 = temp_reindex.at(count);
 
         // First check if there's a new vertex
-        bool has_new_vertex = (r_idx_0 >= num_original_vertices ||
-                               r_idx_1 >= num_original_vertices ||
-                               r_idx_2 >= num_original_vertices);
+        bool has_new_vertex =
+            (r_idx_0 >= num_original_vertices || r_idx_1 >= num_original_vertices ||
+             r_idx_2 >= num_original_vertices);
 
         if (!has_new_vertex) {
           count++;

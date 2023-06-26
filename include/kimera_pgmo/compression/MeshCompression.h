@@ -6,21 +6,22 @@
 
 #pragma once
 
+#include <pcl/PolygonMesh.h>
+#include <pcl/octree/octree_search.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
 #include <ros/ros.h>
+#include <voxblox_msgs/Mesh.h>
+
+#include <Eigen/Dense>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
 #include <vector>
 
-#include <pcl/PolygonMesh.h>
-#include <pcl/octree/octree_search.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <Eigen/Dense>
-#include <voxblox_msgs/Mesh.h>
-
 #include "kimera_pgmo/utils/CommonStructs.h"
+#include "kimera_pgmo/utils/MeshInterface.h"
 
 namespace kimera_pgmo {
 
@@ -31,21 +32,19 @@ typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
 class MeshCompression {
  public:
   MeshCompression(double resolution) : resolution_(resolution) {}
+
   virtual ~MeshCompression() = default;
 
   /*! \brief Get the vertices of the compressed full mesh
    *  - vertices: pointer to vertices of full compressed mesh
    */
-  inline void getVertices(PointCloud::Ptr vertices) {
-    *vertices = all_vertices_;
-  }
+  inline void getVertices(PointCloud::Ptr vertices) { *vertices = all_vertices_; }
 
   /*! \brief Get the timestamps of the vertices of the full compressed mesh
    *  - vertex_stamps: pointer to timestamps of the vertices of full compressed
    * mesh
    */
-  inline void getVertexStamps(
-      std::shared_ptr<std::vector<ros::Time> > vertex_stamps) {
+  inline void getVertexStamps(std::shared_ptr<std::vector<ros::Time> > vertex_stamps) {
     *vertex_stamps = all_vertex_stamps_;
   }
 
@@ -60,8 +59,7 @@ class MeshCompression {
   /*! \brief Get the surfaces of the compressed full mesh
    *  - vertices: pointer to surfaces of full compressed mesh
    */
-  inline void getStoredPolygons(
-      std::shared_ptr<std::vector<pcl::Vertices> > polygons) {
+  inline void getStoredPolygons(std::shared_ptr<std::vector<pcl::Vertices> > polygons) {
     *polygons = polygons_;
   }
 
@@ -128,6 +126,21 @@ class MeshCompression {
       std::shared_ptr<VoxbloxIndexMapping> remapping,
       const double& stamp_in_sec = ros::Time::now().toSec());
 
+  /*! \brief Compress and integrate with the full compressed mesh
+   *  - mesh: input mesh as abstract mesh type
+   *  - new_vertices: new vertices added after compression
+   *  - new_triangles: new mesh surfaces (as triangles) added after compression
+   *  - new_indices: indices of the vertices of the compressed partial mesh
+   *  - stamp_in_sec: current time stamp in seconds
+   */
+  virtual void compressAndIntegrate(
+      MeshInterface& mesh,
+      pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
+      std::shared_ptr<std::vector<pcl::Vertices> > new_triangles,
+      std::shared_ptr<std::vector<size_t> > new_indices,
+      std::shared_ptr<VoxbloxIndexMapping> remapping,
+      const double& stamp_in_sec = ros::Time::now().toSec());
+
   /*! \brief Discard parts of the stored compressed full mesh by detection time
    *  - earliest_time_sec: discard all vertices added earlier than this time in
    * seconds
@@ -141,8 +154,7 @@ class MeshCompression {
 
   /*! \brief Check if vertex exists in structure
    */
-  virtual bool checkIfVertexUnique(const pcl::PointXYZ& v,
-                                   int* matched_ind) const = 0;
+  virtual bool checkIfVertexUnique(const pcl::PointXYZ& v, int* matched_ind) const = 0;
 
   /*! \brief Updatae structure
    */

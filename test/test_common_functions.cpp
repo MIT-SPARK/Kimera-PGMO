@@ -83,10 +83,8 @@ TEST(test_common_functions, PCLtoMeshMsg) {
   EXPECT_EQ(-1, converted_vertices.points[420].x);
   EXPECT_EQ(127, converted_vertices.points[421].z);
   EXPECT_EQ(mesh->polygons[0].vertices[2], new_mesh.polygons[0].vertices[2]);
-  EXPECT_EQ(mesh->polygons[100].vertices[1],
-            new_mesh.polygons[100].vertices[1]);
-  EXPECT_EQ(mesh->polygons[839].vertices[0],
-            new_mesh.polygons[839].vertices[0]);
+  EXPECT_EQ(mesh->polygons[100].vertices[1], new_mesh.polygons[100].vertices[1]);
+  EXPECT_EQ(mesh->polygons[839].vertices[0], new_mesh.polygons[839].vertices[0]);
 }
 
 TEST(test_common_functions, PolygonsEqual) {
@@ -141,8 +139,7 @@ TEST(test_common_functions, GtsamPoseToRos) {
   EXPECT_EQ(0, ros_pose.orientation.z);
   EXPECT_EQ(1, ros_pose.orientation.w);
 
-  gtsam_pose =
-      gtsam::Pose3(gtsam::Rot3(0.707, 0, 0.707, 0), gtsam::Point3(1, 0, 100));
+  gtsam_pose = gtsam::Pose3(gtsam::Rot3(0.707, 0, 0.707, 0), gtsam::Point3(1, 0, 100));
   ros_pose = GtsamToRos(gtsam_pose);
   EXPECT_EQ(1, ros_pose.position.x);
   EXPECT_EQ(0, ros_pose.position.y);
@@ -164,8 +161,8 @@ TEST(test_common_functions, PclPointToGtsam) {
   point_rgb.a = 255;
   gtsam::Point3 gtsam_rgb_pt = PclToGtsam<pcl::PointXYZRGBA>(point_rgb);
 
-  EXPECT_TRUE(gtsam::assert_equal(
-      gtsam::Point3(point_rgb.x, point_rgb.y, point_rgb.z), gtsam_rgb_pt));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(point_rgb.x, point_rgb.y, point_rgb.z),
+                                  gtsam_rgb_pt));
 
   pcl::PointXYZ point;
   point.x = -1.0;
@@ -173,8 +170,7 @@ TEST(test_common_functions, PclPointToGtsam) {
   point.z = 0.35;
   gtsam::Point3 gtsam_pt = PclToGtsam<pcl::PointXYZ>(point);
 
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Point3(point.x, point.y, point.z), gtsam_pt));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(point.x, point.y, point.z), gtsam_pt));
 }
 
 // Combine Meshes
@@ -314,11 +310,11 @@ TEST(test_common_functions, GtsamGraphToRos) {
 
   // Check edges
   EXPECT_EQ(size_t(2), pose_graph_ptr->edges.size());
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(),
-                                  RosToGtsam(pose_graph_ptr->edges[0].pose)));
-  EXPECT_TRUE(gtsam::assert_equal(
-      gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(1, 1, 1)),
-      RosToGtsam(pose_graph_ptr->edges[1].pose)));
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(), RosToGtsam(pose_graph_ptr->edges[0].pose)));
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(1, 1, 1)),
+                          RosToGtsam(pose_graph_ptr->edges[1].pose)));
 
   EXPECT_EQ(0, pose_graph_ptr->edges[0].robot_from);
   EXPECT_EQ(0, pose_graph_ptr->edges[0].robot_to);
@@ -332,11 +328,11 @@ TEST(test_common_functions, GtsamGraphToRos) {
 
   // Check nodes
   EXPECT_EQ(size_t(3), pose_graph_ptr->nodes.size());
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(),
-                                  RosToGtsam(pose_graph_ptr->nodes[0].pose)));
-  EXPECT_TRUE(gtsam::assert_equal(
-      gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(1, 1, 1)),
-      RosToGtsam(pose_graph_ptr->nodes[2].pose)));
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(), RosToGtsam(pose_graph_ptr->nodes[0].pose)));
+  EXPECT_TRUE(
+      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(1, 1, 1)),
+                          RosToGtsam(pose_graph_ptr->nodes[2].pose)));
   EXPECT_EQ(0, pose_graph_ptr->nodes[0].robot_id);
   EXPECT_EQ(0, pose_graph_ptr->nodes[2].robot_id);
   EXPECT_EQ(0, pose_graph_ptr->nodes[0].key);
@@ -399,18 +395,17 @@ TEST(test_common_functions, deformPoints) {
 
       optimized_values.insert(
           gtsam::Symbol(prefix, static_cast<int>(i / 10)),
-          gtsam::Pose3(gtsam::Rot3(),
-                       gtsam::Point3(static_cast<double>(i), 1.0, 0.0)));
+          gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(static_cast<double>(i), 1.0, 0.0)));
     }
   }
-  PointCloud deformed_points =
-      deformPoints(original_points, prefix, control_points, optimized_values);
+  deformPoints(
+      original_points, original_points, prefix, control_points, optimized_values);
 
-  EXPECT_EQ(100, deformed_points.size());
+  ASSERT_EQ(100, original_points.size());
   for (size_t i = 0; i < 100; i++) {
-    EXPECT_EQ(static_cast<double>(i), deformed_points.points[i].x);
-    EXPECT_EQ(1.0, deformed_points.points[i].y);
-    EXPECT_EQ(0.0, deformed_points.points[i].z);
+    EXPECT_EQ(static_cast<double>(i), original_points.points[i].x);
+    EXPECT_EQ(1.0, original_points.points[i].y);
+    EXPECT_EQ(0.0, original_points.points[i].z);
   }
 }
 
@@ -451,31 +446,27 @@ TEST(test_common_functions, deformPointsWithTimeCheck) {
     }
   }
 
-  PointCloud deformed_points = deformPointsWithTimeCheck(original_points,
-                                                         stamps,
-                                                         prefix,
-                                                         control_points,
-                                                         control_point_stamps,
-                                                         optimized_values,
-                                                         3,
-                                                         10.0);
+  deformPointsWithTimeCheck(original_points,
+                            original_points,
+                            stamps,
+                            prefix,
+                            control_points,
+                            control_point_stamps,
+                            optimized_values,
+                            3,
+                            10.0);
 
-  EXPECT_EQ(100, deformed_points.size());
+  ASSERT_EQ(100, original_points.size());
   for (size_t i = 0; i < 50; i++) {
-    EXPECT_EQ(static_cast<double>(i), deformed_points.points[i].x);
-    EXPECT_EQ(-1.0, deformed_points.points[i].y);
-    EXPECT_EQ(0.0, deformed_points.points[i].z);
+    EXPECT_EQ(static_cast<double>(i), original_points.points[i].x);
+    EXPECT_EQ(-1.0, original_points.points[i].y);
+    EXPECT_EQ(0.0, original_points.points[i].z);
   }
   for (size_t i = 51; i < 100; i++) {
-    EXPECT_EQ(static_cast<double>(i), deformed_points.points[i].x);
-    EXPECT_EQ(1.0, deformed_points.points[i].y);
-    EXPECT_EQ(0.0, deformed_points.points[i].z);
+    EXPECT_EQ(static_cast<double>(i), original_points.points[i].x);
+    EXPECT_EQ(1.0, original_points.points[i].y);
+    EXPECT_EQ(0.0, original_points.points[i].z);
   }
 }
 
 }  // namespace kimera_pgmo
-
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}

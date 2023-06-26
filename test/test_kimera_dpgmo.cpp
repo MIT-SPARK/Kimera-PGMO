@@ -24,7 +24,6 @@ class KimeraDpgmoTest : public ::testing::Test {
     system("rosparam set frame_id world");
     system("rosparam set robot_id 0");
     system("rosparam set run_mode 2");
-    system("rosparam set use_msg_time true");
     system("rosparam set embed_trajectory_delta_t 3.0");
     system("rosparam set num_interp_pts 4");
     system("rosparam set interp_horizon 10.0");
@@ -34,6 +33,7 @@ class KimeraDpgmoTest : public ::testing::Test {
     system("rosparam set rpgo/pcm_rot_threshold 10.0");
     system("rosparam set rpgo/gnc_alpha 0");
     system("rosparam set add_initial_prior true");
+    system("rosparam set enable_sparsify false");
     system("rosparam set covariance/odom 0.000001");
     system("rosparam set covariance/loop_close 0.0001");
     system("rosparam set covariance/prior 0.00000001");
@@ -598,7 +598,7 @@ TEST_F(KimeraDpgmoTest, CheckRobotIdRequestMeshEdgesCallback) {
   // Test reindex
   // Here we should test if the mesh is added to the deformation graph correctly
   ros::NodeHandle nh;
-  system("rosparam set robot_id 2");
+  EXPECT_EQ(system("rosparam set robot_id 2"), 0);
   pgmo_.initialize(nh);
   OctreeCompressionPtr compression(new OctreeCompression(0.5));
   Graph graph_struct;
@@ -888,7 +888,7 @@ TEST_F(KimeraDpgmoTest, dpgmoCallbackDeform) {
     gtsam::Pose3 expected_pose = gtsam::Pose3(
         init_rot,
         gtsam::Point3(init_pos.x() + 1.0, init_pos.y(), init_pos.z()));
-    EXPECT_TRUE(gtsam::assert_equal(expected_pose, opt_path[i]));
+    EXPECT_TRUE(gtsam::assert_equal(expected_pose, opt_path.at(i)));
   }
 
   // Check optimized vertices

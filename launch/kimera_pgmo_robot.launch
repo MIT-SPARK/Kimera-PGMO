@@ -3,7 +3,6 @@
   <arg name="robot_id" default="0" />
   <arg name="robot_name" default="kimera" />
   <arg name="run_mode" default="0" /> 
-  <arg name="use_msg_time" default="false" />
   <arg name="optimized_path_topic" default="optimized_path" />
   <arg name="pose_graph_topic" default="pose_graph_incremental" />
   <arg name="dpgmo_topic" default="optimized_pose_graph" />
@@ -13,6 +12,7 @@
   <arg name="d_graph_resolution" default="3.0" />
   <arg name="track_mesh_graph_mapping" default="false" />
   <arg name="log" default="true" />
+  <arg name="enable_sparsify" default="false"/>
 
   <group ns="$(arg robot_name)" >
     <node name="mesh_frontend" pkg="kimera_pgmo" type="mesh_frontend_node" output="screen" >
@@ -33,7 +33,7 @@
       <param name="output_prefix" value="$(arg output_path)" />
       <param name="robot_id" value="$(arg robot_id)" />
       <param name="run_mode" value="$(arg run_mode)" />
-      <param name="use_msg_time" value="$(arg use_msg_time)" />
+      <param name="enable_sparsify" value="$(arg enable_sparsify)" />
       <param name="log_output" value="$(arg log)" />
       <remap from="~mesh_graph_incremental" to="mesh_frontend/mesh_graph_incremental" />
       <remap from="~full_mesh" to="mesh_frontend/full_mesh" />

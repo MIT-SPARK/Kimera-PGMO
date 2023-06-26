@@ -171,7 +171,7 @@ TEST(test_deformation_edge_factor, Simple) {
   gtsam::Matrix actualH1, actualH2;
   gtsam::Vector actual =
       factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
-  gtsam::Vector expected = pose_1.transformFrom(node_2 - node_1.translation()) -
+  gtsam::Vector expected = pose_1.transformFrom((node_2 - node_1.translation()).eval()) -
                            pose_2.translation();
 
   EXPECT_TRUE(gtsam::assert_equal(expected, actual));
@@ -298,8 +298,3 @@ TEST(test_deformation_edge_factor, Relative2) {
   EXPECT_TRUE(gtsam::assert_equal(numericalH2, actualH2, 1E-5));
 }
 }  // namespace kimera_pgmo
-
-int main(int argc, char** argv) {
-  ::testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
-}

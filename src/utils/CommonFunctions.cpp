@@ -26,10 +26,17 @@ namespace kimera_pgmo {
 void ReadMeshWithStampsFromPly(const std::string &filename,
                                pcl::PolygonMeshPtr mesh,
                                std::vector<ros::Time> *vertex_stamps) {
+
   if (NULL == mesh) {
     return;
   }
 
+  ReadMeshWithStampsFromPly(filename, *mesh, vertex_stamps);
+}
+
+void ReadMeshWithStampsFromPly(const std::string &filename,
+                               pcl::PolygonMesh& mesh,
+                               std::vector<ros::Time> *vertex_stamps) {
   happly::PLYData ply_in(filename);
 
   // Get data from the object
@@ -72,7 +79,7 @@ void ReadMeshWithStampsFromPly(const std::string &filename,
     }
     vertices_cloud.points.push_back(pcl_pt);
   }
-  pcl::toPCLPointCloud2(vertices_cloud, mesh->cloud);
+  pcl::toPCLPointCloud2(vertices_cloud, mesh.cloud);
 
   if (NULL != vertex_stamps) {
     std::vector<uint32_t> vertices_sec =
@@ -93,7 +100,7 @@ void ReadMeshWithStampsFromPly(const std::string &filename,
     for (const auto &v : faces[i]) {
       tri.vertices.push_back(v);
     }
-    mesh->polygons.push_back(tri);
+    mesh.polygons.push_back(tri);
   }
 }
 
@@ -524,6 +531,30 @@ pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
   return out_mesh;
 }
 
+void AppendMesh(pcl::PointCloud<pcl::PointXYZRGBA>::Ptr mesh_vertices,
+                std::shared_ptr<std::vector<pcl::Vertices>> mesh_faces,
+                const pcl::PointCloud<pcl::PointXYZRGBA>& vertices_to_add,
+                const std::vector<pcl::Vertices>& faces_to_add) {
+  // Iterate through the second set of vertices and remap indices
+  size_t new_index = mesh_vertices->size();
+  const size_t orig_num_vertices = mesh_vertices->size();
+  std::vector<size_t> new_indices;
+  for (size_t i = 0; i < vertices_to_add.size(); i++) {
+    new_indices.push_back(new_index);
+    mesh_vertices->push_back(vertices_to_add.points[i]);
+    new_index++;
+  }
+
+  // Now iterate throught the polygons in mesh two and combine using new indices
+  for (const pcl::Vertices& tri : faces_to_add) {
+    pcl::Vertices new_triangle;
+    for (size_t v : tri.vertices) {
+      new_triangle.vertices.push_back(new_indices.at(v));
+    }
+    mesh_faces->push_back(new_triangle);
+  }
+}
+
 bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2) {
   std::vector<uint32_t> p1_v = p1.vertices;
   std::vector<uint32_t> p2_v = p2.vertices;
@@ -554,7 +585,6 @@ GraphMsgPtr GtsamGraphToRos(
               factors[i]);
       // convert between factor to PoseGraphEdge type
       pose_graph_tools::PoseGraphEdge edge;
-      edge.header.stamp = ros::Time::now();
       edge.header.frame_id = "world";
       gtsam::Symbol front(factor.front());
       gtsam::Symbol back(factor.back());
@@ -632,11 +662,11 @@ GraphMsgPtr GtsamGraphToRos(
       node.pose.orientation.z = quaternion.z();
       node.pose.orientation.w = quaternion.w();
 
-      if (timestamps.at(robot_id).size() <= node_symb.index()) {
+      if (timestamps.count(robot_id) == 0 ||
+          timestamps.at(robot_id).size() <= node_symb.index()) {
         ROS_WARN_ONCE(
             "Invalid timestamp for trajectory poses when converting to "
             "PoseGraph msg. ");
-        node.header.stamp = ros::Time::now();
       } else {
         node.header.stamp = timestamps.at(robot_id).at(node_symb.index());
       }
