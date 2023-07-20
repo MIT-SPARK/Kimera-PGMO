@@ -6,16 +6,16 @@
 
 #pragma once
 
-#include "kimera_pgmo/KimeraPgmoMeshDelta.h"
-
-#include <vector>
-
-#include <ros/ros.h>
-
 #include <pcl/Vertices.h>
 #include <pcl/pcl_base.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+#include <ros/ros.h>
+
+#include <vector>
+#include <optional>
+
+#include "kimera_pgmo/KimeraPgmoMeshDelta.h"
 
 namespace kimera_pgmo {
 
@@ -46,17 +46,22 @@ class MeshDelta {
   MeshDelta(const KimeraPgmoMeshDelta& msg);
 
   void updateVertices(pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
-                      std::vector<ros::Time>* stamps = nullptr) const;
+                      std::vector<ros::Time>* stamps = nullptr,
+                      std::vector<uint32_t>* semantics = nullptr) const;
 
   void updateMesh(pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
                   std::vector<ros::Time>& stamps,
-                  std::vector<pcl::Vertices>& faces) const;
+                  std::vector<pcl::Vertices>& faces,
+                  std::vector<uint32_t>* semantics = nullptr) const;
 
   size_t addVertex(uint64_t timestamp_ns,
                    const pcl::PointXYZRGBA& point,
+                   std::optional<uint32_t> semantics = std::nullopt,
                    bool archive = false);
 
   void addFace(const Face& face, bool archive = false);
+
+  bool hasSemantics() const;
 
   size_t getNumArchivedVertices() const;
 
@@ -72,7 +77,8 @@ class MeshDelta {
 
   void validate(pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
                 std::vector<ros::Time>& stamps,
-                std::vector<pcl::Vertices>& faces) const;
+                std::vector<pcl::Vertices>& faces,
+                std::vector<uint32_t>* semantics = nullptr) const;
 
   KimeraPgmoMeshDelta toRosMsg(uint64_t timestamp_ns) const;
 
@@ -81,6 +87,7 @@ class MeshDelta {
 
   std::vector<pcl::PointXYZRGBA> vertex_updates;
   std::vector<uint64_t> stamp_updates;
+  std::vector<uint32_t> semantic_updates;
   std::vector<Face> face_updates;
   std::vector<Face> face_archive_updates;
   std::map<size_t, size_t> prev_to_curr;
@@ -89,5 +96,7 @@ class MeshDelta {
  protected:
   size_t num_archived_vertices_ = 0;
 };
+
+std::ostream& operator<<(std::ostream& out, const MeshDelta& delta);
 
 }  // namespace kimera_pgmo

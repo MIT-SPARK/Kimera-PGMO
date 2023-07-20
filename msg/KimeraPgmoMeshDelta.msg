@@ -4,6 +4,7 @@ std_msgs/Header header
 geometry_msgs/Point[] vertex_updates
 std_msgs/ColorRGBA[] vertex_updates_colors
 uint64[] stamp_updates
+uint32[] semantic_updates
 TriangleIndices[] face_updates
 TriangleIndices[] face_archive_updates
 uint64[] deleted_indices

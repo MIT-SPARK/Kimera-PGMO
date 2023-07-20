@@ -136,11 +136,17 @@ class MeshFrontendInterface {
                                     double time_in_sec,
                                     const std::string& frame_id = "world");
 
- protected:
+  /*! \brief Process the latest incremental mesh from the
+   * callback and add the partial mesh to the graph mesh and compress
+   *  - msg: Arbitrary mesh interface
+   *  - time_in_sec: message time
+   *  - frame_id: message frame id
+   */
   void processMeshGraph(MeshInterface& mesh,
                         double time_in_sec,
-                        const std::string& frame_id);
+                        const std::string& frame_id = "world");
 
+ protected:
   /*! \brief Process the latest incremental mesh from the
    * callback and add the partial mesh to the full mesh and compress
    *  - msg: mesh msg from Voxblox or Kimera Semantics

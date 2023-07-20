@@ -17,6 +17,7 @@ struct VertexInfo {
   bool is_new = true;
   uint64_t timestamp_ns;
   pcl::PointXYZRGBA point;
+  std::optional<uint32_t> label;
   size_t mesh_index;
   mutable int active_refs = 0;
   mutable int inactive_refs = 0;
@@ -63,6 +64,7 @@ class DeltaCompression {
 
  protected:
   void addPoint(const pcl::PointXYZRGBA& point,
+                std::optional<uint32_t> semantic_label,
                 uint64_t timestamp_ns,
                 std::vector<size_t>& face_map,
                 std::vector<size_t>& active_remapping,

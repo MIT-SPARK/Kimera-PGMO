@@ -79,6 +79,7 @@ DeltaCompression::DeltaCompression(double resolution)
       num_archived_faces_(0) {}
 
 void DeltaCompression::addPoint(const pcl::PointXYZRGBA& point,
+                                std::optional<uint32_t> semantic_label,
                                 uint64_t timestamp_ns,
                                 std::vector<size_t>& face_map,
                                 std::vector<size_t>& active_remapping,
@@ -99,6 +100,7 @@ void DeltaCompression::addPoint(const pcl::PointXYZRGBA& point,
   if (info.timestamp_ns != timestamp_ns) {
     info.timestamp_ns = timestamp_ns;
     info.point = point;
+    info.label = semantic_label;
     const size_t prev_index = info.mesh_index;
     info.mesh_index = active_remapping.size();
     active_remapping.push_back(prev_index);  // cache previous index
@@ -129,7 +131,8 @@ void DeltaCompression::removeBlockObservations(const voxblox::LongIndexSet& to_r
 
     // we can't observe a vertex and archive it in the same pass,
     // so info.mesh_index should point to the previous index
-    const size_t mesh_index = delta_->addVertex(info.timestamp_ns, info.point, true);
+    const size_t mesh_index =
+        delta_->addVertex(info.timestamp_ns, info.point, info.label, true);
     delta_->prev_to_curr[info.mesh_index] = mesh_index;
     vertices_map_.erase(prev);
   }
@@ -140,7 +143,8 @@ void DeltaCompression::addActiveVertices(uint64_t timestamp_ns,
   for (auto& id_info_pair : vertices_map_) {
     // vertices here are guaranteed to be unique
     auto& info = id_info_pair.second;
-    const size_t mesh_index = delta_->addVertex(info.timestamp_ns, info.point);
+    const size_t mesh_index =
+        delta_->addVertex(info.timestamp_ns, info.point, info.label);
 
     if (info.timestamp_ns == timestamp_ns) {
       if (!info.is_new) {
@@ -220,7 +224,7 @@ MeshDelta::Ptr DeltaCompression::update(const voxblox_msgs::Mesh& mesh,
                                         uint64_t timestamp_ns,
                                         VoxbloxIndexMapping* remapping) {
   VoxbloxMsgInterface interface(&mesh);
-  return update(mesh, timestamp_ns, remapping);
+  return update(interface, timestamp_ns, remapping);
 }
 
 MeshDelta::Ptr DeltaCompression::update(MeshInterface& mesh,
@@ -260,6 +264,7 @@ void DeltaCompression::updateRemapping(MeshInterface& mesh,
     mesh.markBlockActive(block_index);
     for (size_t i = 0; i < mesh.activeBlockSize(); ++i) {
       addPoint(mesh.getActiveVertex(i),
+               mesh.hasSemantics() ? mesh.getActiveSemantics(i) : std::nullopt,
                stamp_ns,
                block_info.indices,
                active_remapping,
@@ -318,7 +323,7 @@ void DeltaCompression::pruneMeshBlocks(const BlockIndexList& to_clear) {
       }
 
       const size_t new_index =
-          archive_delta_->addVertex(info.timestamp_ns, info.point, true);
+          archive_delta_->addVertex(info.timestamp_ns, info.point, info.label, true);
       remapping[info.mesh_index] = new_index;
       archive_delta_->prev_to_curr[info.mesh_index] = new_index;
       vertices_map_.erase(voxel);
@@ -365,10 +370,12 @@ void DeltaCompression::addPartialFaces() {
     }
 
     if (!face.valid()) {
+      iter = archived_faces_.erase(iter);
       continue;
     }
 
     if (!checker.check(face)) {
+      iter = archived_faces_.erase(iter);
       continue;
     }
 

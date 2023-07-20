@@ -446,7 +446,9 @@ TEST(test_common_functions, deformPointsWithTimeCheck) {
     }
   }
 
+  std::vector<std::set<size_t>> control_point_map;
   deformPointsWithTimeCheck(original_points,
+                            control_point_map,
                             original_points,
                             stamps,
                             prefix,

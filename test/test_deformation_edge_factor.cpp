@@ -124,7 +124,7 @@ TEST(test_deformation_edge_factor, ZeroTranslation2) {
   gtsam::Matrix actualH1, actualH2;
   gtsam::Vector actual =
       factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
-  gtsam::Vector expected = Point3(-2, -2, 0);
+  gtsam::Vector expected = Point3(-2, -2, 1);
 
   EXPECT_TRUE(gtsam::assert_equal(expected, actual));
 

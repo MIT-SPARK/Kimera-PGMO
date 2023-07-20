@@ -79,10 +79,14 @@ TEST(test_mesh_delta, updateSimple) {
 
 TEST(test_mesh_delta, archiveVerticesCorrect) {
   MeshDelta delta(1, 3);
-  EXPECT_EQ(delta.addVertex(100, TestPoint{1.0, 2.0, 3.0, 0, 0, 0}, true), 1u);
-  EXPECT_EQ(delta.addVertex(100, TestPoint{1.0, 2.0, 3.0, 0, 0, 0}, true), 2u);
-  EXPECT_EQ(delta.addVertex(100, TestPoint{1.0, 2.0, 3.0, 0, 0, 0}, false), 3u);
-  EXPECT_EQ(delta.addVertex(100, TestPoint{1.0, 2.0, 3.0, 0, 0, 0}, false), 4u);
+  EXPECT_EQ(delta.addVertex(100, TestPoint{1.0, 2.0, 3.0, 0, 0, 0}, std::nullopt, true),
+            1u);
+  EXPECT_EQ(delta.addVertex(100, TestPoint{1.0, 2.0, 3.0, 0, 0, 0}, std::nullopt, true),
+            2u);
+  EXPECT_EQ(
+      delta.addVertex(100, TestPoint{1.0, 2.0, 3.0, 0, 0, 0}, std::nullopt, false), 3u);
+  EXPECT_EQ(
+      delta.addVertex(100, TestPoint{1.0, 2.0, 3.0, 0, 0, 0}, std::nullopt, false), 4u);
   EXPECT_EQ(delta.getTotalArchivedVertices(), 3u);
   EXPECT_EQ(delta.getNumArchivedVertices(), 2u);
 }

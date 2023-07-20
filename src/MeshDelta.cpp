@@ -30,7 +30,8 @@ MeshDelta::MeshDelta(size_t vertex_start, size_t face_start)
 MeshDelta::MeshDelta(const KimeraPgmoMeshDelta& msg)
     : vertex_start(msg.vertex_start),
       face_start(msg.face_start),
-      stamp_updates(msg.stamp_updates) {
+      stamp_updates(msg.stamp_updates),
+      semantic_updates(msg.semantic_updates) {
   assert(msg.vertex_updates.size() == msg.vertex_updates.colors.size());
 
   vertex_updates.resize(msg.vertex_updates.size());
@@ -64,12 +65,22 @@ MeshDelta::MeshDelta(const KimeraPgmoMeshDelta& msg)
   }
 }
 
+bool MeshDelta::hasSemantics() const {
+  return semantic_updates.size() == vertex_updates.size();
+}
+
 void MeshDelta::updateVertices(pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
-                               std::vector<ros::Time>* stamps) const {
+                               std::vector<ros::Time>* stamps,
+                               std::vector<uint32_t>* semantics) const {
   const size_t total_vertices = vertex_start + vertex_updates.size();
   vertices.resize(total_vertices);
   if (stamps) {
     stamps->resize(total_vertices);
+  }
+
+  const bool semantics_valid = semantics && hasSemantics();
+  if (semantics_valid) {
+    semantics->resize(total_vertices);
   }
 
   for (size_t i = 0; i < vertex_updates.size(); ++i) {
@@ -78,13 +89,18 @@ void MeshDelta::updateVertices(pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
     if (stamps) {
       stamps->at(idx).fromNSec(stamp_updates.at(i));
     }
+
+    if (semantics_valid) {
+      semantics->at(idx) = semantic_updates.at(i);
+    }
   }
 }
 
 void MeshDelta::updateMesh(pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
                            std::vector<ros::Time>& stamps,
-                           std::vector<pcl::Vertices>& faces) const {
-  updateVertices(vertices, &stamps);
+                           std::vector<pcl::Vertices>& faces,
+                           std::vector<uint32_t>* semantics) const {
+  updateVertices(vertices, &stamps, semantics);
 
   const size_t total_faces =
       face_start + face_archive_updates.size() + face_updates.size();
@@ -104,10 +120,15 @@ void MeshDelta::updateMesh(pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
 
 size_t MeshDelta::addVertex(uint64_t timestamp_ns,
                             const pcl::PointXYZRGBA& point,
+                            std::optional<uint32_t> semantics,
                             bool archive) {
   const size_t index = vertex_start + vertex_updates.size();
   vertex_updates.push_back(point);
   stamp_updates.push_back(timestamp_ns);
+
+  if (semantics) {
+    semantic_updates.push_back(*semantics);
+  }
 
   if (archive) {
     num_archived_vertices_++;
@@ -146,7 +167,8 @@ pcl::IndicesPtr MeshDelta::getActiveIndices() const {
 
 void MeshDelta::validate(pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
                          std::vector<ros::Time>& stamps,
-                         std::vector<pcl::Vertices>& faces) const {
+                         std::vector<pcl::Vertices>& faces,
+                         std::vector<uint32_t>* semantics) const {
   if (vertices.size() < vertex_start) {
     std::stringstream ss;
     ss << "invalid update: vertices size (" << vertices.size() << ") < vertex start ("
@@ -158,6 +180,13 @@ void MeshDelta::validate(pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
     std::stringstream ss;
     ss << "invalid update: stamps size (" << stamps.size() << ") < vertex start ("
        << vertex_start << ")";
+    throw std::runtime_error(ss.str());
+  }
+
+  if (semantics && semantics->size() < vertex_start) {
+    std::stringstream ss;
+    ss << "invalid update: semantics size (" << semantics->size()
+       << ") < vertex start (" << vertex_start << ")";
     throw std::runtime_error(ss.str());
   }
 
@@ -224,6 +253,9 @@ KimeraPgmoMeshDelta MeshDelta::toRosMsg(uint64_t timestamp_ns) const {
     mesh_delta_msg.vertex_updates_colors[i] = vertex_c;
   }
   mesh_delta_msg.stamp_updates = stamp_updates;
+  if (hasSemantics()) {
+    mesh_delta_msg.semantic_updates = semantic_updates;
+  }
   mesh_delta_msg.deleted_indices.resize(deleted_indices.size());
   std::copy(deleted_indices.begin(),
             deleted_indices.end(),
@@ -253,6 +285,31 @@ KimeraPgmoMeshDelta MeshDelta::toRosMsg(uint64_t timestamp_ns) const {
   }
 
   return mesh_delta_msg;
+}
+
+std::ostream& operator<<(std::ostream& out, const MeshDelta& delta) {
+  out << "vertex start: " << delta.vertex_start << ", face start: " << delta.face_start
+      << std::endl;
+  out << "points:" << std::endl;
+  for (size_t i = 0; i < delta.vertex_updates.size(); ++i) {
+    out << "  - " << i << ": " << delta.vertex_updates.at(i) << " @ " << delta.stamp_updates.at(i);
+    if (delta.hasSemantics()) {
+      out << " (label=" << delta.semantic_updates.at(i) << ")";
+    }
+    out << std::endl;
+  }
+
+  out << "faces:" << std::endl;
+  for (const auto& face : delta.face_updates) {
+    out << " - " << face << std::endl;
+  }
+
+  out << "archived faces:" << std::endl;
+  for (const auto& face : delta.face_archive_updates) {
+    out << " - " << face << std::endl;
+  }
+
+  return out;
 }
 
 }  // namespace kimera_pgmo

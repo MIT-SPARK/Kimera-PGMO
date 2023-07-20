@@ -18,27 +18,36 @@
 
 namespace kimera_pgmo {
 
+#define WRAP_SYSTEM(command)                                      \
+  {                                                               \
+    int ret = system(command);                                    \
+    if (ret != 0) {                                               \
+      ROS_WARN_STREAM(command "failed with return code " << ret); \
+    }                                                             \
+  }                                                               \
+  static_assert(true, "")
+
 class KimeraDpgmoTest : public ::testing::Test {
  protected:
   KimeraDpgmoTest() {
-    system("rosparam set frame_id world");
-    system("rosparam set robot_id 0");
-    system("rosparam set run_mode 2");
-    system("rosparam set embed_trajectory_delta_t 3.0");
-    system("rosparam set num_interp_pts 4");
-    system("rosparam set interp_horizon 10.0");
-    system("rosparam set rpgo/odom_trans_threshold 10.0");
-    system("rosparam set rpgo/odom_rot_threshold 10.0");
-    system("rosparam set rpgo/pcm_trans_threshold 10.0");
-    system("rosparam set rpgo/pcm_rot_threshold 10.0");
-    system("rosparam set rpgo/gnc_alpha 0");
-    system("rosparam set add_initial_prior true");
-    system("rosparam set enable_sparsify false");
-    system("rosparam set covariance/odom 0.000001");
-    system("rosparam set covariance/loop_close 0.0001");
-    system("rosparam set covariance/prior 0.00000001");
-    system("rosparam set covariance/mesh_mesh 0.001");
-    system("rosparam set covariance/pose_mesh 0.0001");
+    WRAP_SYSTEM("rosparam set frame_id world");
+    WRAP_SYSTEM("rosparam set robot_id 0");
+    WRAP_SYSTEM("rosparam set run_mode 2");
+    WRAP_SYSTEM("rosparam set embed_trajectory_delta_t 3.0");
+    WRAP_SYSTEM("rosparam set num_interp_pts 4");
+    WRAP_SYSTEM("rosparam set interp_horizon 10.0");
+    WRAP_SYSTEM("rosparam set rpgo/odom_trans_threshold 10.0");
+    WRAP_SYSTEM("rosparam set rpgo/odom_rot_threshold 10.0");
+    WRAP_SYSTEM("rosparam set rpgo/pcm_trans_threshold 10.0");
+    WRAP_SYSTEM("rosparam set rpgo/pcm_rot_threshold 10.0");
+    WRAP_SYSTEM("rosparam set rpgo/gnc_alpha 0");
+    WRAP_SYSTEM("rosparam set add_initial_prior true");
+    WRAP_SYSTEM("rosparam set enable_sparsify false");
+    WRAP_SYSTEM("rosparam set covariance/odom 0.000001");
+    WRAP_SYSTEM("rosparam set covariance/loop_close 0.0001");
+    WRAP_SYSTEM("rosparam set covariance/prior 0.00000001");
+    WRAP_SYSTEM("rosparam set covariance/mesh_mesh 0.001");
+    WRAP_SYSTEM("rosparam set covariance/pose_mesh 0.0001");
   }
   ~KimeraDpgmoTest() {}
 
@@ -908,6 +917,8 @@ TEST_F(KimeraDpgmoTest, dpgmoCallbackDeform) {
   EXPECT_EQ(0, optimized_vertices.points[4].y);
   EXPECT_EQ(1, optimized_vertices.points[4].z);
 }
+
+#undef WRAP_SYSTEM
 
 }  // namespace kimera_pgmo
 

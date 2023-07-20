@@ -49,4 +49,32 @@ pcl::PointXYZRGBA VoxbloxMeshInterface::getActiveVertex(size_t i) const {
   return point;
 }
 
+SemanticVoxbloxMeshInterface::SemanticVoxbloxMeshInterface(
+    const voxblox::MeshLayer::Ptr& mesh,
+    const std::shared_ptr<SemanticLabelMesh>& semantics)
+    : VoxbloxMeshInterface(mesh),
+      semantics_(semantics),
+      active_semantic_block_(nullptr) {
+  assert(nullptr != semantics);
+}
+
+void SemanticVoxbloxMeshInterface::markBlockActive(const voxblox::BlockIndex& block) {
+  VoxbloxMeshInterface::markBlockActive(block);
+  auto iter = semantics_->find(block);
+  if (iter == semantics_->end()) {
+    throw std::runtime_error("semantic block does not exist");
+  }
+
+  active_semantic_block_ = &iter->second;
+}
+
+std::optional<uint32_t> SemanticVoxbloxMeshInterface::getActiveSemantics(
+    size_t i) const {
+  if (!active_semantic_block_) {
+    throw std::runtime_error("no active block set");
+  }
+
+  return active_semantic_block_->at(i);
+}
+
 }  // namespace kimera_pgmo

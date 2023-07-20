@@ -220,7 +220,7 @@ void MeshCompression::compressAndIntegrate(
     const double& stamp_in_sec) {
   VoxbloxMsgInterface interface(&mesh);
   compressAndIntegrate(
-      mesh, new_vertices, new_triangles, new_indices, remapping, stamp_in_sec);
+      interface, new_vertices, new_triangles, new_indices, remapping, stamp_in_sec);
 }
 
 void MeshCompression::compressAndIntegrate(
