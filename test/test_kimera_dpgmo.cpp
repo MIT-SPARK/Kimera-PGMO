@@ -3,20 +3,34 @@
  * @brief  Unit-tests for main kimera pgmo class
  * @author Yun Chang
  */
-#include <ros/ros.h>
-
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
+#include <ros/ros.h>
 
 #include "gtest/gtest.h"
-
 #include "kimera_pgmo/KimeraPgmo.h"
 #include "test_artifacts.h"
 
 namespace kimera_pgmo {
+
+namespace {
+template <typename T, typename Ptr>
+const T* cast_factor(const Ptr& ptr) {
+  if (!ptr) {
+    throw std::runtime_error("bad pointer");
+  }
+
+  auto cast = dynamic_cast<const T*>(ptr.get());
+  if (!cast) {
+    throw std::runtime_error("bad cast");
+  }
+
+  return cast;
+}
+}  // namespace
 
 #define WRAP_SYSTEM(command)                                      \
   {                                                               \
@@ -51,8 +65,7 @@ class KimeraDpgmoTest : public ::testing::Test {
   }
   ~KimeraDpgmoTest() {}
 
-  void IncrementalPoseGraphCallback(
-      const pose_graph_tools::PoseGraph::ConstPtr& msg) {
+  void IncrementalPoseGraphCallback(const pose_graph_tools::PoseGraph::ConstPtr& msg) {
     pgmo_.incrementalPoseGraphCallback(msg);
   }
 
@@ -69,35 +82,26 @@ class KimeraDpgmoTest : public ::testing::Test {
     pgmo_.dpgmoCallback(msg);
   }
 
-  bool RequestMeshEdgesCallback(
-      kimera_pgmo::RequestMeshFactors::Request& req,
-      kimera_pgmo::RequestMeshFactors::Response& res) {
+  bool RequestMeshEdgesCallback(kimera_pgmo::RequestMeshFactors::Request& req,
+                                kimera_pgmo::RequestMeshFactors::Response& res) {
     return pgmo_.requestMeshEdgesCallback(req, res);
   }
 
-  inline std::vector<gtsam::Pose3> getTrajectory() const {
-    return pgmo_.trajectory_;
-  }
+  inline std::vector<gtsam::Pose3> getTrajectory() const { return pgmo_.trajectory_; }
 
   inline std::queue<size_t> getUnconnectedNodes() const {
     return pgmo_.unconnected_nodes_;
   }
 
-  inline std::vector<ros::Time> getTimestamps() const {
-    return pgmo_.timestamps_;
-  }
+  inline std::vector<ros::Time> getTimestamps() const { return pgmo_.timestamps_; }
 
-  inline gtsam::Values getValues() const {
-    return pgmo_.getDeformationGraphValues();
-  }
+  inline gtsam::Values getValues() const { return pgmo_.getDeformationGraphValues(); }
 
   inline gtsam::NonlinearFactorGraph getFactors() const {
     return pgmo_.getDeformationGraphFactors();
   }
 
-  inline pcl::PolygonMesh getOptimizedMesh() const {
-    return *(pgmo_.optimized_mesh_);
-  }
+  inline pcl::PolygonMesh getOptimizedMesh() const { return *(pgmo_.optimized_mesh_); }
 
   inline Path getOptimizedPath() const { return *(pgmo_.optimized_path_); }
 
@@ -105,12 +109,10 @@ class KimeraDpgmoTest : public ::testing::Test {
     return pgmo_.getDeformationGraphPtr()->getConsistencyFactors();
   }
 
-  inline bool getConsistencyFactorsMsg(
-      const size_t& robot_id,
-      pose_graph_tools::PoseGraph* pg_mesh_msg,
-      const size_t& vertex_index_offset) const {
-    return pgmo_.getConsistencyFactors(
-        robot_id, pg_mesh_msg, vertex_index_offset);
+  inline bool getConsistencyFactorsMsg(const size_t& robot_id,
+                                       pose_graph_tools::PoseGraph* pg_mesh_msg,
+                                       const size_t& vertex_index_offset) const {
+    return pgmo_.getConsistencyFactors(robot_id, pg_mesh_msg, vertex_index_offset);
   }
 
   inline gtsam::Values getDpgmoValues() const { return pgmo_.getDpgmoValues(); }
@@ -141,8 +143,7 @@ TEST_F(KimeraDpgmoTest, fullMeshCallback) {
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(
-      new pose_graph_tools::PoseGraph);
+  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools::PoseGraph);
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
@@ -164,8 +165,7 @@ TEST_F(KimeraDpgmoTest, fullMeshCallback) {
     full_vertex_stamps.push_back(ros::Time(13.0));
   }
   KimeraPgmoMesh::Ptr full_mesh_msg(new KimeraPgmoMesh);
-  *full_mesh_msg =
-      PolygonMeshToPgmoMeshMsg(0, full_mesh, full_vertex_stamps, "world");
+  *full_mesh_msg = PolygonMeshToPgmoMeshMsg(0, full_mesh, full_vertex_stamps, "world");
   FullMeshCallback(full_mesh_msg);
 
   pcl::PolygonMesh optimized_mesh = getOptimizedMesh();
@@ -221,8 +221,7 @@ TEST_F(KimeraDpgmoTest, getConsistencyFactors) {
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(
-      new pose_graph_tools::PoseGraph);
+  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools::PoseGraph);
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
@@ -237,8 +236,7 @@ TEST_F(KimeraDpgmoTest, getConsistencyFactors) {
       processMeshToGraph(mesh2, 0, ros::Time(13.0), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
 
-  gtsam::NonlinearFactorGraph consistency_factors =
-      getConsistencyFactorsGtsam();
+  gtsam::NonlinearFactorGraph consistency_factors = getConsistencyFactorsGtsam();
   pose_graph_tools::PoseGraph consistency_edges_pg;
 
   // First test with no offset
@@ -255,28 +253,23 @@ TEST_F(KimeraDpgmoTest, getConsistencyFactors) {
   for (size_t i = 0; i < consistency_factors.size(); i++) {
     // Compare the two
     DeformationEdgeFactor dedge_factor =
-        *boost::dynamic_pointer_cast<DeformationEdgeFactor>(
-            consistency_factors[i]);
+        *cast_factor<DeformationEdgeFactor>(consistency_factors[i]);
     // Create the between factor that is equivalent to the pose graph edge
     pose_graph_tools::PoseGraphEdge e = consistency_edges_pg.edges[i];
     gtsam::Key front, back;
     switch (e.type) {
       case pose_graph_tools::PoseGraphEdge::MESH: {
-        front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from),
-                              e.key_from);
-        back =
-            gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to), e.key_to);
+        front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from), e.key_from);
+        back = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to), e.key_to);
         break;
       }
       case pose_graph_tools::PoseGraphEdge::POSE_MESH: {
         front = gtsam::Symbol(robot_id_to_prefix.at(e.robot_from), e.key_from);
-        back =
-            gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to), e.key_to);
+        back = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to), e.key_to);
         break;
       }
       case pose_graph_tools::PoseGraphEdge::MESH_POSE: {
-        front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from),
-                              e.key_from);
+        front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from), e.key_from);
         back = gtsam::Symbol(robot_id_to_prefix.at(e.robot_to), e.key_to);
         break;
       }
@@ -285,20 +278,17 @@ TEST_F(KimeraDpgmoTest, getConsistencyFactors) {
         front, back, RosToGtsam(e.pose), between_noise);
 
     // Create perturbed poses
-    gtsam::Pose3 pose_front = dedge_factor.fromPose() *
-                              gtsam::Pose3(gtsam::Rot3::Rodrigues(0.01, 0, 0),
-                                           gtsam::Point3(0, 0, 0.001));
+    gtsam::Pose3 pose_front =
+        dedge_factor.fromPose() *
+        gtsam::Pose3(gtsam::Rot3::Rodrigues(0.01, 0, 0), gtsam::Point3(0, 0, 0.001));
     gtsam::Pose3 pose_back =
         gtsam::Pose3(gtsam::Rot3(), dedge_factor.toPoint()) *
-        gtsam::Pose3(gtsam::Rot3::Rodrigues(0, 0, 0.01),
-                     gtsam::Point3(-0.001, 0, 0));
+        gtsam::Pose3(gtsam::Rot3::Rodrigues(0, 0, 0.01), gtsam::Point3(-0.001, 0, 0));
 
     // Check errors are equal
-    gtsam::Vector betweenError =
-        between_factor.evaluateError(pose_front, pose_back);
+    gtsam::Vector betweenError = between_factor.evaluateError(pose_front, pose_back);
 
-    gtsam::Vector dedgeError =
-        dedge_factor.evaluateError(pose_front, pose_back);
+    gtsam::Vector dedgeError = dedge_factor.evaluateError(pose_front, pose_back);
 
     EXPECT_NEAR(-dedgeError(0), betweenError(3), 1e-4);
     EXPECT_NEAR(-dedgeError(1), betweenError(4), 1e-4);
@@ -321,14 +311,12 @@ TEST_F(KimeraDpgmoTest, getConsistencyFactors) {
   EXPECT_EQ(10, consistency_edges_pg.nodes.size());
   EXPECT_EQ(0, consistency_edges_pg.nodes[0].robot_id);
   EXPECT_EQ(0, consistency_edges_pg.nodes[0].key);
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, 0)),
-                          RosToGtsam(consistency_edges_pg.nodes[0].pose)));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, 0)),
+                                  RosToGtsam(consistency_edges_pg.nodes[0].pose)));
   EXPECT_EQ(0, consistency_edges_pg.nodes[9].robot_id);
   EXPECT_EQ(9, consistency_edges_pg.nodes[9].key);
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 0, 1)),
-                          RosToGtsam(consistency_edges_pg.nodes[9].pose)));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 0, 1)),
+                                  RosToGtsam(consistency_edges_pg.nodes[9].pose)));
 }
 
 TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallback) {
@@ -346,8 +334,7 @@ TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallback) {
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(
-      new pose_graph_tools::PoseGraph);
+  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools::PoseGraph);
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
@@ -373,8 +360,7 @@ TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallback) {
   request.reindex_vertices = false;  // reindex
 
   EXPECT_TRUE(RequestMeshEdgesCallback(request, response));
-  gtsam::NonlinearFactorGraph consistency_factors =
-      getConsistencyFactorsGtsam();
+  gtsam::NonlinearFactorGraph consistency_factors = getConsistencyFactorsGtsam();
   std::vector<pose_graph_tools::PoseGraphEdge> consistency_edges =
       response.mesh_factors.edges;
   std::vector<pose_graph_tools::PoseGraphNode> consistency_nodes =
@@ -391,28 +377,23 @@ TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallback) {
   for (size_t i = 0; i < consistency_factors.size(); i++) {
     // Compare the two
     DeformationEdgeFactor dedge_factor =
-        *boost::dynamic_pointer_cast<DeformationEdgeFactor>(
-            consistency_factors[i]);
+        *cast_factor<DeformationEdgeFactor>(consistency_factors[i]);
     // Create the between factor that is equivalent to the pose graph edge
     pose_graph_tools::PoseGraphEdge e = consistency_edges[i];
     gtsam::Key front, back;
     switch (e.type) {
       case pose_graph_tools::PoseGraphEdge::MESH: {
-        front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from),
-                              e.key_from);
-        back =
-            gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to), e.key_to);
+        front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from), e.key_from);
+        back = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to), e.key_to);
         break;
       }
       case pose_graph_tools::PoseGraphEdge::POSE_MESH: {
         front = gtsam::Symbol(robot_id_to_prefix.at(e.robot_from), e.key_from);
-        back =
-            gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to), e.key_to);
+        back = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to), e.key_to);
         break;
       }
       case pose_graph_tools::PoseGraphEdge::MESH_POSE: {
-        front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from),
-                              e.key_from);
+        front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from), e.key_from);
         back = gtsam::Symbol(robot_id_to_prefix.at(e.robot_to), e.key_to);
         break;
       }
@@ -421,20 +402,17 @@ TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallback) {
         front, back, RosToGtsam(e.pose), between_noise);
 
     // Create perturbed poses
-    gtsam::Pose3 pose_front = dedge_factor.fromPose() *
-                              gtsam::Pose3(gtsam::Rot3::Rodrigues(0.01, 0, 0),
-                                           gtsam::Point3(0, 0, 0.001));
+    gtsam::Pose3 pose_front =
+        dedge_factor.fromPose() *
+        gtsam::Pose3(gtsam::Rot3::Rodrigues(0.01, 0, 0), gtsam::Point3(0, 0, 0.001));
     gtsam::Pose3 pose_back =
         gtsam::Pose3(gtsam::Rot3(), dedge_factor.toPoint()) *
-        gtsam::Pose3(gtsam::Rot3::Rodrigues(0, 0, 0.01),
-                     gtsam::Point3(-0.001, 0, 0));
+        gtsam::Pose3(gtsam::Rot3::Rodrigues(0, 0, 0.01), gtsam::Point3(-0.001, 0, 0));
 
     // Check errors are equal
-    gtsam::Vector betweenError =
-        between_factor.evaluateError(pose_front, pose_back);
+    gtsam::Vector betweenError = between_factor.evaluateError(pose_front, pose_back);
 
-    gtsam::Vector dedgeError =
-        dedge_factor.evaluateError(pose_front, pose_back);
+    gtsam::Vector dedgeError = dedge_factor.evaluateError(pose_front, pose_back);
 
     EXPECT_NEAR(-dedgeError(0), betweenError(3), 1e-4);
     EXPECT_NEAR(-dedgeError(1), betweenError(4), 1e-4);
@@ -457,14 +435,12 @@ TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallback) {
   EXPECT_EQ(10, consistency_nodes.size());
   EXPECT_EQ(0, consistency_nodes[0].robot_id);
   EXPECT_EQ(0, consistency_nodes[0].key);
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, 0)),
-                          RosToGtsam(consistency_nodes[0].pose)));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, 0)),
+                                  RosToGtsam(consistency_nodes[0].pose)));
   EXPECT_EQ(0, consistency_nodes[9].robot_id);
   EXPECT_EQ(9, consistency_nodes[9].key);
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 0, 1)),
-                          RosToGtsam(consistency_nodes[9].pose)));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 0, 1)),
+                                  RosToGtsam(consistency_nodes[9].pose)));
 }
 
 TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallbackReindex) {
@@ -482,8 +458,7 @@ TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallbackReindex) {
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(
-      new pose_graph_tools::PoseGraph);
+  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools::PoseGraph);
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
@@ -509,8 +484,7 @@ TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallbackReindex) {
   request.robot_id = 0;  // test with correct robot id
 
   EXPECT_TRUE(RequestMeshEdgesCallback(request, response));
-  gtsam::NonlinearFactorGraph consistency_factors =
-      getConsistencyFactorsGtsam();
+  gtsam::NonlinearFactorGraph consistency_factors = getConsistencyFactorsGtsam();
   std::vector<pose_graph_tools::PoseGraphEdge> consistency_edges =
       response.mesh_factors.edges;
   std::vector<pose_graph_tools::PoseGraphNode> consistency_nodes =
@@ -527,8 +501,7 @@ TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallbackReindex) {
   for (size_t i = 0; i < consistency_factors.size(); i++) {
     // Compare the two
     DeformationEdgeFactor dedge_factor =
-        *boost::dynamic_pointer_cast<DeformationEdgeFactor>(
-            consistency_factors[i]);
+        *cast_factor<DeformationEdgeFactor>(consistency_factors[i]);
     // Create the between factor that is equivalent to the pose graph edge
     pose_graph_tools::PoseGraphEdge e = consistency_edges[i];
     gtsam::Key front, back;
@@ -557,20 +530,17 @@ TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallbackReindex) {
         front, back, RosToGtsam(e.pose), between_noise);
 
     // Create perturbed poses
-    gtsam::Pose3 pose_front = dedge_factor.fromPose() *
-                              gtsam::Pose3(gtsam::Rot3::Rodrigues(0.01, 0, 0),
-                                           gtsam::Point3(0, 0, 0.001));
+    gtsam::Pose3 pose_front =
+        dedge_factor.fromPose() *
+        gtsam::Pose3(gtsam::Rot3::Rodrigues(0.01, 0, 0), gtsam::Point3(0, 0, 0.001));
     gtsam::Pose3 pose_back =
         gtsam::Pose3(gtsam::Rot3(), dedge_factor.toPoint()) *
-        gtsam::Pose3(gtsam::Rot3::Rodrigues(0, 0, 0.01),
-                     gtsam::Point3(-0.001, 0, 0));
+        gtsam::Pose3(gtsam::Rot3::Rodrigues(0, 0, 0.01), gtsam::Point3(-0.001, 0, 0));
 
     // Check errors are equal
-    gtsam::Vector betweenError =
-        between_factor.evaluateError(pose_front, pose_back);
+    gtsam::Vector betweenError = between_factor.evaluateError(pose_front, pose_back);
 
-    gtsam::Vector dedgeError =
-        dedge_factor.evaluateError(pose_front, pose_back);
+    gtsam::Vector dedgeError = dedge_factor.evaluateError(pose_front, pose_back);
 
     EXPECT_NEAR(-dedgeError(0), betweenError(3), 1e-4);
     EXPECT_NEAR(-dedgeError(1), betweenError(4), 1e-4);
@@ -593,14 +563,12 @@ TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallbackReindex) {
   EXPECT_EQ(10, consistency_nodes.size());
   EXPECT_EQ(0, consistency_nodes[0].robot_id);
   EXPECT_EQ(num_poses, consistency_nodes[0].key);
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, 0)),
-                          RosToGtsam(consistency_nodes[0].pose)));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, 0)),
+                                  RosToGtsam(consistency_nodes[0].pose)));
   EXPECT_EQ(0, consistency_nodes[9].robot_id);
   EXPECT_EQ(num_poses + 9, consistency_nodes[9].key);
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 0, 1)),
-                          RosToGtsam(consistency_nodes[9].pose)));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 0, 1)),
+                                  RosToGtsam(consistency_nodes[9].pose)));
 }
 
 TEST_F(KimeraDpgmoTest, CheckRobotIdRequestMeshEdgesCallback) {
@@ -619,8 +587,7 @@ TEST_F(KimeraDpgmoTest, CheckRobotIdRequestMeshEdgesCallback) {
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(
-      new pose_graph_tools::PoseGraph);
+  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools::PoseGraph);
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 2, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
@@ -646,8 +613,7 @@ TEST_F(KimeraDpgmoTest, CheckRobotIdRequestMeshEdgesCallback) {
   request.robot_id = 2;  // test with correct robot id
 
   EXPECT_TRUE(RequestMeshEdgesCallback(request, response));
-  gtsam::NonlinearFactorGraph consistency_factors =
-      getConsistencyFactorsGtsam();
+  gtsam::NonlinearFactorGraph consistency_factors = getConsistencyFactorsGtsam();
   std::vector<pose_graph_tools::PoseGraphEdge> consistency_edges =
       response.mesh_factors.edges;
   std::vector<pose_graph_tools::PoseGraphNode> consistency_nodes =
@@ -664,8 +630,7 @@ TEST_F(KimeraDpgmoTest, CheckRobotIdRequestMeshEdgesCallback) {
   for (size_t i = 0; i < consistency_factors.size(); i++) {
     // Compare the two
     DeformationEdgeFactor dedge_factor =
-        *boost::dynamic_pointer_cast<DeformationEdgeFactor>(
-            consistency_factors[i]);
+        *cast_factor<DeformationEdgeFactor>(consistency_factors[i]);
     // Create the between factor that is equivalent to the pose graph edge
     pose_graph_tools::PoseGraphEdge e = consistency_edges[i];
     gtsam::Key front, back;
@@ -694,20 +659,17 @@ TEST_F(KimeraDpgmoTest, CheckRobotIdRequestMeshEdgesCallback) {
         front, back, RosToGtsam(e.pose), between_noise);
 
     // Create perturbed poses
-    gtsam::Pose3 pose_front = dedge_factor.fromPose() *
-                              gtsam::Pose3(gtsam::Rot3::Rodrigues(0.01, 0, 0),
-                                           gtsam::Point3(0, 0, 0.001));
+    gtsam::Pose3 pose_front =
+        dedge_factor.fromPose() *
+        gtsam::Pose3(gtsam::Rot3::Rodrigues(0.01, 0, 0), gtsam::Point3(0, 0, 0.001));
     gtsam::Pose3 pose_back =
         gtsam::Pose3(gtsam::Rot3(), dedge_factor.toPoint()) *
-        gtsam::Pose3(gtsam::Rot3::Rodrigues(0, 0, 0.01),
-                     gtsam::Point3(-0.001, 0, 0));
+        gtsam::Pose3(gtsam::Rot3::Rodrigues(0, 0, 0.01), gtsam::Point3(-0.001, 0, 0));
 
     // Check errors are equal
-    gtsam::Vector betweenError =
-        between_factor.evaluateError(pose_front, pose_back);
+    gtsam::Vector betweenError = between_factor.evaluateError(pose_front, pose_back);
 
-    gtsam::Vector dedgeError =
-        dedge_factor.evaluateError(pose_front, pose_back);
+    gtsam::Vector dedgeError = dedge_factor.evaluateError(pose_front, pose_back);
 
     EXPECT_NEAR(-dedgeError(0), betweenError(3), 1e-4);
     EXPECT_NEAR(-dedgeError(1), betweenError(4), 1e-4);
@@ -730,14 +692,12 @@ TEST_F(KimeraDpgmoTest, CheckRobotIdRequestMeshEdgesCallback) {
   EXPECT_EQ(10, consistency_nodes.size());
   EXPECT_EQ(2, consistency_nodes[0].robot_id);
   EXPECT_EQ(num_poses, consistency_nodes[0].key);
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, 0)),
-                          RosToGtsam(consistency_nodes[0].pose)));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0, 0)),
+                                  RosToGtsam(consistency_nodes[0].pose)));
   EXPECT_EQ(2, consistency_nodes[9].robot_id);
   EXPECT_EQ(num_poses + 9, consistency_nodes[9].key);
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 0, 1)),
-                          RosToGtsam(consistency_nodes[9].pose)));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 0, 1)),
+                                  RosToGtsam(consistency_nodes[9].pose)));
 }
 
 TEST_F(KimeraDpgmoTest, dpgmoCallbackValues) {
@@ -755,8 +715,7 @@ TEST_F(KimeraDpgmoTest, dpgmoCallbackValues) {
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(
-      new pose_graph_tools::PoseGraph);
+  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools::PoseGraph);
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
@@ -799,22 +758,20 @@ TEST_F(KimeraDpgmoTest, dpgmoCallbackValues) {
   size_t num_poses = getTrajectory().size();
   EXPECT_EQ(num_poses + 10, dpgmo_values.size());
   for (auto node : inc_graph_1->nodes) {
-    gtsam::Key key =
-        gtsam::Symbol(robot_id_to_prefix.at(node.robot_id), node.key);
-    EXPECT_TRUE(gtsam::assert_equal(RosToGtsam(node.pose),
-                                    dpgmo_values.at<gtsam::Pose3>(key)));
+    gtsam::Key key = gtsam::Symbol(robot_id_to_prefix.at(node.robot_id), node.key);
+    EXPECT_TRUE(
+        gtsam::assert_equal(RosToGtsam(node.pose), dpgmo_values.at<gtsam::Pose3>(key)));
   }
   pose_graph_tools::PoseGraphNode node = inc_graph_2->nodes[1];
-  gtsam::Key key =
-      gtsam::Symbol(robot_id_to_prefix.at(node.robot_id), node.key);
-  EXPECT_TRUE(gtsam::assert_equal(RosToGtsam(node.pose),
-                                  dpgmo_values.at<gtsam::Pose3>(key)));
+  gtsam::Key key = gtsam::Symbol(robot_id_to_prefix.at(node.robot_id), node.key);
+  EXPECT_TRUE(
+      gtsam::assert_equal(RosToGtsam(node.pose), dpgmo_values.at<gtsam::Pose3>(key)));
 
   for (auto node : response.mesh_factors.nodes) {
     gtsam::Key key = gtsam::Symbol(robot_id_to_vertex_prefix.at(node.robot_id),
                                    node.key - num_poses);
-    EXPECT_TRUE(gtsam::assert_equal(RosToGtsam(node.pose),
-                                    dpgmo_values.at<gtsam::Pose3>(key)));
+    EXPECT_TRUE(
+        gtsam::assert_equal(RosToGtsam(node.pose), dpgmo_values.at<gtsam::Pose3>(key)));
   }
 }
 
@@ -833,8 +790,7 @@ TEST_F(KimeraDpgmoTest, dpgmoCallbackDeform) {
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(
-      new pose_graph_tools::PoseGraph);
+  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools::PoseGraph);
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
@@ -882,8 +838,7 @@ TEST_F(KimeraDpgmoTest, dpgmoCallbackDeform) {
     full_vertex_stamps.push_back(ros::Time(13.0));
   }
   KimeraPgmoMesh::Ptr full_mesh_msg(new KimeraPgmoMesh);
-  *full_mesh_msg =
-      PolygonMeshToPgmoMeshMsg(0, full_mesh, full_vertex_stamps, "world");
+  *full_mesh_msg = PolygonMeshToPgmoMeshMsg(0, full_mesh, full_vertex_stamps, "world");
   FullMeshCallback(full_mesh_msg);
 
   pcl::PolygonMesh opt_mesh = getOptimizedMesh();
@@ -895,8 +850,7 @@ TEST_F(KimeraDpgmoTest, dpgmoCallbackDeform) {
     gtsam::Rot3 init_rot = init_path[i].rotation();
     gtsam::Point3 init_pos = init_path[i].translation();
     gtsam::Pose3 expected_pose = gtsam::Pose3(
-        init_rot,
-        gtsam::Point3(init_pos.x() + 1.0, init_pos.y(), init_pos.z()));
+        init_rot, gtsam::Point3(init_pos.x() + 1.0, init_pos.y(), init_pos.z()));
     EXPECT_TRUE(gtsam::assert_equal(expected_pose, opt_path.at(i)));
   }
 

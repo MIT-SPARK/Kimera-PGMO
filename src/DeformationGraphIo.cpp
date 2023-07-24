@@ -3,32 +3,38 @@
  * @brief  Deformation graph save and load functions
  * @author Yun Chang
  */
+#include <gtsam/inference/Symbol.h>
+#include <gtsam/slam/BetweenFactor.h>
+#include <gtsam/slam/PriorFactor.h>
+
 #include <fstream>
 #include <stdexcept>
 
 #include "kimera_pgmo/DeformationGraph.h"
 
-#include <gtsam/inference/Symbol.h>
-#include <gtsam/slam/BetweenFactor.h>
-#include <gtsam/slam/PriorFactor.h>
-
 namespace kimera_pgmo {
+
+namespace {
+template <typename T, typename Ptr>
+const T* cast_to_ptr(const Ptr& ptr) {
+  return dynamic_cast<const T*>(ptr.get());
+}
+}  // namespace
 
 void streamValue(const gtsam::Key& key,
                  const gtsam::Pose3& pose,
                  std::ofstream& stream) {
   const gtsam::Point3 t = pose.translation();
   const auto q = pose.rotation().toQuaternion();
-  stream << key << " " << t.x() << " " << t.y() << " " << t.z() << " " << q.x()
-         << " " << q.y() << " " << q.z() << " " << q.w();
+  stream << key << " " << t.x() << " " << t.y() << " " << t.z() << " " << q.x() << " "
+         << q.y() << " " << q.z() << " " << q.w();
 }
 
 void streamBetweenFactor(const gtsam::BetweenFactor<gtsam::Pose3>& between,
                          std::ofstream& stream) {
   std::string str;
   gtsam::SharedNoiseModel model = between.noiseModel();
-  boost::shared_ptr<gtsam::noiseModel::Gaussian> gaussianModel =
-      boost::dynamic_pointer_cast<gtsam::noiseModel::Gaussian>(model);
+  auto gaussianModel = cast_to_ptr<gtsam::noiseModel::Gaussian>(model);
   if (!gaussianModel) {
     model->print("model\n");
     throw std::invalid_argument("DeformationGraph save: invalid noise model!");
@@ -37,9 +43,9 @@ void streamBetweenFactor(const gtsam::BetweenFactor<gtsam::Pose3>& between,
   const gtsam::Pose3 meas = between.measured();
   const gtsam::Point3 p = meas.translation();
   const auto q = meas.rotation().toQuaternion();
-  stream << between.key1() << " " << between.key2() << " " << p.x() << " "
-         << p.y() << " " << p.z() << " " << q.x() << " " << q.y() << " "
-         << q.z() << " " << q.w();
+  stream << between.key1() << " " << between.key2() << " " << p.x() << " " << p.y()
+         << " " << p.z() << " " << q.x() << " " << q.y() << " " << q.z() << " "
+         << q.w();
 
   for (size_t i = 0; i < 6; i++) {
     for (size_t j = i; j < 6; j++) {
@@ -48,12 +54,10 @@ void streamBetweenFactor(const gtsam::BetweenFactor<gtsam::Pose3>& between,
   }
 }
 
-void streamDedgeFactor(const DeformationEdgeFactor& dedge,
-                       std::ofstream& stream) {
+void streamDedgeFactor(const DeformationEdgeFactor& dedge, std::ofstream& stream) {
   std::string str;
   gtsam::SharedNoiseModel model = dedge.noiseModel();
-  boost::shared_ptr<gtsam::noiseModel::Gaussian> gaussianModel =
-      boost::dynamic_pointer_cast<gtsam::noiseModel::Gaussian>(model);
+  auto gaussianModel = cast_to_ptr<gtsam::noiseModel::Gaussian>(model);
   if (!gaussianModel) {
     model->print("model\n");
     throw std::invalid_argument("DeformationGraph save: invalid noise model. ");
@@ -63,9 +67,9 @@ void streamDedgeFactor(const DeformationEdgeFactor& dedge,
   const gtsam::Point3 p = from.translation();
   const auto q = from.rotation().toQuaternion();
   const gtsam::Point3 to = dedge.toPoint();
-  stream << dedge.key1() << " " << dedge.key2() << " " << p.x() << " " << p.y()
-         << " " << p.z() << " " << q.x() << " " << q.y() << " " << q.z() << " "
-         << q.w() << " " << to.x() << " " << to.y() << " " << to.z();
+  stream << dedge.key1() << " " << dedge.key2() << " " << p.x() << " " << p.y() << " "
+         << p.z() << " " << q.x() << " " << q.y() << " " << q.z() << " " << q.w() << " "
+         << to.x() << " " << to.y() << " " << to.z();
 
   for (size_t i = 0; i < 3; i++) {
     for (size_t j = i; j < 3; j++) {
@@ -78,8 +82,7 @@ void streamPriorFactor(const gtsam::PriorFactor<gtsam::Pose3>& prior,
                        std::ofstream& stream) {
   std::string str;
   gtsam::SharedNoiseModel model = prior.noiseModel();
-  boost::shared_ptr<gtsam::noiseModel::Gaussian> gaussianModel =
-      boost::dynamic_pointer_cast<gtsam::noiseModel::Gaussian>(model);
+  auto gaussianModel = cast_to_ptr<gtsam::noiseModel::Gaussian>(model);
   if (!gaussianModel) {
     model->print("model\n");
     throw std::invalid_argument("DeformationGraph save: invalid noise model. ");
@@ -88,8 +91,8 @@ void streamPriorFactor(const gtsam::PriorFactor<gtsam::Pose3>& prior,
   const gtsam::Pose3 meas = prior.prior();
   const gtsam::Point3 p = meas.translation();
   const auto q = meas.rotation().toQuaternion();
-  stream << prior.key() << " " << p.x() << " " << p.y() << " " << p.z() << " "
-         << q.x() << " " << q.y() << " " << q.z() << " " << q.w();
+  stream << prior.key() << " " << p.x() << " " << p.y() << " " << p.z() << " " << q.x()
+         << " " << q.y() << " " << q.z() << " " << q.w();
 
   for (size_t i = 0; i < 6; i++) {
     for (size_t j = i; j < 6; j++) {
@@ -131,23 +134,21 @@ void DeformationGraph::save(const std::string& filename) const {
 
   // save factors
   for (const auto& factor : nfg_) {
-    auto between =
-        boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3>>(factor);
+    auto between = cast_to_ptr<gtsam::BetweenFactor<gtsam::Pose3>>(factor);
     if (between) {
       stream << "BETWEEN ";
       streamBetweenFactor(*between, stream);
       stream << std::endl;
     }
 
-    auto dedge = boost::dynamic_pointer_cast<DeformationEdgeFactor>(factor);
+    auto dedge = cast_to_ptr<DeformationEdgeFactor>(factor);
     if (dedge) {
       stream << "DEDGE ";
       streamDedgeFactor(*dedge, stream);
       stream << std::endl;
     }
 
-    auto prior =
-        boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3>>(factor);
+    auto prior = cast_to_ptr<gtsam::PriorFactor<gtsam::Pose3>>(factor);
     if (prior) {
       stream << "PRIOR ";
       streamPriorFactor(*prior, stream);
@@ -157,15 +158,14 @@ void DeformationGraph::save(const std::string& filename) const {
 
   // save temporary factors
   for (const auto& factor : temp_nfg_) {
-    auto between =
-        boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3>>(factor);
+    auto between = cast_to_ptr<gtsam::BetweenFactor<gtsam::Pose3>>(factor);
     if (between) {
       stream << "BETWEEN_TEMP ";
       streamBetweenFactor(*between, stream);
       stream << std::endl;
     }
 
-    auto dedge = boost::dynamic_pointer_cast<DeformationEdgeFactor>(factor);
+    auto dedge = cast_to_ptr<DeformationEdgeFactor>(factor);
     if (dedge) {
       stream << "DEDGE_TEMP ";
       streamDedgeFactor(*dedge, stream);
@@ -251,8 +251,7 @@ void DeformationGraph::load(const std::string& filename,
         gtsam_key2 = rekey(gtsam_key2, new_robot_id);
       }
       gtsam::Pose3 meas(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
-      gtsam::SharedNoiseModel noise =
-          gtsam::noiseModel::Gaussian::Information(m);
+      gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
       if (tag == "BETWEEN") {
         new_factors.add(
             gtsam::BetweenFactor<gtsam::Pose3>(gtsam_key1, gtsam_key2, meas, noise));
@@ -264,8 +263,7 @@ void DeformationGraph::load(const std::string& filename,
       size_t key1, key2;
       double x, y, z, qx, qy, qz, qw, to_x, to_y, to_z;
       gtsam::Matrix3 m;
-      ss >> key1 >> key2 >> x >> y >> z >> qx >> qy >> qz >> qw >> to_x >>
-          to_y >> to_z;
+      ss >> key1 >> key2 >> x >> y >> z >> qx >> qy >> qz >> qw >> to_x >> to_y >> to_z;
       for (size_t i = 0; i < 3; i++) {
         for (size_t j = i; j < 3; j++) {
           double e_ij;
@@ -282,8 +280,7 @@ void DeformationGraph::load(const std::string& filename,
       }
       gtsam::Pose3 from_pose(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
       gtsam::Point3 to_point(to_x, to_y, to_z);
-      gtsam::SharedNoiseModel noise =
-          gtsam::noiseModel::Gaussian::Information(m);
+      gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
       if (tag == "DEDGE") {
         new_factors.add(
             DeformationEdgeFactor(gtsam_key1, gtsam_key2, from_pose, to_point, noise));
@@ -311,8 +308,7 @@ void DeformationGraph::load(const std::string& filename,
         gtsam_key = rekey(gtsam_key, new_robot_id);
       }
       gtsam::Pose3 meas(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
-      gtsam::SharedNoiseModel noise =
-          gtsam::noiseModel::Gaussian::Information(m);
+      gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
       new_factors.add(gtsam::PriorFactor<gtsam::Pose3>(gtsam_key, meas, noise));
     } else if (tag == "VERTEX") {
       size_t key;

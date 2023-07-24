@@ -3,21 +3,38 @@
  * @brief  Unit-tests for main kimera pgmo class
  * @author Yun Chang
  */
-#include <ros/ros.h>
-
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
+#include <ros/ros.h>
 
 #include "gtest/gtest.h"
-
 #include "kimera_pgmo/KimeraPgmo.h"
 #include "kimera_pgmo/utils/CommonStructs.h"
 #include "test_artifacts.h"
 
 namespace kimera_pgmo {
+
+namespace {
+template <typename T, typename Ptr>
+const T* cast_factor(const Ptr& ptr, bool should_throw = false) {
+  if (!ptr) {
+    if (should_throw) {
+      throw std::runtime_error("bad pointer");
+    }
+    return nullptr;
+  }
+
+  auto cast = dynamic_cast<const T*>(ptr.get());
+  if (!cast && should_throw) {
+    throw std::runtime_error("bad cast");
+  }
+
+  return cast;
+}
+}  // namespace
 
 #define WRAP_SYSTEM(command)                                      \
   {                                                               \
@@ -106,7 +123,6 @@ class KimeraPgmoTest : public ::testing::Test {
   KimeraPgmo pgmo_;
 };
 
-
 TEST_F(KimeraPgmoTest, initialize) {
   ros::NodeHandle nh;
   bool init = pgmo_.initialize(nh);
@@ -150,11 +166,10 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
                                   values.at<gtsam::Pose3>(gtsam::Symbol('a', 1))));
 
   // check factors
-  EXPECT_TRUE(
-      boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(factors[0]));
+  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[0]));
 
   gtsam::BetweenFactor<gtsam::Pose3> factor0 =
-      *boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(factors[0]);
+      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[0]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
                                   factor0.measured()));
 
@@ -186,15 +201,13 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
                                   values.at<gtsam::Pose3>(gtsam::Symbol('a', 2))));
 
   // check factors (rpgo orders in: odom, special, then lc, then lndmark)
-  EXPECT_TRUE(
-      boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(factors[1]));
-  EXPECT_TRUE(
-      boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(factors[3]));
+  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[1]));
+  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[3]));
 
   gtsam::BetweenFactor<gtsam::Pose3> factor1 =
-      *boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(factors[1]);
+      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[1]);
   gtsam::BetweenFactor<gtsam::Pose3> factor3 =
-      *boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(factors[3]);
+      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[3]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 0)),
                                   factor1.measured()));
   EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor3.front());
@@ -252,27 +265,24 @@ TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
   EXPECT_EQ(size_t(13), values.size());
 
   // And also add the connection of nodes and vertices
-  EXPECT_TRUE(
-      boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(factors[55]));
+  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[55]));
   gtsam::BetweenFactor<gtsam::Pose3> factor55 =
-      *boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(factors[55]);
+      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[55]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
                                   factor55.measured()));
   EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor55.front());
   EXPECT_EQ(gtsam::Symbol('a', 2).key(), factor55.back());
 
   // Check deformation edge factors
-  EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[3]));
-  DeformationEdgeFactor factor3 =
-      *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[3]);
+  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[3]));
+  DeformationEdgeFactor factor3 = *cast_factor<DeformationEdgeFactor>(factors[3]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(), factor3.fromPose()));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor3.toPoint()));
   EXPECT_EQ(gtsam::Symbol('s', 0), factor3.front());
   EXPECT_EQ(gtsam::Symbol('s', 1), factor3.back());
 
-  EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[53]));
-  DeformationEdgeFactor factor53 =
-      *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[53]);
+  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[53]));
+  DeformationEdgeFactor factor53 = *cast_factor<DeformationEdgeFactor>(factors[53]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
                                   factor53.fromPose()));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(2, 0, 1), factor53.toPoint()));
@@ -450,17 +460,14 @@ TEST_F(KimeraPgmoTest, optimizedPathCallback) {
                           1e-4));
 
   // check factors
-  EXPECT_TRUE(
-      boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(factors[0]));
-  EXPECT_TRUE(
-      boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(factors[1]));
-  EXPECT_TRUE(
-      boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(factors[2]));
+  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[0]));
+  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3> >(factors[1]));
+  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3> >(factors[2]));
 
   gtsam::PriorFactor<gtsam::Pose3> factor1 =
-      *boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(factors[1]);
+      *cast_factor<gtsam::PriorFactor<gtsam::Pose3> >(factors[1]);
   gtsam::PriorFactor<gtsam::Pose3> factor2 =
-      *boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(factors[2]);
+      *cast_factor<gtsam::PriorFactor<gtsam::Pose3> >(factors[2]);
 
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(1, 0, 0)), factor1.prior()));
@@ -504,15 +511,12 @@ TEST_F(KimeraPgmoTest, optimizedPathCallback) {
                                   1e-4));
 
   // check factors
-  EXPECT_TRUE(
-      boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(factors[0]));
-  EXPECT_TRUE(
-      boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(factors[1]));
-  EXPECT_TRUE(
-      boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(factors[2]));
+  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[0]));
+  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3> >(factors[1]));
+  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3> >(factors[2]));
 
-  factor1 = *boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(factors[1]);
-  factor2 = *boost::dynamic_pointer_cast<gtsam::PriorFactor<gtsam::Pose3> >(factors[2]);
+  factor1 = *cast_factor<gtsam::PriorFactor<gtsam::Pose3> >(factors[1]);
+  factor2 = *cast_factor<gtsam::PriorFactor<gtsam::Pose3> >(factors[2]);
 
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 0.5, 0)),
                                   factor1.prior()));
@@ -563,27 +567,24 @@ TEST_F(KimeraPgmoTest, checkRobotIdMeshCallback) {
   EXPECT_EQ(size_t(13), values.size());
 
   // And also add the connection of nodes and vertices
-  EXPECT_TRUE(
-      boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(factors[55]));
+  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[55]));
   gtsam::BetweenFactor<gtsam::Pose3> factor55 =
-      *boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(factors[55]);
+      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[55]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
                                   factor55.measured()));
   EXPECT_EQ(gtsam::Symbol('c', 0).key(), factor55.front());
   EXPECT_EQ(gtsam::Symbol('c', 2).key(), factor55.back());
 
   // Check deformation edge factors
-  EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[3]));
-  DeformationEdgeFactor factor3 =
-      *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[3]);
+  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[3]));
+  DeformationEdgeFactor factor3 = *cast_factor<DeformationEdgeFactor>(factors[3]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(), factor3.fromPose()));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor3.toPoint()));
   EXPECT_EQ(gtsam::Symbol('u', 0), factor3.front());
   EXPECT_EQ(gtsam::Symbol('u', 1), factor3.back());
 
-  EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[53]));
-  DeformationEdgeFactor factor53 =
-      *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[53]);
+  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[53]));
+  DeformationEdgeFactor factor53 = *cast_factor<DeformationEdgeFactor>(factors[53]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
                                   factor53.fromPose()));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(2, 0, 1), factor53.toPoint()));
@@ -644,18 +645,16 @@ TEST_F(KimeraPgmoTest, sparseKeyFrames) {
   factors.print("factors\n");
 
   // And also add the connection of nodes and vertices
-  EXPECT_TRUE(
-      boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(factors[1]));
+  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[1]));
   gtsam::BetweenFactor<gtsam::Pose3> factor1 =
-      *boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(factors[1]);
+      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[1]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
                                   factor1.measured()));
   EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor1.front());
   EXPECT_EQ(gtsam::Symbol('a', 1).key(), factor1.back());
 
-  EXPECT_TRUE(boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[53]));
-  DeformationEdgeFactor factor53 =
-      *boost::dynamic_pointer_cast<DeformationEdgeFactor>(factors[53]);
+  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[53]));
+  DeformationEdgeFactor factor53 = *cast_factor<DeformationEdgeFactor>(factors[53]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
                                   factor53.fromPose()));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(2, 0, 1), factor53.toPoint()));

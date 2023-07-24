@@ -1,5 +1,3 @@
-#include "gtest/gtest.h"
-
 #include <gtsam/base/numericalDerivative.h>
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/inference/Symbol.h>
@@ -7,6 +5,7 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 
+#include "gtest/gtest.h"
 #include "kimera_pgmo/DeformationGraph.h"
 #include "test_config.h"
 
@@ -28,34 +27,25 @@ TEST(test_deformation_edge_factor, ZeroRotation) {
   DeformationEdgeFactor factor(1, 2, node_1, node_2, noise);
 
   gtsam::Matrix actualH1, actualH2;
-  gtsam::Vector actual =
-      factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
+  gtsam::Vector actual = factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
   gtsam::Vector expected = Point3(-1, 0, 0);
 
   EXPECT_TRUE(gtsam::assert_equal(expected, actual));
 
   gtsam::Matrix numericalH1 =
       gtsam::numericalDerivative21<gtsam::Vector3, Pose3, Pose3>(
-          boost::function<gtsam::Vector(const Pose3&, const Pose3&)>(
-              boost::bind(&DeformationEdgeFactor::evaluateError,
-                          factor,
-                          _1,
-                          _2,
-                          boost::none,
-                          boost::none)),
+          [&factor](const Pose3& lhs, const Pose3& rhs) {
+            return factor.evaluateError(lhs, rhs);
+          },
           pose_1,
           pose_2,
           1e-5);
   EXPECT_TRUE(gtsam::assert_equal(numericalH1, actualH1, 1E-5));
   gtsam::Matrix numericalH2 =
       gtsam::numericalDerivative22<gtsam::Vector3, Pose3, Pose3>(
-          boost::function<gtsam::Vector(const Pose3&, const Pose3&)>(
-              boost::bind(&DeformationEdgeFactor::evaluateError,
-                          factor,
-                          _1,
-                          _2,
-                          boost::none,
-                          boost::none)),
+          [&factor](const Pose3& lhs, const Pose3& rhs) {
+            return factor.evaluateError(lhs, rhs);
+          },
           pose_1,
           pose_2,
           1e-5);
@@ -75,34 +65,25 @@ TEST(test_deformation_edge_factor, ZeroTranslation1) {
   DeformationEdgeFactor factor(1, 2, node_1, node_2, noise);
 
   gtsam::Matrix actualH1, actualH2;
-  gtsam::Vector actual =
-      factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
+  gtsam::Vector actual = factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
   gtsam::Vector expected = Point3(0, 0, 0);
 
   EXPECT_TRUE(gtsam::assert_equal(expected, actual));
 
   gtsam::Matrix numericalH1 =
       gtsam::numericalDerivative21<gtsam::Vector3, Pose3, Pose3>(
-          boost::function<gtsam::Vector(const Pose3&, const Pose3&)>(
-              boost::bind(&DeformationEdgeFactor::evaluateError,
-                          factor,
-                          _1,
-                          _2,
-                          boost::none,
-                          boost::none)),
+          [&factor](const Pose3& lhs, const Pose3& rhs) {
+            return factor.evaluateError(lhs, rhs);
+          },
           pose_1,
           pose_2,
           1e-5);
   EXPECT_TRUE(gtsam::assert_equal(numericalH1, actualH1, 1E-5));
   gtsam::Matrix numericalH2 =
       gtsam::numericalDerivative22<gtsam::Vector3, Pose3, Pose3>(
-          boost::function<gtsam::Vector(const Pose3&, const Pose3&)>(
-              boost::bind(&DeformationEdgeFactor::evaluateError,
-                          factor,
-                          _1,
-                          _2,
-                          boost::none,
-                          boost::none)),
+          [&factor](const Pose3& lhs, const Pose3& rhs) {
+            return factor.evaluateError(lhs, rhs);
+          },
           pose_1,
           pose_2,
           1e-5);
@@ -122,34 +103,25 @@ TEST(test_deformation_edge_factor, ZeroTranslation2) {
   DeformationEdgeFactor factor(1, 2, node_1, node_2, noise);
 
   gtsam::Matrix actualH1, actualH2;
-  gtsam::Vector actual =
-      factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
+  gtsam::Vector actual = factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
   gtsam::Vector expected = Point3(-2, -2, 1);
 
   EXPECT_TRUE(gtsam::assert_equal(expected, actual));
 
   gtsam::Matrix numericalH1 =
       gtsam::numericalDerivative21<gtsam::Vector3, Pose3, Pose3>(
-          boost::function<gtsam::Vector(const Pose3&, const Pose3&)>(
-              boost::bind(&DeformationEdgeFactor::evaluateError,
-                          factor,
-                          _1,
-                          _2,
-                          boost::none,
-                          boost::none)),
+          [&factor](const Pose3& lhs, const Pose3& rhs) {
+            return factor.evaluateError(lhs, rhs);
+          },
           pose_1,
           pose_2,
           1e-5);
   EXPECT_TRUE(gtsam::assert_equal(numericalH1, actualH1, 1E-5));
   gtsam::Matrix numericalH2 =
       gtsam::numericalDerivative22<gtsam::Vector3, Pose3, Pose3>(
-          boost::function<gtsam::Vector(const Pose3&, const Pose3&)>(
-              boost::bind(&DeformationEdgeFactor::evaluateError,
-                          factor,
-                          _1,
-                          _2,
-                          boost::none,
-                          boost::none)),
+          [&factor](const Pose3& lhs, const Pose3& rhs) {
+            return factor.evaluateError(lhs, rhs);
+          },
           pose_1,
           pose_2,
           1e-5);
@@ -169,35 +141,27 @@ TEST(test_deformation_edge_factor, Simple) {
   DeformationEdgeFactor factor(1, 2, node_1, node_2, noise);
 
   gtsam::Matrix actualH1, actualH2;
-  gtsam::Vector actual =
-      factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
-  gtsam::Vector expected = pose_1.transformFrom((node_2 - node_1.translation()).eval()) -
-                           pose_2.translation();
+  gtsam::Vector actual = factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
+  gtsam::Vector expected =
+      pose_1.transformFrom((node_2 - node_1.translation()).eval()) -
+      pose_2.translation();
 
   EXPECT_TRUE(gtsam::assert_equal(expected, actual));
 
   gtsam::Matrix numericalH1 =
       gtsam::numericalDerivative21<gtsam::Vector3, Pose3, Pose3>(
-          boost::function<gtsam::Vector(const Pose3&, const Pose3&)>(
-              boost::bind(&DeformationEdgeFactor::evaluateError,
-                          factor,
-                          _1,
-                          _2,
-                          boost::none,
-                          boost::none)),
+          [&factor](const Pose3& lhs, const Pose3& rhs) {
+            return factor.evaluateError(lhs, rhs);
+          },
           pose_1,
           pose_2,
           1e-5);
   EXPECT_TRUE(gtsam::assert_equal(numericalH1, actualH1, 1E-5));
   gtsam::Matrix numericalH2 =
       gtsam::numericalDerivative22<gtsam::Vector3, Pose3, Pose3>(
-          boost::function<gtsam::Vector(const Pose3&, const Pose3&)>(
-              boost::bind(&DeformationEdgeFactor::evaluateError,
-                          factor,
-                          _1,
-                          _2,
-                          boost::none,
-                          boost::none)),
+          [&factor](const Pose3& lhs, const Pose3& rhs) {
+            return factor.evaluateError(lhs, rhs);
+          },
           pose_1,
           pose_2,
           1e-5);
@@ -217,34 +181,25 @@ TEST(test_deformation_edge_factor, Relative1) {
   DeformationEdgeFactor factor(1, 2, node_1, node_2, noise);
 
   gtsam::Matrix actualH1, actualH2;
-  gtsam::Vector actual =
-      factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
+  gtsam::Vector actual = factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
   gtsam::Vector expected = Point3(0, 0, 0);
 
   EXPECT_TRUE(gtsam::assert_equal(expected, actual));
 
   gtsam::Matrix numericalH1 =
       gtsam::numericalDerivative21<gtsam::Vector3, Pose3, Pose3>(
-          boost::function<gtsam::Vector(const Pose3&, const Pose3&)>(
-              boost::bind(&DeformationEdgeFactor::evaluateError,
-                          factor,
-                          _1,
-                          _2,
-                          boost::none,
-                          boost::none)),
+          [&factor](const Pose3& lhs, const Pose3& rhs) {
+            return factor.evaluateError(lhs, rhs);
+          },
           pose_1,
           pose_2,
           1e-5);
   EXPECT_TRUE(gtsam::assert_equal(numericalH1, actualH1, 1E-5));
   gtsam::Matrix numericalH2 =
       gtsam::numericalDerivative22<gtsam::Vector3, Pose3, Pose3>(
-          boost::function<gtsam::Vector(const Pose3&, const Pose3&)>(
-              boost::bind(&DeformationEdgeFactor::evaluateError,
-                          factor,
-                          _1,
-                          _2,
-                          boost::none,
-                          boost::none)),
+          [&factor](const Pose3& lhs, const Pose3& rhs) {
+            return factor.evaluateError(lhs, rhs);
+          },
           pose_1,
           pose_2,
           1e-5);
@@ -264,37 +219,29 @@ TEST(test_deformation_edge_factor, Relative2) {
   DeformationEdgeFactor factor(1, 2, node_1, node_2, noise);
 
   gtsam::Matrix actualH1, actualH2;
-  gtsam::Vector actual =
-      factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
+  gtsam::Vector actual = factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
   gtsam::Vector expected = Point3(0, -2, 0);
 
   EXPECT_TRUE(gtsam::assert_equal(expected, actual));
 
   gtsam::Matrix numericalH1 =
       gtsam::numericalDerivative21<gtsam::Vector3, Pose3, Pose3>(
-          boost::function<gtsam::Vector(const Pose3&, const Pose3&)>(
-              boost::bind(&DeformationEdgeFactor::evaluateError,
-                          factor,
-                          _1,
-                          _2,
-                          boost::none,
-                          boost::none)),
+          [&factor](const Pose3& lhs, const Pose3& rhs) {
+            return factor.evaluateError(lhs, rhs);
+          },
           pose_1,
           pose_2,
           1e-5);
   EXPECT_TRUE(gtsam::assert_equal(numericalH1, actualH1, 1E-5));
   gtsam::Matrix numericalH2 =
       gtsam::numericalDerivative22<gtsam::Vector3, Pose3, Pose3>(
-          boost::function<gtsam::Vector(const Pose3&, const Pose3&)>(
-              boost::bind(&DeformationEdgeFactor::evaluateError,
-                          factor,
-                          _1,
-                          _2,
-                          boost::none,
-                          boost::none)),
+          [&factor](const Pose3& lhs, const Pose3& rhs) {
+            return factor.evaluateError(lhs, rhs);
+          },
           pose_1,
           pose_2,
           1e-5);
   EXPECT_TRUE(gtsam::assert_equal(numericalH2, actualH2, 1E-5));
 }
+
 }  // namespace kimera_pgmo

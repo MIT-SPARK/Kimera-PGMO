@@ -7,17 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(catkin_simple REQUIRED)
 
-find_package(Boost REQUIRED COMPONENTS
-  date_time
-  serialization
-  thread
-  filesystem
-  system
-  regex
-  timer
-  chrono
-)
-
+set(PCL_FIND_QUIETLY TRUE)
 find_package(PCL REQUIRED COMPONENTS
   common
   io
@@ -51,11 +41,9 @@ src/KimeraPgmoInterface.cpp
 )
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
-  ${Boost_LIBRARIES}
   ${PCL_LIBRARIES}
   KimeraRPGO
   gtsam
-  tbb
 )
 
 cs_add_executable(kimera_pgmo_node

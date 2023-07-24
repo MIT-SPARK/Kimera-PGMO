@@ -3,9 +3,7 @@
  * @brief  Some common functions used in library
  * @author Yun Chang
  */
-#include <algorithm>
-#include <chrono>
-#include <limits>
+#include "kimera_pgmo/utils/CommonFunctions.h"
 
 #include <geometry_msgs/Point.h>
 #include <gtsam/slam/BetweenFactor.h>
@@ -18,15 +16,17 @@
 #include <std_msgs/ColorRGBA.h>
 #include <voxblox_msgs/MeshBlock.h>
 
-#include "kimera_pgmo/utils/CommonFunctions.h"
+#include <algorithm>
+#include <chrono>
+#include <limits>
+
 #include "kimera_pgmo/utils/happly/happly.h"
 
 namespace kimera_pgmo {
 
-void ReadMeshWithStampsFromPly(const std::string &filename,
+void ReadMeshWithStampsFromPly(const std::string& filename,
                                pcl::PolygonMeshPtr mesh,
-                               std::vector<ros::Time> *vertex_stamps) {
-
+                               std::vector<ros::Time>* vertex_stamps) {
   if (NULL == mesh) {
     return;
   }
@@ -34,18 +34,15 @@ void ReadMeshWithStampsFromPly(const std::string &filename,
   ReadMeshWithStampsFromPly(filename, *mesh, vertex_stamps);
 }
 
-void ReadMeshWithStampsFromPly(const std::string &filename,
+void ReadMeshWithStampsFromPly(const std::string& filename,
                                pcl::PolygonMesh& mesh,
-                               std::vector<ros::Time> *vertex_stamps) {
+                               std::vector<ros::Time>* vertex_stamps) {
   happly::PLYData ply_in(filename);
 
   // Get data from the object
-  std::vector<float> vertices_x =
-      ply_in.getElement("vertex").getProperty<float>("x");
-  std::vector<float> vertices_y =
-      ply_in.getElement("vertex").getProperty<float>("y");
-  std::vector<float> vertices_z =
-      ply_in.getElement("vertex").getProperty<float>("z");
+  std::vector<float> vertices_x = ply_in.getElement("vertex").getProperty<float>("x");
+  std::vector<float> vertices_y = ply_in.getElement("vertex").getProperty<float>("y");
+  std::vector<float> vertices_z = ply_in.getElement("vertex").getProperty<float>("z");
   size_t num_vertices = vertices_x.size();
   std::vector<uint8_t> vertices_r, vertices_g, vertices_b, vertices_a;
   try {
@@ -89,15 +86,14 @@ void ReadMeshWithStampsFromPly(const std::string &filename,
     // Extract stamps
     vertex_stamps->clear();
     for (size_t i = 0; i < num_vertices; i++) {
-      vertex_stamps->push_back(
-          ros::Time(vertices_sec.at(i), vertices_nsec.at(i)));
+      vertex_stamps->push_back(ros::Time(vertices_sec.at(i), vertices_nsec.at(i)));
     }
   }
 
   // Extract surface data
   for (size_t i = 0; i < num_faces; i++) {
     pcl::Vertices tri;
-    for (const auto &v : faces[i]) {
+    for (const auto& v : faces[i]) {
       tri.vertices.push_back(v);
     }
     mesh.polygons.push_back(tri);
@@ -113,14 +109,13 @@ void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh) {
   WriteMeshWithStampsToPly(filename, mesh, unused);
 }
 
-void WriteMeshWithStampsToPly(const std::string &filename,
-                              const pcl::PolygonMesh &mesh,
-                              const std::vector<ros::Time> &vertex_stamps) {
+void WriteMeshWithStampsToPly(const std::string& filename,
+                              const pcl::PolygonMesh& mesh,
+                              const std::vector<ros::Time>& vertex_stamps) {
   std::filebuf fb_ascii;
   fb_ascii.open(filename, std::ios::out);
   std::ostream outstream_ascii(&fb_ascii);
-  if (outstream_ascii.fail())
-    throw std::runtime_error("failed to open " + filename);
+  if (outstream_ascii.fail()) throw std::runtime_error("failed to open " + filename);
 
   std::vector<std::vector<uint32_t>> triangles;
   // Convert to polygon mesh type
@@ -167,8 +162,7 @@ void WriteMeshWithStampsToPly(const std::string &filename,
       stamps_nsec.push_back(ros_time.nsec);
     }
     output_file.getElement("vertex").addProperty<uint32_t>("secs", stamps_sec);
-    output_file.getElement("vertex").addProperty<uint32_t>("nsecs",
-                                                           stamps_nsec);
+    output_file.getElement("vertex").addProperty<uint32_t>("nsecs", stamps_nsec);
   }
 
   output_file.addElement("face", triangles.size());
@@ -201,8 +195,7 @@ mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
     new_mesh.vertices[i] = p;
     // Point color
     std_msgs::ColorRGBA color;
-    constexpr float color_conv_factor =
-        1.0f / std::numeric_limits<uint8_t>::max();
+    constexpr float color_conv_factor = 1.0f / std::numeric_limits<uint8_t>::max();
     color.r = color_conv_factor * static_cast<float>(vertices.points[i].r);
     color.g = color_conv_factor * static_cast<float>(vertices.points[i].g);
     color.b = color_conv_factor * static_cast<float>(vertices.points[i].b);
@@ -223,11 +216,10 @@ mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
   return new_mesh;
 }
 
-KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(
-    const size_t& id,
-    const pcl::PolygonMesh& polygon_mesh,
-    const std::vector<ros::Time>& vertex_timestamps,
-    const std::string& frame_id) {
+KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(const size_t& id,
+                                        const pcl::PolygonMesh& polygon_mesh,
+                                        const std::vector<ros::Time>& vertex_timestamps,
+                                        const std::string& frame_id) {
   pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
   pcl::fromPCLPointCloud2(polygon_mesh.cloud, vertices_cloud);
 
@@ -262,8 +254,7 @@ KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(
     new_mesh.vertices[i] = p;
     // Point color
     std_msgs::ColorRGBA color;
-    constexpr float color_conv_factor =
-        1.0f / std::numeric_limits<uint8_t>::max();
+    constexpr float color_conv_factor = 1.0f / std::numeric_limits<uint8_t>::max();
     color.r = color_conv_factor * static_cast<float>(vertices.points[i].r);
     color.g = color_conv_factor * static_cast<float>(vertices.points[i].g);
     color.b = color_conv_factor * static_cast<float>(vertices.points[i].b);
@@ -292,15 +283,13 @@ KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(
   return new_mesh;
 }
 
-pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
-    const mesh_msgs::TriangleMesh& mesh_msg) {
+pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(const mesh_msgs::TriangleMesh& mesh_msg) {
   pcl::PolygonMesh mesh;
   if (mesh_msg.vertices.size() == 0) return mesh;
   // Convert vertices
   pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
   bool color = (mesh_msg.vertex_colors.size() == mesh_msg.vertices.size());
-  constexpr float color_conv_factor =
-      1.0f * std::numeric_limits<uint8_t>::max();
+  constexpr float color_conv_factor = 1.0f * std::numeric_limits<uint8_t>::max();
   for (size_t i = 0; i < mesh_msg.vertices.size(); i++) {
     const geometry_msgs::Point& p = mesh_msg.vertices[i];
     pcl::PointXYZRGBA point;
@@ -328,10 +317,9 @@ pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(
   return mesh;
 }
 
-pcl::PolygonMesh PgmoMeshMsgToPolygonMesh(
-    const KimeraPgmoMesh& mesh_msg,
-    std::vector<ros::Time>* vertex_stamps,
-    std::vector<int>* vertex_graph_indices) {
+pcl::PolygonMesh PgmoMeshMsgToPolygonMesh(const KimeraPgmoMesh& mesh_msg,
+                                          std::vector<ros::Time>* vertex_stamps,
+                                          std::vector<int>* vertex_graph_indices) {
   pcl::PolygonMesh mesh;
 
   assert(mesh_msg.vertices.size() == mesh_msg.vertex_stamps.size());
@@ -348,8 +336,7 @@ pcl::PolygonMesh PgmoMeshMsgToPolygonMesh(
   // Convert vertices
   pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
   bool color = (mesh_msg.vertex_colors.size() == mesh_msg.vertices.size());
-  constexpr float color_conv_factor =
-      1.0f * std::numeric_limits<uint8_t>::max();
+  constexpr float color_conv_factor = 1.0f * std::numeric_limits<uint8_t>::max();
   for (size_t i = 0; i < mesh_msg.vertices.size(); i++) {
     const geometry_msgs::Point& p = mesh_msg.vertices[i];
     pcl::PointXYZRGBA point;
@@ -389,8 +376,7 @@ gtsam::Pose3 RosToGtsam(const geometry_msgs::Pose& transform) {
                   transform.orientation.x,
                   transform.orientation.y,
                   transform.orientation.z),
-      gtsam::Point3(
-          transform.position.x, transform.position.y, transform.position.z));
+      gtsam::Point3(transform.position.x, transform.position.y, transform.position.z));
   return pose;
 }
 
@@ -567,22 +553,20 @@ bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2) {
 }
 
 // Convert gtsam posegaph to PoseGraph msg
-GraphMsgPtr GtsamGraphToRos(
-    const gtsam::NonlinearFactorGraph& factors,
-    const gtsam::Values& values,
-    const std::map<size_t, std::vector<ros::Time> >& timestamps,
-    const gtsam::Vector& gnc_weights) {
+GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
+                            const gtsam::Values& values,
+                            const std::map<size_t, std::vector<ros::Time>>& timestamps,
+                            const gtsam::Vector& gnc_weights) {
   std::vector<pose_graph_tools::PoseGraphEdge> edges;
 
   // first store the factors as edges
   for (size_t i = 0; i < factors.size(); i++) {
+    const auto factor_ptr =
+        dynamic_cast<const gtsam::BetweenFactor<gtsam::Pose3>*>(factors[i].get());
     // check if between factor
-    if (boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(
-            factors[i])) {
+    if (factor_ptr) {
       // convert to between factor
-      const gtsam::BetweenFactor<gtsam::Pose3>& factor =
-          *boost::dynamic_pointer_cast<gtsam::BetweenFactor<gtsam::Pose3> >(
-              factors[i]);
+      const auto& factor = *factor_ptr;
       // convert between factor to PoseGraphEdge type
       pose_graph_tools::PoseGraphEdge edge;
       edge.header.frame_id = "world";
@@ -615,8 +599,7 @@ GraphMsgPtr GtsamGraphToRos(
       edge.pose.position.y = translation.y();
       edge.pose.position.z = translation.z();
       // transforms - rotation (to quaternion)
-      const gtsam::Quaternion& quaternion =
-          factor.measured().rotation().toQuaternion();
+      const gtsam::Quaternion& quaternion = factor.measured().rotation().toQuaternion();
       edge.pose.orientation.x = quaternion.x();
       edge.pose.orientation.y = quaternion.y();
       edge.pose.orientation.z = quaternion.z();
@@ -624,8 +607,7 @@ GraphMsgPtr GtsamGraphToRos(
 
       // transfer covariance
       gtsam::Matrix66 covariance =
-          boost::dynamic_pointer_cast<gtsam::noiseModel::Gaussian>(
-              factor.noiseModel())
+          dynamic_cast<const gtsam::noiseModel::Gaussian*>(factor.noiseModel().get())
               ->covariance();
       for (size_t i = 0; i < edge.covariance.size(); i++) {
         size_t row = static_cast<size_t>(i / 6);
@@ -675,18 +657,17 @@ GraphMsgPtr GtsamGraphToRos(
     }
   }
 
-  pose_graph_tools::PoseGraph posegraph;
-  posegraph.header.stamp = ros::Time::now();
-  posegraph.header.frame_id = "world";
-  posegraph.nodes = nodes;
-  posegraph.edges = edges;
-  return boost::make_shared<pose_graph_tools::PoseGraph>(posegraph);
+  pose_graph_tools::PoseGraph::Ptr posegraph(new pose_graph_tools::PoseGraph());
+  posegraph->header.stamp = ros::Time::now();
+  posegraph->header.frame_id = "world";
+  posegraph->nodes = nodes;
+  posegraph->edges = edges;
+  return posegraph;
 }
 
-bool SurfaceExists(
-    const pcl::Vertices& new_surface,
-    const std::map<size_t, std::vector<size_t> >& adjacent_surfaces,
-    const std::vector<pcl::Vertices>& surfaces) {
+bool SurfaceExists(const pcl::Vertices& new_surface,
+                   const std::map<size_t, std::vector<size_t>>& adjacent_surfaces,
+                   const std::vector<pcl::Vertices>& surfaces) {
   // Degenerate face
   if (new_surface.vertices.size() < 3) return false;
 

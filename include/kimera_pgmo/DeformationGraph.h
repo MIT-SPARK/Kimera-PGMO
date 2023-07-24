@@ -5,19 +5,13 @@
  */
 #pragma once
 
-#include <map>
-#include <unordered_map>
-#include <vector>
-
+#include <KimeraRPGO/RobustSolver.h>
+#include <geometry_msgs/Pose.h>
 #include <gtsam/geometry/Point3.h>
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/nonlinear/NonlinearFactor.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
-
-#include <KimeraRPGO/RobustSolver.h>
-
-#include <geometry_msgs/Pose.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/common/io.h>
 #include <pcl/octree/octree_search.h>
@@ -25,10 +19,22 @@
 #include <pcl/point_types.h>
 #include <visualization_msgs/Marker.h>
 
+#include <map>
+#include <unordered_map>
+#include <vector>
+
 #include "kimera_pgmo/utils/CommonFunctions.h"
 #include "kimera_pgmo/utils/CommonStructs.h"
 
 namespace kimera_pgmo {
+
+#if GTSAM_VERSION_MAJOR <= 4 && GTSAM_VERSION_MINOR < 3
+using GtsamJacobianType = boost::optional<gtsam::Matrix&>;
+#define JACOBIAN_DEFAULT {}
+#else
+using GtsamJacobianType = gtsam::OptionalMatrixType;
+#define JACOBIAN_DEFAULT nullptr
+#endif
 
 /*! \brief Define a factor type for edges between two mesh vertices or between a
  * mesh vertex and a pose graph node to be added to deformation graph. Inherited
@@ -51,12 +57,13 @@ class DeformationEdgeFactor
                                                              node2_key),
         node1_pose(node1_pose),
         node2_position(node2_point) {}
-  ~DeformationEdgeFactor() {}
+
+  virtual ~DeformationEdgeFactor() {}
 
   gtsam::Vector evaluateError(const gtsam::Pose3& p1,
                               const gtsam::Pose3& p2,
-                              boost::optional<gtsam::Matrix&> H1 = boost::none,
-                              boost::optional<gtsam::Matrix&> H2 = boost::none) const {
+                              GtsamJacobianType H1 = JACOBIAN_DEFAULT,
+                              GtsamJacobianType H2 = JACOBIAN_DEFAULT) const {
     // position of node 2 in frame of node 1
     gtsam::Point3 t_12 = node1_pose.rotation().inverse().rotate(
         node2_position - node1_pose.translation());
@@ -69,26 +76,32 @@ class DeformationEdgeFactor
     gtsam::Point3 t2_2 = p2.translation(H_t2);
 
     // Calculate Jacobians
-    Eigen::MatrixXd Jacobian_1 = Eigen::MatrixXd::Zero(3, 6);
-    Jacobian_1.block<3, 3>(0, 0) = H_R1;
-    Jacobian_1 = Jacobian_1 + H_t1;
-    Eigen::MatrixXd Jacobian_2 = Eigen::MatrixXd::Zero(3, 6);
-    Jacobian_2 = Jacobian_2 - H_t2;
+    if (H1) {
+      Eigen::MatrixXd Jacobian_1 = Eigen::MatrixXd::Zero(3, 6);
+      Jacobian_1.block<3, 3>(0, 0) = H_R1;
+      Jacobian_1 = Jacobian_1 + H_t1;
+      *H1 = Jacobian_1;
+    }
 
-    if (H1) *H1 = Jacobian_1;
-    if (H2) *H2 = Jacobian_2;
+    if (H2) {
+      Eigen::MatrixXd Jacobian_2 = Eigen::MatrixXd::Zero(3, 6);
+      Jacobian_2 = Jacobian_2 - H_t2;
+      *H2 = Jacobian_2;
+    }
 
     return t2_1 - t2_2;
   }
 
   inline gtsam::Pose3 fromPose() const { return node1_pose; }
+
   inline gtsam::Point3 toPoint() const { return node2_position; }
 
   gtsam::NonlinearFactor::shared_ptr clone() const override {
-    return boost::static_pointer_cast<gtsam::NonlinearFactor>(
-        gtsam::NonlinearFactor::shared_ptr(new DeformationEdgeFactor(*this)));
+    return gtsam::NonlinearFactor::shared_ptr(new DeformationEdgeFactor(*this));
   }
 };
+
+#undef JACOBIAN_DEFAULT
 
 class DeformationGraph {
  public:
@@ -140,7 +153,7 @@ class DeformationGraph {
    *  - variance: covariance of the prior factors
    */
   void addNodeMeasurements(
-      const std::vector<std::pair<gtsam::Key, gtsam::Pose3> >& measurements,
+      const std::vector<std::pair<gtsam::Key, gtsam::Pose3>>& measurements,
       double variance = 1e-4);
 
   /*! \brief Initialize with new node of a trajectory
@@ -225,7 +238,7 @@ class DeformationGraph {
    *  - optimize: optimize or just add to pgo
    */
   void addNewMeshEdgesAndNodes(
-      const std::vector<std::pair<gtsam::Key, gtsam::Key> >& mesh_edges,
+      const std::vector<std::pair<gtsam::Key, gtsam::Key>>& mesh_edges,
       const gtsam::Values& mesh_nodes,
       const std::unordered_map<gtsam::Key, ros::Time>& node_stamps,
       std::vector<size_t>* added_indices,
@@ -382,7 +395,7 @@ class DeformationGraph {
    *  - outputs the pose graph in pose_graph_tools PoseGraph type
    */
   inline GraphMsgPtr getPoseGraph(
-      const std::map<size_t, std::vector<ros::Time> >& timestamps) const {
+      const std::map<size_t, std::vector<ros::Time>>& timestamps) const {
     return GtsamGraphToRos(nfg_, values_, timestamps, gnc_weights_);
   }
 
@@ -528,11 +541,11 @@ class DeformationGraph {
 
   // Keep track of vertices not part of mesh
   // for embedding trajectory, etc.
-  std::map<char, std::vector<gtsam::Pose3> > pg_initial_poses_;
+  std::map<char, std::vector<gtsam::Pose3>> pg_initial_poses_;
   std::unordered_map<gtsam::Key, gtsam::Pose3> temp_pg_initial_poses_;
 
-  std::map<char, std::vector<gtsam::Point3> > vertex_positions_;
-  std::map<char, std::vector<ros::Time> > vertex_stamps_;
+  std::map<char, std::vector<gtsam::Point3>> vertex_positions_;
+  std::map<char, std::vector<ros::Time>> vertex_stamps_;
 
   KimeraRPGO::RobustSolverParams pgo_params_;
   std::unique_ptr<KimeraRPGO::RobustSolver> pgo_;
@@ -561,7 +574,7 @@ class DeformationGraph {
 
   // Recalculate only if new measurements added
   bool recalculate_vertices_;
-  std::map<char, pcl::PointCloud<pcl::PointXYZRGBA> > last_calculated_vertices_;
+  std::map<char, pcl::PointCloud<pcl::PointXYZRGBA>> last_calculated_vertices_;
 };
 
 typedef std::shared_ptr<DeformationGraph> DeformationGraphPtr;
