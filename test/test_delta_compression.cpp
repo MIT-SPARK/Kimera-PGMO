@@ -5,10 +5,10 @@
  * @author Nathan Hughes
  */
 
+#include <chrono>
+
 #include "gtest/gtest.h"
 #include "kimera_pgmo/compression/DeltaCompression.h"
-
-#include <chrono>
 
 std::ostream& operator<<(std::ostream& out,
                          const std::unordered_map<size_t, size_t>& map) {
@@ -112,6 +112,19 @@ struct BlockConfig {
 
 uint8_t BlockConfig::point_index = 0;
 
+std::vector<Face> remapFaces(const std::vector<Face>& faces,
+                             const std::map<size_t, size_t>& remapping) {
+  std::vector<Face> to_return;
+  for (const auto& face : faces) {
+    Face new_face(remapping.at(face.v1),
+                  remapping.at(face.v2),
+                  remapping.at(face.v3));
+    to_return.push_back(new_face);
+  }
+
+  return to_return;
+}
+
 struct ExpectedDelta {
   size_t vertex_start;
   size_t face_start;
@@ -155,8 +168,9 @@ struct ExpectedDelta {
   void checkTriangles(const std::vector<Face>& result,
                       const std::map<size_t, size_t>& result_remapping) const {
     EXPECT_EQ(expected_triangles.size(), result.size())
-        << "expected: " << expected_triangles << ", result: " << result
-        << ", remapping: " << result_remapping;
+        << "expected: " << expected_triangles
+        << ", result: " << remapFaces(result, result_remapping)
+        << ", result (original): " << result;
 
     std::vector<Face> absolute_faces;
     for (size_t i = 0; i < result.size(); ++i) {

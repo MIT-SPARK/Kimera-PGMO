@@ -67,29 +67,26 @@ class DeltaCompression {
                 std::optional<uint32_t> semantic_label,
                 uint64_t timestamp_ns,
                 std::vector<size_t>& face_map,
-                std::vector<size_t>& active_remapping,
                 voxblox::LongIndexSet& curr_voxels);
 
-  void removeBlockObservations(const voxblox::LongIndexSet& to_remove);
+  void removeBlockObservations(const voxblox::BlockIndex& block_index,
+                               const voxblox::LongIndexSet& to_remove);
 
-  void addActiveFaces(uint64_t timestamp_ns,
-                      const std::vector<size_t>& active_remapping,
-                      VoxbloxIndexMapping* remapping);
+  void addActive(uint64_t stamp_ns, VoxbloxIndexMapping* remapping);
 
-  void addActiveVertices(uint64_t timestamp_ns, std::vector<size_t>& active_remapping);
+  void addActiveFaces(uint64_t timestamp_ns, VoxbloxIndexMapping* remapping);
+
+  void addActiveVertices(uint64_t timestamp_ns);
 
   void pruneMeshBlocks(const voxblox::BlockIndexList& to_clear);
 
-  void addPartialFaces();
+  void updateAndAddArchivedFaces();
 
-  void updateArchivedFaces(const std::map<size_t, size_t>& remapping);
+  void archiveBlockFaces();
 
-  void archiveBlockFaces(const voxblox::BlockIndexList& to_clear,
-                         const std::map<size_t, size_t>& remapping);
+  void updateRemapping(MeshInterface& mesh, uint64_t timestamp_ns);
 
-  void updateRemapping(MeshInterface& mesh,
-                       uint64_t timestamp_ns,
-                       VoxbloxIndexMapping* remapping);
+  bool canBeArchived(const Face& face, size_t archive_threshold) const;
 
   bool canBeArchived(const Face& face) const;
 
@@ -100,7 +97,9 @@ class DeltaCompression {
   MeshDelta::Ptr delta_;
   MeshDelta::Ptr archive_delta_;
 
+  std::vector<size_t> active_remapping_;
   BlockInfoMap block_info_map_;
+  BlockInfoMap archived_block_info_map_;
   VoxelInfoMap vertices_map_;
 
   std::vector<Face> archived_faces_;
