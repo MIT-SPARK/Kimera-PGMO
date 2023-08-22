@@ -124,10 +124,10 @@ void DeformationGraph::addNodeMeasurements(
     double variance) {
   for (auto keyed_pose : measurements) {
     if (!values_.exists(keyed_pose.first)) {
-      ROS_ERROR_STREAM("DeformationGraph: adding node measurement to a node "
-                       << gtsam::DefaultKeyFormatter(keyed_pose.first)
-                       << " not previously seen before.");
       if (!new_values_.exists(keyed_pose.first)) {
+        ROS_ERROR_STREAM("DeformationGraph: adding node measurement to a node "
+                         << gtsam::DefaultKeyFormatter(keyed_pose.first)
+                         << " not previously seen before.");
         new_values_.insert(keyed_pose.first, keyed_pose.second);
       } else {
         new_values_.update(keyed_pose.first, keyed_pose.second);
