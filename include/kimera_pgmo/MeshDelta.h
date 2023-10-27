@@ -12,10 +12,11 @@
 #include <pcl/point_types.h>
 #include <ros/ros.h>
 
-#include <vector>
 #include <optional>
+#include <vector>
 
 #include "kimera_pgmo/KimeraPgmoMeshDelta.h"
+#include "kimera_pgmo/utils/CommonStructs.h"
 
 namespace kimera_pgmo {
 
@@ -45,16 +46,21 @@ class MeshDelta {
 
   MeshDelta(const KimeraPgmoMeshDelta& msg);
 
+  MeshDelta(const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
+            const std::vector<Timestamp>& stamps,
+            const std::vector<pcl::Vertices>& faces,
+            std::optional<std::vector<uint32_t>> semantics = std::nullopt);
+
   void updateVertices(pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
-                      std::vector<ros::Time>* stamps = nullptr,
+                      std::vector<Timestamp>* stamps = nullptr,
                       std::vector<uint32_t>* semantics = nullptr) const;
 
   void updateMesh(pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
-                  std::vector<ros::Time>& stamps,
+                  std::vector<Timestamp>& stamps,
                   std::vector<pcl::Vertices>& faces,
                   std::vector<uint32_t>* semantics = nullptr) const;
 
-  size_t addVertex(uint64_t timestamp_ns,
+  size_t addVertex(Timestamp timestamp_ns,
                    const pcl::PointXYZRGBA& point,
                    std::optional<uint32_t> semantics = std::nullopt,
                    bool archive = false);
@@ -76,17 +82,17 @@ class MeshDelta {
   void checkFaces(const std::string& name) const;
 
   void validate(pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
-                std::vector<ros::Time>& stamps,
+                std::vector<Timestamp>& stamps,
                 std::vector<pcl::Vertices>& faces,
                 std::vector<uint32_t>* semantics = nullptr) const;
 
-  KimeraPgmoMeshDelta toRosMsg(uint64_t timestamp_ns) const;
+  KimeraPgmoMeshDelta toRosMsg(Timestamp timestamp_ns) const;
 
   size_t vertex_start = 0;
   size_t face_start = 0;
 
   std::vector<pcl::PointXYZRGBA> vertex_updates;
-  std::vector<uint64_t> stamp_updates;
+  std::vector<Timestamp> stamp_updates;
   std::vector<uint32_t> semantic_updates;
   std::vector<Face> face_updates;
   std::vector<Face> face_archive_updates;

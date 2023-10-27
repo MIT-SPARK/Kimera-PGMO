@@ -100,7 +100,7 @@ class KimeraPgmoTest : public ::testing::Test {
     return pgmo_.unconnected_nodes_;
   }
 
-  inline std::vector<ros::Time> getTimestamps() const { return pgmo_.timestamps_; }
+  inline std::vector<Timestamp> getTimestamps() const { return pgmo_.timestamps_; }
 
   inline gtsam::Values getValues() const { return pgmo_.getDeformationGraphValues(); }
 
@@ -142,7 +142,7 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
 
   std::vector<gtsam::Pose3> traj = getTrajectory();
   std::queue<size_t> unconnected_nodes = getUnconnectedNodes();
-  std::vector<ros::Time> stamps = getTimestamps();
+  std::vector<Timestamp> stamps = getTimestamps();
   gtsam::NonlinearFactorGraph factors = getFactors();
   gtsam::Values values = getValues();
 
@@ -157,7 +157,7 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(), traj[0]));
   EXPECT_EQ(0, unconnected_nodes.front());
   EXPECT_EQ(1, unconnected_nodes.back());
-  EXPECT_EQ(10.2, stamps[0].toSec());
+  EXPECT_EQ(stampFromSec(10.2), stamps[0]);
 
   // check values
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(),
@@ -194,7 +194,7 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
                                   traj[2]));
   EXPECT_EQ(2, unconnected_nodes.back());
-  EXPECT_EQ(20.3, stamps[2].toSec());
+  EXPECT_EQ(20.3, stampToSec(stamps[2]));
 
   // check values
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
@@ -361,9 +361,9 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
   // Add mesh to be deformed
   pcl::PolygonMesh full_mesh = createMesh(2, 2, 2);
   KimeraPgmoMesh::Ptr full_mesh_msg(new kimera_pgmo::KimeraPgmoMesh);
-  std::vector<ros::Time> full_vertex_stamps;
+  std::vector<Timestamp> full_vertex_stamps;
   for (size_t i = 0; i < full_mesh.cloud.width * full_mesh.cloud.height; i++) {
-    full_vertex_stamps.push_back(ros::Time(13.0));
+    full_vertex_stamps.push_back(stampFromSec(13.0));
   }
 
   *full_mesh_msg = PolygonMeshToPgmoMeshMsg(0, full_mesh, full_vertex_stamps, "world");
@@ -434,9 +434,9 @@ TEST_F(KimeraPgmoTest, optimizedPathCallback) {
   // Call full mesh callback to trigger optimization
   pcl::PolygonMesh full_mesh = createMesh(2, 2, 2);
   KimeraPgmoMesh::Ptr full_mesh_msg(new kimera_pgmo::KimeraPgmoMesh);
-  std::vector<ros::Time> full_vertex_stamps;
+  std::vector<Timestamp> full_vertex_stamps;
   for (size_t i = 0; i < full_mesh.cloud.width * full_mesh.cloud.height; i++) {
-    full_vertex_stamps.push_back(ros::Time(13.0));
+    full_vertex_stamps.push_back(stampFromSec(13.0));
   }
 
   *full_mesh_msg = PolygonMeshToPgmoMeshMsg(0, full_mesh, full_vertex_stamps, "world");
@@ -444,7 +444,7 @@ TEST_F(KimeraPgmoTest, optimizedPathCallback) {
 
   std::vector<gtsam::Pose3> traj = getTrajectory();
   std::queue<size_t> unconnected_nodes = getUnconnectedNodes();
-  std::vector<ros::Time> stamps = getTimestamps();
+  std::vector<Timestamp> stamps = getTimestamps();
   gtsam::NonlinearFactorGraph factors = getFactors();
   gtsam::Values values = getValues();
 
@@ -641,8 +641,6 @@ TEST_F(KimeraPgmoTest, sparseKeyFrames) {
   values = getValues();
   EXPECT_EQ(size_t(55), factors.size());
   EXPECT_EQ(size_t(12), values.size());
-
-  factors.print("factors\n");
 
   // And also add the connection of nodes and vertices
   EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[1]));

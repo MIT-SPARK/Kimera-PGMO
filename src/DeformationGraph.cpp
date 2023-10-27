@@ -39,6 +39,19 @@ bool DeformationGraph::initialize(const KimeraRPGO::RobustSolverParams& params) 
   return true;
 }
 
+void DeformationGraph::addNodeValenceEdge(const gtsam::Key& key,
+                                          const gtsam::Key& valence_key,
+                                          const gtsam::Pose3& node_pose,
+                                          const gtsam::Point3& valence_position,
+                                          double variance) {
+  static const gtsam::SharedNoiseModel& noise =
+      gtsam::noiseModel::Isotropic::Variance(3, variance);
+  const DeformationEdgeFactor new_edge(
+      key, valence_key, node_pose, valence_position, noise);
+  consistency_factors_.add(new_edge);
+  new_factors_.add(new_edge);
+}
+
 void DeformationGraph::addNodeValence(const gtsam::Key& key,
                                       const Vertices& valences,
                                       const char& valence_prefix,
@@ -277,9 +290,9 @@ void DeformationGraph::addNewTempEdges(const pose_graph_tools::PoseGraph& edges,
 void DeformationGraph::addNewMeshEdgesAndNodes(
     const std::vector<std::pair<gtsam::Key, gtsam::Key>>& mesh_edges,
     const gtsam::Values& mesh_nodes,
-    const std::unordered_map<gtsam::Key, ros::Time>& node_stamps,
+    const std::unordered_map<gtsam::Key, Timestamp>& node_stamps,
     std::vector<size_t>* added_indices,
-    std::vector<ros::Time>* added_index_stamps,
+    std::vector<Timestamp>* added_index_stamps,
     double variance) {
   assert(stamps.size() == mesh_nodes.size());
   // New mesh edge factors
@@ -319,8 +332,8 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
                         << node_prefix
                         << " detected when adding new mesh edges and nodes. ");
       }
-      vertex_positions_[node_prefix] = std::vector<gtsam::Point3>{};
-      vertex_stamps_[node_prefix] = std::vector<ros::Time>{};
+      vertex_positions_[node_prefix] = std::vector<gtsam::Point3>();
+      vertex_stamps_[node_prefix] = std::vector<Timestamp>();
       vertex_positions_[node_prefix].push_back(node_pose.translation());
       vertex_stamps_[node_prefix].push_back(node_stamps.at(k));
       new_mesh_nodes.insert(k, node_pose);
@@ -480,7 +493,7 @@ void DeformationGraph::removePriorsWithPrefix(const char& prefix) {
 }
 
 pcl::PolygonMesh DeformationGraph::deformMesh(const pcl::PolygonMesh& original_mesh,
-                                              const std::vector<ros::Time>& stamps,
+                                              const std::vector<Timestamp>& stamps,
                                               const std::vector<int>& graph_indices,
                                               const char& prefix,
                                               size_t k,
@@ -489,7 +502,7 @@ pcl::PolygonMesh DeformationGraph::deformMesh(const pcl::PolygonMesh& original_m
 }
 
 pcl::PolygonMesh DeformationGraph::deformMesh(const pcl::PolygonMesh& original_mesh,
-                                              const std::vector<ros::Time>& stamps,
+                                              const std::vector<Timestamp>& stamps,
                                               const std::vector<int>& graph_indices,
                                               const char& prefix,
                                               const gtsam::Values& optimized_values,
@@ -518,7 +531,7 @@ pcl::PolygonMesh DeformationGraph::deformMesh(const pcl::PolygonMesh& original_m
 
 size_t DeformationGraph::findStartIndex(char prefix,
                                         int start_index_hint,
-                                        const std::vector<ros::Time>& stamps,
+                                        const std::vector<Timestamp>& stamps,
                                         double tol_t) const {
   const bool have_prefix_vertices =
       last_calculated_vertices_.find(prefix) != last_calculated_vertices_.end();
@@ -535,8 +548,9 @@ size_t DeformationGraph::findStartIndex(char prefix,
     return start_index_hint;
   }
 
-  double min_time = std::max(0.0, vertex_stamps_.at(prefix).back().toSec() - tol_t);
-  const ros::Time min_stamp = ros::Time(min_time);
+  Timestamp min_stamp =
+      std::max(static_cast<Timestamp>(0),
+               vertex_stamps_.at(prefix).back() - stampFromSec(tol_t));
 
   auto bound = std::upper_bound(stamps.begin(), stamps.end(), min_stamp);
   return std::min(static_cast<size_t>(bound - stamps.begin()),
@@ -580,7 +594,7 @@ void DeformationGraph::predeformPoints(
 void DeformationGraph::deformPoints(
     pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
     const pcl::PointCloud<pcl::PointXYZRGBA>& old_vertices,
-    const std::vector<ros::Time>& stamps,
+    const std::vector<Timestamp>& stamps,
     char prefix,
     const gtsam::Values& optimized_values,
     size_t k,

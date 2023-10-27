@@ -202,7 +202,7 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
   size_t robot_id_;
   KimeraPgmoMesh original_mesh;
   pcl::PolygonMesh::Ptr optimized_mesh_;
-  std::vector<ros::Time> mesh_vertex_stamps_;
+  std::vector<Timestamp> mesh_vertex_stamps_;
   uint64_t max_diff_ns_;
 
   std::map<uint64_t, size_t> keyed_stamps_;

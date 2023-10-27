@@ -156,7 +156,7 @@ bool KimeraPgmo::publishOptimizedPath() const {
   if (optimized_path_->size() == 0) return false;
 
   std_msgs::Header msg_header;
-  msg_header.stamp = timestamps_.back();
+  msg_header.stamp.fromNSec(timestamps_.back());
   msg_header.frame_id = frame_id_;
   publishPath(*optimized_path_, msg_header, &optimized_path_pub_);
 
@@ -168,7 +168,7 @@ bool KimeraPgmo::publishOptimizedPath() const {
     const gtsam::Quaternion& quaternion = rotation.toQuaternion();
 
     // Create header.
-    odometry_msg.header.stamp = timestamps_.back();
+    odometry_msg.header.stamp.fromNSec(timestamps_.back());
     odometry_msg.header.frame_id = frame_id_;
 
     // Position
@@ -216,7 +216,7 @@ void KimeraPgmo::incrementalPoseGraphCallback(
 
   if (pose_graph_pub_.getNumSubscribers() > 0) {
     // Publish pose graph
-    std::map<size_t, std::vector<ros::Time> > id_timestamps;
+    std::map<size_t, std::vector<Timestamp> > id_timestamps;
     id_timestamps[robot_id_] = timestamps_;
     const GraphMsgPtr& pose_graph_ptr = deformation_graph_->getPoseGraph(id_timestamps);
     pose_graph_pub_.publish(*pose_graph_ptr);
@@ -332,7 +332,7 @@ void KimeraPgmo::publishTransforms() {
 
   geometry_msgs::TransformStamped transform;
   std::string frame_name = "pgmo_base_link_";
-  transform.header.stamp = timestamps_.back();
+  transform.header.stamp.fromNSec(timestamps_.back());
   transform.header.frame_id = "world";
   transform.child_frame_id = frame_name;
   transform.transform.translation.x = pos.x();

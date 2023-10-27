@@ -26,7 +26,7 @@ namespace kimera_pgmo {
 
 void ReadMeshWithStampsFromPly(const std::string& filename,
                                pcl::PolygonMeshPtr mesh,
-                               std::vector<ros::Time>* vertex_stamps) {
+                               std::vector<Timestamp>* vertex_stamps) {
   if (NULL == mesh) {
     return;
   }
@@ -36,7 +36,7 @@ void ReadMeshWithStampsFromPly(const std::string& filename,
 
 void ReadMeshWithStampsFromPly(const std::string& filename,
                                pcl::PolygonMesh& mesh,
-                               std::vector<ros::Time>* vertex_stamps) {
+                               std::vector<Timestamp>* vertex_stamps) {
   happly::PLYData ply_in(filename);
 
   // Get data from the object
@@ -86,7 +86,7 @@ void ReadMeshWithStampsFromPly(const std::string& filename,
     // Extract stamps
     vertex_stamps->clear();
     for (size_t i = 0; i < num_vertices; i++) {
-      vertex_stamps->push_back(ros::Time(vertices_sec.at(i), vertices_nsec.at(i)));
+      vertex_stamps->push_back(stampFromSec(vertices_sec.at(i)) + vertices_nsec.at(i));
     }
   }
 
@@ -105,13 +105,13 @@ void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh) {
 }
 
 void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh) {
-  std::vector<ros::Time> unused;
+  std::vector<Timestamp> unused;
   WriteMeshWithStampsToPly(filename, mesh, unused);
 }
 
 void WriteMeshWithStampsToPly(const std::string& filename,
                               const pcl::PolygonMesh& mesh,
-                              const std::vector<ros::Time>& vertex_stamps) {
+                              const std::vector<Timestamp>& vertex_stamps) {
   std::filebuf fb_ascii;
   fb_ascii.open(filename, std::ios::out);
   std::ostream outstream_ascii(&fb_ascii);
@@ -157,9 +157,14 @@ void WriteMeshWithStampsToPly(const std::string& filename,
     // Write vertex stamps to ply
     std::vector<uint32_t> stamps_sec;
     std::vector<uint32_t> stamps_nsec;
-    for (auto ros_time : vertex_stamps) {
-      stamps_sec.push_back(ros_time.sec);
-      stamps_nsec.push_back(ros_time.nsec);
+    for (auto vertex_ns : vertex_stamps) {
+      auto t = std::chrono::nanoseconds(vertex_ns);
+      auto t_s = std::chrono::duration_cast<std::chrono::seconds>(t);
+      std::chrono::nanoseconds t_ns = t - t_s;
+      uint32_t sec = t_s.count();
+      uint32_t nsec = t_ns.count();
+      stamps_sec.push_back(sec);
+      stamps_nsec.push_back(nsec);
     }
     output_file.getElement("vertex").addProperty<uint32_t>("secs", stamps_sec);
     output_file.getElement("vertex").addProperty<uint32_t>("nsecs", stamps_nsec);
@@ -218,7 +223,7 @@ mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
 
 KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(const size_t& id,
                                         const pcl::PolygonMesh& polygon_mesh,
-                                        const std::vector<ros::Time>& vertex_timestamps,
+                                        const std::vector<Timestamp>& vertex_timestamps,
                                         const std::string& frame_id) {
   pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
   pcl::fromPCLPointCloud2(polygon_mesh.cloud, vertices_cloud);
@@ -231,7 +236,7 @@ KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(
     const size_t& id,
     const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
     const std::vector<pcl::Vertices>& polygons,
-    const std::vector<ros::Time>& vertex_timestamps,
+    const std::vector<Timestamp>& vertex_timestamps,
     const std::string& frame_id,
     const IndexMapping& vertex_index_mappings) {
   KimeraPgmoMesh new_mesh;
@@ -260,7 +265,7 @@ KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(
     color.b = color_conv_factor * static_cast<float>(vertices.points[i].b);
     color.a = color_conv_factor * static_cast<float>(vertices.points[i].a);
     new_mesh.vertex_colors[i] = color;
-    new_mesh.vertex_stamps[i] = vertex_timestamps[i];
+    new_mesh.vertex_stamps[i].fromNSec(vertex_timestamps[i]);
     new_mesh.vertex_indices[i] = -1;
     if (vertex_index_mappings.count(i)) {
       new_mesh.vertex_indices[i] = vertex_index_mappings.at(i);
@@ -279,7 +284,7 @@ KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(
 
   new_mesh.header.frame_id = frame_id;
   new_mesh.id = id;
-  new_mesh.header.stamp = vertex_timestamps.back();
+  new_mesh.header.stamp.fromNSec(vertex_timestamps.back());
   return new_mesh;
 }
 
@@ -318,7 +323,7 @@ pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(const mesh_msgs::TriangleMesh& mes
 }
 
 pcl::PolygonMesh PgmoMeshMsgToPolygonMesh(const KimeraPgmoMesh& mesh_msg,
-                                          std::vector<ros::Time>* vertex_stamps,
+                                          std::vector<Timestamp>* vertex_stamps,
                                           std::vector<int>* vertex_graph_indices) {
   pcl::PolygonMesh mesh;
 
@@ -351,7 +356,7 @@ pcl::PolygonMesh PgmoMeshMsgToPolygonMesh(const KimeraPgmoMesh& mesh_msg,
       point.a = static_cast<uint8_t>(color_conv_factor * c.a);
     }
     vertices_cloud.points.push_back(point);
-    vertex_stamps->push_back(mesh_msg.vertex_stamps[i]);
+    vertex_stamps->push_back(mesh_msg.vertex_stamps[i].toNSec());
     vertex_graph_indices->push_back(mesh_msg.vertex_indices[i]);
   }
 
@@ -555,7 +560,7 @@ bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2) {
 // Convert gtsam posegaph to PoseGraph msg
 GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
                             const gtsam::Values& values,
-                            const std::map<size_t, std::vector<ros::Time>>& timestamps,
+                            const std::map<size_t, std::vector<Timestamp>>& timestamps,
                             const gtsam::Vector& gnc_weights) {
   std::vector<pose_graph_tools::PoseGraphEdge> edges;
 
@@ -581,7 +586,7 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
           edge.robot_from == edge.robot_to) {  // check if odom
         edge.type = pose_graph_tools::PoseGraphEdge::ODOM;
         try {
-          edge.header.stamp = timestamps.at(edge.robot_to).at(edge.key_to);
+          edge.header.stamp.fromNSec(timestamps.at(edge.robot_to).at(edge.key_to));
         } catch (...) {
           // ignore
         }
@@ -650,7 +655,7 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
             "Invalid timestamp for trajectory poses when converting to "
             "PoseGraph msg. ");
       } else {
-        node.header.stamp = timestamps.at(robot_id).at(node_symb.index());
+        node.header.stamp.fromNSec(timestamps.at(robot_id).at(node_symb.index()));
       }
 
       nodes.push_back(node);

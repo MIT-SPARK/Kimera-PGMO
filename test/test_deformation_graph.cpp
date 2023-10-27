@@ -138,7 +138,7 @@ void MeshToEdgesAndNodes(const pcl::PolygonMesh& mesh,
                          const char& prefix,
                          gtsam::Values* mesh_nodes,
                          std::vector<std::pair<gtsam::Key, gtsam::Key> >* mesh_edges,
-                         std::unordered_map<gtsam::Key, ros::Time>* node_stamps) {
+                         std::unordered_map<gtsam::Key, Timestamp>* node_stamps) {
   pcl::PointCloud<pcl::PointXYZ> vertices;
   pcl::fromPCLPointCloud2(mesh.cloud, vertices);
   std::vector<size_t> mesh_indices(vertices.size());
@@ -151,7 +151,7 @@ void MeshToEdgesAndNodes(const pcl::PolygonMesh& mesh,
   for (auto i : mesh_indices) {
     mesh_nodes->insert(gtsam::Symbol(prefix, i),
                        gtsam::Pose3(gtsam::Rot3(), PclToGtsam(vertices.at(i))));
-    node_stamps->insert({gtsam::Symbol(prefix, i), ros::Time(0)});
+    node_stamps->insert({gtsam::Symbol(prefix, i), 0});
   }
 
   for (auto e : graph_mesh_edges) {
@@ -168,11 +168,11 @@ void SetUpDeformationGraph(DeformationGraph* graph) {
 
   gtsam::Values mesh_nodes;
   std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
-  std::unordered_map<gtsam::Key, ros::Time> mesh_node_stamps;
+  std::unordered_map<gtsam::Key, Timestamp> mesh_node_stamps;
   MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges, &mesh_node_stamps);
 
   std::vector<size_t> added_node_indices;
-  std::vector<ros::Time> added_node_stamps;
+  std::vector<Timestamp> added_node_stamps;
   graph->addNewMeshEdgesAndNodes(mesh_edges,
                                  mesh_nodes,
                                  mesh_node_stamps,
@@ -181,12 +181,12 @@ void SetUpDeformationGraph(DeformationGraph* graph) {
 }
 
 void SetUpOriginalMesh(pcl::PolygonMesh* mesh,
-                       std::vector<ros::Time>* stamps,
+                       std::vector<Timestamp>* stamps,
                        std::vector<int>* indices) {
   *mesh = SimpleMesh();
   size_t num_vertices = mesh->cloud.width * mesh->cloud.height;
   for (size_t i = 0; i < num_vertices; i++) {
-    stamps->push_back(ros::Time(0));
+    stamps->push_back(0);
     if (i % 2 == 0) {
       indices->push_back(-1);
     } else {
@@ -220,7 +220,7 @@ TEST(test_deformation_graph, reconstructMesh) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
   pcl::PolygonMesh original_mesh;
-  std::vector<ros::Time> original_mesh_stamps;
+  std::vector<Timestamp> original_mesh_stamps;
   std::vector<int> original_mesh_inds;
   SetUpOriginalMesh(&original_mesh, &original_mesh_stamps, &original_mesh_inds);
 
@@ -260,7 +260,7 @@ TEST(test_deformation_graph, deformMeshtranslation) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
   pcl::PolygonMesh original_mesh;
-  std::vector<ros::Time> original_mesh_stamps;
+  std::vector<Timestamp> original_mesh_stamps;
   std::vector<int> original_mesh_inds;
   SetUpOriginalMesh(&original_mesh, &original_mesh_stamps, &original_mesh_inds);
 
@@ -307,10 +307,10 @@ TEST(test_deformation_graph, deformMesh) {
   ReadMeshFromPly(std::string(DATASET_PATH) + "/cube.ply", cube_mesh);
 
   size_t num_vertices = cube_mesh->cloud.width * cube_mesh->cloud.height;
-  std::vector<ros::Time> cube_mesh_stamps;
+  std::vector<Timestamp> cube_mesh_stamps;
   std::vector<int> cube_mesh_inds;
   for (size_t i = 0; i < num_vertices; i++) {
-    cube_mesh_stamps.push_back(ros::Time(0));
+    cube_mesh_stamps.push_back(0);
     cube_mesh_inds.push_back(-1);
   }
 
@@ -425,10 +425,10 @@ TEST(test_deformation_graph, addNodeMeasurements) {
   SetUpDeformationGraph(&graph);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
   size_t num_vertices = simple_mesh.cloud.width * simple_mesh.cloud.height;
-  std::vector<ros::Time> simple_mesh_stamps;
+  std::vector<Timestamp> simple_mesh_stamps;
   std::vector<int> simple_mesh_inds;
   for (size_t i = 0; i < num_vertices; i++) {
-    simple_mesh_stamps.push_back(ros::Time(0));
+    simple_mesh_stamps.push_back(0);
     simple_mesh_inds.push_back(-1);
   }
 
@@ -481,10 +481,10 @@ TEST(test_deformation_graph, removePriorsWithPrefix) {
   SetUpDeformationGraph(&graph);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
   size_t num_vertices = simple_mesh.cloud.width * simple_mesh.cloud.height;
-  std::vector<ros::Time> simple_mesh_stamps;
+  std::vector<Timestamp> simple_mesh_stamps;
   std::vector<int> simple_mesh_inds;
   for (size_t i = 0; i < num_vertices; i++) {
-    simple_mesh_stamps.push_back(ros::Time(0));
+    simple_mesh_stamps.push_back(0);
     simple_mesh_inds.push_back(-1);
   }
 
@@ -558,7 +558,7 @@ TEST(test_deformation_graph, addNewBetween) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
   pcl::PolygonMesh original_mesh;
-  std::vector<ros::Time> original_mesh_stamps;
+  std::vector<Timestamp> original_mesh_stamps;
   std::vector<int> original_mesh_inds;
   SetUpOriginalMesh(&original_mesh, &original_mesh_stamps, &original_mesh_inds);
 

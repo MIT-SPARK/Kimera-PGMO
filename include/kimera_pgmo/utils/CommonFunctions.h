@@ -6,8 +6,6 @@
 
 #pragma once
 
-#include <string>
-
 #include <geometry_msgs/Pose.h>
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/inference/Symbol.h>
@@ -24,6 +22,9 @@
 #include <pose_graph_tools/PoseGraph.h>
 #include <ros/console.h>
 #include <voxblox_msgs/Mesh.h>
+
+#include <string>
+
 #include "kimera_pgmo/utils/CommonStructs.h"
 
 namespace kimera_pgmo {
@@ -106,7 +107,7 @@ void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh);
  */
 void ReadMeshWithStampsFromPly(const std::string& filename,
                                pcl::PolygonMesh& mesh,
-                               std::vector<ros::Time>* vertex_stamps = nullptr);
+                               std::vector<Timestamp>* vertex_stamps = nullptr);
 
 /*! \brief Read ply file and convert to polygon mesh type
  *  - mesh: pcl PolygonMesh pointer
@@ -114,7 +115,7 @@ void ReadMeshWithStampsFromPly(const std::string& filename,
  */
 void ReadMeshWithStampsFromPly(const std::string& filename,
                                pcl::PolygonMeshPtr mesh,
-                               std::vector<ros::Time>* vertex_stamps = nullptr);
+                               std::vector<Timestamp>* vertex_stamps = nullptr);
 
 /*! \brief Write a pcl PolygonMesh mesh to ply file
  *  - filename: name of output ply file
@@ -129,7 +130,7 @@ void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh);
  */
 void WriteMeshWithStampsToPly(const std::string& filename,
                               const pcl::PolygonMesh& mesh,
-                              const std::vector<ros::Time>& vertex_stamps);
+                              const std::vector<Timestamp>& vertex_stamps);
 
 /*! \brief Convert pcl PolygonMesh to mesh_msg TriangleMesh
  *  - polygon_mesh: mesh to convert
@@ -155,7 +156,7 @@ mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
  */
 KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(const size_t& id,
                                         const pcl::PolygonMesh& polygon_mesh,
-                                        const std::vector<ros::Time>& vertex_timestamps,
+                                        const std::vector<Timestamp>& vertex_timestamps,
                                         const std::string& frame_id);
 
 /*! \brief Convert a mesh represented by vertices and polygons to a pgmo mesh
@@ -170,7 +171,7 @@ KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(
     const size_t& id,
     const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
     const std::vector<pcl::Vertices>& polygons,
-    const std::vector<ros::Time>& vertex_timestamps,
+    const std::vector<Timestamp>& vertex_timestamps,
     const std::string& frame_id,
     const IndexMapping& vertex_index_mappings = std::unordered_map<size_t, size_t>());
 
@@ -187,7 +188,7 @@ pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(const mesh_msgs::TriangleMesh& mes
  *  - outputs mesh as PolygonMesh type
  */
 pcl::PolygonMesh PgmoMeshMsgToPolygonMesh(const KimeraPgmoMesh& mesh_msg,
-                                          std::vector<ros::Time>* vertex_stamps,
+                                          std::vector<Timestamp>* vertex_stamps,
                                           std::vector<int>* vertex_graph_indices);
 
 /*! \brief Converts a ros pose type to gtsam Pose3
@@ -276,7 +277,7 @@ bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2);
  */
 GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
                             const gtsam::Values& values,
-                            const std::map<size_t, std::vector<ros::Time>>& timestamps,
+                            const std::map<size_t, std::vector<Timestamp>>& timestamps,
                             const gtsam::Vector& gnc_weights = gtsam::Vector());
 
 /*! \brief Check if a surface exist based on previous tracked adjacent surfaces
@@ -411,10 +412,10 @@ template <class point_type>
 void deformPointsWithTimeCheck(pcl::PointCloud<point_type>& new_points,
                                std::vector<std::set<size_t>>& control_point_map,
                                const pcl::PointCloud<point_type>& points,
-                               const std::vector<ros::Time>& stamps,
+                               const std::vector<Timestamp>& stamps,
                                const char& prefix,
                                const std::vector<gtsam::Point3>& control_points,
-                               const std::vector<ros::Time>& control_point_stamps,
+                               const std::vector<Timestamp>& control_point_stamps,
                                const gtsam::Values& values,
                                size_t k = 4,
                                double tol_t = 10.0,
@@ -452,7 +453,7 @@ void deformPointsWithTimeCheck(pcl::PointCloud<point_type>& new_points,
     // Add control points to octree until both
     // exceeds interpolate horizon and have enough points to deform
     while (ctrl_pt_idx < control_points.size() &&
-           (control_point_stamps[ctrl_pt_idx].toSec() <= stamps[ii].toSec() + tol_t ||
+           (control_point_stamps[ctrl_pt_idx] <= stamps[ii] + stampFromSec(tol_t) ||
             num_ctrl_pts < k + 1)) {
       const gtsam::Point3& position = control_points[ctrl_pt_idx];
       search_cloud->push_back(pcl::PointXYZ(position.x(), position.y(), position.z()));
@@ -513,8 +514,7 @@ void deformPointsWithTimeCheck(pcl::PointCloud<point_type>& new_points,
 
     size_t num_leaves = search_octree->getLeafCount();
     while (lower_ctrl_pt_idx < control_points.size() && num_leaves > k + 1 &&
-           control_point_stamps[lower_ctrl_pt_idx].toSec() <
-               stamps[ii].toSec() - tol_t) {
+           control_point_stamps[lower_ctrl_pt_idx] < stamps[ii] - stampFromSec(tol_t)) {
       if (!values.exists(gtsam::Symbol(prefix, lower_ctrl_pt_idx))) {
         lower_ctrl_pt_idx++;
         continue;

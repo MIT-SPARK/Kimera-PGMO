@@ -126,7 +126,7 @@ void VoxelClearingCompression::updateRemapping(
   const auto threshold_inv = 1.0 / resolution_;
   const auto block_edge_length = mesh.block_edge_length;
 
-  const ros::Time ros_stamp(stamp_in_sec);
+  const Timestamp vertex_stamp = stampFromSec(stamp_in_sec);
 
   pcl::PointXYZRGBA fake_point;
   fake_point.x = 0.0f;
@@ -158,7 +158,7 @@ void VoxelClearingCompression::updateRemapping(
         mesh_index = max_index_;
         ++max_index_;
 
-        all_vertex_stamps_.push_back(ros_stamp);
+        all_vertex_stamps_.push_back(vertex_stamp);
         vertices_map_[vertex_index] = mesh_index;
         indices_to_active_refs_[mesh_index] = 0;
         indices_to_inactive_refs_[mesh_index] = 0;

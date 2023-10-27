@@ -4,14 +4,25 @@
  * @author Yun Chang
  */
 
-#include <algorithm>
-#include <numeric>
+#include "kimera_pgmo/utils/CommonStructs.h"
 
 #include <pcl_conversions/pcl_conversions.h>
 
-#include "kimera_pgmo/utils/CommonStructs.h"
+#include <algorithm>
+#include <numeric>
 
 namespace kimera_pgmo {
+
+// Timestamps
+Timestamp stampFromSec(double sec) {
+  auto t = std::chrono::duration<double>(sec);
+  return std::chrono::duration_cast<std::chrono::nanoseconds>(t).count();
+}
+
+double stampToSec(Timestamp stamp) {
+  auto t = std::chrono::nanoseconds(stamp);
+  return std::chrono::duration<double>(t).count();
+}
 
 //// Graph Class
 std::vector<Edge> Graph::getEdges() const {

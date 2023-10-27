@@ -4,17 +4,17 @@
  * @author Yun Chang
  */
 
-#include <ros/ros.h>
-#include "gtest/gtest.h"
-
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <mesh_msgs/TriangleMesh.h>
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl_conversions/pcl_conversions.h>
+#include <ros/ros.h>
 
+#include "gtest/gtest.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
+#include "kimera_pgmo/utils/CommonStructs.h"
 #include "test_config.h"
 
 namespace kimera_pgmo {
@@ -24,9 +24,9 @@ TEST(test_common_functions, testReadWritePly) {
   pcl::PointCloud<pcl::PointXYZRGBA> cloud;
   pcl::fromPCLPointCloud2(original_mesh->cloud, cloud);
 
-  std::vector<ros::Time> vertex_stamps;
+  std::vector<Timestamp> vertex_stamps;
   for (size_t i = 0; i < cloud.size(); i++) {
-    vertex_stamps.push_back(ros::Time(0, i));
+    vertex_stamps.push_back(i);
   }
 
   // Write mesh with stamp to ply
@@ -35,7 +35,7 @@ TEST(test_common_functions, testReadWritePly) {
 
   // Then read again
   pcl::PolygonMeshPtr read_mesh(new pcl::PolygonMesh());
-  std::vector<ros::Time> read_stamps;
+  std::vector<Timestamp> read_stamps;
   ReadMeshWithStampsFromPly(
       std::string(DATASET_PATH) + "/cube.ply", read_mesh, &read_stamps);
 
@@ -296,15 +296,15 @@ TEST(test_common_functions, GtsamGraphToRos) {
       noise));
 
   gtsam::Values val;
-  std::map<size_t, std::vector<ros::Time> > time_stamps;
-  time_stamps[0] = std::vector<ros::Time>{};
+  std::map<size_t, std::vector<Timestamp> > time_stamps;
+  time_stamps[0] = std::vector<Timestamp>{};
   val.insert(gtsam::Symbol('a', 0), gtsam::Pose3());
-  time_stamps[0].push_back(ros::Time(0.01));
+  time_stamps[0].push_back(stampFromSec(0.01));
   val.insert(gtsam::Symbol('a', 1), gtsam::Pose3());
-  time_stamps[0].push_back(ros::Time(0.02));
+  time_stamps[0].push_back(stampFromSec(0.02));
   val.insert(gtsam::Symbol('a', 2),
              gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(1, 1, 1)));
-  time_stamps[0].push_back(ros::Time(0.03));
+  time_stamps[0].push_back(stampFromSec(0.03));
 
   const GraphMsgPtr& pose_graph_ptr = GtsamGraphToRos(nfg, val, time_stamps);
 
@@ -414,9 +414,9 @@ TEST(test_common_functions, deformPointsWithTimeCheck) {
   typedef pcl::PointCloud<Point> PointCloud;
 
   PointCloud original_points;
-  std::vector<ros::Time> stamps;
+  std::vector<Timestamp> stamps;
   std::vector<gtsam::Point3> control_points;
-  std::vector<ros::Time> control_point_stamps;
+  std::vector<Timestamp> control_point_stamps;
   gtsam::Values optimized_values;
   char prefix = 'a';
   for (size_t i = 0; i < 100; i++) {
@@ -429,20 +429,20 @@ TEST(test_common_functions, deformPointsWithTimeCheck) {
             gtsam::Symbol(prefix, static_cast<int>(i / 10)),
             gtsam::Pose3(gtsam::Rot3(),
                          gtsam::Point3(static_cast<double>(i), 1.0, 0.0)));
-        control_point_stamps.push_back(ros::Time(20.0));
+        control_point_stamps.push_back(stampFromSec(20.0));
       } else {
         optimized_values.insert(
             gtsam::Symbol(prefix, static_cast<int>(i / 10)),
             gtsam::Pose3(gtsam::Rot3(),
                          gtsam::Point3(static_cast<double>(i), -1.0, 0.0)));
-        control_point_stamps.push_back(ros::Time(0.0));
+        control_point_stamps.push_back(0);
       }
     }
 
     if (i < 50) {
-      stamps.push_back(ros::Time(0.0));
+      stamps.push_back(0);
     } else {
-      stamps.push_back(ros::Time(20.0));
+      stamps.push_back(stampFromSec(20.0));
     }
   }
 

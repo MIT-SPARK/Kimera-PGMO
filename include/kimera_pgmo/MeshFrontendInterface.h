@@ -73,7 +73,7 @@ class MeshFrontendInterface {
     return *triangles_;
   }
 
-  inline const std::vector<ros::Time>& getFullMeshTimes() const {
+  inline const std::vector<Timestamp>& getFullMeshTimes() const {
     return *vertex_stamps_;
   }
 
@@ -186,7 +186,7 @@ class MeshFrontendInterface {
   // Triangles (connections) of full mesh
   std::shared_ptr<std::vector<pcl::Vertices>> triangles_;
   // Vertices time stamps of full mesh
-  std::shared_ptr<std::vector<ros::Time>> vertex_stamps_;
+  std::shared_ptr<std::vector<Timestamp>> vertex_stamps_;
   // Vertices of simplified mesh used for the deformation graph
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr graph_vertices_;
   // Triangles of the simplified mesh used for the deformation graph

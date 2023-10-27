@@ -44,7 +44,7 @@ class MeshCompression {
    *  - vertex_stamps: pointer to timestamps of the vertices of full compressed
    * mesh
    */
-  inline void getVertexStamps(std::shared_ptr<std::vector<ros::Time> > vertex_stamps) {
+  inline void getTimestamps(std::shared_ptr<std::vector<Timestamp> > vertex_stamps) {
     *vertex_stamps = all_vertex_stamps_;
   }
 
@@ -187,7 +187,7 @@ class MeshCompression {
   // All verices
   PointCloud all_vertices_;
   // All vertex timestamps
-  std::vector<ros::Time> all_vertex_stamps_;
+  std::vector<Timestamp> all_vertex_stamps_;
   // Maps index of active vertices to index of all vertices
   std::vector<size_t> active_vertices_index_;
   // Mesh surfaces (all)

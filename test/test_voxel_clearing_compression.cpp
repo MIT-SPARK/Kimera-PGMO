@@ -84,19 +84,19 @@ struct CompressionOutput {
   explicit CompressionOutput(VoxelClearingCompression &compression)
       : vertices(new Cloud()),
         triangles(new std::vector<pcl::Vertices>()),
-        timestamps(new std::vector<ros::Time>) {
+        timestamps(new std::vector<Timestamp>) {
     compression.getVertices(vertices);
     compression.getStoredPolygons(triangles);
     invalidated = compression.getInvalidIndices();
     active_indices = compression.getActiveVerticesIndex();
-    compression.getVertexStamps(timestamps);
+    compression.getTimestamps(timestamps);
   }
 
   Cloud::Ptr vertices;
   std::shared_ptr<std::vector<pcl::Vertices>> triangles;
   std::vector<size_t> invalidated;
   std::vector<size_t> active_indices;
-  std::shared_ptr<std::vector<ros::Time>> timestamps;
+  std::shared_ptr<std::vector<Timestamp>> timestamps;
 };
 
 bool checkTriangles(const std::vector<std::vector<uint32_t>> &expected,

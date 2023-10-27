@@ -156,7 +156,7 @@ class KimeraPgmoInterface {
   /*! \brief Get the timestamps of the robot trajectory
    * - robot_id: id of the robot referred to in query
    */
-  std::vector<ros::Time> getRobotTimestamps(const size_t& robot_id) const;
+  std::vector<Timestamp> getRobotTimestamps(const size_t& robot_id) const;
 
   /*! \brief Reset deformation graph
    */
@@ -195,7 +195,7 @@ class KimeraPgmoInterface {
                         const std::string& dgrf_path,
                         const std::string& sparse_mapping_file_path,
                         pcl::PolygonMesh::Ptr optimized_mesh,
-                        std::vector<ros::Time>* mesh_vertex_stamps,
+                        std::vector<Timestamp>* mesh_vertex_stamps,
                         bool do_optimize);
 
  protected:
@@ -248,7 +248,7 @@ class KimeraPgmoInterface {
       const pose_graph_tools::PoseGraph::ConstPtr& msg,
       Path* initial_trajectory,
       std::queue<size_t>* unconnected_nodes,
-      std::vector<ros::Time>* node_timestamps);
+      std::vector<Timestamp>* node_timestamps);
 
   /*! \brief Optimize the full mesh (and pose graph) using the deformation graph
    * then publish the deformed mesh
@@ -259,7 +259,7 @@ class KimeraPgmoInterface {
    */
   bool optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
                         pcl::PolygonMesh::Ptr optimized_mesh,
-                        std::vector<ros::Time>* mesh_vertex_stamps,
+                        std::vector<Timestamp>* mesh_vertex_stamps,
                         bool do_optimize);
 
   /*! \brief Process the mesh graph that consists of the new mesh edges and mesh
@@ -271,7 +271,7 @@ class KimeraPgmoInterface {
    */
   ProcessMeshGraphStatus processIncrementalMeshGraph(
       const pose_graph_tools::PoseGraph::ConstPtr& mesh_graph_msg,
-      const std::vector<ros::Time>& node_timestamps,
+      const std::vector<Timestamp>& node_timestamps,
       std::queue<size_t>* unconnected_nodes);
 
   /*! \brief Given an optimized trajectory, adjust the mesh. The path should
@@ -295,7 +295,7 @@ class KimeraPgmoInterface {
    * - csv_file: name of the csv file to save to
    */
   bool saveTrajectory(const Path& trajectory,
-                      const std::vector<ros::Time>& timestamps,
+                      const std::vector<Timestamp>& timestamps,
                       const std::string& csv_file);
 
   /*! \brief Saves deformation graph to file.
@@ -370,7 +370,7 @@ class KimeraPgmoInterface {
   std::unordered_map<gtsam::Key, std::set<gtsam::Key>> loop_closures_;
 
   // Timestamp mapping
-  std::unordered_map<gtsam::Key, ros::Time> keyed_stamps_;
+  std::unordered_map<gtsam::Key, Timestamp> keyed_stamps_;
 };
 
 }  // namespace kimera_pgmo

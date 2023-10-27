@@ -240,10 +240,23 @@ class DeformationGraph {
   void addNewMeshEdgesAndNodes(
       const std::vector<std::pair<gtsam::Key, gtsam::Key>>& mesh_edges,
       const gtsam::Values& mesh_nodes,
-      const std::unordered_map<gtsam::Key, ros::Time>& node_stamps,
+      const std::unordered_map<gtsam::Key, Timestamp>& node_stamps,
       std::vector<size_t>* added_indices,
-      std::vector<ros::Time>* added_index_stamps,
+      std::vector<Timestamp>* added_index_stamps,
       double variance = 1e-4);
+
+  /*! \brief Add single deformation edge factor to graph
+   *  - key: Key of pose graph node
+   *  - valence_key: Key of valence node
+   *  - node_pose: Pose of pose graph node
+   *  - valence_position: Position of valence node
+   *  - variance: covariance of the deformation graph edges
+   */
+  void addNodeValenceEdge(const gtsam::Key& key,
+                          const gtsam::Key& valence_key,
+                          const gtsam::Pose3& node_pose,
+                          const gtsam::Point3& valence_position,
+                          double variance);
 
   /*! \brief Add connections from a pose graph node to mesh vertices nodes
    *  - key: Key of pose graph node
@@ -298,7 +311,7 @@ class DeformationGraph {
    * considered for association
    */
   pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
-                              const std::vector<ros::Time>& stamps,
+                              const std::vector<Timestamp>& stamps,
                               const std::vector<int>& graph_indices,
                               const char& prefix,
                               size_t k = 4,
@@ -315,7 +328,7 @@ class DeformationGraph {
    * considered for association
    */
   pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
-                              const std::vector<ros::Time>& stamps,
+                              const std::vector<Timestamp>& stamps,
                               const std::vector<int>& graph_indices,
                               const char& prefix,
                               const gtsam::Values& optimized_values,
@@ -335,7 +348,7 @@ class DeformationGraph {
    */
   void deformPoints(pcl::PointCloud<pcl::PointXYZRGBA>& new_vertices,
                     const pcl::PointCloud<pcl::PointXYZRGBA>& original_vertices,
-                    const std::vector<ros::Time>& stamps,
+                    const std::vector<Timestamp>& stamps,
                     char prefix,
                     const gtsam::Values& optimized_values,
                     size_t k = 4,
@@ -395,7 +408,7 @@ class DeformationGraph {
    *  - outputs the pose graph in pose_graph_tools PoseGraph type
    */
   inline GraphMsgPtr getPoseGraph(
-      const std::map<size_t, std::vector<ros::Time>>& timestamps) const {
+      const std::map<size_t, std::vector<Timestamp>>& timestamps) const {
     return GtsamGraphToRos(nfg_, values_, timestamps, gnc_weights_);
   }
 
@@ -523,7 +536,7 @@ class DeformationGraph {
 
   size_t findStartIndex(char prefix,
                         int start_index_hint,
-                        const std::vector<ros::Time>& stamps,
+                        const std::vector<Timestamp>& stamps,
                         double tol_t) const;
 
   void predeformPoints(pcl::PointCloud<pcl::PointXYZRGBA>& new_vertices,
@@ -545,7 +558,7 @@ class DeformationGraph {
   std::unordered_map<gtsam::Key, gtsam::Pose3> temp_pg_initial_poses_;
 
   std::map<char, std::vector<gtsam::Point3>> vertex_positions_;
-  std::map<char, std::vector<ros::Time>> vertex_stamps_;
+  std::map<char, std::vector<Timestamp>> vertex_stamps_;
 
   KimeraRPGO::RobustSolverParams pgo_params_;
   std::unique_ptr<KimeraRPGO::RobustSolver> pgo_;

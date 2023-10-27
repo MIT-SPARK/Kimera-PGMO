@@ -12,7 +12,7 @@ namespace kimera_pgmo {
 struct TestMesh {
   pcl::PointCloud<pcl::PointXYZRGBA> vertices;
   std::vector<pcl::Vertices> faces;
-  std::vector<ros::Time> stamps;
+  std::vector<Timestamp> stamps;
 };
 
 struct TestPoint {

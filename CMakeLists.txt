@@ -69,6 +69,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR}/test)
 
 catkin_add_gtest(${PROJECT_NAME}-test
 test/pgmo_unit_tests.cpp
+test/test_common_structs.cpp
 test/test_common_functions.cpp
 test/test_deformation_edge_factor.cpp
 test/test_deformation_graph.cpp

@@ -93,7 +93,7 @@ class KimeraDpgmoTest : public ::testing::Test {
     return pgmo_.unconnected_nodes_;
   }
 
-  inline std::vector<ros::Time> getTimestamps() const { return pgmo_.timestamps_; }
+  inline std::vector<Timestamp> getTimestamps() const { return pgmo_.timestamps_; }
 
   inline gtsam::Values getValues() const { return pgmo_.getDeformationGraphValues(); }
 
@@ -160,9 +160,9 @@ TEST_F(KimeraDpgmoTest, fullMeshCallback) {
 
   // Add mesh to be deformed
   pcl::PolygonMesh full_mesh = createMesh(2, 2, 2);
-  std::vector<ros::Time> full_vertex_stamps;
+  std::vector<Timestamp> full_vertex_stamps;
   for (size_t i = 0; i < full_mesh.cloud.width * full_mesh.cloud.height; i++) {
-    full_vertex_stamps.push_back(ros::Time(13.0));
+    full_vertex_stamps.push_back(stampFromSec(13.0));
   }
   KimeraPgmoMesh::Ptr full_mesh_msg(new KimeraPgmoMesh);
   *full_mesh_msg = PolygonMeshToPgmoMeshMsg(0, full_mesh, full_vertex_stamps, "world");
@@ -833,9 +833,9 @@ TEST_F(KimeraDpgmoTest, dpgmoCallbackDeform) {
   DpgmoCallback(dpgmo_msg);
 
   pcl::PolygonMesh full_mesh = createMesh(1, 0, 0);
-  std::vector<ros::Time> full_vertex_stamps;
+  std::vector<Timestamp> full_vertex_stamps;
   for (size_t i = 0; i < full_mesh.cloud.width * full_mesh.cloud.height; i++) {
-    full_vertex_stamps.push_back(ros::Time(13.0));
+    full_vertex_stamps.push_back(stampFromSec(13.0));
   }
   KimeraPgmoMesh::Ptr full_mesh_msg(new KimeraPgmoMesh);
   *full_mesh_msg = PolygonMeshToPgmoMeshMsg(0, full_mesh, full_vertex_stamps, "world");

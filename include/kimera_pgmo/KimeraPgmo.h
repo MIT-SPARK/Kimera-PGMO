@@ -52,7 +52,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
 
   /*! \brief Get the timestamps for the robot
    */
-  inline std::vector<ros::Time> getRobotTimestamps() const { return timestamps_; };
+  inline std::vector<Timestamp> getRobotTimestamps() const { return timestamps_; };
 
  protected:
   /*! \brief Start the thread doing the mesh graph / pose graph / path
@@ -175,7 +175,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
  protected:
   // optimized mesh for each robot
   pcl::PolygonMesh::Ptr optimized_mesh_;
-  std::vector<ros::Time> mesh_vertex_stamps_;
+  std::vector<Timestamp> mesh_vertex_stamps_;
 
   PathPtr optimized_path_;
   ros::Time last_mesh_stamp_;
@@ -209,7 +209,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
   // Trajectory
   Path trajectory_;
   std::queue<size_t> unconnected_nodes_;
-  std::vector<ros::Time> timestamps_;
+  std::vector<Timestamp> timestamps_;
   std::queue<size_t> dpgmo_num_poses_last_req_;
 
   std::string frame_id_;

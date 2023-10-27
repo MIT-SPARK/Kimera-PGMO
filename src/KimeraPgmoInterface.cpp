@@ -232,7 +232,7 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
     const pose_graph_tools::PoseGraph::ConstPtr& msg,
     Path* initial_trajectory,
     std::queue<size_t>* unconnected_nodes,
-    std::vector<ros::Time>* node_timestamps) {
+    std::vector<Timestamp>* node_timestamps) {
   // if first node initialize
   //// Note that we assume for all node ids that the keys start with 0
   if (msg->nodes.size() > 0 && msg->nodes[0].key == 0 &&
@@ -251,11 +251,11 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
     init_sparse_frame.initialize(key_symb, msg->nodes[0].robot_id, msg->nodes[0].key);
     sparse_frames_.insert({key_symb, init_sparse_frame});
     full_sparse_frame_map_.insert({key_symb, key_symb});
-    keyed_stamps_.insert({key_symb, msg->nodes[0].header.stamp});
+    keyed_stamps_.insert({key_symb, msg->nodes[0].header.stamp.toNSec()});
 
     // Add to trajectory and timestamp map
     initial_trajectory->push_back(init_pose);
-    node_timestamps->push_back(msg->nodes[0].header.stamp);
+    node_timestamps->push_back(msg->nodes[0].header.stamp.toNSec());
 
     // Push node to queue to be connected to mesh vertices later
     unconnected_nodes->push(0);
@@ -298,13 +298,13 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
             pg_edge, config_.trans_sparse_dist, config_.rot_sparse_dist);
         if (add_to_sparse_frame && config_.b_enable_sparsify) {
           full_sparse_frame_map_.insert({to_key, sparse_key});
-          keyed_stamps_.insert({to_key, pg_edge.header.stamp});
-          node_timestamps->back() = pg_edge.header.stamp;
+          keyed_stamps_.insert({to_key, pg_edge.header.stamp.toNSec()});
+          node_timestamps->back() = pg_edge.header.stamp.toNSec();
         } else {
           sparse_frames_[sparse_key].active = false;
           sparse_key = sparse_key + 1;
           full_sparse_frame_map_.insert({to_key, sparse_key});
-          keyed_stamps_.insert({to_key, pg_edge.header.stamp});
+          keyed_stamps_.insert({to_key, pg_edge.header.stamp.toNSec()});
           SparseKeyframe new_sparse_frame;
           new_sparse_frame.initialize(sparse_key, robot_from, current_node);
           sparse_frames_[sparse_key] = new_sparse_frame;
@@ -330,7 +330,7 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
           // Add to trajectory and timestamp maps
           if (initial_trajectory->size() == current_sparse_node)
             initial_trajectory->push_back(new_pose);
-          node_timestamps->push_back(pg_edge.header.stamp);
+          node_timestamps->push_back(pg_edge.header.stamp.toNSec());
           // Add new node to queue to be connected to mesh later
           unconnected_nodes->push(current_sparse_node);
 
@@ -412,7 +412,7 @@ void KimeraPgmoInterface::processOptimizedPath(const nav_msgs::Path::ConstPtr& p
 
 bool KimeraPgmoInterface::optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
                                            pcl::PolygonMesh::Ptr optimized_mesh,
-                                           std::vector<ros::Time>* mesh_vertex_stamps,
+                                           std::vector<Timestamp>* mesh_vertex_stamps,
                                            bool do_optimize) {
   std::vector<int> mesh_vertex_graph_inds;
   const pcl::PolygonMesh& input_mesh =
@@ -457,7 +457,7 @@ bool KimeraPgmoInterface::optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
 
 ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
     const pose_graph_tools::PoseGraph::ConstPtr& mesh_graph_msg,
-    const std::vector<ros::Time>& node_timestamps,
+    const std::vector<Timestamp>& node_timestamps,
     std::queue<size_t>* unconnected_nodes) {
   if (mesh_graph_msg->edges.size() == 0 || mesh_graph_msg->nodes.size() == 0) {
     ROS_DEBUG("processIncrementalMeshGraph: 0 nodes or 0 edges in mesh graph msg. ");
@@ -468,9 +468,9 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
   // Mesh edges and nodes
   std::vector<std::pair<gtsam::Key, gtsam::Key> > new_mesh_edges;
   gtsam::Values new_mesh_nodes;
-  std::unordered_map<gtsam::Key, ros::Time> new_mesh_node_stamps;
+  std::unordered_map<gtsam::Key, Timestamp> new_mesh_node_stamps;
   std::vector<size_t> new_indices;
-  std::vector<ros::Time> new_index_stamps;
+  std::vector<Timestamp> new_index_stamps;
 
   // Convert and add edges
   for (auto e : mesh_graph_msg->edges) {
@@ -496,7 +496,7 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
     gtsam::Pose3 node_pose = RosToGtsam(n.pose);
     try {
       new_mesh_nodes.insert(key, node_pose);
-      new_mesh_node_stamps.insert({key, n.header.stamp});
+      new_mesh_node_stamps.insert({key, n.header.stamp.toNSec()});
     } catch (const gtsam::ValuesKeyAlreadyExists& e) {
       ROS_WARN("processing mesh node duplicate\n");
     }
@@ -515,13 +515,13 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
     std::map<size_t, std::vector<size_t>> node_valences;
     for (size_t i = 0; i < new_indices.size(); i++) {
       size_t idx = new_indices[i];
-      double idx_time = new_index_stamps[i].toSec();
+      Timestamp idx_time = new_index_stamps[i];
       size_t closest_node = unconnected_nodes->front();
-      double min_difference = std::numeric_limits<double>::infinity();
+      Timestamp min_difference = std::numeric_limits<Timestamp>::max();
       while (!unconnected_nodes->empty()) {
         const size_t node = unconnected_nodes->front();
-        if (abs(node_timestamps[node].toSec() - idx_time) < min_difference) {
-          min_difference = abs(node_timestamps[node].toSec() - idx_time);
+        if (abs(int64_t(node_timestamps[node] - idx_time)) < min_difference) {
+          min_difference = abs(int64_t(node_timestamps[node] - idx_time));
           closest_node = node;
           if (unconnected_nodes->size() == 1) {
             break;
@@ -568,7 +568,7 @@ bool KimeraPgmoInterface::saveMesh(const pcl::PolygonMesh& mesh,
 }
 
 bool KimeraPgmoInterface::saveTrajectory(const Path& trajectory,
-                                         const std::vector<ros::Time>& timestamps,
+                                         const std::vector<Timestamp>& timestamps,
                                          const std::string& csv_file) {
   // There should be a timestamp associated with each pose
   assert(trajectory.size() == timestamps.size());
@@ -579,8 +579,7 @@ bool KimeraPgmoInterface::saveTrajectory(const Path& trajectory,
   for (size_t i = 0; i < trajectory.size(); i++) {
     const gtsam::Point3& pos = trajectory[i].translation();
     const gtsam::Quaternion& quat = trajectory[i].rotation().toQuaternion();
-    const ros::Time& stamp = timestamps[i];
-    csvfile << stamp.toNSec() << "," << pos.x() << "," << pos.y() << "," << pos.z()
+    csvfile << timestamps[i] << "," << pos.x() << "," << pos.y() << "," << pos.z()
             << "," << quat.w() << "," << quat.x() << "," << quat.y() << "," << quat.z()
             << "\n";
   }
@@ -837,9 +836,9 @@ Path KimeraPgmoInterface::getOptimizedTrajectory(const size_t& robot_id) const {
   return optimized_traj_interpolated;
 }
 
-std::vector<ros::Time> KimeraPgmoInterface::getRobotTimestamps(
+std::vector<Timestamp> KimeraPgmoInterface::getRobotTimestamps(
     const size_t& robot_id) const {
-  std::vector<ros::Time> stamps;
+  std::vector<Timestamp> stamps;
   const char& robot_prefix = robot_id_to_prefix.at(robot_id);
   // TODO(yun) remove call to get optimized trajectory
   Path optimized_traj = deformation_graph_->getOptimizedTrajectory(robot_prefix);
@@ -857,7 +856,7 @@ bool KimeraPgmoInterface::loadGraphAndMesh(const size_t& robot_id,
                                            const std::string& dgrf_path,
                                            const std::string& sparse_mapping_file_path,
                                            pcl::PolygonMesh::Ptr optimized_mesh,
-                                           std::vector<ros::Time>* mesh_vertex_stamps,
+                                           std::vector<Timestamp>* mesh_vertex_stamps,
                                            bool do_optimize) {
   pcl::PolygonMeshPtr mesh(new pcl::PolygonMesh());
   kimera_pgmo::ReadMeshWithStampsFromPly(ply_path, mesh, mesh_vertex_stamps);

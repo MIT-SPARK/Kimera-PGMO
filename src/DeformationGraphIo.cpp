@@ -103,14 +103,13 @@ void streamPriorFactor(const gtsam::PriorFactor<gtsam::Pose3>& prior,
 
 void streamVertices(const char& prefix,
                     const std::vector<gtsam::Point3>& positions,
-                    const std::vector<ros::Time>& stamps,
+                    const std::vector<Timestamp>& stamps,
                     std::ofstream& stream) {
   assert(positions.size() == stamps.size());
   for (size_t index = 0; index < positions.size(); index++) {
     gtsam::Key key = gtsam::Symbol(prefix, index);
-    stream << "VERTEX " << key << " " << stamps[index].toNSec() << " "
-           << positions[index].x() << " " << positions[index].y() << " "
-           << positions[index].z() << std::endl;
+    stream << "VERTEX " << key << " " << stamps[index] << " " << positions[index].x()
+           << " " << positions[index].y() << " " << positions[index].z() << std::endl;
   }
 }
 
@@ -312,7 +311,8 @@ void DeformationGraph::load(const std::string& filename,
       new_factors.add(gtsam::PriorFactor<gtsam::Pose3>(gtsam_key, meas, noise));
     } else if (tag == "VERTEX") {
       size_t key;
-      double x, y, z, n_sec;
+      double x, y, z;
+      Timestamp n_sec;
       ss >> key >> n_sec >> x >> y >> z;
       gtsam::Symbol vertex_symb(key);
       char vertex_prefix = vertex_symb.chr();
@@ -322,11 +322,11 @@ void DeformationGraph::load(const std::string& filename,
       size_t vertex_index = vertex_symb.index();
       if (vertex_index == 0) {
         vertex_positions_[vertex_prefix] = std::vector<gtsam::Point3>{};
-        vertex_stamps_[vertex_prefix] = std::vector<ros::Time>{};
+        vertex_stamps_[vertex_prefix] = std::vector<Timestamp>{};
       }
       assert(vertex_index == vertex_positions_[vertex_prefix].size());
       vertex_positions_[vertex_prefix].push_back(gtsam::Point3(x, y, z));
-      vertex_stamps_[vertex_prefix].push_back(ros::Time(n_sec * 1e-9));
+      vertex_stamps_[vertex_prefix].push_back(n_sec);
     } else {
       std::invalid_argument("DeformationGraph load: unknown tag. ");
     }

@@ -20,7 +20,7 @@
 
 namespace kimera_pgmo {
 
-typedef std::uint64_t Vertex;
+typedef uint64_t Vertex;
 typedef std::vector<Vertex> Vertices;
 typedef std::map<Vertex, Vertices> Edges;
 typedef std::pair<Vertex, Vertex> Edge;
@@ -29,6 +29,10 @@ typedef std::unordered_map<size_t, size_t> IndexMapping;
 typedef voxblox::AnyIndexHashMapType<IndexMapping>::type VoxbloxIndexMapping;
 typedef std::pair<voxblox::BlockIndex, IndexMapping> VoxbloxIndexPair;
 typedef std::pair<voxblox::BlockIndex, size_t> VoxbloxBlockIndexPair;
+
+typedef uint64_t Timestamp;
+Timestamp stampFromSec(double sec);
+double stampToSec(Timestamp stamp);
 
 enum class ProcessPoseGraphStatus {
   EMPTY,

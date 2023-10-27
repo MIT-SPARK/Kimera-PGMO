@@ -152,7 +152,7 @@ void MeshCompression::compressAndIntegrate(
       updateStructure(active_vertices_xyz_);
       // Add to all vertices
       all_vertices_.push_back(p);
-      all_vertex_stamps_.push_back(ros::Time(stamp_in_sec));
+      all_vertex_stamps_.push_back(stampFromSec(stamp_in_sec));
       // Add to active vertices index
       active_vertices_index_.push_back(all_vertices_.size() - 1);
       active_vertex_stamps_.push_back(stamp_in_sec);
@@ -372,7 +372,7 @@ void MeshCompression::compressAndIntegrate(
       updateStructure(active_vertices_xyz_);
       // Add to all vertices
       all_vertices_.push_back(p);
-      all_vertex_stamps_.push_back(ros::Time(stamp_in_sec));
+      all_vertex_stamps_.push_back(stampFromSec(stamp_in_sec));
       // Add to active vertices index
       active_vertices_index_.push_back(all_vertices_.size() - 1);
       active_vertex_stamps_.push_back(stamp_in_sec);
