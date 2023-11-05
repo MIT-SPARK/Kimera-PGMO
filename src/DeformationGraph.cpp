@@ -762,13 +762,14 @@ void DeformationGraph::setParams(const KimeraRPGO::RobustSolverParams& params) {
 void fillDeformationGraphMarkers(const DeformationGraph& graph,
                                  const ros::Time& stamp,
                                  visualization_msgs::Marker& mesh_mesh_viz,
-                                 visualization_msgs::Marker& pose_mesh_viz) {
+                                 visualization_msgs::Marker& pose_mesh_viz,
+                                 const std::string& frame_id) {
   // First get the latest estimates and factors
   const auto& graph_values = graph.getGtsamValues();
   const auto& graph_factors = graph.getGtsamFactors();
 
   // header for the mesh to mesh edges
-  mesh_mesh_viz.header.frame_id = "world";
+  mesh_mesh_viz.header.frame_id = frame_id;
   mesh_mesh_viz.header.stamp = stamp;
   mesh_mesh_viz.id = 0;
   mesh_mesh_viz.action = visualization_msgs::Marker::ADD;
@@ -776,7 +777,7 @@ void fillDeformationGraphMarkers(const DeformationGraph& graph,
   mesh_mesh_viz.scale.x = 0.02;
 
   // header for the pose to mesh edges
-  pose_mesh_viz.header.frame_id = "world";
+  pose_mesh_viz.header.frame_id = frame_id;
   pose_mesh_viz.header.stamp = stamp;
   pose_mesh_viz.id = 0;
   pose_mesh_viz.action = visualization_msgs::Marker::ADD;

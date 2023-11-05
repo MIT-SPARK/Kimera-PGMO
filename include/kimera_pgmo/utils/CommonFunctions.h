@@ -278,7 +278,8 @@ bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2);
 GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
                             const gtsam::Values& values,
                             const std::map<size_t, std::vector<Timestamp>>& timestamps,
-                            const gtsam::Vector& gnc_weights = gtsam::Vector());
+                            const gtsam::Vector& gnc_weights = gtsam::Vector(),
+                            const std::string& frame_id = "world");
 
 /*! \brief Check if a surface exist based on previous tracked adjacent surfaces
  *  - new_surface: new surface to be inserted

@@ -561,7 +561,8 @@ bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2) {
 GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
                             const gtsam::Values& values,
                             const std::map<size_t, std::vector<Timestamp>>& timestamps,
-                            const gtsam::Vector& gnc_weights) {
+                            const gtsam::Vector& gnc_weights,
+                            const std::string& frame_id) {
   std::vector<pose_graph_tools::PoseGraphEdge> edges;
 
   // first store the factors as edges
@@ -574,7 +575,7 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
       const auto& factor = *factor_ptr;
       // convert between factor to PoseGraphEdge type
       pose_graph_tools::PoseGraphEdge edge;
-      edge.header.frame_id = "world";
+      edge.header.frame_id = frame_id;
       gtsam::Symbol front(factor.front());
       gtsam::Symbol back(factor.back());
       edge.key_from = front.index();
@@ -632,7 +633,7 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
       const size_t robot_id = robot_prefix_to_id.at(node_symb.chr());
 
       pose_graph_tools::PoseGraphNode node;
-      node.header.frame_id = "world";
+      node.header.frame_id = frame_id;
       node.key = node_symb.index();
       node.robot_id = robot_id;
       const gtsam::Pose3& value = values.at<gtsam::Pose3>(key_list[i]);
@@ -664,7 +665,7 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
 
   pose_graph_tools::PoseGraph::Ptr posegraph(new pose_graph_tools::PoseGraph());
   posegraph->header.stamp = ros::Time::now();
-  posegraph->header.frame_id = "world";
+  posegraph->header.frame_id = frame_id;
   posegraph->nodes = nodes;
   posegraph->edges = edges;
   return posegraph;

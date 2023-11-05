@@ -408,8 +408,9 @@ class DeformationGraph {
    *  - outputs the pose graph in pose_graph_tools PoseGraph type
    */
   inline GraphMsgPtr getPoseGraph(
-      const std::map<size_t, std::vector<Timestamp>>& timestamps) const {
-    return GtsamGraphToRos(nfg_, values_, timestamps, gnc_weights_);
+      const std::map<size_t, std::vector<Timestamp>>& timestamps,
+      const std::string& frame_id = "world") const {
+    return GtsamGraphToRos(nfg_, values_, timestamps, gnc_weights_, frame_id);
   }
 
   /*! \brief Get the consistency factors (ie. the deformation edge factors)
@@ -601,6 +602,7 @@ typedef std::shared_ptr<DeformationGraph> DeformationGraphPtr;
 void fillDeformationGraphMarkers(const DeformationGraph& graph,
                                  const ros::Time& stamp,
                                  visualization_msgs::Marker& mesh_mesh_viz,
-                                 visualization_msgs::Marker& pose_mesh_viz);
+                                 visualization_msgs::Marker& pose_mesh_viz,
+                                 const std::string& frame_id = "world");
 
 }  // namespace kimera_pgmo
