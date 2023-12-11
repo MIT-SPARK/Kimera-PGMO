@@ -223,10 +223,10 @@ class DeformationGraph {
                          double variance = 1e-2);
 
   /*! \brief Add new edges as temporary between factor to the deformation graph
-   *  - edges: pose_graph_tools::PoseGraph type with the edges to add
+   *  - edges: pose_graph_tools_msgs::PoseGraph type with the edges to add
    *  - variance: covariance on the added temp edges
    */
-  void addNewTempEdges(const pose_graph_tools::PoseGraph& edges,
+  void addNewTempEdges(const pose_graph_tools_msgs::PoseGraph& edges,
                        double variance = 1e-2,
                        bool rotations_known = true);
 
@@ -405,7 +405,7 @@ class DeformationGraph {
   /*! \brief Gets the pose graph from the backend
    *   - timestamps: map of robot id to sequential timestamps in order to stamp
    * the nodes in the output pose graph msg
-   *  - outputs the pose graph in pose_graph_tools PoseGraph type
+   *  - outputs the pose graph in pose_graph_tools_msgs PoseGraph type
    */
   inline GraphMsgPtr getPoseGraph(
       const std::map<size_t, std::vector<Timestamp>>& timestamps,

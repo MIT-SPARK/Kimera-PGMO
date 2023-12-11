@@ -7,8 +7,7 @@
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <pose_graph_tools/PoseGraph.h>
-#include <ros/ros.h>
+#include <pose_graph_tools_msgs/PoseGraph.h>
 #include <voxblox/core/block_hash.h>
 #include <voxblox/mesh/mesh_layer.h>
 #include <voxblox_msgs/Mesh.h>
@@ -25,8 +24,8 @@ struct MeshFrontendConfig {
   double time_horizon = 10.0;  // only merge meshes for the blocks detected
                                // within defined time horizon (secs)
   bool b_track_mesh_graph_mapping = true;
-  std::string log_path;
-  bool log_output;
+  std::string log_path = "";
+  bool log_output = true;
   int full_compression_method = 2;  // 0 for octree, 1 for voxblox, 2 for voxel clearing
   int graph_compression_method = 1;  // 0 for octree, 1 for voxblox
   double d_graph_resolution = 3.0;
@@ -116,7 +115,7 @@ class MeshFrontendInterface {
 
   /*! \brief Get last mesh graph created in voxblox callback
    */
-  inline pose_graph_tools::PoseGraph getLastProcessedMeshGraph() const {
+  inline pose_graph_tools_msgs::PoseGraph getLastProcessedMeshGraph() const {
     return last_mesh_graph_;
   }
 
@@ -175,11 +174,11 @@ class MeshFrontendInterface {
 
   MeshCompressionPtr full_mesh_compression_;  // Allow compression of full mesh
 
-  MeshCompressionPtr d_graph_compression_;  // Compression to get simplified
-                                            // mesh for deformation graph
+  MeshCompressionPtr d_graph_compression_;    // Compression to get simplified
+                                              // mesh for deformation graph
 
-  Graph simplified_mesh_graph_;  // Graph of simplified mesh (edges are the
-                                 // factors in deformation graph)
+  Graph simplified_mesh_graph_;               // Graph of simplified mesh (edges are the
+                                              // factors in deformation graph)
 
   // Vertices of full mesh
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices_;
@@ -193,7 +192,7 @@ class MeshFrontendInterface {
   std::shared_ptr<std::vector<pcl::Vertices>> graph_triangles_;
 
   // Last pose graph msg created for testing purposes
-  pose_graph_tools::PoseGraph last_mesh_graph_;
+  pose_graph_tools_msgs::PoseGraph last_mesh_graph_;
 
   // Book keeping for indices
   std::shared_ptr<VoxbloxIndexMapping> vxblx_msg_to_graph_idx_;

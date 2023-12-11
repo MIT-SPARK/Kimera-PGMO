@@ -33,7 +33,7 @@ class MeshFrontendTest : public ::testing::Test {
   ~MeshFrontendTest() {}
 
   // Test the created mesh graph
-  inline pose_graph_tools::PoseGraph GetLastProcessedMeshGraph() const {
+  inline pose_graph_tools_msgs::PoseGraph GetLastProcessedMeshGraph() const {
     return vp_.getLastProcessedMeshGraph();
   }
 
@@ -479,7 +479,7 @@ TEST_F(MeshFrontendTest, meshGraph) {
 
   ProcessVoxbloxMeshGraph(mesh1);
 
-  pose_graph_tools::PoseGraph last_mesh_graph = GetLastProcessedMeshGraph();
+  pose_graph_tools_msgs::PoseGraph last_mesh_graph = GetLastProcessedMeshGraph();
 
   // Check size
   EXPECT_EQ(4, last_mesh_graph.nodes.size());

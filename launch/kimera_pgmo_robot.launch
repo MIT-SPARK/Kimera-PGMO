@@ -42,7 +42,7 @@
       <remap from="~optimized_values" to="$(arg dpgmo_topic)" />
     </node>
 
-    <include file="$(find pose_graph_tools)/launch/posegraph_view.launch" >
+    <include file="$(find pose_graph_tools_ros)/launch/posegraph_view.launch" >
       <arg name="frame_id"      value="world" />
       <arg name="graph_topic"   value="pose_graph" />
       <arg name="ns"            value="kimera_pgmo"/>

@@ -246,7 +246,7 @@ void DeformationGraph::addNewTempBetween(const gtsam::Key& key_from,
 }
 
 // TODO(yun) add unittest
-void DeformationGraph::addNewTempEdges(const pose_graph_tools::PoseGraph& edges,
+void DeformationGraph::addNewTempEdges(const pose_graph_tools_msgs::PoseGraph& edges,
                                        double variance,
                                        bool rotations_known) {
   gtsam::Values new_values;

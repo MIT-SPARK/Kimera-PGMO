@@ -143,21 +143,21 @@ void MeshFrontendInterface::clearArchivedMeshFull(const voxblox_msgs::Mesh& msg)
  *  - robot_id: robot for the deformation graph
  *  returns: published pose graph
  */
-pose_graph_tools::PoseGraph makePoseGraph(
+pose_graph_tools_msgs::PoseGraph makePoseGraph(
     const std::vector<Edge>& new_edges,
     const std::vector<size_t>& new_indices,
     const pcl::PointCloud<pcl::PointXYZRGBA>& graph_vertices,
     const std_msgs::Header& header,
     int robot_id) {
   // Create message
-  pose_graph_tools::PoseGraph msg;
+  pose_graph_tools_msgs::PoseGraph msg;
   msg.header = header;
 
   // Encode the edges as factors
   msg.edges.resize(new_edges.size());
   for (size_t i = 0; i < new_edges.size(); i++) {
     const Edge& e = new_edges[i];
-    pose_graph_tools::PoseGraphEdge pg_edge;
+    pose_graph_tools_msgs::PoseGraphEdge pg_edge;
     pg_edge.header = header;
 
     const size_t& from_node = e.first;
@@ -174,7 +174,7 @@ pose_graph_tools::PoseGraph makePoseGraph(
         PclToGtsam<pcl::PointXYZRGBA>(graph_vertices.at(to_node));
     pg_edge.pose = GtsamToRos(gtsam::Pose3(gtsam::Rot3(), to_node_pos - from_node_pos));
 
-    pg_edge.type = pose_graph_tools::PoseGraphEdge::MESH;
+    pg_edge.type = pose_graph_tools_msgs::PoseGraphEdge::MESH;
 
     // Add edge to pose graph
     msg.edges[i] = pg_edge;
@@ -184,7 +184,7 @@ pose_graph_tools::PoseGraph makePoseGraph(
   msg.nodes.resize(new_indices.size());
   for (size_t i = 0; i < new_indices.size(); i++) {
     const size_t& n = new_indices[i];
-    pose_graph_tools::PoseGraphNode pg_node;
+    pose_graph_tools_msgs::PoseGraphNode pg_node;
     pg_node.header = header;
     pg_node.robot_id = robot_id;
 

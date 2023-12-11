@@ -87,7 +87,7 @@ bool KimeraPgmo::createPublishers(const ros::NodeHandle& n) {
   optimized_mesh_pub_ =
       nl.advertise<mesh_msgs::TriangleMeshStamped>("optimized_mesh", 1, false);
   optimized_odom_pub_ = nl.advertise<nav_msgs::Odometry>("optimized_odom", 1, false);
-  pose_graph_pub_ = nl.advertise<pose_graph_tools::PoseGraph>("pose_graph", 1, false);
+  pose_graph_pub_ = nl.advertise<pose_graph_tools_msgs::PoseGraph>("pose_graph", 1, false);
   optimized_path_pub_ = nl.advertise<nav_msgs::Path>("optimized_path", 1, false);
   viz_mesh_mesh_edges_pub_ = nl.advertise<visualization_msgs::Marker>(
       "deformation_graph_mesh_mesh", 10, false);
@@ -188,7 +188,7 @@ bool KimeraPgmo::publishOptimizedPath() const {
 }
 
 void KimeraPgmo::incrementalPoseGraphCallback(
-    const pose_graph_tools::PoseGraph::ConstPtr& msg) {
+    const pose_graph_tools_msgs::PoseGraph::ConstPtr& msg) {
   if (msg->nodes.size() == 0 && msg->edges.size() == 0) return;
   // Start timer
   auto start = std::chrono::high_resolution_clock::now();
@@ -275,7 +275,7 @@ void KimeraPgmo::fullMeshCallback(
 }
 
 void KimeraPgmo::incrementalMeshGraphCallback(
-    const pose_graph_tools::PoseGraph::ConstPtr& mesh_graph_msg) {
+    const pose_graph_tools_msgs::PoseGraph::ConstPtr& mesh_graph_msg) {
   // Start timer
   auto start = std::chrono::high_resolution_clock::now();
 
@@ -292,7 +292,7 @@ void KimeraPgmo::incrementalMeshGraphCallback(
   return;
 }
 
-void KimeraPgmo::dpgmoCallback(const pose_graph_tools::PoseGraph::ConstPtr& msg) {
+void KimeraPgmo::dpgmoCallback(const pose_graph_tools_msgs::PoseGraph::ConstPtr& msg) {
   if (dpgmo_num_poses_last_req_.empty()) {
     ROS_ERROR("Mesh factors request queue empty.");
     return;

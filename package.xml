@@ -28,7 +28,8 @@
   <depend>message_runtime</depend>
   <depend>voxblox_msgs</depend>
   <depend>voxblox</depend>
-  <depend>pose_graph_tools</depend>
+  <depend>pose_graph_tools_msgs</depend>
+  <depend>pose_graph_tools_ros</depend>
   <depend>kimera_rpgo</depend>
   <depend>tf2_ros</depend>
 

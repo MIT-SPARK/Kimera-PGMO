@@ -96,7 +96,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
    *  - msg: new Pose Graph message consisting of the newest pose graph edges
    */
   void incrementalPoseGraphCallback(
-      const pose_graph_tools::PoseGraph::ConstPtr& msg);
+      const pose_graph_tools_msgs::PoseGraph::ConstPtr& msg);
 
   /*! \brief Subscribes to the full mesh and deform it based on the deformation
    * graph. Then publish the deformed mesh, and also the optimized pose graph
@@ -117,7 +117,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
    *  - mesh_graph_msg: mesh factors to add to deformation graph and mesh nodes.
    */
   void incrementalMeshGraphCallback(
-      const pose_graph_tools::PoseGraph::ConstPtr& mesh_graph_msg);
+      const pose_graph_tools_msgs::PoseGraph::ConstPtr& mesh_graph_msg);
 
   /*! \brief Subscribes to an optimized trajectory. The path should correspond
    * to the nodes of the pose graph received in the
@@ -130,7 +130,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
   /*! \brief Subscribes to an optimized values published by dpgmo
    *  - msg: optimized pose graph published as a pose graph msg
    */
-  void dpgmoCallback(const pose_graph_tools::PoseGraph::ConstPtr& msg);
+  void dpgmoCallback(const pose_graph_tools_msgs::PoseGraph::ConstPtr& msg);
 
   /*! \brief Saves mesh as a ply file. Triggers through a rosservice call
    * and saves to file [output_prefix_]/mesh_pgmo.ply

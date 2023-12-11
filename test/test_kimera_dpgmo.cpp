@@ -65,60 +65,63 @@ class KimeraDpgmoTest : public ::testing::Test {
   }
   ~KimeraDpgmoTest() {}
 
-  void IncrementalPoseGraphCallback(const pose_graph_tools::PoseGraph::ConstPtr& msg) {
-    pgmo_.incrementalPoseGraphCallback(msg);
-  }
+  void IncrementalPoseGraphCallback(
+      const pose_graph_tools_msgs::PoseGraph::ConstPtr& msg) {
+      pgmo_.incrementalPoseGraphCallback(msg);
+    }
 
-  void FullMeshCallback(const KimeraPgmoMesh::ConstPtr& mesh_msg) {
-    pgmo_.fullMeshCallback(mesh_msg);
-  }
+    void FullMeshCallback(const KimeraPgmoMesh::ConstPtr& mesh_msg) {
+      pgmo_.fullMeshCallback(mesh_msg);
+    }
 
-  void IncrementalMeshGraphCallback(
-      const pose_graph_tools::PoseGraph::ConstPtr& mesh_graph_msg) {
-    pgmo_.incrementalMeshGraphCallback(mesh_graph_msg);
-  }
+    void IncrementalMeshGraphCallback(
+        const pose_graph_tools_msgs::PoseGraph::ConstPtr& mesh_graph_msg) {
+      pgmo_.incrementalMeshGraphCallback(mesh_graph_msg);
+    }
 
-  void DpgmoCallback(const pose_graph_tools::PoseGraph::ConstPtr& msg) {
-    pgmo_.dpgmoCallback(msg);
-  }
+    void DpgmoCallback(const pose_graph_tools_msgs::PoseGraph::ConstPtr& msg) {
+      pgmo_.dpgmoCallback(msg);
+    }
 
-  bool RequestMeshEdgesCallback(kimera_pgmo::RequestMeshFactors::Request& req,
-                                kimera_pgmo::RequestMeshFactors::Response& res) {
-    return pgmo_.requestMeshEdgesCallback(req, res);
-  }
+    bool RequestMeshEdgesCallback(kimera_pgmo::RequestMeshFactors::Request & req,
+                                  kimera_pgmo::RequestMeshFactors::Response & res) {
+      return pgmo_.requestMeshEdgesCallback(req, res);
+    }
 
-  inline std::vector<gtsam::Pose3> getTrajectory() const { return pgmo_.trajectory_; }
+    inline std::vector<gtsam::Pose3> getTrajectory() const { return pgmo_.trajectory_; }
 
-  inline std::queue<size_t> getUnconnectedNodes() const {
-    return pgmo_.unconnected_nodes_;
-  }
+    inline std::queue<size_t> getUnconnectedNodes() const {
+      return pgmo_.unconnected_nodes_;
+    }
 
-  inline std::vector<Timestamp> getTimestamps() const { return pgmo_.timestamps_; }
+    inline std::vector<Timestamp> getTimestamps() const { return pgmo_.timestamps_; }
 
-  inline gtsam::Values getValues() const { return pgmo_.getDeformationGraphValues(); }
+    inline gtsam::Values getValues() const { return pgmo_.getDeformationGraphValues(); }
 
-  inline gtsam::NonlinearFactorGraph getFactors() const {
-    return pgmo_.getDeformationGraphFactors();
-  }
+    inline gtsam::NonlinearFactorGraph getFactors() const {
+      return pgmo_.getDeformationGraphFactors();
+    }
 
-  inline pcl::PolygonMesh getOptimizedMesh() const { return *(pgmo_.optimized_mesh_); }
+    inline pcl::PolygonMesh getOptimizedMesh() const {
+      return *(pgmo_.optimized_mesh_);
+    }
 
-  inline Path getOptimizedPath() const { return *(pgmo_.optimized_path_); }
+    inline Path getOptimizedPath() const { return *(pgmo_.optimized_path_); }
 
-  inline gtsam::NonlinearFactorGraph getConsistencyFactorsGtsam() const {
-    return pgmo_.getDeformationGraphPtr()->getConsistencyFactors();
-  }
+    inline gtsam::NonlinearFactorGraph getConsistencyFactorsGtsam() const {
+      return pgmo_.getDeformationGraphPtr()->getConsistencyFactors();
+    }
 
-  inline bool getConsistencyFactorsMsg(const size_t& robot_id,
-                                       pose_graph_tools::PoseGraph* pg_mesh_msg,
-                                       const size_t& vertex_index_offset) const {
-    return pgmo_.getConsistencyFactors(robot_id, pg_mesh_msg, vertex_index_offset);
-  }
+    inline bool getConsistencyFactorsMsg(const size_t& robot_id,
+                                         pose_graph_tools_msgs::PoseGraph* pg_mesh_msg,
+                                         const size_t& vertex_index_offset) const {
+      return pgmo_.getConsistencyFactors(robot_id, pg_mesh_msg, vertex_index_offset);
+    }
 
-  inline gtsam::Values getDpgmoValues() const { return pgmo_.getDpgmoValues(); }
+    inline gtsam::Values getDpgmoValues() const { return pgmo_.getDpgmoValues(); }
 
-  KimeraPgmo pgmo_;
-};
+    KimeraPgmo pgmo_;
+  };
 
 TEST_F(KimeraDpgmoTest, initialize) {
   ros::NodeHandle nh;
@@ -137,13 +140,14 @@ TEST_F(KimeraDpgmoTest, fullMeshCallback) {
   Graph graph_struct;
 
   // Check callback
-  pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph(new pose_graph_tools_msgs::PoseGraph);
   *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr mesh_graph_msg(
+      new pose_graph_tools_msgs::PoseGraph);
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
@@ -215,13 +219,14 @@ TEST_F(KimeraDpgmoTest, getConsistencyFactors) {
   Graph graph_struct;
 
   // Check callback
-  pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph(new pose_graph_tools_msgs::PoseGraph);
   *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr mesh_graph_msg(
+      new pose_graph_tools_msgs::PoseGraph);
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
@@ -237,7 +242,7 @@ TEST_F(KimeraDpgmoTest, getConsistencyFactors) {
   IncrementalMeshGraphCallback(mesh_graph_msg);
 
   gtsam::NonlinearFactorGraph consistency_factors = getConsistencyFactorsGtsam();
-  pose_graph_tools::PoseGraph consistency_edges_pg;
+  pose_graph_tools_msgs::PoseGraph consistency_edges_pg;
 
   // First test with no offset
   getConsistencyFactorsMsg(0, &consistency_edges_pg, 0);
@@ -255,20 +260,20 @@ TEST_F(KimeraDpgmoTest, getConsistencyFactors) {
     DeformationEdgeFactor dedge_factor =
         *cast_factor<DeformationEdgeFactor>(consistency_factors[i]);
     // Create the between factor that is equivalent to the pose graph edge
-    pose_graph_tools::PoseGraphEdge e = consistency_edges_pg.edges[i];
+    pose_graph_tools_msgs::PoseGraphEdge e = consistency_edges_pg.edges[i];
     gtsam::Key front, back;
     switch (e.type) {
-      case pose_graph_tools::PoseGraphEdge::MESH: {
+      case pose_graph_tools_msgs::PoseGraphEdge::MESH: {
         front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from), e.key_from);
         back = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to), e.key_to);
         break;
       }
-      case pose_graph_tools::PoseGraphEdge::POSE_MESH: {
+      case pose_graph_tools_msgs::PoseGraphEdge::POSE_MESH: {
         front = gtsam::Symbol(robot_id_to_prefix.at(e.robot_from), e.key_from);
         back = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to), e.key_to);
         break;
       }
-      case pose_graph_tools::PoseGraphEdge::MESH_POSE: {
+      case pose_graph_tools_msgs::PoseGraphEdge::MESH_POSE: {
         front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from), e.key_from);
         back = gtsam::Symbol(robot_id_to_prefix.at(e.robot_to), e.key_to);
         break;
@@ -328,13 +333,14 @@ TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallback) {
   Graph graph_struct;
 
   // Check callback
-  pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph(new pose_graph_tools_msgs::PoseGraph);
   *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr mesh_graph_msg(
+      new pose_graph_tools_msgs::PoseGraph);
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
@@ -361,9 +367,9 @@ TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallback) {
 
   EXPECT_TRUE(RequestMeshEdgesCallback(request, response));
   gtsam::NonlinearFactorGraph consistency_factors = getConsistencyFactorsGtsam();
-  std::vector<pose_graph_tools::PoseGraphEdge> consistency_edges =
+  std::vector<pose_graph_tools_msgs::PoseGraphEdge> consistency_edges =
       response.mesh_factors.edges;
-  std::vector<pose_graph_tools::PoseGraphNode> consistency_nodes =
+  std::vector<pose_graph_tools_msgs::PoseGraphNode> consistency_nodes =
       response.mesh_factors.nodes;
 
   // Arbitrary noise
@@ -379,20 +385,20 @@ TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallback) {
     DeformationEdgeFactor dedge_factor =
         *cast_factor<DeformationEdgeFactor>(consistency_factors[i]);
     // Create the between factor that is equivalent to the pose graph edge
-    pose_graph_tools::PoseGraphEdge e = consistency_edges[i];
+    pose_graph_tools_msgs::PoseGraphEdge e = consistency_edges[i];
     gtsam::Key front, back;
     switch (e.type) {
-      case pose_graph_tools::PoseGraphEdge::MESH: {
+      case pose_graph_tools_msgs::PoseGraphEdge::MESH: {
         front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from), e.key_from);
         back = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to), e.key_to);
         break;
       }
-      case pose_graph_tools::PoseGraphEdge::POSE_MESH: {
+      case pose_graph_tools_msgs::PoseGraphEdge::POSE_MESH: {
         front = gtsam::Symbol(robot_id_to_prefix.at(e.robot_from), e.key_from);
         back = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to), e.key_to);
         break;
       }
-      case pose_graph_tools::PoseGraphEdge::MESH_POSE: {
+      case pose_graph_tools_msgs::PoseGraphEdge::MESH_POSE: {
         front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from), e.key_from);
         back = gtsam::Symbol(robot_id_to_prefix.at(e.robot_to), e.key_to);
         break;
@@ -452,13 +458,14 @@ TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallbackReindex) {
   Graph graph_struct;
 
   // Check callback
-  pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph(new pose_graph_tools_msgs::PoseGraph);
   *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr mesh_graph_msg(
+      new pose_graph_tools_msgs::PoseGraph);
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
@@ -485,9 +492,9 @@ TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallbackReindex) {
 
   EXPECT_TRUE(RequestMeshEdgesCallback(request, response));
   gtsam::NonlinearFactorGraph consistency_factors = getConsistencyFactorsGtsam();
-  std::vector<pose_graph_tools::PoseGraphEdge> consistency_edges =
+  std::vector<pose_graph_tools_msgs::PoseGraphEdge> consistency_edges =
       response.mesh_factors.edges;
-  std::vector<pose_graph_tools::PoseGraphNode> consistency_nodes =
+  std::vector<pose_graph_tools_msgs::PoseGraphNode> consistency_nodes =
       response.mesh_factors.nodes;
 
   // Arbitrary noise
@@ -503,23 +510,23 @@ TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallbackReindex) {
     DeformationEdgeFactor dedge_factor =
         *cast_factor<DeformationEdgeFactor>(consistency_factors[i]);
     // Create the between factor that is equivalent to the pose graph edge
-    pose_graph_tools::PoseGraphEdge e = consistency_edges[i];
+    pose_graph_tools_msgs::PoseGraphEdge e = consistency_edges[i];
     gtsam::Key front, back;
     switch (e.type) {
-      case pose_graph_tools::PoseGraphEdge::MESH: {
+      case pose_graph_tools_msgs::PoseGraphEdge::MESH: {
         front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from),
                               e.key_from - num_poses);
         back = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to),
                              e.key_to - num_poses);
         break;
       }
-      case pose_graph_tools::PoseGraphEdge::POSE_MESH: {
+      case pose_graph_tools_msgs::PoseGraphEdge::POSE_MESH: {
         front = gtsam::Symbol(robot_id_to_prefix.at(e.robot_from), e.key_from);
         back = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to),
                              e.key_to - num_poses);
         break;
       }
-      case pose_graph_tools::PoseGraphEdge::MESH_POSE: {
+      case pose_graph_tools_msgs::PoseGraphEdge::MESH_POSE: {
         front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from),
                               e.key_from - num_poses);
         back = gtsam::Symbol(robot_id_to_prefix.at(e.robot_to), e.key_to);
@@ -581,13 +588,14 @@ TEST_F(KimeraDpgmoTest, CheckRobotIdRequestMeshEdgesCallback) {
   Graph graph_struct;
 
   // Check callback
-  pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph(new pose_graph_tools_msgs::PoseGraph);
   *inc_graph = SingleOdomGraph(ros::Time(10.2), 2);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr mesh_graph_msg(
+      new pose_graph_tools_msgs::PoseGraph);
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 2, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
@@ -614,9 +622,9 @@ TEST_F(KimeraDpgmoTest, CheckRobotIdRequestMeshEdgesCallback) {
 
   EXPECT_TRUE(RequestMeshEdgesCallback(request, response));
   gtsam::NonlinearFactorGraph consistency_factors = getConsistencyFactorsGtsam();
-  std::vector<pose_graph_tools::PoseGraphEdge> consistency_edges =
+  std::vector<pose_graph_tools_msgs::PoseGraphEdge> consistency_edges =
       response.mesh_factors.edges;
-  std::vector<pose_graph_tools::PoseGraphNode> consistency_nodes =
+  std::vector<pose_graph_tools_msgs::PoseGraphNode> consistency_nodes =
       response.mesh_factors.nodes;
 
   // Arbitrary noise
@@ -632,23 +640,23 @@ TEST_F(KimeraDpgmoTest, CheckRobotIdRequestMeshEdgesCallback) {
     DeformationEdgeFactor dedge_factor =
         *cast_factor<DeformationEdgeFactor>(consistency_factors[i]);
     // Create the between factor that is equivalent to the pose graph edge
-    pose_graph_tools::PoseGraphEdge e = consistency_edges[i];
+    pose_graph_tools_msgs::PoseGraphEdge e = consistency_edges[i];
     gtsam::Key front, back;
     switch (e.type) {
-      case pose_graph_tools::PoseGraphEdge::MESH: {
+      case pose_graph_tools_msgs::PoseGraphEdge::MESH: {
         front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from),
                               e.key_from - num_poses);
         back = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to),
                              e.key_to - num_poses);
         break;
       }
-      case pose_graph_tools::PoseGraphEdge::POSE_MESH: {
+      case pose_graph_tools_msgs::PoseGraphEdge::POSE_MESH: {
         front = gtsam::Symbol(robot_id_to_prefix.at(e.robot_from), e.key_from);
         back = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_to),
                              e.key_to - num_poses);
         break;
       }
-      case pose_graph_tools::PoseGraphEdge::MESH_POSE: {
+      case pose_graph_tools_msgs::PoseGraphEdge::MESH_POSE: {
         front = gtsam::Symbol(robot_id_to_vertex_prefix.at(e.robot_from),
                               e.key_from - num_poses);
         back = gtsam::Symbol(robot_id_to_prefix.at(e.robot_to), e.key_to);
@@ -709,19 +717,20 @@ TEST_F(KimeraDpgmoTest, dpgmoCallbackValues) {
   Graph graph_struct;
 
   // Check callback
-  pose_graph_tools::PoseGraph::Ptr inc_graph_1(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph_1(new pose_graph_tools_msgs::PoseGraph);
   *inc_graph_1 = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph_1);
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr mesh_graph_msg(
+      new pose_graph_tools_msgs::PoseGraph);
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // load second incremental pose graph
-  pose_graph_tools::PoseGraph::Ptr inc_graph_2(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph_2(new pose_graph_tools_msgs::PoseGraph);
   *inc_graph_2 = OdomLoopclosureGraph(ros::Time(12.8), 0);
   IncrementalPoseGraphCallback(inc_graph_2);
 
@@ -739,16 +748,16 @@ TEST_F(KimeraDpgmoTest, dpgmoCallbackValues) {
   RequestMeshEdgesCallback(request, response);
 
   // Create DPGMO message
-  pose_graph_tools::PoseGraph::Ptr dpgmo_msg(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr dpgmo_msg(new pose_graph_tools_msgs::PoseGraph);
   for (auto node : inc_graph_1->nodes) {
-    pose_graph_tools::PoseGraphNode optimized_node = node;
+    pose_graph_tools_msgs::PoseGraphNode optimized_node = node;
     dpgmo_msg->nodes.push_back(optimized_node);
   }
-  pose_graph_tools::PoseGraphNode optimized_node = inc_graph_2->nodes[1];
+  pose_graph_tools_msgs::PoseGraphNode optimized_node = inc_graph_2->nodes[1];
   dpgmo_msg->nodes.push_back(optimized_node);
 
   for (auto node : response.mesh_factors.nodes) {
-    pose_graph_tools::PoseGraphNode optimized_node = node;
+    pose_graph_tools_msgs::PoseGraphNode optimized_node = node;
     dpgmo_msg->nodes.push_back(optimized_node);
   }
 
@@ -762,7 +771,7 @@ TEST_F(KimeraDpgmoTest, dpgmoCallbackValues) {
     EXPECT_TRUE(
         gtsam::assert_equal(RosToGtsam(node.pose), dpgmo_values.at<gtsam::Pose3>(key)));
   }
-  pose_graph_tools::PoseGraphNode node = inc_graph_2->nodes[1];
+  pose_graph_tools_msgs::PoseGraphNode node = inc_graph_2->nodes[1];
   gtsam::Key key = gtsam::Symbol(robot_id_to_prefix.at(node.robot_id), node.key);
   EXPECT_TRUE(
       gtsam::assert_equal(RosToGtsam(node.pose), dpgmo_values.at<gtsam::Pose3>(key)));
@@ -784,19 +793,20 @@ TEST_F(KimeraDpgmoTest, dpgmoCallbackDeform) {
   Graph graph_struct;
 
   // Check callback
-  pose_graph_tools::PoseGraph::Ptr inc_graph_1(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph_1(new pose_graph_tools_msgs::PoseGraph);
   *inc_graph_1 = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph_1);
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr mesh_graph_msg(
+      new pose_graph_tools_msgs::PoseGraph);
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // load second incremental pose graph
-  pose_graph_tools::PoseGraph::Ptr inc_graph_2(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph_2(new pose_graph_tools_msgs::PoseGraph);
   *inc_graph_2 = OdomLoopclosureGraph(ros::Time(12.8), 0);
   IncrementalPoseGraphCallback(inc_graph_2);
 
@@ -814,18 +824,18 @@ TEST_F(KimeraDpgmoTest, dpgmoCallbackDeform) {
   RequestMeshEdgesCallback(request, response);
 
   // Create DPGMO message
-  pose_graph_tools::PoseGraph::Ptr dpgmo_msg(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr dpgmo_msg(new pose_graph_tools_msgs::PoseGraph);
   for (auto node : inc_graph_1->nodes) {
-    pose_graph_tools::PoseGraphNode optimized_node = node;
+    pose_graph_tools_msgs::PoseGraphNode optimized_node = node;
     optimized_node.pose.position.x += 1;
     dpgmo_msg->nodes.push_back(optimized_node);
   }
-  pose_graph_tools::PoseGraphNode optimized_node = inc_graph_2->nodes[1];
+  pose_graph_tools_msgs::PoseGraphNode optimized_node = inc_graph_2->nodes[1];
   optimized_node.pose.position.x += 1;
   dpgmo_msg->nodes.push_back(optimized_node);
 
   for (auto node : response.mesh_factors.nodes) {
-    pose_graph_tools::PoseGraphNode optimized_node = node;
+    pose_graph_tools_msgs::PoseGraphNode optimized_node = node;
     optimized_node.pose.position.x += 1;
     dpgmo_msg->nodes.push_back(optimized_node);
   }

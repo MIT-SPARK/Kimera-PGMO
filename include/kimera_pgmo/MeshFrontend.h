@@ -8,7 +8,7 @@
 #include <ros/ros.h>
 
 #include <mesh_msgs/TriangleMeshStamped.h>
-#include <pose_graph_tools/PoseGraph.h>
+#include <pose_graph_tools_msgs/PoseGraph.h>
 #include <voxblox_msgs/Mesh.h>
 
 #include "kimera_pgmo/MeshFrontendInterface.h"

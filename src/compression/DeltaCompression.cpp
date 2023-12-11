@@ -102,9 +102,7 @@ void DeltaCompression::addPoint(const pcl::PointXYZRGBA& point,
     info.mesh_index = active_remapping_.size();
     active_remapping_.push_back(prev_index);  // cache previous index
   }
-
   face_map.push_back(info.mesh_index);
-
   if (!curr_voxels.count(vertex_index)) {
     info.addObservation();  // add one observation per block
     curr_voxels.insert(vertex_index);
@@ -160,8 +158,10 @@ void DeltaCompression::addActiveVertices(uint64_t timestamp_ns) {
         const size_t prev_mesh_index = active_remapping_[info.mesh_index];
         delta_->prev_to_curr[prev_mesh_index] = mesh_index;
       } else {
+        delta_->new_indices.insert(mesh_index);
         info.is_new = false;
       }
+      delta_->observed_indices.insert(mesh_index);
 
       // set to correct delta index for face construction
       active_remapping_[info.mesh_index] = mesh_index;

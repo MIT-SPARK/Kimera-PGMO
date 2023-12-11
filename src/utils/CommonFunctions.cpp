@@ -10,8 +10,8 @@
 #include <mesh_msgs/TriangleIndices.h>
 #include <pcl/PCLPointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
-#include <pose_graph_tools/PoseGraphEdge.h>
-#include <pose_graph_tools/PoseGraphNode.h>
+#include <pose_graph_tools_msgs/PoseGraphEdge.h>
+#include <pose_graph_tools_msgs/PoseGraphNode.h>
 #include <sensor_msgs/PointCloud2.h>
 #include <std_msgs/ColorRGBA.h>
 #include <voxblox_msgs/MeshBlock.h>
@@ -563,7 +563,7 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
                             const std::map<size_t, std::vector<Timestamp>>& timestamps,
                             const gtsam::Vector& gnc_weights,
                             const std::string& frame_id) {
-  std::vector<pose_graph_tools::PoseGraphEdge> edges;
+  std::vector<pose_graph_tools_msgs::PoseGraphEdge> edges;
 
   // first store the factors as edges
   for (size_t i = 0; i < factors.size(); i++) {
@@ -574,7 +574,7 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
       // convert to between factor
       const auto& factor = *factor_ptr;
       // convert between factor to PoseGraphEdge type
-      pose_graph_tools::PoseGraphEdge edge;
+      pose_graph_tools_msgs::PoseGraphEdge edge;
       edge.header.frame_id = frame_id;
       gtsam::Symbol front(factor.front());
       gtsam::Symbol back(factor.back());
@@ -585,7 +585,7 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
 
       if (edge.key_to == edge.key_from + 1 &&
           edge.robot_from == edge.robot_to) {  // check if odom
-        edge.type = pose_graph_tools::PoseGraphEdge::ODOM;
+        edge.type = pose_graph_tools_msgs::PoseGraphEdge::ODOM;
         try {
           edge.header.stamp.fromNSec(timestamps.at(edge.robot_to).at(edge.key_to));
         } catch (...) {
@@ -594,9 +594,9 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
 
       } else {
         if (gnc_weights.size() > i && gnc_weights(i) < 0.5) {
-          edge.type = pose_graph_tools::PoseGraphEdge::REJECTED_LOOPCLOSE;
+          edge.type = pose_graph_tools_msgs::PoseGraphEdge::REJECTED_LOOPCLOSE;
         } else {
-          edge.type = pose_graph_tools::PoseGraphEdge::LOOPCLOSE;
+          edge.type = pose_graph_tools_msgs::PoseGraphEdge::LOOPCLOSE;
         }
       }
       // transforms - translation
@@ -624,7 +624,7 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
     }
   }
 
-  std::vector<pose_graph_tools::PoseGraphNode> nodes;
+  std::vector<pose_graph_tools_msgs::PoseGraphNode> nodes;
   // Then store the values as nodes
   gtsam::KeyVector key_list = values.keys();
   for (size_t i = 0; i < key_list.size(); i++) {
@@ -632,7 +632,7 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
     if (robot_prefix_to_id.count(node_symb.chr())) {
       const size_t robot_id = robot_prefix_to_id.at(node_symb.chr());
 
-      pose_graph_tools::PoseGraphNode node;
+      pose_graph_tools_msgs::PoseGraphNode node;
       node.header.frame_id = frame_id;
       node.key = node_symb.index();
       node.robot_id = robot_id;
@@ -663,7 +663,8 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
     }
   }
 
-  pose_graph_tools::PoseGraph::Ptr posegraph(new pose_graph_tools::PoseGraph());
+  pose_graph_tools_msgs::PoseGraph::Ptr posegraph(
+      new pose_graph_tools_msgs::PoseGraph());
   posegraph->header.stamp = ros::Time::now();
   posegraph->header.frame_id = frame_id;
   posegraph->nodes = nodes;

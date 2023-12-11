@@ -14,7 +14,7 @@
 #include <nav_msgs/Path.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl_msgs/PolygonMesh.h>
-#include <pose_graph_tools/PoseGraph.h>
+#include <pose_graph_tools_msgs/PoseGraph.h>
 #include <ros/ros.h>
 #include <std_msgs/Header.h>
 #include <std_msgs/String.h>
@@ -89,12 +89,12 @@ struct SparseKeyframe {
   std::map<gtsam::Key, gtsam::Pose3> keyed_transforms;
   bool active = true;
   gtsam::Pose3 current_transform;
-  std::vector<pose_graph_tools::PoseGraphEdge> edges;
+  std::vector<pose_graph_tools_msgs::PoseGraphEdge> edges;
 
   void initialize(const gtsam::Key& sparse_key,
                   const size_t& robot_id,
                   const size_t& pose_id);
-  bool addNewEdge(const pose_graph_tools::PoseGraphEdge& new_edge,
+  bool addNewEdge(const pose_graph_tools_msgs::PoseGraphEdge& new_edge,
                   double trans_threshold,
                   double rot_threshold);
 };
@@ -245,7 +245,7 @@ class KimeraPgmoInterface {
    * - node_timestamps: vector of the timestamps of each odometric node
    */
   ProcessPoseGraphStatus processIncrementalPoseGraph(
-      const pose_graph_tools::PoseGraph::ConstPtr& msg,
+      const pose_graph_tools_msgs::PoseGraph::ConstPtr& msg,
       Path* initial_trajectory,
       std::queue<size_t>* unconnected_nodes,
       std::vector<Timestamp>* node_timestamps);
@@ -270,7 +270,7 @@ class KimeraPgmoInterface {
    * still within the embed time window
    */
   ProcessMeshGraphStatus processIncrementalMeshGraph(
-      const pose_graph_tools::PoseGraph::ConstPtr& mesh_graph_msg,
+      const pose_graph_tools_msgs::PoseGraph::ConstPtr& mesh_graph_msg,
       const std::vector<Timestamp>& node_timestamps,
       std::queue<size_t>* unconnected_nodes);
 
@@ -319,7 +319,7 @@ class KimeraPgmoInterface {
    * - vertex_index_offset start index for vertices from this index (default 0)
    */
   bool getConsistencyFactors(const size_t& robot_id,
-                             pose_graph_tools::PoseGraph* pg_mesh_msg,
+                             pose_graph_tools_msgs::PoseGraph* pg_mesh_msg,
                              const size_t& vertex_index_offset = 0) const;
 
   void inline insertDpgmoValues(const gtsam::Key& key, const gtsam::Pose3& pose) {

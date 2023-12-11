@@ -106,14 +106,14 @@ void SparseKeyframe::initialize(const gtsam::Key& sparse_key,
   keyed_transforms.insert({key_symb, gtsam::Pose3()});
 }
 
-bool SparseKeyframe::addNewEdge(const pose_graph_tools::PoseGraphEdge& new_edge,
+bool SparseKeyframe::addNewEdge(const pose_graph_tools_msgs::PoseGraphEdge& new_edge,
                                 double trans_threshold,
                                 double rot_threshold) {
   if (!active) {
     ROS_ERROR("Cannot add edge to inactive sparse key-frame.");
     return false;
   }
-  if (new_edge.type != pose_graph_tools::PoseGraphEdge::ODOM) {
+  if (new_edge.type != pose_graph_tools_msgs::PoseGraphEdge::ODOM) {
     ROS_ERROR("Trying to add non-ODOM edge to sparse key-frame.");
     return false;
   }
@@ -229,7 +229,7 @@ bool KimeraPgmoInterface::publishPath(const Path& path,
 }
 
 ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
-    const pose_graph_tools::PoseGraph::ConstPtr& msg,
+    const pose_graph_tools_msgs::PoseGraph::ConstPtr& msg,
     Path* initial_trajectory,
     std::queue<size_t>* unconnected_nodes,
     std::vector<Timestamp>* node_timestamps) {
@@ -263,7 +263,7 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
   }
 
   try {
-    for (pose_graph_tools::PoseGraphEdge pg_edge : msg->edges) {
+    for (pose_graph_tools_msgs::PoseGraphEdge pg_edge : msg->edges) {
       // Get edge information
       const gtsam::Pose3& measure = RosToGtsam(pg_edge.pose);
       const Vertex& prev_node = pg_edge.key_from;
@@ -275,7 +275,7 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
       const gtsam::Symbol from_key(GetRobotPrefix(robot_from), prev_node);
       const gtsam::Symbol to_key(GetRobotPrefix(robot_to), current_node);
 
-      if (pg_edge.type == pose_graph_tools::PoseGraphEdge::ODOM) {
+      if (pg_edge.type == pose_graph_tools_msgs::PoseGraphEdge::ODOM) {
         // odometry edge
         if (robot_from != robot_to) {
           ROS_ERROR(
@@ -343,7 +343,7 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
               new_pose,
               config_.odom_variance);
         }
-      } else if (pg_edge.type == pose_graph_tools::PoseGraphEdge::LOOPCLOSE &&
+      } else if (pg_edge.type == pose_graph_tools_msgs::PoseGraphEdge::LOOPCLOSE &&
                  config_.mode == RunMode::FULL) {
         if (!full_sparse_frame_map_.count(from_key) ||
             !full_sparse_frame_map_.count(to_key)) {
@@ -456,7 +456,7 @@ bool KimeraPgmoInterface::optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
 }
 
 ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
-    const pose_graph_tools::PoseGraph::ConstPtr& mesh_graph_msg,
+    const pose_graph_tools_msgs::PoseGraph::ConstPtr& mesh_graph_msg,
     const std::vector<Timestamp>& node_timestamps,
     std::queue<size_t>* unconnected_nodes) {
   if (mesh_graph_msg->edges.size() == 0 || mesh_graph_msg->nodes.size() == 0) {
@@ -664,7 +664,7 @@ bool KimeraPgmoInterface::loadPoseGraphSparseMapping(const std::string& input_pa
 
 bool KimeraPgmoInterface::getConsistencyFactors(
     const size_t& robot_id,
-    pose_graph_tools::PoseGraph* pg_mesh_msg,
+    pose_graph_tools_msgs::PoseGraph* pg_mesh_msg,
     const size_t& vertex_index_offset) const {
   assert(nullptr != pg_mesh_msg);
   pg_mesh_msg->edges.clear();
@@ -686,23 +686,23 @@ bool KimeraPgmoInterface::getConsistencyFactors(
   // Iterate and convert the edges to PoseGraphEdge type
   for (auto factor : edge_factors) {
     // Create edge
-    pose_graph_tools::PoseGraphEdge pg_edge;
+    pose_graph_tools_msgs::PoseGraphEdge pg_edge;
 
     gtsam::Symbol from(factor->front());
     gtsam::Symbol to(factor->back());
 
     if (from.chr() == vertex_prefix) {
       if (to.chr() == vertex_prefix) {
-        pg_edge.type = pose_graph_tools::PoseGraphEdge::MESH;
+        pg_edge.type = pose_graph_tools_msgs::PoseGraphEdge::MESH;
       } else if (to.chr() == robot_prefix) {
-        pg_edge.type = pose_graph_tools::PoseGraphEdge::MESH_POSE;
+        pg_edge.type = pose_graph_tools_msgs::PoseGraphEdge::MESH_POSE;
       } else {
         ROS_WARN("Unexpected edge type. ");
         continue;
       }
     } else if (from.chr() == robot_prefix) {
       if (to.chr() == vertex_prefix) {
-        pg_edge.type = pose_graph_tools::PoseGraphEdge::POSE_MESH;
+        pg_edge.type = pose_graph_tools_msgs::PoseGraphEdge::POSE_MESH;
       } else if (to.chr() == robot_prefix) {
         ROS_ERROR(
             "Getting a pose-to-pose edge in deformation graph consistency "
@@ -725,7 +725,7 @@ bool KimeraPgmoInterface::getConsistencyFactors(
     // Pose should be [I , R_1^{-1} (t2 - t1)] *** these are all initial
     // poses/positions
     switch (pg_edge.type) {
-      case pose_graph_tools::PoseGraphEdge::MESH: {
+      case pose_graph_tools_msgs::PoseGraphEdge::MESH: {
         const gtsam::Point3& vertex_pos_from =
             deformation_graph_->getInitialPositionVertex(vertex_prefix,
                                                          pg_edge.key_from);
@@ -740,7 +740,7 @@ bool KimeraPgmoInterface::getConsistencyFactors(
         pg_mesh_msg->edges.push_back(pg_edge);
         break;
       }
-      case pose_graph_tools::PoseGraphEdge::POSE_MESH: {
+      case pose_graph_tools_msgs::PoseGraphEdge::POSE_MESH: {
         const gtsam::Pose3& pose_from =
             deformation_graph_->getInitialPose(robot_prefix, pg_edge.key_from);
         const gtsam::Point3& vertex_pos_to =
@@ -755,7 +755,7 @@ bool KimeraPgmoInterface::getConsistencyFactors(
         pg_mesh_msg->edges.push_back(pg_edge);
         break;
       }
-      case pose_graph_tools::PoseGraphEdge::MESH_POSE: {
+      case pose_graph_tools_msgs::PoseGraphEdge::MESH_POSE: {
         const gtsam::Point3& vertex_pos_from =
             deformation_graph_->getInitialPositionVertex(vertex_prefix,
                                                          pg_edge.key_from);
@@ -778,7 +778,7 @@ bool KimeraPgmoInterface::getConsistencyFactors(
       deformation_graph_->getInitialPositionsVertices(vertex_prefix);
 
   for (size_t i = 0; i < initial_positions.size(); i++) {
-    pose_graph_tools::PoseGraphNode pg_node;
+    pose_graph_tools_msgs::PoseGraphNode pg_node;
     pg_node.robot_id = robot_id;
     pg_node.key = i + vertex_index_offset;
     pg_node.pose = GtsamToRos(gtsam::Pose3(gtsam::Rot3(), initial_positions[i]));

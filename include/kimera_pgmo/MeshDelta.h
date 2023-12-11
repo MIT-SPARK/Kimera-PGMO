@@ -98,6 +98,8 @@ class MeshDelta {
   std::vector<Face> face_archive_updates;
   std::map<size_t, size_t> prev_to_curr;
   std::set<size_t> deleted_indices;
+  std::set<size_t> observed_indices;
+  std::set<size_t> new_indices;
 
  protected:
   size_t num_archived_vertices_ = 0;

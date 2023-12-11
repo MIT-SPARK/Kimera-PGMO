@@ -12,7 +12,7 @@
 #include <pcl/PolygonMesh.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl_msgs/PolygonMesh.h>
-#include <pose_graph_tools/PoseGraph.h>
+#include <pose_graph_tools_msgs/PoseGraph.h>
 
 #include "kimera_pgmo/KimeraPgmoMesh.h"
 #include "kimera_pgmo/compression/OctreeCompression.h"
@@ -20,12 +20,12 @@
 #include "kimera_pgmo/utils/CommonStructs.h"
 
 namespace kimera_pgmo {
-pose_graph_tools::PoseGraph SingleOdomGraph(const ros::Time& stamp,
+pose_graph_tools_msgs::PoseGraph SingleOdomGraph(const ros::Time& stamp,
                                             const size_t& robot_id) {
-  pose_graph_tools::PoseGraph inc_graph;
+  pose_graph_tools_msgs::PoseGraph inc_graph;
 
-  pose_graph_tools::PoseGraphEdge e0;
-  pose_graph_tools::PoseGraphNode n0, n1;
+  pose_graph_tools_msgs::PoseGraphEdge e0;
+  pose_graph_tools_msgs::PoseGraphNode n0, n1;
   e0.header.stamp = stamp;
   e0.key_from = 0;
   e0.key_to = 1;
@@ -33,7 +33,7 @@ pose_graph_tools::PoseGraph SingleOdomGraph(const ros::Time& stamp,
   e0.robot_to = robot_id;
   e0.pose.position.x = 1;
   e0.pose.orientation.w = 1;
-  e0.type = pose_graph_tools::PoseGraphEdge::ODOM;
+  e0.type = pose_graph_tools_msgs::PoseGraphEdge::ODOM;
   e0.covariance = {3.1, 0, 0,   0, 0,   0, 0, 3.1, 0, 0,   0, 0,
                    0,   0, 3.1, 0, 0,   0, 0, 0,   0, 0.1, 0, 0,
                    0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
@@ -56,12 +56,12 @@ pose_graph_tools::PoseGraph SingleOdomGraph(const ros::Time& stamp,
   return inc_graph;
 }
 
-pose_graph_tools::PoseGraph OdomLoopclosureGraph(const ros::Time& stamp,
+pose_graph_tools_msgs::PoseGraph OdomLoopclosureGraph(const ros::Time& stamp,
                                                  const size_t& robot_id) {
-  pose_graph_tools::PoseGraph inc_graph;
+  pose_graph_tools_msgs::PoseGraph inc_graph;
 
-  pose_graph_tools::PoseGraphEdge e1, e2;
-  pose_graph_tools::PoseGraphNode n1, n2;
+  pose_graph_tools_msgs::PoseGraphEdge e1, e2;
+  pose_graph_tools_msgs::PoseGraphNode n1, n2;
 
   e1.header.stamp = stamp;
   e1.key_from = 1;
@@ -70,7 +70,7 @@ pose_graph_tools::PoseGraph OdomLoopclosureGraph(const ros::Time& stamp,
   e1.robot_to = robot_id;
   e1.pose.position.y = 1;
   e1.pose.orientation.w = 1;
-  e1.type = pose_graph_tools::PoseGraphEdge::ODOM;
+  e1.type = pose_graph_tools_msgs::PoseGraphEdge::ODOM;
   e1.covariance = {3.1, 0, 0,   0, 0,   0, 0, 3.1, 0, 0,   0, 0,
                    0,   0, 3.1, 0, 0,   0, 0, 0,   0, 0.1, 0, 0,
                    0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
@@ -83,7 +83,7 @@ pose_graph_tools::PoseGraph OdomLoopclosureGraph(const ros::Time& stamp,
   e2.pose.position.x = 1;
   e2.pose.position.y = 1;
   e2.pose.orientation.w = 1;
-  e2.type = pose_graph_tools::PoseGraphEdge::LOOPCLOSE;
+  e2.type = pose_graph_tools_msgs::PoseGraphEdge::LOOPCLOSE;
   e2.covariance = {0.1, 0, 0,   0, 0,   0, 0, 0.1, 0, 0,   0, 0,
                    0,   0, 0.1, 0, 0,   0, 0, 0,   0, 0.1, 0, 0,
                    0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
@@ -108,12 +108,12 @@ pose_graph_tools::PoseGraph OdomLoopclosureGraph(const ros::Time& stamp,
   return inc_graph;
 }
 
-pose_graph_tools::PoseGraph OdomLoopclosureGraph2(const ros::Time& stamp,
+pose_graph_tools_msgs::PoseGraph OdomLoopclosureGraph2(const ros::Time& stamp,
                                                   const size_t& robot_id) {
-  pose_graph_tools::PoseGraph inc_graph;
+  pose_graph_tools_msgs::PoseGraph inc_graph;
 
-  pose_graph_tools::PoseGraphEdge e1, e2;
-  pose_graph_tools::PoseGraphNode n1, n2;
+  pose_graph_tools_msgs::PoseGraphEdge e1, e2;
+  pose_graph_tools_msgs::PoseGraphNode n1, n2;
 
   e1.header.stamp = stamp;
   e1.key_from = 2;
@@ -122,7 +122,7 @@ pose_graph_tools::PoseGraph OdomLoopclosureGraph2(const ros::Time& stamp,
   e1.robot_to = robot_id;
   e1.pose.position.z = 1;
   e1.pose.orientation.w = 1;
-  e1.type = pose_graph_tools::PoseGraphEdge::ODOM;
+  e1.type = pose_graph_tools_msgs::PoseGraphEdge::ODOM;
   e1.covariance = {3.1, 0, 0,   0, 0,   0, 0, 3.1, 0, 0,   0, 0,
                    0,   0, 3.1, 0, 0,   0, 0, 0,   0, 0.1, 0, 0,
                    0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
@@ -135,7 +135,7 @@ pose_graph_tools::PoseGraph OdomLoopclosureGraph2(const ros::Time& stamp,
   e2.pose.position.z = -1;
   e2.pose.position.x = -1;
   e2.pose.orientation.w = 1;
-  e2.type = pose_graph_tools::PoseGraphEdge::LOOPCLOSE;
+  e2.type = pose_graph_tools_msgs::PoseGraphEdge::LOOPCLOSE;
   e2.covariance = {0.1, 0, 0,   0, 0,   0, 0, 0.1, 0, 0,   0, 0,
                    0,   0, 0.1, 0, 0,   0, 0, 0,   0, 0.1, 0, 0,
                    0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
@@ -158,12 +158,12 @@ pose_graph_tools::PoseGraph OdomLoopclosureGraph2(const ros::Time& stamp,
   return inc_graph;
 }
 
-pose_graph_tools::PoseGraph InterRobotLoopClosureGraph(const ros::Time& stamp,
+pose_graph_tools_msgs::PoseGraph InterRobotLoopClosureGraph(const ros::Time& stamp,
                                                        const size_t& robot_1,
                                                        const size_t& robot_2) {
-  pose_graph_tools::PoseGraph inc_graph;
+  pose_graph_tools_msgs::PoseGraph inc_graph;
 
-  pose_graph_tools::PoseGraphEdge e1;
+  pose_graph_tools_msgs::PoseGraphEdge e1;
 
   e1.header.stamp = stamp;
   e1.key_from = 0;
@@ -172,7 +172,7 @@ pose_graph_tools::PoseGraph InterRobotLoopClosureGraph(const ros::Time& stamp,
   e1.robot_to = robot_2;
   e1.pose.position.z = 1;
   e1.pose.orientation.w = 1;
-  e1.type = pose_graph_tools::PoseGraphEdge::LOOPCLOSE;
+  e1.type = pose_graph_tools_msgs::PoseGraphEdge::LOOPCLOSE;
   e1.covariance = {3.1, 0, 0,   0, 0,   0, 0, 3.1, 0, 0,   0, 0,
                    0,   0, 3.1, 0, 0,   0, 0, 0,   0, 0.1, 0, 0,
                    0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
@@ -245,7 +245,7 @@ pcl::PolygonMesh createMesh(double t_x, double t_y, double t_z) {
   return mesh;
 }
 
-pose_graph_tools::PoseGraph processMeshToGraph(
+pose_graph_tools_msgs::PoseGraph processMeshToGraph(
     const pcl::PolygonMesh& mesh,
     const size_t& robot_id,
     const ros::Time& msg_time,
@@ -277,12 +277,12 @@ pose_graph_tools::PoseGraph processMeshToGraph(
   compressor->getVertices(graph_vertices);
 
   // Create message
-  pose_graph_tools::PoseGraph pose_graph_msg;
+  pose_graph_tools_msgs::PoseGraph pose_graph_msg;
   pose_graph_msg.header.stamp = msg_time;
 
   // Encode the edges as factors
   for (auto e : new_edges) {
-    pose_graph_tools::PoseGraphEdge pg_edge;
+    pose_graph_tools_msgs::PoseGraphEdge pg_edge;
     pg_edge.header.stamp = msg_time;
 
     const size_t& from_node = e.first;
@@ -300,7 +300,7 @@ pose_graph_tools::PoseGraph processMeshToGraph(
     pg_edge.pose =
         GtsamToRos(gtsam::Pose3(gtsam::Rot3(), to_node_pos - from_node_pos));
 
-    pg_edge.type = pose_graph_tools::PoseGraphEdge::MESH;
+    pg_edge.type = pose_graph_tools_msgs::PoseGraphEdge::MESH;
 
     // Add edge to pose graph
     pose_graph_msg.edges.push_back(pg_edge);
@@ -308,7 +308,7 @@ pose_graph_tools::PoseGraph processMeshToGraph(
 
   // Encode the new vertices as nodes
   for (auto n : *graph_indices) {
-    pose_graph_tools::PoseGraphNode pg_node;
+    pose_graph_tools_msgs::PoseGraphNode pg_node;
     pg_node.header.stamp = msg_time;
     pg_node.robot_id = robot_id;
 

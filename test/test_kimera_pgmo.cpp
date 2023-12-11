@@ -70,7 +70,7 @@ class KimeraPgmoTest : public ::testing::Test {
   }
   ~KimeraPgmoTest() {}
 
-  void IncrementalPoseGraphCallback(const pose_graph_tools::PoseGraph::ConstPtr& msg) {
+  void IncrementalPoseGraphCallback(const pose_graph_tools_msgs::PoseGraph::ConstPtr& msg) {
     pgmo_.incrementalPoseGraphCallback(msg);
   }
 
@@ -79,7 +79,7 @@ class KimeraPgmoTest : public ::testing::Test {
   }
 
   void IncrementalMeshGraphCallback(
-      const pose_graph_tools::PoseGraph::ConstPtr& mesh_graph_msg) {
+      const pose_graph_tools_msgs::PoseGraph::ConstPtr& mesh_graph_msg) {
     pgmo_.incrementalMeshGraphCallback(mesh_graph_msg);
   }
 
@@ -115,7 +115,7 @@ class KimeraPgmoTest : public ::testing::Test {
   }
 
   inline bool getConsistencyFactorsMsg(const size_t& robot_id,
-                                       pose_graph_tools::PoseGraph* pg_mesh_msg,
+                                       pose_graph_tools_msgs::PoseGraph* pg_mesh_msg,
                                        const size_t& vertex_index_offset) const {
     return pgmo_.getConsistencyFactors(robot_id, pg_mesh_msg, vertex_index_offset);
   }
@@ -135,7 +135,7 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   pgmo_.initialize(nh);
 
   // check callback
-  pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph(new pose_graph_tools_msgs::PoseGraph);
   *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
   ForceOptimize();
@@ -224,7 +224,7 @@ TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
   Graph graph_struct;
 
   // Check callback
-  pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph(new pose_graph_tools_msgs::PoseGraph);
   *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
   // At this point should have two nodes (0, 0, 0), (1, 0, 0) and a between
@@ -233,7 +233,7 @@ TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
 
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools_msgs::PoseGraph);
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
@@ -301,7 +301,7 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnection) {
   Graph graph_struct;
 
   // Check callback
-  pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph(new pose_graph_tools_msgs::PoseGraph);
   *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
   // At this point should have two nodes (0, 0, 0), (1, 0, 0) and a between
@@ -313,7 +313,7 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnection) {
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools_msgs::PoseGraph);
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 0, ros::Time(12.2), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
@@ -337,13 +337,13 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
   Graph graph_struct;
 
   // Check callback
-  pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph(new pose_graph_tools_msgs::PoseGraph);
   *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools_msgs::PoseGraph);
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
@@ -409,7 +409,7 @@ TEST_F(KimeraPgmoTest, optimizedPathCallback) {
   pgmo_.initialize(nh);
 
   // check callback
-  pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph(new pose_graph_tools_msgs::PoseGraph);
   *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
   ForceOptimize();
@@ -535,7 +535,7 @@ TEST_F(KimeraPgmoTest, checkRobotIdMeshCallback) {
   Graph graph_struct;
 
   // Check callback
-  pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph(new pose_graph_tools_msgs::PoseGraph);
   *inc_graph = SingleOdomGraph(ros::Time(10.2), 2);
   IncrementalPoseGraphCallback(inc_graph);
   // At this point should have two nodes (0, 0, 0), (1, 0, 0) and a between
@@ -543,7 +543,7 @@ TEST_F(KimeraPgmoTest, checkRobotIdMeshCallback) {
 
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools_msgs::PoseGraph);
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 2, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
@@ -603,7 +603,7 @@ TEST_F(KimeraPgmoTest, sparseKeyFrames) {
   Graph graph_struct;
 
   // Check callback
-  pose_graph_tools::PoseGraph::Ptr inc_graph(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph(new pose_graph_tools_msgs::PoseGraph);
   *inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
   // At this point should have one node (0, 0, 0)
@@ -611,7 +611,7 @@ TEST_F(KimeraPgmoTest, sparseKeyFrames) {
   // Add mesh
   pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
 
-  pose_graph_tools::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr mesh_graph_msg(new pose_graph_tools_msgs::PoseGraph);
   *mesh_graph_msg =
       processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);

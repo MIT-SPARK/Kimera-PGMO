@@ -833,9 +833,9 @@ TEST(test_deformation_graph, addNewTempEdges) {
   }
   graph.addNewTempNodesValences(temp_keys, temp_key_poses, temp_valences, 'v', false);
 
-  pose_graph_tools::PoseGraph temp_edges;
+  pose_graph_tools_msgs::PoseGraph temp_edges;
   for (size_t i = 0; i < 3; i++) {
-    pose_graph_tools::PoseGraphEdge edge;
+    pose_graph_tools_msgs::PoseGraphEdge edge;
     edge.key_from = gtsam::Symbol('p', i);
     edge.key_to = gtsam::Symbol('p', i + 1);
     temp_edges.edges.push_back(edge);

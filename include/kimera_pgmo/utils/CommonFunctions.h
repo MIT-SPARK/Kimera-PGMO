@@ -19,7 +19,7 @@
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl_msgs/PolygonMesh.h>
-#include <pose_graph_tools/PoseGraph.h>
+#include <pose_graph_tools_msgs/PoseGraph.h>
 #include <ros/console.h>
 #include <voxblox_msgs/Mesh.h>
 
@@ -94,7 +94,7 @@ inline char GetVertexPrefix(size_t robot_id) {
   return robot_id_to_vertex_prefix.at(robot_id);
 }
 
-typedef pose_graph_tools::PoseGraph::ConstPtr GraphMsgPtr;
+typedef pose_graph_tools_msgs::PoseGraph::ConstPtr GraphMsgPtr;
 
 /*! \brief Read ply file and convert to polygon mesh type
  *  - mesh: pcl PolygonMesh pointer
