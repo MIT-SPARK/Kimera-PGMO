@@ -90,7 +90,6 @@ struct BlockConfig {
     // original voxblox conversion: x = (a * \bar{x} + block.x) * L
     // inverse conversion: \bar{x} = 1 / a * (x / L - block.x)
     // for simplicity, block-lenght (L) is 1
-    size_t idx = 0;
     for (const auto& face : faces) {
       for (size_t i = 0; i < face.size(); ++i) {
         const float a = std::numeric_limits<uint16_t>::max() / 2.0f;
@@ -135,11 +134,11 @@ struct ExpectedDelta {
   void checkOutput(const MeshDelta& output,
                    const VoxbloxIndexMapping& output_remapping,
                    std::map<size_t, size_t>& prev_remapping) const {
-    EXPECT_EQ(output.vertex_updates.size(), output.stamp_updates.size())
+    EXPECT_EQ(output.vertex_updates->size(), output.stamp_updates.size())
         << "vertex and timestamp sizes disagree";
     EXPECT_EQ(output.vertex_start, vertex_start);
     EXPECT_EQ(output.face_start, face_start);
-    EXPECT_EQ(output.vertex_updates.size(), num_vertices);
+    EXPECT_EQ(output.vertex_updates->size(), num_vertices);
 
     // copy all archived points over from previous delta
     std::map<size_t, size_t> result_remapping;
@@ -150,8 +149,8 @@ struct ExpectedDelta {
     }
 
     // convert current index in delta and absolute index
-    for (size_t i = 0; i < output.vertex_updates.size(); ++i) {
-      result_remapping[i + output.vertex_start] = output.vertex_updates.at(i).r;
+    for (size_t i = 0; i < output.vertex_updates->size(); ++i) {
+      result_remapping[i + output.vertex_start] = output.vertex_updates->at(i).r;
     }
 
     prev_remapping = result_remapping;

@@ -3,15 +3,17 @@
  * @brief  KimeraPgmo interface class: base class and methods for Kimera PGMO
  * @author Yun Chang
  */
-#include <chrono>
-#include <cmath>
-#include <limits>
+#include "kimera_pgmo/KimeraPgmoInterface.h"
 
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <visualization_msgs/Marker.h>
 
-#include "kimera_pgmo/KimeraPgmoInterface.h"
+#include <chrono>
+#include <cmath>
+#include <limits>
+
+#include "kimera_pgmo/utils/MeshIO.h"
 
 namespace kimera_pgmo {
 
@@ -142,8 +144,8 @@ bool SparseKeyframe::addNewEdge(const pose_graph_tools_msgs::PoseGraphEdge& new_
 
 // Constructor
 KimeraPgmoInterface::KimeraPgmoInterface()
-    : deformation_graph_(new DeformationGraph),
-      full_mesh_updated_(false),
+    : full_mesh_updated_(false),
+      deformation_graph_(new DeformationGraph),
       num_loop_closures_(0) {}
 
 KimeraPgmoInterface::~KimeraPgmoInterface() {}
@@ -289,7 +291,8 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
                     gtsam::DefaultKeyFormatter(from_key).c_str());
           return ProcessPoseGraphStatus::MISSING;
         }
-        if (full_sparse_frame_map_.count(from_key) && full_sparse_frame_map_.count(to_key)) {
+        if (full_sparse_frame_map_.count(from_key) &&
+            full_sparse_frame_map_.count(to_key)) {
           ROS_WARN("Duplicated edge. ");
           continue;
         }
@@ -401,7 +404,7 @@ void KimeraPgmoInterface::processOptimizedPath(const nav_msgs::Path::ConstPtr& p
 
   deformation_graph_->removePriorsWithPrefix(GetRobotPrefix(robot_id));
 
-  std::vector<std::pair<gtsam::Key, gtsam::Pose3> > node_estimates;
+  std::vector<std::pair<gtsam::Key, gtsam::Pose3>> node_estimates;
   for (size_t i = 0; i < path_msg->poses.size(); i++) {
     node_estimates.push_back(std::pair<gtsam::Key, gtsam::Pose3>(
         gtsam::Symbol(GetRobotPrefix(robot_id), i).key(),
@@ -466,7 +469,7 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
   // Assume graph only contains message from one robot
   size_t robot_id = mesh_graph_msg->nodes[0].robot_id;
   // Mesh edges and nodes
-  std::vector<std::pair<gtsam::Key, gtsam::Key> > new_mesh_edges;
+  std::vector<std::pair<gtsam::Key, gtsam::Key>> new_mesh_edges;
   gtsam::Values new_mesh_nodes;
   std::unordered_map<gtsam::Key, Timestamp> new_mesh_node_stamps;
   std::vector<size_t> new_indices;

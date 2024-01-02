@@ -20,9 +20,9 @@ namespace kimera_pgmo {
 
 MeshFrontendInterface::MeshFrontendInterface()
     : vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>),
+      triangles_(new std::vector<pcl::Vertices>),
       vertex_stamps_(new std::vector<Timestamp>),
       graph_vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>),
-      triangles_(new std::vector<pcl::Vertices>),
       graph_triangles_(new std::vector<pcl::Vertices>),
       vxblx_msg_to_graph_idx_(new VoxbloxIndexMapping),
       vxblx_msg_to_mesh_idx_(new VoxbloxIndexMapping),

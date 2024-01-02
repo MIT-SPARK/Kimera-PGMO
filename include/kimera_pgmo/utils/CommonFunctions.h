@@ -12,9 +12,7 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 #include <kimera_pgmo/KimeraPgmoMesh.h>
-#include <mesh_msgs/TriangleMesh.h>
 #include <pcl/PolygonMesh.h>
-#include <pcl/io/ply_io.h>
 #include <pcl/octree/octree_search.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
@@ -26,6 +24,8 @@
 #include <string>
 
 #include "kimera_pgmo/utils/CommonStructs.h"
+#include "kimera_pgmo/utils/MeshIO.h"
+#include "kimera_pgmo/utils/TriangleMeshConversion.h"
 
 namespace kimera_pgmo {
 
@@ -96,57 +96,6 @@ inline char GetVertexPrefix(size_t robot_id) {
 
 typedef pose_graph_tools_msgs::PoseGraph::ConstPtr GraphMsgPtr;
 
-/*! \brief Read ply file and convert to polygon mesh type
- *  - mesh: pcl PolygonMesh pointer
- */
-void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh);
-
-/*! \brief Read ply file and convert to polygon mesh type
- *  - mesh: pcl PolygonMesh pointer
- *  - vertex_stamps: timestamps associated with mesh vertices
- */
-void ReadMeshWithStampsFromPly(const std::string& filename,
-                               pcl::PolygonMesh& mesh,
-                               std::vector<Timestamp>* vertex_stamps = nullptr);
-
-/*! \brief Read ply file and convert to polygon mesh type
- *  - mesh: pcl PolygonMesh pointer
- *  - vertex_stamps: timestamps associated with mesh vertices
- */
-void ReadMeshWithStampsFromPly(const std::string& filename,
-                               pcl::PolygonMeshPtr mesh,
-                               std::vector<Timestamp>* vertex_stamps = nullptr);
-
-/*! \brief Write a pcl PolygonMesh mesh to ply file
- *  - filename: name of output ply file
- *  - mesh: mesh to save
- */
-void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh);
-
-/*! \brief Write a pcl PolygonMesh mesh to ply file along with vertex timestamps
- *  - filename: name of output ply file
- *  - mesh: mesh to save
- *  - vertex_stamps: vector of vertex timestamps
- */
-void WriteMeshWithStampsToPly(const std::string& filename,
-                              const pcl::PolygonMesh& mesh,
-                              const std::vector<Timestamp>& vertex_stamps);
-
-/*! \brief Convert pcl PolygonMesh to mesh_msg TriangleMesh
- *  - polygon_mesh: mesh to convert
- */
-mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
-    const pcl::PolygonMesh& polygon_mesh);
-
-/*! \brief Convert a mesh represented by vertices and polygons to a mesh_msg
- * TriangleMesh
- *  - vertices: vertices (as point cloud) of the mesh
- *  - polygons: surfaces of mesh (as pcl::Vertices polygons)
- */
-mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
-    const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
-    const std::vector<pcl::Vertices>& polygons);
-
 /*! \brief Convert a mesh represented by vertices and polygons to a pgmo mesh
  * msg
  *  - id: robot id
@@ -174,12 +123,6 @@ KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(
     const std::vector<Timestamp>& vertex_timestamps,
     const std::string& frame_id,
     const IndexMapping& vertex_index_mappings = std::unordered_map<size_t, size_t>());
-
-/*! \brief Convert a mesh_msg TriangleMesh to PolygonMesh
- *  - mesh_msg: TriangleMesh mesh to be converted
- *  - outputs mesh as PolygonMesh type
- */
-pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(const mesh_msgs::TriangleMesh& mesh_msg);
 
 /*! \brief Convert a mesh_msg KimeraPgmoMesh to PolygonMesh
  *  - mesh_msg: TriangleMesh mesh to be converted
@@ -302,229 +245,6 @@ bool InOctreeBoundingBox(const pcl::octree::OctreePointCloudSearch<point_type>& 
   octree.getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
   return (p.x >= min_x && p.x <= max_x) && (p.y >= min_y && p.y <= max_y) &&
          (p.z >= min_z && p.z <= max_z);
-}
-
-/*! \brief Deform a points (i.e. the vertices of a mesh) based on the
- * controls points via deformation
- * - original_points: set of points to deform
- * - prefix: a char to distinguish the type of control points
- * - control_points: original positions of the control points. In the case of
- * mesh vertices, these are the original positions of the simplified mesh.
- * - values: key-value pairs. Where each key should be gtsam::Symbol(prefix,
- * idx-in-control-points) from the previous two arguments.
- * - k: how many nearby nodes to use to adjust new position of vertices
- */
-template <class point_type>
-void deformPoints(pcl::PointCloud<point_type>& new_points,
-                  const pcl::PointCloud<point_type>& points,
-                  const char& prefix,
-                  const std::vector<gtsam::Point3>& control_points,
-                  const gtsam::Values& values,
-                  size_t k = 4,
-                  const std::vector<size_t>* indices = nullptr) {
-  typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
-  // Check if there are points to deform
-  const size_t num_points = indices ? indices->size() : points.size();
-  if (!num_points) {
-    return;
-  }
-
-  // Cannot deform if no nodes in the deformation graph
-  if (control_points.size() == 0) {
-    ROS_WARN("No control points. No deformation. ");
-    return;
-  }
-
-  // Build Octree
-  Octree::Ptr search_octree(new Octree(1.0));
-  pcl::PointCloud<pcl::PointXYZ>::Ptr search_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-  search_octree->setInputCloud(search_cloud);
-  for (size_t j = 0; j < control_points.size(); j++) {
-    const gtsam::Point3& position = control_points[j];
-    search_cloud->push_back(pcl::PointXYZ(position.x(), position.y(), position.z()));
-    if (!values.exists(gtsam::Symbol(prefix, j))) continue;
-    search_octree->addPointFromCloud(search_cloud->points.size() - 1, nullptr);
-  }
-
-  if (search_octree->getLeafCount() < k) {
-    ROS_WARN("Not enough valid control points to deform points. ");
-    return;
-  }
-
-  for (size_t point_index = 0; point_index < num_points; ++point_index) {
-    const size_t ii = indices ? indices->at(point_index) : point_index;
-    const point_type& p = points[ii];
-    auto& p_new = new_points[ii];
-    // search for k + 1 nearest nodes
-    std::vector<std::pair<size_t, double>> nearest_nodes;
-    const pcl::PointXYZ p_xyz(p.x, p.y, p.z);
-    const gtsam::Point3 vi(p.x, p.y, p.z);
-    // Query octree
-    std::vector<int> nearest_nodes_index;
-    std::vector<float> nearest_nodes_sq_dist;
-    search_octree->nearestKSearch(
-        p_xyz, k + 1, nearest_nodes_index, nearest_nodes_sq_dist);
-
-    // Calculate new point location from k points
-    gtsam::Point3 new_point(0, 0, 0);
-    double d_max = std::sqrt(nearest_nodes_sq_dist[nearest_nodes_index.size() - 1]);
-    if (d_max == 0) {
-      continue;
-    }
-    bool use_const_weight = false;
-    if (std::sqrt(nearest_nodes_sq_dist[0]) == d_max) {
-      use_const_weight = true;
-    }
-    double weight_sum = 0;
-    for (size_t j = 0; j < nearest_nodes_index.size() - 1; j++) {
-      const pcl::PointXYZ& p_g = search_cloud->points.at(nearest_nodes_index[j]);
-      gtsam::Point3 gj(p_g.x, p_g.y, p_g.z);
-      double weight =
-          use_const_weight ? 1 : (1 - std::sqrt(nearest_nodes_sq_dist[j]) / d_max);
-      weight_sum = weight_sum + weight;
-      gtsam::Pose3 node_transform =
-          values.at<gtsam::Pose3>(gtsam::Symbol(prefix, nearest_nodes_index[j]));
-      gtsam::Point3 add =
-          node_transform.rotation().rotate(vi - gj) + node_transform.translation();
-      new_point = new_point + weight * add;
-    }
-    // Add back to new_vertices
-    p_new.x = new_point.x() / weight_sum;
-    p_new.y = new_point.y() / weight_sum;
-    p_new.z = new_point.z() / weight_sum;
-  }
-}
-
-/*! \brief Deform a points (i.e. the vertices of a mesh) based on the
- * controls points via deformation but also check timestamp of points
- * - original_points: set of points to deform
- * - stamps: timestamps of the points to deform
- * - prefix: a char to distinguish the type of control points
- * - control_points: original positions of the control points. In the case of
- * mesh vertices, these are the original positions of the simplified mesh.
- * - control_point_stamps: timestamps of the control points
- * - values: key-value pairs. Where each key should be gtsam::Symbol(prefix,
- * idx-in-control-points) from the previous two arguments.
- * - k: how many nearby nodes to use to adjust new position of vertices
- * - tol_t: time (in seconds) minimum difference in time that a control point
- * can be used for interpolation
- */
-template <class point_type>
-void deformPointsWithTimeCheck(pcl::PointCloud<point_type>& new_points,
-                               std::vector<std::set<size_t>>& control_point_map,
-                               const pcl::PointCloud<point_type>& points,
-                               const std::vector<Timestamp>& stamps,
-                               const char& prefix,
-                               const std::vector<gtsam::Point3>& control_points,
-                               const std::vector<Timestamp>& control_point_stamps,
-                               const gtsam::Values& values,
-                               size_t k = 4,
-                               double tol_t = 10.0,
-                               const std::vector<size_t>* indices = nullptr) {
-  typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
-  // Check if there are points to deform
-  const size_t num_points = indices ? indices->size() : points.size();
-  if (!num_points) {
-    return;
-  }
-
-  // Cannot deform if no nodes in the deformation graph
-  if (control_points.size() < k) {
-    ROS_WARN("Not enough valid control points to deform points. ");
-    return;
-  }
-
-  assert(points.size() == stamps.size());
-  assert(points.size() == new_points.size());
-  assert(control_points.size() == control_point_stamps.size());
-  control_point_map.clear();
-
-  // Build Octree
-  Octree::Ptr search_octree(new Octree(1.0));
-  pcl::PointCloud<pcl::PointXYZ>::Ptr search_cloud(new pcl::PointCloud<pcl::PointXYZ>);
-  search_octree->setInputCloud(search_cloud);
-
-  // By doing this implicitly assuming control_point_stamps is increasing
-  // TODO(yun) check this assumption
-  size_t ctrl_pt_idx = 0;
-  size_t lower_ctrl_pt_idx = 0;
-  for (size_t point_index = 0; point_index < num_points; ++point_index) {
-    const size_t ii = indices ? indices->at(point_index) : point_index;
-    size_t num_ctrl_pts = search_octree->getLeafCount();
-    // Add control points to octree until both
-    // exceeds interpolate horizon and have enough points to deform
-    while (ctrl_pt_idx < control_points.size() &&
-           (control_point_stamps[ctrl_pt_idx] <= stamps[ii] + stampFromSec(tol_t) ||
-            num_ctrl_pts < k + 1)) {
-      const gtsam::Point3& position = control_points[ctrl_pt_idx];
-      search_cloud->push_back(pcl::PointXYZ(position.x(), position.y(), position.z()));
-      if (!values.exists(gtsam::Symbol(prefix, ctrl_pt_idx))) {
-        ctrl_pt_idx++;
-        continue;
-      }
-      search_octree->addPointFromCloud(search_cloud->points.size() - 1, nullptr);
-      num_ctrl_pts++;
-      ctrl_pt_idx++;
-    }
-
-    if (search_octree->getLeafCount() < k + 1) {
-      ROS_ERROR("Not enough valid control points in octree to interpolate point. ");
-      if (num_ctrl_pts > 1) {
-        k = num_ctrl_pts - 1;
-      } else {
-        continue;
-      }
-    }
-
-    const point_type& p = points[ii];
-    point_type& p_new = new_points[ii];
-    // search for k + 1 nearest nodes
-    std::vector<std::pair<size_t, double>> nearest_nodes;
-    const pcl::PointXYZ p_xyz(p.x, p.y, p.z);
-    const gtsam::Point3 vi(p.x, p.y, p.z);
-    // Query octree
-    std::vector<int> nn_index;
-    std::vector<float> nn_sq_dist;
-    search_octree->nearestKSearch(p_xyz, k + 1, nn_index, nn_sq_dist);
-
-    // Calculate new point location from k points
-    gtsam::Point3 new_point(0, 0, 0);
-    double d_max = std::sqrt(nn_sq_dist[nn_index.size() - 1]);
-    bool use_const_weight = false;
-    if (std::sqrt(nn_sq_dist[0]) == d_max || d_max == 0) {
-      use_const_weight = true;
-    }
-    double weight_sum = 0;
-    control_point_map.push_back(std::set<size_t>());
-    for (size_t j = 0; j < nn_index.size() - 1; j++) {
-      const pcl::PointXYZ& p_g = search_cloud->points.at(nn_index[j]);
-      gtsam::Point3 gj(p_g.x, p_g.y, p_g.z);
-      double weight = use_const_weight ? 1 : (1 - std::sqrt(nn_sq_dist[j]) / d_max);
-      weight_sum = weight_sum + weight;
-      gtsam::Pose3 node_transform =
-          values.at<gtsam::Pose3>(gtsam::Symbol(prefix, nn_index[j]));
-      gtsam::Point3 add =
-          node_transform.rotation().rotate(vi - gj) + node_transform.translation();
-      new_point = new_point + weight * add;
-      control_point_map.back().insert(nn_index[j]);
-    }
-    // Add back to new_vertices
-    p_new.x = new_point.x() / weight_sum;
-    p_new.y = new_point.y() / weight_sum;
-    p_new.z = new_point.z() / weight_sum;
-
-    size_t num_leaves = search_octree->getLeafCount();
-    while (lower_ctrl_pt_idx < control_points.size() && num_leaves > k + 1 &&
-           control_point_stamps[lower_ctrl_pt_idx] < stamps[ii] - stampFromSec(tol_t)) {
-      if (!values.exists(gtsam::Symbol(prefix, lower_ctrl_pt_idx))) {
-        lower_ctrl_pt_idx++;
-        continue;
-      }
-      search_octree->deleteVoxelAtPoint(lower_ctrl_pt_idx);
-      num_leaves--;
-      lower_ctrl_pt_idx++;
-    }
-  }
 }
 
 }  // namespace kimera_pgmo

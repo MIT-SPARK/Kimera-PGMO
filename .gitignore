@@ -36,3 +36,5 @@
 
 # Vscode files
 .vscode/
+
+compile_commands.json

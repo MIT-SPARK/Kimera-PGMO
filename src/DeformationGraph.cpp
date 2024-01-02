@@ -5,20 +5,21 @@
  */
 #define SLOW_BUT_CORRECT_BETWEENFACTOR
 
-#include <algorithm>
-#include <cmath>
-#include <numeric>
-
 #include "kimera_pgmo/DeformationGraph.h"
-
-#include <pcl/PCLPointCloud2.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <ros/console.h>
 
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
+#include <pcl/PCLPointCloud2.h>
+#include <pcl_conversions/pcl_conversions.h>
+#include <ros/console.h>
+
+#include <algorithm>
+#include <cmath>
+#include <numeric>
+
+#include "kimera_pgmo/PclMeshTraits.h"
 
 using pcl::PolygonMesh;
 
@@ -27,8 +28,8 @@ namespace kimera_pgmo {
 DeformationGraph::DeformationGraph()
     : verbose_(true),
       pgo_(nullptr),
-      recalculate_vertices_(false),
-      force_recalculate_(true) {}
+      force_recalculate_(true),
+      recalculate_vertices_(false) {}
 DeformationGraph::~DeformationGraph() {}
 
 bool DeformationGraph::initialize(const KimeraRPGO::RobustSolverParams& params) {
@@ -263,13 +264,13 @@ void DeformationGraph::addNewTempEdges(const pose_graph_tools_msgs::PoseGraph& e
       gtsam::noiseModel::Diagonal::Variances(variances);
 
   for (const auto& e : edges.edges) {
-    if (!values_.exists(e.key_from) && ~new_values_.exists(e.key_from) &&
+    if (!values_.exists(e.key_from) && !new_values_.exists(e.key_from) &&
         !temp_values_.exists(e.key_from)) {
       ROS_ERROR("Key does not exist when adding temporary between factor. ");
       continue;
     }
 
-    if (!values_.exists(e.key_to) && ~new_values_.exists(e.key_to) &&
+    if (!values_.exists(e.key_to) && !new_values_.exists(e.key_to) &&
         !temp_values_.exists(e.key_to)) {
       ROS_ERROR("Key does not exist when adding temporary between factor. ");
       continue;
@@ -512,7 +513,8 @@ pcl::PolygonMesh DeformationGraph::deformMesh(const pcl::PolygonMesh& original_m
   pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
   pcl::fromPCLPointCloud2(original_mesh.cloud, new_vertices);
 
-  // note that there's no aliasing w.r.t. the new / old vertices so this is relatively safe
+  // note that there's no aliasing w.r.t. the new / old vertices so this is relatively
+  // safe
   deformPoints(new_vertices,
                new_vertices,
                stamps,
@@ -529,68 +531,6 @@ pcl::PolygonMesh DeformationGraph::deformMesh(const pcl::PolygonMesh& original_m
   return new_mesh;
 }
 
-size_t DeformationGraph::findStartIndex(char prefix,
-                                        int start_index_hint,
-                                        const std::vector<Timestamp>& stamps,
-                                        double tol_t) const {
-  const bool have_prefix_vertices =
-      last_calculated_vertices_.find(prefix) != last_calculated_vertices_.end();
-  if (!have_prefix_vertices) {
-    return 0;
-  }
-
-  if (recalculate_vertices_) {
-    ROS_INFO("DeformationGraph: Re-calculating all mesh vertices in deformMesh. ");
-    return 0;
-  }
-
-  if (start_index_hint >= 0) {
-    return start_index_hint;
-  }
-
-  Timestamp min_stamp =
-      std::max(static_cast<Timestamp>(0),
-               vertex_stamps_.at(prefix).back() - stampFromSec(tol_t));
-
-  auto bound = std::upper_bound(stamps.begin(), stamps.end(), min_stamp);
-  return std::min(static_cast<size_t>(bound - stamps.begin()),
-                  last_calculated_vertices_.at(prefix).size());
-}
-
-void DeformationGraph::predeformPoints(
-    pcl::PointCloud<pcl::PointXYZRGBA>& new_vertices,
-    const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
-    const gtsam::Values& optimized_values,
-    const std::vector<int>& graph_indices,
-    std::vector<size_t>& indices_to_deform,
-    char prefix,
-    size_t start_idx) {
-  for (size_t i = start_idx; i < vertices.size(); i++) {
-    const int index = graph_indices.at(i);
-    if (index < 0 || !optimized_values.exists(gtsam::Symbol(prefix, index))) {
-      // Have to check here because sometimes interpolation happen before mesh
-      // graph received
-      // TODO(yun) double check this
-      indices_to_deform.push_back(i);
-      continue;
-    }
-
-    const pcl::PointXYZRGBA& p_old = vertices[i];
-    gtsam::Point3 vi(p_old.x, p_old.y, p_old.z);
-
-    gtsam::Pose3 node_transform =
-        optimized_values.at<gtsam::Pose3>(gtsam::Symbol(prefix, index));
-    gtsam::Point3 gindex = vertex_positions_[prefix].at(index);
-    gtsam::Point3 deformed_point =
-        node_transform.rotation().rotate(vi - gindex) + node_transform.translation();
-
-    auto& p = new_vertices[i];
-    p.x = deformed_point.x();
-    p.y = deformed_point.y();
-    p.z = deformed_point.z();
-  }
-}
-
 void DeformationGraph::deformPoints(
     pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
     const pcl::PointCloud<pcl::PointXYZRGBA>& old_vertices,
@@ -602,65 +542,15 @@ void DeformationGraph::deformPoints(
     const std::vector<int>* graph_indices,
     int start_index_hint,
     std::vector<std::set<size_t>>* vertex_graph_map) {
-  // Cannot deform if no nodes in the deformation graph
-  if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
-    ROS_DEBUG(
-        "Deformation graph has no vertices associated with mesh prefix. No "
-        "deformation. ");
-    return;
-  }
-
-  const size_t start_idx = findStartIndex(prefix, start_index_hint, stamps, tol_t);
-
-  std::vector<size_t> indices_to_deform;
-  if (start_idx != 0) {
-    const auto& last_vertices = last_calculated_vertices_.at(prefix);
-    for (size_t i = 0; i < start_idx; i++) {
-      vertices.points[i] = last_vertices.points[i];
-    }
-
-    if (graph_indices) {
-      predeformPoints(vertices,
-                      old_vertices,
-                      optimized_values,
-                      *graph_indices,
-                      indices_to_deform,
-                      prefix,
-                      start_idx);
-    } else {
-      indices_to_deform.resize(vertices.size() - start_idx);
-      std::iota(indices_to_deform.begin(), indices_to_deform.end(), start_idx);
-    }
-  }
-
-  const std::vector<size_t>* indices_ptr =
-      start_idx == 0 ? nullptr : &indices_to_deform;
-  std::vector<std::set<size_t>> vertex_graph_map_deformed;
-  deformPointsWithTimeCheck<pcl::PointXYZRGBA>(vertices,
-                                               vertex_graph_map_deformed,
-                                               old_vertices,
-                                               stamps,
-                                               prefix,
-                                               vertex_positions_.at(prefix),
-                                               vertex_stamps_.at(prefix),
-                                               optimized_values,
-                                               k,
-                                               tol_t,
-                                               indices_ptr);
-  if (vertex_graph_map) {
-    if (start_idx == 0) {
-      *vertex_graph_map = vertex_graph_map_deformed;
-    } else {
-      vertex_graph_map->resize(vertices.size());
-      for (size_t i = 0; i < indices_ptr->size(); i++) {
-        vertex_graph_map->at(indices_ptr->at(i)) = vertex_graph_map_deformed.at(i);
-      }
-    }
-  }
-
-  // TODO(nathan) consider making these mutable to to make this method const
-  last_calculated_vertices_[prefix] = vertices;
-  recalculate_vertices_ = false;
+  deformPoints(vertices,
+               ConstStampedCloud<pcl::PointXYZRGBA>{old_vertices, stamps},
+               prefix,
+               optimized_values,
+               k,
+               tol_t,
+               graph_indices,
+               start_index_hint,
+               vertex_graph_map);
 }
 
 std::vector<gtsam::Pose3> DeformationGraph::getOptimizedTrajectory(char prefix) const {

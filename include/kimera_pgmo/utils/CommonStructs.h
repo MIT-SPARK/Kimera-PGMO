@@ -5,18 +5,18 @@
  */
 
 #pragma once
+#include <pcl/PolygonMesh.h>
+#include <voxblox/core/block_hash.h>
+#include <voxblox/core/common.h>
 
 #include <cstdint>
+#include <map>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <map>
 
-#include <voxblox/core/block_hash.h>
-#include <voxblox/core/common.h>
-
-#include <pcl/PolygonMesh.h>
+#include "kimera_pgmo/MeshTypes.h"
 
 namespace kimera_pgmo {
 
@@ -30,7 +30,7 @@ typedef voxblox::AnyIndexHashMapType<IndexMapping>::type VoxbloxIndexMapping;
 typedef std::pair<voxblox::BlockIndex, IndexMapping> VoxbloxIndexPair;
 typedef std::pair<voxblox::BlockIndex, size_t> VoxbloxBlockIndexPair;
 
-typedef uint64_t Timestamp;
+using traits::Timestamp;
 Timestamp stampFromSec(double sec);
 double stampToSec(Timestamp stamp);
 
@@ -110,9 +110,8 @@ class Graph {
    *  - vertices: mesh vertices
    *  - polygons: mesh surfaces
    */
-  std::vector<Edge> addPointsAndSurfaces(
-      const std::vector<size_t>& vertices,
-      const std::vector<pcl::Vertices>& polygons);
+  std::vector<Edge> addPointsAndSurfaces(const std::vector<size_t>& vertices,
+                                         const std::vector<pcl::Vertices>& polygons);
 
   /*! \brief Print graph
    *  - header: label for output

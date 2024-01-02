@@ -67,61 +67,59 @@ class KimeraDpgmoTest : public ::testing::Test {
 
   void IncrementalPoseGraphCallback(
       const pose_graph_tools_msgs::PoseGraph::ConstPtr& msg) {
-      pgmo_.incrementalPoseGraphCallback(msg);
-    }
+    pgmo_.incrementalPoseGraphCallback(msg);
+  }
 
-    void FullMeshCallback(const KimeraPgmoMesh::ConstPtr& mesh_msg) {
-      pgmo_.fullMeshCallback(mesh_msg);
-    }
+  void FullMeshCallback(const KimeraPgmoMesh::ConstPtr& mesh_msg) {
+    pgmo_.fullMeshCallback(mesh_msg);
+  }
 
-    void IncrementalMeshGraphCallback(
-        const pose_graph_tools_msgs::PoseGraph::ConstPtr& mesh_graph_msg) {
-      pgmo_.incrementalMeshGraphCallback(mesh_graph_msg);
-    }
+  void IncrementalMeshGraphCallback(
+      const pose_graph_tools_msgs::PoseGraph::ConstPtr& mesh_graph_msg) {
+    pgmo_.incrementalMeshGraphCallback(mesh_graph_msg);
+  }
 
-    void DpgmoCallback(const pose_graph_tools_msgs::PoseGraph::ConstPtr& msg) {
-      pgmo_.dpgmoCallback(msg);
-    }
+  void DpgmoCallback(const pose_graph_tools_msgs::PoseGraph::ConstPtr& msg) {
+    pgmo_.dpgmoCallback(msg);
+  }
 
-    bool RequestMeshEdgesCallback(kimera_pgmo::RequestMeshFactors::Request & req,
-                                  kimera_pgmo::RequestMeshFactors::Response & res) {
-      return pgmo_.requestMeshEdgesCallback(req, res);
-    }
+  bool RequestMeshEdgesCallback(kimera_pgmo::RequestMeshFactors::Request& req,
+                                kimera_pgmo::RequestMeshFactors::Response& res) {
+    return pgmo_.requestMeshEdgesCallback(req, res);
+  }
 
-    inline std::vector<gtsam::Pose3> getTrajectory() const { return pgmo_.trajectory_; }
+  inline std::vector<gtsam::Pose3> getTrajectory() const { return pgmo_.trajectory_; }
 
-    inline std::queue<size_t> getUnconnectedNodes() const {
-      return pgmo_.unconnected_nodes_;
-    }
+  inline std::queue<size_t> getUnconnectedNodes() const {
+    return pgmo_.unconnected_nodes_;
+  }
 
-    inline std::vector<Timestamp> getTimestamps() const { return pgmo_.timestamps_; }
+  inline std::vector<Timestamp> getTimestamps() const { return pgmo_.timestamps_; }
 
-    inline gtsam::Values getValues() const { return pgmo_.getDeformationGraphValues(); }
+  inline gtsam::Values getValues() const { return pgmo_.getDeformationGraphValues(); }
 
-    inline gtsam::NonlinearFactorGraph getFactors() const {
-      return pgmo_.getDeformationGraphFactors();
-    }
+  inline gtsam::NonlinearFactorGraph getFactors() const {
+    return pgmo_.getDeformationGraphFactors();
+  }
 
-    inline pcl::PolygonMesh getOptimizedMesh() const {
-      return *(pgmo_.optimized_mesh_);
-    }
+  inline pcl::PolygonMesh getOptimizedMesh() const { return *(pgmo_.optimized_mesh_); }
 
-    inline Path getOptimizedPath() const { return *(pgmo_.optimized_path_); }
+  inline Path getOptimizedPath() const { return *(pgmo_.optimized_path_); }
 
-    inline gtsam::NonlinearFactorGraph getConsistencyFactorsGtsam() const {
-      return pgmo_.getDeformationGraphPtr()->getConsistencyFactors();
-    }
+  inline gtsam::NonlinearFactorGraph getConsistencyFactorsGtsam() const {
+    return pgmo_.getDeformationGraphPtr()->getConsistencyFactors();
+  }
 
-    inline bool getConsistencyFactorsMsg(const size_t& robot_id,
-                                         pose_graph_tools_msgs::PoseGraph* pg_mesh_msg,
-                                         const size_t& vertex_index_offset) const {
-      return pgmo_.getConsistencyFactors(robot_id, pg_mesh_msg, vertex_index_offset);
-    }
+  inline bool getConsistencyFactorsMsg(const size_t& robot_id,
+                                       pose_graph_tools_msgs::PoseGraph* pg_mesh_msg,
+                                       const size_t& vertex_index_offset) const {
+    return pgmo_.getConsistencyFactors(robot_id, pg_mesh_msg, vertex_index_offset);
+  }
 
-    inline gtsam::Values getDpgmoValues() const { return pgmo_.getDpgmoValues(); }
+  inline gtsam::Values getDpgmoValues() const { return pgmo_.getDpgmoValues(); }
 
-    KimeraPgmo pgmo_;
-  };
+  KimeraPgmo pgmo_;
+};
 
 TEST_F(KimeraDpgmoTest, initialize) {
   ros::NodeHandle nh;
@@ -278,6 +276,8 @@ TEST_F(KimeraDpgmoTest, getConsistencyFactors) {
         back = gtsam::Symbol(robot_id_to_prefix.at(e.robot_to), e.key_to);
         break;
       }
+      default:
+        FAIL();
     }
     gtsam::BetweenFactor<gtsam::Pose3> between_factor(
         front, back, RosToGtsam(e.pose), between_noise);
@@ -403,6 +403,8 @@ TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallback) {
         back = gtsam::Symbol(robot_id_to_prefix.at(e.robot_to), e.key_to);
         break;
       }
+      default:
+        FAIL();
     }
     gtsam::BetweenFactor<gtsam::Pose3> between_factor(
         front, back, RosToGtsam(e.pose), between_noise);
@@ -532,6 +534,8 @@ TEST_F(KimeraDpgmoTest, RequestMeshEdgesCallbackReindex) {
         back = gtsam::Symbol(robot_id_to_prefix.at(e.robot_to), e.key_to);
         break;
       }
+      default:
+        FAIL();
     }
     gtsam::BetweenFactor<gtsam::Pose3> between_factor(
         front, back, RosToGtsam(e.pose), between_noise);
@@ -662,6 +666,8 @@ TEST_F(KimeraDpgmoTest, CheckRobotIdRequestMeshEdgesCallback) {
         back = gtsam::Symbol(robot_id_to_prefix.at(e.robot_to), e.key_to);
         break;
       }
+      default:
+        FAIL();
     }
     gtsam::BetweenFactor<gtsam::Pose3> between_factor(
         front, back, RosToGtsam(e.pose), between_noise);
@@ -717,7 +723,8 @@ TEST_F(KimeraDpgmoTest, dpgmoCallbackValues) {
   Graph graph_struct;
 
   // Check callback
-  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph_1(new pose_graph_tools_msgs::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph_1(
+      new pose_graph_tools_msgs::PoseGraph);
   *inc_graph_1 = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph_1);
 
@@ -730,7 +737,8 @@ TEST_F(KimeraDpgmoTest, dpgmoCallbackValues) {
   IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // load second incremental pose graph
-  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph_2(new pose_graph_tools_msgs::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph_2(
+      new pose_graph_tools_msgs::PoseGraph);
   *inc_graph_2 = OdomLoopclosureGraph(ros::Time(12.8), 0);
   IncrementalPoseGraphCallback(inc_graph_2);
 
@@ -793,7 +801,8 @@ TEST_F(KimeraDpgmoTest, dpgmoCallbackDeform) {
   Graph graph_struct;
 
   // Check callback
-  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph_1(new pose_graph_tools_msgs::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph_1(
+      new pose_graph_tools_msgs::PoseGraph);
   *inc_graph_1 = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph_1);
 
@@ -806,7 +815,8 @@ TEST_F(KimeraDpgmoTest, dpgmoCallbackDeform) {
   IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // load second incremental pose graph
-  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph_2(new pose_graph_tools_msgs::PoseGraph);
+  pose_graph_tools_msgs::PoseGraph::Ptr inc_graph_2(
+      new pose_graph_tools_msgs::PoseGraph);
   *inc_graph_2 = OdomLoopclosureGraph(ros::Time(12.8), 0);
   IncrementalPoseGraphCallback(inc_graph_2);
 

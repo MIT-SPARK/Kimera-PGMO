@@ -109,7 +109,7 @@ void DeltaCompression::addPoint(const pcl::PointXYZRGBA& point,
   }
 }
 
-void DeltaCompression::removeBlockObservations(const BlockIndex& block_index,
+void DeltaCompression::removeBlockObservations(const BlockIndex& /* block_index */,
                                                const voxblox::LongIndexSet& to_remove) {
   // for every previous voxel observed by the block
   //   - remove an observation

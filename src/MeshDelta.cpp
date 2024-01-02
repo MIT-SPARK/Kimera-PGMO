@@ -10,6 +10,67 @@
 
 namespace kimera_pgmo {
 
+struct LabeledCloud {
+  using Cloud = pcl::PointCloud<pcl::PointXYZRGBA>;
+
+  LabeledCloud(Cloud& points, std::vector<traits::Label>& labels)
+      : points(points), labels(labels) {}
+
+  Cloud& points;
+  std::vector<traits::Label>& labels;
+};
+
+struct LabeledStampedCloud : LabeledCloud {
+  using Cloud = pcl::PointCloud<pcl::PointXYZRGBA>;
+
+  LabeledStampedCloud(Cloud& points,
+                      std::vector<traits::Timestamp>& stamps,
+                      std::vector<traits::Label>& labels)
+      : LabeledCloud(points, labels), stamps(stamps) {}
+
+  std::vector<traits::Timestamp>& stamps;
+};
+
+size_t pgmoNumVertices(const LabeledCloud& cloud) { return cloud.points.size(); }
+
+void pgmoResizeVertices(LabeledCloud& cloud, size_t size) {
+  cloud.points.resize(size);
+  cloud.labels.resize(size);
+}
+
+size_t pgmoNumVertices(const LabeledStampedCloud& cloud) { return cloud.points.size(); }
+
+void pgmoResizeVertices(LabeledStampedCloud& cloud, size_t size) {
+  pgmoResizeVertices(static_cast<LabeledCloud&>(cloud), size);
+  cloud.stamps.resize(size);
+}
+
+void pgmoSetVertex(LabeledCloud& cloud,
+                   size_t i,
+                   const traits::Pos& pos,
+                   const std::optional<traits::Color>& color,
+                   const std::optional<uint8_t>& alpha,
+                   const std::optional<traits::Timestamp>& stamp,
+                   const std::optional<traits::Label>& label) {
+  pgmoSetVertex(cloud.points, i, pos, color, alpha, stamp, label);
+  if (label) {
+    cloud.labels.at(i) = *label;
+  }
+}
+
+void pgmoSetVertex(LabeledStampedCloud& cloud,
+                   size_t i,
+                   const traits::Pos& pos,
+                   const std::optional<traits::Color>& color,
+                   const std::optional<uint8_t>& alpha,
+                   const std::optional<traits::Timestamp>& stamp,
+                   const std::optional<traits::Label>& label) {
+  pgmoSetVertex(static_cast<LabeledCloud&>(cloud), i, pos, color, alpha, stamp, label);
+  if (stamp) {
+    cloud.stamps.at(i) = *stamp;
+  }
+}
+
 std::ostream& operator<<(std::ostream& out, const Face& face) {
   out << "(" << face.v1 << ", " << face.v2 << ", " << face.v3 << ")";
   return out;
@@ -24,8 +85,12 @@ bool Face::valid() const { return v1 != v2 && v1 != v3 && v2 != v3; }
 
 void Face::fill(std::vector<uint32_t>& other) const { other = {v1, v2, v3}; }
 
+MeshDelta::MeshDelta() : MeshDelta(0, 0) {}
+
 MeshDelta::MeshDelta(size_t vertex_start, size_t face_start)
-    : vertex_start(vertex_start), face_start(face_start) {}
+    : vertex_start(vertex_start), face_start(face_start) {
+  vertex_updates.reset(new pcl::PointCloud<pcl::PointXYZRGBA>());
+}
 
 MeshDelta::MeshDelta(const KimeraPgmoMeshDelta& msg)
     : vertex_start(msg.vertex_start),
@@ -34,7 +99,8 @@ MeshDelta::MeshDelta(const KimeraPgmoMeshDelta& msg)
       semantic_updates(msg.semantic_updates) {
   assert(msg.vertex_updates.size() == msg.vertex_updates.colors.size());
 
-  vertex_updates.resize(msg.vertex_updates.size());
+  vertex_updates.reset(new pcl::PointCloud<pcl::PointXYZRGBA>());
+  vertex_updates->resize(msg.vertex_updates.size());
   constexpr float color_conv_factor = 1.0f * std::numeric_limits<uint8_t>::max();
   for (size_t i = 0; i < msg.vertex_updates.size(); i++) {
     pcl::PointXYZRGBA v;
@@ -45,7 +111,7 @@ MeshDelta::MeshDelta(const KimeraPgmoMeshDelta& msg)
     v.g = static_cast<uint8_t>(color_conv_factor * msg.vertex_updates_colors[i].g);
     v.b = static_cast<uint8_t>(color_conv_factor * msg.vertex_updates_colors[i].b);
     v.a = static_cast<uint8_t>(color_conv_factor * msg.vertex_updates_colors[i].a);
-    vertex_updates[i] = v;
+    (*vertex_updates)[i] = v;
   }
 
   deleted_indices =
@@ -72,15 +138,13 @@ MeshDelta::MeshDelta(const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
   vertex_start = 0;
   face_start = 0;
 
-  vertex_updates.reserve(vertices.size());
-  for (const auto& pt : vertices.points) {
-    vertex_updates.push_back(pt);
-  }
+  vertex_updates.reset(new pcl::PointCloud<pcl::PointXYZRGBA>(vertices));
   stamp_updates = stamps;
 
   if (semantics) {
     semantic_updates = *semantics;
   }
+
   face_updates.reserve(faces.size());
   for (const auto& face : faces) {
     Face f(face.vertices[0], face.vertices[1], face.vertices[2]);
@@ -89,33 +153,24 @@ MeshDelta::MeshDelta(const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
 }
 
 bool MeshDelta::hasSemantics() const {
-  return semantic_updates.size() == vertex_updates.size();
+  return semantic_updates.size() == vertex_updates->size();
 }
 
 void MeshDelta::updateVertices(pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
                                std::vector<Timestamp>* stamps,
                                std::vector<uint32_t>* semantics) const {
-  const size_t total_vertices = vertex_start + vertex_updates.size();
-  vertices.resize(total_vertices);
-  if (stamps) {
-    stamps->resize(total_vertices);
-  }
-
   const bool semantics_valid = semantics && hasSemantics();
-  if (semantics_valid) {
-    semantics->resize(total_vertices);
-  }
-
-  for (size_t i = 0; i < vertex_updates.size(); ++i) {
-    const size_t idx = i + vertex_start;
-    vertices[idx] = vertex_updates.at(i);
-    if (stamps) {
-      stamps->at(idx) = stamp_updates.at(i);
-    }
-
-    if (semantics_valid) {
-      semantics->at(idx) = semantic_updates.at(i);
-    }
+  if (!stamps && !semantics) {
+    updateVertices(vertices);
+  } else if (!semantics_valid) {
+    StampedCloud<pcl::PointXYZRGBA> cloud{vertices, *stamps};
+    updateVertices(cloud);
+  } else if (!stamps) {
+    LabeledCloud cloud{vertices, *semantics};
+    updateVertices(cloud);
+  } else {
+    LabeledStampedCloud cloud{vertices, *stamps, *semantics};
+    updateVertices(cloud);
   }
 }
 
@@ -124,29 +179,15 @@ void MeshDelta::updateMesh(pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
                            std::vector<pcl::Vertices>& faces,
                            std::vector<uint32_t>* semantics) const {
   updateVertices(vertices, &stamps, semantics);
-
-  const size_t total_faces =
-      face_start + face_archive_updates.size() + face_updates.size();
-  faces.resize(total_faces);
-
-  size_t face_idx = face_start;
-  for (const auto& face : face_archive_updates) {
-    face.fill(faces[face_idx].vertices);
-    ++face_idx;
-  }
-
-  for (const auto& face : face_updates) {
-    face.fill(faces[face_idx].vertices);
-    ++face_idx;
-  }
+  updateFaces(faces);
 }
 
 size_t MeshDelta::addVertex(uint64_t timestamp_ns,
                             const pcl::PointXYZRGBA& point,
                             std::optional<uint32_t> semantics,
                             bool archive) {
-  const size_t index = vertex_start + vertex_updates.size();
-  vertex_updates.push_back(point);
+  const size_t index = vertex_start + vertex_updates->size();
+  vertex_updates->push_back(point);
   stamp_updates.push_back(timestamp_ns);
 
   if (semantics) {
@@ -180,8 +221,12 @@ size_t MeshDelta::getTotalArchivedFaces() const {
   return face_start + face_archive_updates.size();
 }
 
+size_t MeshDelta::getLocalIndex(size_t index) const { return index - vertex_start; }
+
+size_t MeshDelta::getGlobalIndex(size_t index) const { return index + vertex_start; }
+
 pcl::IndicesPtr MeshDelta::getActiveIndices() const {
-  const size_t num_active = vertex_updates.size() - num_archived_vertices_;
+  const size_t num_active = vertex_updates->size() - num_archived_vertices_;
   // hide the face that the underlying indice type changes
   pcl::IndicesPtr indices(new pcl::IndicesPtr::element_type(num_active));
   std::iota(indices->begin(), indices->end(), vertex_start + num_archived_vertices_);
@@ -236,7 +281,7 @@ void MeshDelta::checkFaces(const std::string& name) const {
     }
   }
 
-  const size_t total_vertices = vertex_start + vertex_updates.size();
+  const size_t total_vertices = vertex_start + vertex_updates->size();
   for (const auto& face : face_updates) {
     bool valid = face.v1 < total_vertices && face.v2 < total_vertices &&
                  face.v3 < total_vertices;
@@ -258,21 +303,22 @@ KimeraPgmoMeshDelta MeshDelta::toRosMsg(uint64_t timestamp_ns) const {
   mesh_delta_msg.face_start = face_start;
 
   // Convert vertices
-  mesh_delta_msg.vertex_updates.resize(vertex_updates.size());
-  mesh_delta_msg.vertex_updates_colors.resize(vertex_updates.size());
-  for (size_t i = 0; i < vertex_updates.size(); i++) {
+  const auto& vertices = *vertex_updates;
+  mesh_delta_msg.vertex_updates.resize(vertices.size());
+  mesh_delta_msg.vertex_updates_colors.resize(vertices.size());
+  for (size_t i = 0; i < vertices.size(); i++) {
     geometry_msgs::Point vertex_p;
-    vertex_p.x = vertex_updates[i].x;
-    vertex_p.y = vertex_updates[i].y;
-    vertex_p.z = vertex_updates[i].z;
+    vertex_p.x = vertices[i].x;
+    vertex_p.y = vertices[i].y;
+    vertex_p.z = vertices[i].z;
     mesh_delta_msg.vertex_updates[i] = vertex_p;
     // Point color
     std_msgs::ColorRGBA vertex_c;
     constexpr float color_conv_factor = 1.0f / std::numeric_limits<uint8_t>::max();
-    vertex_c.r = color_conv_factor * static_cast<float>(vertex_updates[i].r);
-    vertex_c.g = color_conv_factor * static_cast<float>(vertex_updates[i].g);
-    vertex_c.b = color_conv_factor * static_cast<float>(vertex_updates[i].b);
-    vertex_c.a = color_conv_factor * static_cast<float>(vertex_updates[i].a);
+    vertex_c.r = color_conv_factor * static_cast<float>(vertices[i].r);
+    vertex_c.g = color_conv_factor * static_cast<float>(vertices[i].g);
+    vertex_c.b = color_conv_factor * static_cast<float>(vertices[i].b);
+    vertex_c.a = color_conv_factor * static_cast<float>(vertices[i].a);
     mesh_delta_msg.vertex_updates_colors[i] = vertex_c;
   }
   mesh_delta_msg.stamp_updates = stamp_updates;
@@ -314,8 +360,8 @@ std::ostream& operator<<(std::ostream& out, const MeshDelta& delta) {
   out << "vertex start: " << delta.vertex_start << ", face start: " << delta.face_start
       << std::endl;
   out << "points:" << std::endl;
-  for (size_t i = 0; i < delta.vertex_updates.size(); ++i) {
-    out << "  - " << i << ": " << delta.vertex_updates.at(i) << " @ "
+  for (size_t i = 0; i < delta.vertex_updates->size(); ++i) {
+    out << "  - " << i << ": " << delta.vertex_updates->at(i) << " @ "
         << delta.stamp_updates.at(i);
     if (delta.hasSemantics()) {
       out << " (label=" << delta.semantic_updates.at(i) << ")";

@@ -5,221 +5,16 @@
  */
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
-#include <geometry_msgs/Point.h>
 #include <gtsam/slam/BetweenFactor.h>
-#include <mesh_msgs/TriangleIndices.h>
-#include <pcl/PCLPointCloud2.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pose_graph_tools_msgs/PoseGraphEdge.h>
 #include <pose_graph_tools_msgs/PoseGraphNode.h>
-#include <sensor_msgs/PointCloud2.h>
-#include <std_msgs/ColorRGBA.h>
-#include <voxblox_msgs/MeshBlock.h>
 
 #include <algorithm>
 #include <chrono>
 #include <limits>
 
-#include "kimera_pgmo/utils/happly/happly.h"
-
 namespace kimera_pgmo {
-
-void ReadMeshWithStampsFromPly(const std::string& filename,
-                               pcl::PolygonMeshPtr mesh,
-                               std::vector<Timestamp>* vertex_stamps) {
-  if (NULL == mesh) {
-    return;
-  }
-
-  ReadMeshWithStampsFromPly(filename, *mesh, vertex_stamps);
-}
-
-void ReadMeshWithStampsFromPly(const std::string& filename,
-                               pcl::PolygonMesh& mesh,
-                               std::vector<Timestamp>* vertex_stamps) {
-  happly::PLYData ply_in(filename);
-
-  // Get data from the object
-  std::vector<float> vertices_x = ply_in.getElement("vertex").getProperty<float>("x");
-  std::vector<float> vertices_y = ply_in.getElement("vertex").getProperty<float>("y");
-  std::vector<float> vertices_z = ply_in.getElement("vertex").getProperty<float>("z");
-  size_t num_vertices = vertices_x.size();
-  std::vector<uint8_t> vertices_r, vertices_g, vertices_b, vertices_a;
-  try {
-    vertices_r = ply_in.getElement("vertex").getProperty<uint8_t>("red");
-    vertices_g = ply_in.getElement("vertex").getProperty<uint8_t>("green");
-    vertices_b = ply_in.getElement("vertex").getProperty<uint8_t>("blue");
-    vertices_a = ply_in.getElement("vertex").getProperty<uint8_t>("alpha");
-  } catch (...) {
-    size_t n_vertices = vertices_x.size();
-    vertices_r = std::vector<uint8_t>(num_vertices, 0);
-    vertices_g = std::vector<uint8_t>(num_vertices, 0);
-    vertices_b = std::vector<uint8_t>(num_vertices, 0);
-    vertices_a = std::vector<uint8_t>(num_vertices, 0);
-  }
-  std::vector<std::vector<uint32_t>> faces =
-      ply_in.getElement("face").getListProperty<uint32_t>("vertex_indices");
-  size_t num_faces = faces.size();
-
-  // Convert to pointcloud
-  pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
-  for (size_t i = 0; i < num_vertices; i++) {
-    pcl::PointXYZRGBA pcl_pt;
-    pcl_pt.x = vertices_x[i];
-    pcl_pt.y = vertices_y[i];
-    pcl_pt.z = vertices_z[i];
-    if (vertices_r.size() == num_vertices) {
-      pcl_pt.r = vertices_r[i];
-      pcl_pt.g = vertices_g[i];
-      pcl_pt.b = vertices_b[i];
-      pcl_pt.a = vertices_a[i];
-    }
-    vertices_cloud.points.push_back(pcl_pt);
-  }
-  pcl::toPCLPointCloud2(vertices_cloud, mesh.cloud);
-
-  if (NULL != vertex_stamps) {
-    std::vector<uint32_t> vertices_sec =
-        ply_in.getElement("vertex").getProperty<uint32_t>("secs");
-    std::vector<uint32_t> vertices_nsec =
-        ply_in.getElement("vertex").getProperty<uint32_t>("nsecs");
-    // Extract stamps
-    vertex_stamps->clear();
-    for (size_t i = 0; i < num_vertices; i++) {
-      vertex_stamps->push_back(stampFromSec(vertices_sec.at(i)) + vertices_nsec.at(i));
-    }
-  }
-
-  // Extract surface data
-  for (size_t i = 0; i < num_faces; i++) {
-    pcl::Vertices tri;
-    for (const auto& v : faces[i]) {
-      tri.vertices.push_back(v);
-    }
-    mesh.polygons.push_back(tri);
-  }
-}
-
-void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh) {
-  ReadMeshWithStampsFromPly(filename, mesh);
-}
-
-void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh) {
-  std::vector<Timestamp> unused;
-  WriteMeshWithStampsToPly(filename, mesh, unused);
-}
-
-void WriteMeshWithStampsToPly(const std::string& filename,
-                              const pcl::PolygonMesh& mesh,
-                              const std::vector<Timestamp>& vertex_stamps) {
-  std::filebuf fb_ascii;
-  fb_ascii.open(filename, std::ios::out);
-  std::ostream outstream_ascii(&fb_ascii);
-  if (outstream_ascii.fail()) throw std::runtime_error("failed to open " + filename);
-
-  std::vector<std::vector<uint32_t>> triangles;
-  // Convert to polygon mesh type
-  for (pcl::Vertices tri : mesh.polygons) {
-    triangles.push_back({tri.vertices[0], tri.vertices[1], tri.vertices[2]});
-  }
-  // Get point cloud
-  pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
-  pcl::fromPCLPointCloud2(mesh.cloud, vertices_cloud);
-
-  std::vector<float> vertices_x;
-  std::vector<float> vertices_y;
-  std::vector<float> vertices_z;
-  std::vector<uint8_t> colors_r;
-  std::vector<uint8_t> colors_g;
-  std::vector<uint8_t> colors_b;
-  std::vector<uint8_t> colors_a;
-  for (pcl::PointXYZRGBA p : vertices_cloud) {
-    vertices_x.push_back(p.x);
-    vertices_y.push_back(p.y);
-    vertices_z.push_back(p.z);
-    colors_r.push_back(p.r);
-    colors_g.push_back(p.g);
-    colors_b.push_back(p.b);
-    colors_a.push_back(p.a);
-  }
-
-  happly::PLYData output_file;
-  output_file.addElement("vertex", vertices_cloud.size());
-  output_file.getElement("vertex").addProperty<float>("x", vertices_x);
-  output_file.getElement("vertex").addProperty<float>("y", vertices_y);
-  output_file.getElement("vertex").addProperty<float>("z", vertices_z);
-  output_file.getElement("vertex").addProperty<uint8_t>("red", colors_r);
-  output_file.getElement("vertex").addProperty<uint8_t>("green", colors_g);
-  output_file.getElement("vertex").addProperty<uint8_t>("blue", colors_b);
-  output_file.getElement("vertex").addProperty<uint8_t>("alpha", colors_a);
-
-  if (vertex_stamps.size() > 0) {
-    // Write vertex stamps to ply
-    std::vector<uint32_t> stamps_sec;
-    std::vector<uint32_t> stamps_nsec;
-    for (auto vertex_ns : vertex_stamps) {
-      auto t = std::chrono::nanoseconds(vertex_ns);
-      auto t_s = std::chrono::duration_cast<std::chrono::seconds>(t);
-      std::chrono::nanoseconds t_ns = t - t_s;
-      uint32_t sec = t_s.count();
-      uint32_t nsec = t_ns.count();
-      stamps_sec.push_back(sec);
-      stamps_nsec.push_back(nsec);
-    }
-    output_file.getElement("vertex").addProperty<uint32_t>("secs", stamps_sec);
-    output_file.getElement("vertex").addProperty<uint32_t>("nsecs", stamps_nsec);
-  }
-
-  output_file.addElement("face", triangles.size());
-  output_file.getElement("face").addListProperty("vertex_indices", triangles);
-
-  output_file.write(filename, happly::DataFormat::ASCII);
-}
-
-mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
-    const pcl::PolygonMesh& polygon_mesh) {
-  pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
-  pcl::fromPCLPointCloud2(polygon_mesh.cloud, vertices_cloud);
-
-  return PolygonMeshToTriangleMeshMsg(vertices_cloud, polygon_mesh.polygons);
-}
-
-mesh_msgs::TriangleMesh PolygonMeshToTriangleMeshMsg(
-    const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
-    const std::vector<pcl::Vertices>& polygons) {
-  mesh_msgs::TriangleMesh new_mesh;
-  if (vertices.size() == 0) return new_mesh;
-  // Convert vertices
-  new_mesh.vertices.resize(vertices.size());
-  new_mesh.vertex_colors.resize(vertices.size());
-  for (size_t i = 0; i < vertices.points.size(); i++) {
-    geometry_msgs::Point p;
-    p.x = vertices.points[i].x;
-    p.y = vertices.points[i].y;
-    p.z = vertices.points[i].z;
-    new_mesh.vertices[i] = p;
-    // Point color
-    std_msgs::ColorRGBA color;
-    constexpr float color_conv_factor = 1.0f / std::numeric_limits<uint8_t>::max();
-    color.r = color_conv_factor * static_cast<float>(vertices.points[i].r);
-    color.g = color_conv_factor * static_cast<float>(vertices.points[i].g);
-    color.b = color_conv_factor * static_cast<float>(vertices.points[i].b);
-    color.a = color_conv_factor * static_cast<float>(vertices.points[i].a);
-    new_mesh.vertex_colors[i] = color;
-  }
-
-  // Convert polygons
-  new_mesh.triangles.resize(polygons.size());
-  for (size_t i = 0; i < polygons.size(); i++) {
-    mesh_msgs::TriangleIndices triangle;
-    triangle.vertex_indices[0] = polygons[i].vertices[0];
-    triangle.vertex_indices[1] = polygons[i].vertices[1];
-    triangle.vertex_indices[2] = polygons[i].vertices[2];
-    new_mesh.triangles[i] = triangle;
-  }
-
-  return new_mesh;
-}
 
 KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(const size_t& id,
                                         const pcl::PolygonMesh& polygon_mesh,
@@ -286,40 +81,6 @@ KimeraPgmoMesh PolygonMeshToPgmoMeshMsg(
   new_mesh.id = id;
   new_mesh.header.stamp.fromNSec(vertex_timestamps.back());
   return new_mesh;
-}
-
-pcl::PolygonMesh TriangleMeshMsgToPolygonMesh(const mesh_msgs::TriangleMesh& mesh_msg) {
-  pcl::PolygonMesh mesh;
-  if (mesh_msg.vertices.size() == 0) return mesh;
-  // Convert vertices
-  pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
-  bool color = (mesh_msg.vertex_colors.size() == mesh_msg.vertices.size());
-  constexpr float color_conv_factor = 1.0f * std::numeric_limits<uint8_t>::max();
-  for (size_t i = 0; i < mesh_msg.vertices.size(); i++) {
-    const geometry_msgs::Point& p = mesh_msg.vertices[i];
-    pcl::PointXYZRGBA point;
-    point.x = p.x;
-    point.y = p.y;
-    point.z = p.z;
-    if (color) {
-      const std_msgs::ColorRGBA& c = mesh_msg.vertex_colors[i];
-      point.r = static_cast<uint8_t>(color_conv_factor * c.r);
-      point.g = static_cast<uint8_t>(color_conv_factor * c.g);
-      point.b = static_cast<uint8_t>(color_conv_factor * c.b);
-      point.a = static_cast<uint8_t>(color_conv_factor * c.a);
-    }
-    vertices_cloud.points.push_back(point);
-  }
-  pcl::toPCLPointCloud2(vertices_cloud, mesh.cloud);
-  // Convert polygons
-  for (const mesh_msgs::TriangleIndices& triangle : mesh_msg.triangles) {
-    pcl::Vertices polygon;
-    for (size_t i = 0; i < 3; i++) {
-      polygon.vertices.push_back(triangle.vertex_indices[i]);
-    }
-    mesh.polygons.push_back(polygon);
-  }
-  return mesh;
 }
 
 pcl::PolygonMesh PgmoMeshMsgToPolygonMesh(const KimeraPgmoMesh& mesh_msg,
@@ -528,7 +289,6 @@ void AppendMesh(pcl::PointCloud<pcl::PointXYZRGBA>::Ptr mesh_vertices,
                 const std::vector<pcl::Vertices>& faces_to_add) {
   // Iterate through the second set of vertices and remap indices
   size_t new_index = mesh_vertices->size();
-  const size_t orig_num_vertices = mesh_vertices->size();
   std::vector<size_t> new_indices;
   for (size_t i = 0; i < vertices_to_add.size(); i++) {
     new_indices.push_back(new_index);
@@ -679,7 +439,6 @@ bool SurfaceExists(const pcl::Vertices& new_surface,
   if (new_surface.vertices.size() < 3) return false;
 
   const size_t idx0 = new_surface.vertices.at(0);
-  bool exist = false;
   if (adjacent_surfaces.find(idx0) == adjacent_surfaces.end()) {
     // vertex not in adjacent surfaces
     return false;

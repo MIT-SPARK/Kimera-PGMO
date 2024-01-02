@@ -81,7 +81,6 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
   // translate vertex data from message to voxblox mesh
   pcl::Vertices triangle;
   pcl::Vertices triangle_new;  // triangle with indices for partial mesh
-  bool new_triangle = false;
   for (size_t i = 0; i < mesh_block.x.size(); ++i) {
     pcl::PointXYZRGBA point = ExtractPoint(mesh_block, block_edge_length, i);
     // Search if vertex inserted
@@ -140,7 +139,6 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
       new_added_mesh.polygons.push_back(triangle_new);
       triangle = pcl::Vertices();
       triangle_new = pcl::Vertices();
-      new_triangle = false;
     }
   }
   pcl::toPCLPointCloud2(new_vertices, new_added_mesh.cloud);
@@ -255,7 +253,6 @@ pcl::PolygonMesh VoxbloxToPolygonMesh(
   pcl::PolygonMesh new_mesh;
 
   // Extract mesh block
-  size_t vertex_index = 0u;
   for (const voxblox_msgs::MeshBlock& mesh_block : voxblox_msg->mesh_blocks) {
     pcl::PolygonMesh partial_mesh = VoxbloxMeshBlockToPolygonMesh(
         mesh_block, voxblox_msg->block_edge_length);

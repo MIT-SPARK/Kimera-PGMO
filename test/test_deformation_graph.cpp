@@ -13,6 +13,7 @@
 #include "kimera_pgmo/DeformationGraph.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 #include "kimera_pgmo/utils/CommonStructs.h"
+#include "kimera_pgmo/utils/MeshIO.h"
 #include "test_config.h"
 
 namespace kimera_pgmo {

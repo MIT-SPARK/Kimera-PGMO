@@ -58,7 +58,6 @@ void MeshCompression::compressAndIntegrate(
   new_triangles->clear();
   new_indices->clear();
 
-  const size_t num_original_active_vertices = active_vertices_xyz_->size();
   const size_t num_original_vertices = all_vertices_.size();
 
   // Remaps from index in input vertices to index in all_vertices_
@@ -239,7 +238,6 @@ void MeshCompression::compressAndIntegrate(
   new_triangles->clear();
   new_indices->clear();
 
-  const size_t num_original_active_vertices = active_vertices_xyz_->size();
   const size_t num_original_vertices = all_vertices_.size();
 
   // Remaps from index in input vertices to index in all_vertices_

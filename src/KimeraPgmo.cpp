@@ -3,25 +3,27 @@
  * @brief  KimeraPgmo class: Main class and ROS interface
  * @author Yun Chang
  */
-#include <chrono>
-#include <cmath>
+#include "kimera_pgmo/KimeraPgmo.h"
 
 #include <geometry_msgs/PoseStamped.h>
 #include <geometry_msgs/TransformStamped.h>
 #include <visualization_msgs/Marker.h>
 
-#include "kimera_pgmo/KimeraPgmo.h"
+#include <chrono>
+#include <cmath>
+
+#include "kimera_pgmo/utils/MeshIO.h"
 
 namespace kimera_pgmo {
 
 // Constructor
 KimeraPgmo::KimeraPgmo()
-    : inc_mesh_cb_time_(0),
+    : optimized_mesh_(new pcl::PolygonMesh),
+      optimized_path_(new Path),
+      inc_mesh_cb_time_(0),
       full_mesh_cb_time_(0),
       pg_cb_time_(0),
-      path_cb_time_(0),
-      optimized_path_(new Path),
-      optimized_mesh_(new pcl::PolygonMesh) {}
+      path_cb_time_(0) {}
 
 KimeraPgmo::~KimeraPgmo() {
   if (graph_thread_) {
@@ -87,7 +89,8 @@ bool KimeraPgmo::createPublishers(const ros::NodeHandle& n) {
   optimized_mesh_pub_ =
       nl.advertise<mesh_msgs::TriangleMeshStamped>("optimized_mesh", 1, false);
   optimized_odom_pub_ = nl.advertise<nav_msgs::Odometry>("optimized_odom", 1, false);
-  pose_graph_pub_ = nl.advertise<pose_graph_tools_msgs::PoseGraph>("pose_graph", 1, false);
+  pose_graph_pub_ =
+      nl.advertise<pose_graph_tools_msgs::PoseGraph>("pose_graph", 1, false);
   optimized_path_pub_ = nl.advertise<nav_msgs::Path>("optimized_path", 1, false);
   viz_mesh_mesh_edges_pub_ = nl.advertise<visualization_msgs::Marker>(
       "deformation_graph_mesh_mesh", 10, false);

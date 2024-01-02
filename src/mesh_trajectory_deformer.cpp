@@ -7,6 +7,7 @@
 #include <cmath>
 
 #include "kimera_pgmo/KimeraPgmoInterface.h"
+#include "kimera_pgmo/utils/MeshIO.h"
 
 namespace kimera_pgmo {
 
@@ -39,9 +40,9 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
     return saveMesh(*optimized_mesh_, config_.log_path + "/optimized.ply");
   }
 
-  bool createPublishers(const ros::NodeHandle& n) { return true; }
+  bool createPublishers(const ros::NodeHandle& /* n */) { return true; }
 
-  bool registerCallbacks(const ros::NodeHandle& n) { return true; }
+  bool registerCallbacks(const ros::NodeHandle& /* n */) { return true; }
 
  private:
   // Load deformation parameters

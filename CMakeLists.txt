@@ -5,6 +5,8 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+add_compile_options(-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter -Wno-unused-but-set-variable)
+
 find_package(catkin_simple REQUIRED)
 
 set(PCL_FIND_QUIETLY TRUE)
@@ -28,15 +30,20 @@ src/compression/VoxelClearingCompression.cpp
 src/compression/VoxbloxCompression.cpp
 src/utils/CommonFunctions.cpp
 src/utils/CommonStructs.cpp
+src/utils/MeshIO.cpp
+src/utils/RangeGenerator.cpp
+src/utils/TriangleMeshConversion.cpp
 src/utils/VoxbloxMeshInterface.cpp
 src/utils/VoxbloxMsgInterface.cpp
 src/utils/VoxbloxUtils.cpp
 src/DeformationGraph.cpp
 src/DeformationGraphIo.cpp
 src/KimeraPgmo.cpp
+src/MeshDeformation.cpp
 src/MeshDelta.cpp
 src/MeshFrontend.cpp
 src/MeshFrontendInterface.cpp
+src/MeshTraits.cpp
 src/KimeraPgmoInterface.cpp
 )
 target_link_libraries(${PROJECT_NAME}
@@ -74,11 +81,14 @@ test/test_common_functions.cpp
 test/test_deformation_edge_factor.cpp
 test/test_deformation_graph.cpp
 test/test_graph.cpp
+test/test_mesh_deformation.cpp
 test/test_mesh_delta.cpp
+test/test_mesh_io.cpp
 test/test_delta_compression.cpp
 test/test_voxblox_compression.cpp
 test/test_voxel_clearing_compression.cpp
 test/test_octree_compression.cpp
+test/test_traits.cpp
 )
 target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 

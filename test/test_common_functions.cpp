@@ -15,55 +15,10 @@
 #include "gtest/gtest.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 #include "kimera_pgmo/utils/CommonStructs.h"
+#include "kimera_pgmo/utils/MeshIO.h"
 #include "test_config.h"
 
 namespace kimera_pgmo {
-TEST(test_common_functions, testReadWritePly) {
-  pcl::PolygonMeshPtr original_mesh(new pcl::PolygonMesh());
-  ReadMeshFromPly(std::string(DATASET_PATH) + "/cube.ply", original_mesh);
-  pcl::PointCloud<pcl::PointXYZRGBA> cloud;
-  pcl::fromPCLPointCloud2(original_mesh->cloud, cloud);
-
-  std::vector<Timestamp> vertex_stamps;
-  for (size_t i = 0; i < cloud.size(); i++) {
-    vertex_stamps.push_back(i);
-  }
-
-  // Write mesh with stamp to ply
-  WriteMeshWithStampsToPly(
-      std::string(DATASET_PATH) + "/cube.ply", *original_mesh, vertex_stamps);
-
-  // Then read again
-  pcl::PolygonMeshPtr read_mesh(new pcl::PolygonMesh());
-  std::vector<Timestamp> read_stamps;
-  ReadMeshWithStampsFromPly(
-      std::string(DATASET_PATH) + "/cube.ply", read_mesh, &read_stamps);
-
-  pcl::PointCloud<pcl::PointXYZRGBA> read_cloud;
-  pcl::fromPCLPointCloud2(read_mesh->cloud, read_cloud);
-  for (size_t i = 0; i < cloud.size(); i++) {
-    EXPECT_EQ(cloud.points[i].x, read_cloud.points[i].x);
-    EXPECT_EQ(cloud.points[i].y, read_cloud.points[i].y);
-    EXPECT_EQ(cloud.points[i].z, read_cloud.points[i].z);
-    EXPECT_EQ(cloud.points[i].r, read_cloud.points[i].r);
-    EXPECT_EQ(cloud.points[i].g, read_cloud.points[i].g);
-    EXPECT_EQ(cloud.points[i].b, read_cloud.points[i].b);
-    EXPECT_EQ(cloud.points[i].a, read_cloud.points[i].a);
-    // TODO(yun) this is not working here. Though verified that it works in
-    // normal operations
-    // EXPECT_EQ(vertex_stamps[i], read_stamps[i]);
-  }
-
-  for (size_t i = 0; i < original_mesh->polygons.size(); i++) {
-    for (size_t j = 0; j < 3; j++) {
-      EXPECT_EQ(original_mesh->polygons[i].vertices[j],
-                read_mesh->polygons[i].vertices[j]);
-    }
-  }
-
-  // Finally write original ply back
-  WriteMeshToPly(std::string(DATASET_PATH) + "/cube.ply", *original_mesh);
-}
 
 TEST(test_common_functions, PCLtoMeshMsg) {
   pcl::PolygonMeshPtr mesh(new pcl::PolygonMesh());
@@ -378,97 +333,6 @@ TEST(test_common_functions, InOctreeBoundingBox) {
 
   EXPECT_TRUE(InOctreeBoundingBox<pcl::PointXYZ>(octree, Point(0.5, 0.5, 0.5)));
   EXPECT_FALSE(InOctreeBoundingBox<pcl::PointXYZ>(octree, Point(10, 10, 10)));
-}
-
-TEST(test_common_functions, deformPoints) {
-  typedef pcl::PointXYZ Point;
-  typedef pcl::PointCloud<Point> PointCloud;
-
-  PointCloud original_points;
-  std::vector<gtsam::Point3> control_points;
-  gtsam::Values optimized_values;
-  char prefix = 'a';
-  for (size_t i = 0; i < 100; i++) {
-    original_points.push_back(Point(static_cast<double>(i), 0.0, 0.0));
-    if (i % 10 == 0) {
-      control_points.push_back(gtsam::Point3(static_cast<double>(i), 0.0, 0.0));
-
-      optimized_values.insert(
-          gtsam::Symbol(prefix, static_cast<int>(i / 10)),
-          gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(static_cast<double>(i), 1.0, 0.0)));
-    }
-  }
-  deformPoints(
-      original_points, original_points, prefix, control_points, optimized_values);
-
-  ASSERT_EQ(100, original_points.size());
-  for (size_t i = 0; i < 100; i++) {
-    EXPECT_EQ(static_cast<double>(i), original_points.points[i].x);
-    EXPECT_EQ(1.0, original_points.points[i].y);
-    EXPECT_EQ(0.0, original_points.points[i].z);
-  }
-}
-
-TEST(test_common_functions, deformPointsWithTimeCheck) {
-  typedef pcl::PointXYZ Point;
-  typedef pcl::PointCloud<Point> PointCloud;
-
-  PointCloud original_points;
-  std::vector<Timestamp> stamps;
-  std::vector<gtsam::Point3> control_points;
-  std::vector<Timestamp> control_point_stamps;
-  gtsam::Values optimized_values;
-  char prefix = 'a';
-  for (size_t i = 0; i < 100; i++) {
-    original_points.push_back(Point(static_cast<double>(i), 0.0, 0.0));
-    if (i % 10 == 0) {
-      control_points.push_back(gtsam::Point3(static_cast<double>(i), 0.0, 0.0));
-
-      if (i > 50) {
-        optimized_values.insert(
-            gtsam::Symbol(prefix, static_cast<int>(i / 10)),
-            gtsam::Pose3(gtsam::Rot3(),
-                         gtsam::Point3(static_cast<double>(i), 1.0, 0.0)));
-        control_point_stamps.push_back(stampFromSec(20.0));
-      } else {
-        optimized_values.insert(
-            gtsam::Symbol(prefix, static_cast<int>(i / 10)),
-            gtsam::Pose3(gtsam::Rot3(),
-                         gtsam::Point3(static_cast<double>(i), -1.0, 0.0)));
-        control_point_stamps.push_back(0);
-      }
-    }
-
-    if (i < 50) {
-      stamps.push_back(0);
-    } else {
-      stamps.push_back(stampFromSec(20.0));
-    }
-  }
-
-  std::vector<std::set<size_t>> control_point_map;
-  deformPointsWithTimeCheck(original_points,
-                            control_point_map,
-                            original_points,
-                            stamps,
-                            prefix,
-                            control_points,
-                            control_point_stamps,
-                            optimized_values,
-                            3,
-                            10.0);
-
-  ASSERT_EQ(100, original_points.size());
-  for (size_t i = 0; i < 50; i++) {
-    EXPECT_EQ(static_cast<double>(i), original_points.points[i].x);
-    EXPECT_EQ(-1.0, original_points.points[i].y);
-    EXPECT_EQ(0.0, original_points.points[i].z);
-  }
-  for (size_t i = 51; i < 100; i++) {
-    EXPECT_EQ(static_cast<double>(i), original_points.points[i].x);
-    EXPECT_EQ(1.0, original_points.points[i].y);
-    EXPECT_EQ(0.0, original_points.points[i].z);
-  }
 }
 
 }  // namespace kimera_pgmo

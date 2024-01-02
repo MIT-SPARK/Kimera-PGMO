@@ -14,6 +14,39 @@ using gtsam::Pose3;
 using gtsam::Rot3;
 
 namespace kimera_pgmo {
+
+template <typename Factor, typename Error, typename V1, typename V2>
+void evaluateFactor(const Factor& factor,
+                    const V1& v1,
+                    const V2& v2,
+                    const Error& expected,
+                    double tol,
+                    double delta = 1.0e-5) {
+  gtsam::Matrix H1_actual, H2_actual;
+#if GTSAM_VERSION_MAJOR <= 4 && GTSAM_VERSION_MINOR < 3
+  const auto actual = factor.evaluateError(v1, v2, H1_actual, H2_actual);
+#else
+  const auto actual = factor.evaluateError(v1, v2, &H1_actual, &H2_actual);
+#endif
+
+  const auto H1_expected = gtsam::numericalDerivative21<gtsam::Vector, V1, V2>(
+      [&](const auto& v1, const auto& v2) { return factor.evaluateError(v1, v2); },
+      v1,
+      v2,
+      delta);
+
+  const auto H2_expected = gtsam::numericalDerivative22<gtsam::Vector, V1, V2>(
+      [&](const auto& v1, const auto& v2) { return factor.evaluateError(v1, v2); },
+      v1,
+      v2,
+      delta);
+
+  // Verify the Jacobians are correct
+  EXPECT_TRUE(gtsam::assert_equal(expected, actual, tol));
+  EXPECT_TRUE(gtsam::assert_equal(H1_expected, H1_actual, tol));
+  EXPECT_TRUE(gtsam::assert_equal(H2_expected, H2_actual, tol));
+}
+
 TEST(test_deformation_edge_factor, ZeroRotation) {
   Pose3 node_1 = Pose3(Rot3(), Point3(0, 0, 0));
   Point3 node_2 = Point3(1, 1, 1);
@@ -24,32 +57,9 @@ TEST(test_deformation_edge_factor, ZeroRotation) {
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(3, 1e-3);
 
+  const gtsam::Vector expected = Point3(-1, 0, 0);
   DeformationEdgeFactor factor(1, 2, node_1, node_2, noise);
-
-  gtsam::Matrix actualH1, actualH2;
-  gtsam::Vector actual = factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
-  gtsam::Vector expected = Point3(-1, 0, 0);
-
-  EXPECT_TRUE(gtsam::assert_equal(expected, actual));
-
-  gtsam::Matrix numericalH1 =
-      gtsam::numericalDerivative21<gtsam::Vector3, Pose3, Pose3>(
-          [&factor](const Pose3& lhs, const Pose3& rhs) {
-            return factor.evaluateError(lhs, rhs);
-          },
-          pose_1,
-          pose_2,
-          1e-5);
-  EXPECT_TRUE(gtsam::assert_equal(numericalH1, actualH1, 1E-5));
-  gtsam::Matrix numericalH2 =
-      gtsam::numericalDerivative22<gtsam::Vector3, Pose3, Pose3>(
-          [&factor](const Pose3& lhs, const Pose3& rhs) {
-            return factor.evaluateError(lhs, rhs);
-          },
-          pose_1,
-          pose_2,
-          1e-5);
-  EXPECT_TRUE(gtsam::assert_equal(numericalH2, actualH2, 1E-5));
+  evaluateFactor(factor, pose_1, pose_2, expected, 1.0e-5);
 }
 
 TEST(test_deformation_edge_factor, ZeroTranslation1) {
@@ -62,32 +72,9 @@ TEST(test_deformation_edge_factor, ZeroTranslation1) {
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(3, 1e-3);
 
-  DeformationEdgeFactor factor(1, 2, node_1, node_2, noise);
-
-  gtsam::Matrix actualH1, actualH2;
-  gtsam::Vector actual = factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
   gtsam::Vector expected = Point3(0, 0, 0);
-
-  EXPECT_TRUE(gtsam::assert_equal(expected, actual));
-
-  gtsam::Matrix numericalH1 =
-      gtsam::numericalDerivative21<gtsam::Vector3, Pose3, Pose3>(
-          [&factor](const Pose3& lhs, const Pose3& rhs) {
-            return factor.evaluateError(lhs, rhs);
-          },
-          pose_1,
-          pose_2,
-          1e-5);
-  EXPECT_TRUE(gtsam::assert_equal(numericalH1, actualH1, 1E-5));
-  gtsam::Matrix numericalH2 =
-      gtsam::numericalDerivative22<gtsam::Vector3, Pose3, Pose3>(
-          [&factor](const Pose3& lhs, const Pose3& rhs) {
-            return factor.evaluateError(lhs, rhs);
-          },
-          pose_1,
-          pose_2,
-          1e-5);
-  EXPECT_TRUE(gtsam::assert_equal(numericalH2, actualH2, 1E-5));
+  DeformationEdgeFactor factor(1, 2, node_1, node_2, noise);
+  evaluateFactor(factor, pose_1, pose_2, expected, 1.0e-5);
 }
 
 TEST(test_deformation_edge_factor, ZeroTranslation2) {
@@ -100,32 +87,9 @@ TEST(test_deformation_edge_factor, ZeroTranslation2) {
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(3, 1e-3);
 
-  DeformationEdgeFactor factor(1, 2, node_1, node_2, noise);
-
-  gtsam::Matrix actualH1, actualH2;
-  gtsam::Vector actual = factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
   gtsam::Vector expected = Point3(-2, -2, 1);
-
-  EXPECT_TRUE(gtsam::assert_equal(expected, actual));
-
-  gtsam::Matrix numericalH1 =
-      gtsam::numericalDerivative21<gtsam::Vector3, Pose3, Pose3>(
-          [&factor](const Pose3& lhs, const Pose3& rhs) {
-            return factor.evaluateError(lhs, rhs);
-          },
-          pose_1,
-          pose_2,
-          1e-5);
-  EXPECT_TRUE(gtsam::assert_equal(numericalH1, actualH1, 1E-5));
-  gtsam::Matrix numericalH2 =
-      gtsam::numericalDerivative22<gtsam::Vector3, Pose3, Pose3>(
-          [&factor](const Pose3& lhs, const Pose3& rhs) {
-            return factor.evaluateError(lhs, rhs);
-          },
-          pose_1,
-          pose_2,
-          1e-5);
-  EXPECT_TRUE(gtsam::assert_equal(numericalH2, actualH2, 1E-5));
+  DeformationEdgeFactor factor(1, 2, node_1, node_2, noise);
+  evaluateFactor(factor, pose_1, pose_2, expected, 1.0e-5);
 }
 
 TEST(test_deformation_edge_factor, Simple) {
@@ -138,34 +102,11 @@ TEST(test_deformation_edge_factor, Simple) {
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(3, 1e-3);
 
-  DeformationEdgeFactor factor(1, 2, node_1, node_2, noise);
-
-  gtsam::Matrix actualH1, actualH2;
-  gtsam::Vector actual = factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
   gtsam::Vector expected =
       pose_1.transformFrom((node_2 - node_1.translation()).eval()) -
       pose_2.translation();
-
-  EXPECT_TRUE(gtsam::assert_equal(expected, actual));
-
-  gtsam::Matrix numericalH1 =
-      gtsam::numericalDerivative21<gtsam::Vector3, Pose3, Pose3>(
-          [&factor](const Pose3& lhs, const Pose3& rhs) {
-            return factor.evaluateError(lhs, rhs);
-          },
-          pose_1,
-          pose_2,
-          1e-5);
-  EXPECT_TRUE(gtsam::assert_equal(numericalH1, actualH1, 1E-5));
-  gtsam::Matrix numericalH2 =
-      gtsam::numericalDerivative22<gtsam::Vector3, Pose3, Pose3>(
-          [&factor](const Pose3& lhs, const Pose3& rhs) {
-            return factor.evaluateError(lhs, rhs);
-          },
-          pose_1,
-          pose_2,
-          1e-5);
-  EXPECT_TRUE(gtsam::assert_equal(numericalH2, actualH2, 1E-5));
+  DeformationEdgeFactor factor(1, 2, node_1, node_2, noise);
+  evaluateFactor(factor, pose_1, pose_2, expected, 1.0e-5);
 }
 
 TEST(test_deformation_edge_factor, Relative1) {
@@ -178,32 +119,9 @@ TEST(test_deformation_edge_factor, Relative1) {
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(3, 1e-3);
 
-  DeformationEdgeFactor factor(1, 2, node_1, node_2, noise);
-
-  gtsam::Matrix actualH1, actualH2;
-  gtsam::Vector actual = factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
   gtsam::Vector expected = Point3(0, 0, 0);
-
-  EXPECT_TRUE(gtsam::assert_equal(expected, actual));
-
-  gtsam::Matrix numericalH1 =
-      gtsam::numericalDerivative21<gtsam::Vector3, Pose3, Pose3>(
-          [&factor](const Pose3& lhs, const Pose3& rhs) {
-            return factor.evaluateError(lhs, rhs);
-          },
-          pose_1,
-          pose_2,
-          1e-5);
-  EXPECT_TRUE(gtsam::assert_equal(numericalH1, actualH1, 1E-5));
-  gtsam::Matrix numericalH2 =
-      gtsam::numericalDerivative22<gtsam::Vector3, Pose3, Pose3>(
-          [&factor](const Pose3& lhs, const Pose3& rhs) {
-            return factor.evaluateError(lhs, rhs);
-          },
-          pose_1,
-          pose_2,
-          1e-5);
-  EXPECT_TRUE(gtsam::assert_equal(numericalH2, actualH2, 1E-5));
+  DeformationEdgeFactor factor(1, 2, node_1, node_2, noise);
+  evaluateFactor(factor, pose_1, pose_2, expected, 1.0e-5);
 }
 
 TEST(test_deformation_edge_factor, Relative2) {
@@ -216,32 +134,9 @@ TEST(test_deformation_edge_factor, Relative2) {
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(3, 1e-3);
 
-  DeformationEdgeFactor factor(1, 2, node_1, node_2, noise);
-
-  gtsam::Matrix actualH1, actualH2;
-  gtsam::Vector actual = factor.evaluateError(pose_1, pose_2, actualH1, actualH2);
   gtsam::Vector expected = Point3(0, -2, 0);
-
-  EXPECT_TRUE(gtsam::assert_equal(expected, actual));
-
-  gtsam::Matrix numericalH1 =
-      gtsam::numericalDerivative21<gtsam::Vector3, Pose3, Pose3>(
-          [&factor](const Pose3& lhs, const Pose3& rhs) {
-            return factor.evaluateError(lhs, rhs);
-          },
-          pose_1,
-          pose_2,
-          1e-5);
-  EXPECT_TRUE(gtsam::assert_equal(numericalH1, actualH1, 1E-5));
-  gtsam::Matrix numericalH2 =
-      gtsam::numericalDerivative22<gtsam::Vector3, Pose3, Pose3>(
-          [&factor](const Pose3& lhs, const Pose3& rhs) {
-            return factor.evaluateError(lhs, rhs);
-          },
-          pose_1,
-          pose_2,
-          1e-5);
-  EXPECT_TRUE(gtsam::assert_equal(numericalH2, actualH2, 1E-5));
+  DeformationEdgeFactor factor(1, 2, node_1, node_2, noise);
+  evaluateFactor(factor, pose_1, pose_2, expected, 1.0e-5);
 }
 
 }  // namespace kimera_pgmo

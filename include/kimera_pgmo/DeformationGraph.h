@@ -23,14 +23,17 @@
 #include <unordered_map>
 #include <vector>
 
+#include "kimera_pgmo/MeshDeformation.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 #include "kimera_pgmo/utils/CommonStructs.h"
+#include "kimera_pgmo/utils/RangeGenerator.h"
 
 namespace kimera_pgmo {
 
 #if GTSAM_VERSION_MAJOR <= 4 && GTSAM_VERSION_MINOR < 3
 using GtsamJacobianType = boost::optional<gtsam::Matrix&>;
-#define JACOBIAN_DEFAULT {}
+#define JACOBIAN_DEFAULT \
+  {}
 #else
 using GtsamJacobianType = gtsam::OptionalMatrixType;
 #define JACOBIAN_DEFAULT nullptr
@@ -335,6 +338,28 @@ class DeformationGraph {
                               size_t k = 4,
                               double tol_t = 10.0);
 
+  /*! \brief Deform mesh vertices based on the deformation graph
+   * - vertices: vertices to deform
+   * - original_vertices: undeformed vertices
+   * - prefix: the prefixes of the key of the nodes corresponding to mesh
+   * - optimized_values: values of the optimized control points
+   * - new_vertices: deformed vertices
+   * - k: how many nearby nodes to use to adjust new position of vertices when
+   * interpolating for deformed mesh
+   * - tol_t: largest difference in time such that a control point can be
+   * considered for association
+   */
+  template <typename CloudIn, typename CloudOut>
+  void deformPoints(CloudOut& vertices,
+                    const CloudIn& old_vertices,
+                    char prefix,
+                    const gtsam::Values& optimized_values,
+                    size_t k = 4,
+                    double tol_t = 10.0,
+                    const std::vector<int>* graph_indices = nullptr,
+                    int start_index_hint = -1,
+                    std::vector<std::set<size_t>>* vertex_graph_map = nullptr);
+
   /*! \brief Deform a mesh vertices based on the deformation graph
    * - original_vertices: undeformed vertices
    * - stamps: timestamp of vertices in mesh to deform
@@ -535,13 +560,21 @@ class DeformationGraph {
     return pg_initial_poses_.count(prefix);
   }
 
+  template <typename Cloud>
   size_t findStartIndex(char prefix,
                         int start_index_hint,
-                        const std::vector<Timestamp>& stamps,
+                        const Cloud& cloud,
                         double tol_t) const;
 
-  void predeformPoints(pcl::PointCloud<pcl::PointXYZRGBA>& new_vertices,
-                       const pcl::PointCloud<pcl::PointXYZRGBA>& old_vertices,
+  template <typename Cloud>
+  void fillPreviousPoints(Cloud& vertices, char prefix, size_t start_idx) const;
+
+  template <typename Cloud>
+  void cacheNewPoints(const Cloud& vertices, char prefix, size_t start_idx);
+
+  template <typename CloudIn, typename CloudOut>
+  void predeformPoints(CloudOut& new_vertices,
+                       const CloudIn& vertices,
                        const gtsam::Values& optimized_values,
                        const std::vector<int>& graph_indices,
                        std::vector<size_t>& indices_to_deform,
@@ -588,7 +621,7 @@ class DeformationGraph {
 
   // Recalculate only if new measurements added
   bool recalculate_vertices_;
-  std::map<char, pcl::PointCloud<pcl::PointXYZRGBA>> last_calculated_vertices_;
+  std::map<char, pcl::PointCloud<pcl::PointXYZ>> last_calculated_vertices_;
 };
 
 typedef std::shared_ptr<DeformationGraph> DeformationGraphPtr;
@@ -604,5 +637,161 @@ void fillDeformationGraphMarkers(const DeformationGraph& graph,
                                  visualization_msgs::Marker& mesh_mesh_viz,
                                  visualization_msgs::Marker& pose_mesh_viz,
                                  const std::string& frame_id = "world");
+
+template <typename Cloud>
+size_t DeformationGraph::findStartIndex(char prefix,
+                                        int start_index_hint,
+                                        const Cloud& cloud,
+                                        double tol_t) const {
+  const bool have_prefix_vertices =
+      last_calculated_vertices_.find(prefix) != last_calculated_vertices_.end();
+  if (!have_prefix_vertices) {
+    return 0;
+  }
+
+  if (recalculate_vertices_) {
+    ROS_INFO("DeformationGraph: Re-calculating all mesh vertices in deformMesh. ");
+    return 0;
+  }
+
+  if (start_index_hint >= 0) {
+    return start_index_hint;
+  }
+
+  Timestamp min_stamp =
+      std::max(static_cast<Timestamp>(0),
+               vertex_stamps_.at(prefix).back() - stampFromSec(tol_t));
+
+  RangeGenerator gen(traits::num_vertices(cloud));
+  auto bound = std::upper_bound(gen.begin(), gen.end(), min_stamp, [&](auto v, auto i) {
+    return v < traits::get_timestamp(cloud, i);
+  });
+
+  return std::min(static_cast<size_t>(bound - gen.begin()),
+                  last_calculated_vertices_.at(prefix).size());
+}
+
+template <typename Cloud>
+void DeformationGraph::fillPreviousPoints(Cloud& vertices,
+                                          char prefix,
+                                          size_t start_idx) const {
+  auto iter = last_calculated_vertices_.find(prefix);
+  if (iter == last_calculated_vertices_.end()) {
+    return;
+  }
+
+  for (size_t i = 0; i < start_idx; i++) {
+    traits::set_vertex(vertices, i, traits::get_vertex(iter->second, i));
+  }
+}
+
+template <typename Cloud>
+void DeformationGraph::cacheNewPoints(const Cloud& vertices,
+                                      char prefix,
+                                      size_t start_idx) {
+  auto iter = last_calculated_vertices_.find(prefix);
+  if (iter == last_calculated_vertices_.end()) {
+    iter = last_calculated_vertices_.emplace(prefix, pcl::PointCloud<pcl::PointXYZ>())
+               .first;
+  }
+
+  const auto total_vertices = traits::num_vertices(vertices);
+  iter->second.resize(total_vertices);
+  for (size_t i = start_idx; i < total_vertices; i++) {
+    traits::set_vertex(iter->second, i, traits::get_vertex(vertices, i));
+  }
+}
+
+template <typename CloudIn, typename CloudOut>
+void DeformationGraph::predeformPoints(CloudOut& new_vertices,
+                                       const CloudIn& vertices,
+                                       const gtsam::Values& optimized_values,
+                                       const std::vector<int>& graph_indices,
+                                       std::vector<size_t>& indices_to_deform,
+                                       char prefix,
+                                       size_t start_idx) {
+  const auto num_vertices = traits::num_vertices(vertices);
+  for (size_t i = start_idx; i < num_vertices; i++) {
+    const int index = graph_indices.at(i);
+    if (index < 0 || !optimized_values.exists(gtsam::Symbol(prefix, index))) {
+      // Have to check here because sometimes interpolation happen before mesh
+      // graph received
+      // TODO(yun) double check this
+      indices_to_deform.push_back(i);
+      continue;
+    }
+
+    const auto vi = traits::get_vertex(vertices, i).template cast<double>();
+    gtsam::Pose3 transform =
+        optimized_values.at<gtsam::Pose3>(gtsam::Symbol(prefix, index));
+    gtsam::Point3 gindex = vertex_positions_[prefix].at(index);
+    gtsam::Point3 deformed_point =
+        transform.rotation().rotate(vi - gindex) + transform.translation();
+    traits::set_vertex(new_vertices, i, deformed_point.cast<float>());
+  }
+}
+
+template <typename CloudIn, typename CloudOut>
+void DeformationGraph::deformPoints(CloudOut& vertices,
+                                    const CloudIn& old_vertices,
+                                    char prefix,
+                                    const gtsam::Values& optimized_values,
+                                    size_t k,
+                                    double tol_t,
+                                    const std::vector<int>* graph_indices,
+                                    int start_index_hint,
+                                    std::vector<std::set<size_t>>* vertex_graph_map) {
+  // Cannot deform if no nodes in the deformation graph
+  if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
+    ROS_DEBUG("Deformation graph has no vertices for mesh prefix. No deformation.");
+    return;
+  }
+
+  const auto start_idx = findStartIndex(prefix, start_index_hint, old_vertices, tol_t);
+  fillPreviousPoints(vertices, prefix, start_idx);
+
+  std::vector<size_t> to_deform;
+  if (start_idx != 0) {
+    if (graph_indices) {
+      predeformPoints(vertices,
+                      old_vertices,
+                      optimized_values,
+                      *graph_indices,
+                      to_deform,
+                      prefix,
+                      start_idx);
+    } else {
+      to_deform.resize(traits::num_vertices(vertices) - start_idx);
+      std::iota(to_deform.begin(), to_deform.end(), start_idx);
+    }
+  }
+
+  const std::vector<size_t>* indices_ptr = start_idx == 0 ? nullptr : &to_deform;
+  std::vector<std::set<size_t>> vertex_graph_map_deformed;
+  deformation::deformPoints(vertices,
+                            vertex_graph_map_deformed,
+                            old_vertices,
+                            prefix,
+                            vertex_positions_.at(prefix),
+                            vertex_stamps_.at(prefix),
+                            optimized_values,
+                            k,
+                            tol_t,
+                            indices_ptr);
+
+  if (vertex_graph_map) {
+    if (start_idx == 0) {
+      *vertex_graph_map = vertex_graph_map_deformed;
+    } else {
+      vertex_graph_map->resize(traits::num_vertices(vertices));
+      for (size_t i = 0; i < indices_ptr->size(); i++) {
+        vertex_graph_map->at(indices_ptr->at(i)) = vertex_graph_map_deformed.at(i);
+      }
+    }
+  }
+
+  cacheNewPoints(vertices, prefix, start_idx);
+  recalculate_vertices_ = false;
+}
 
 }  // namespace kimera_pgmo
