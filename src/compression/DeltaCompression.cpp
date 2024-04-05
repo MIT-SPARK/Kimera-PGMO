@@ -246,6 +246,10 @@ MeshDelta::Ptr DeltaCompression::update(const voxblox_msgs::Mesh& mesh,
 MeshDelta::Ptr DeltaCompression::update(MeshInterface& mesh,
                                         uint64_t timestamp_ns,
                                         VoxbloxIndexMapping* remapping) {
+  while (timestamp_cache_.count(timestamp_ns)) {
+    ++timestamp_ns;
+  }
+  timestamp_cache_.insert(timestamp_ns);
   // 1) update happens independently of calls to clearArchivedBlocks (and
   // pruneStoredMesh, which calls clearArchivedBlocks). we cache the results of the
   // archive to a separate mesh delta and copy them over

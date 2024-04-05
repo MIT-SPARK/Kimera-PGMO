@@ -104,6 +104,8 @@ class DeltaCompression {
 
   std::vector<Face> archived_faces_;
 
+  std::set<uint64_t> timestamp_cache_;
+
   size_t num_archived_vertices_;
   size_t num_archived_faces_;
 };
