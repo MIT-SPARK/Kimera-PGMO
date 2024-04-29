@@ -9,10 +9,8 @@
 #include <string>
 
 #include <pcl/PolygonMesh.h>
-#include <pcl/io/ply_io.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <pcl_msgs/PolygonMesh.h>
 #include <voxblox/core/common.h>
 #include <voxblox_msgs/Mesh.h>
 

@@ -5,6 +5,8 @@
  */
 #include "kimera_pgmo/compression/MeshCompression.h"
 
+#include <pcl/conversions.h>
+
 #include <algorithm>
 #include <iterator>
 #include <utility>

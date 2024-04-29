@@ -6,7 +6,7 @@
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
 #include <gtsam/slam/BetweenFactor.h>
-#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/conversions.h>
 #include <pose_graph_tools_msgs/PoseGraphEdge.h>
 #include <pose_graph_tools_msgs/PoseGraphNode.h>
 

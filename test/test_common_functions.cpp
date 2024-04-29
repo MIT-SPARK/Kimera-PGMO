@@ -9,7 +9,7 @@
 #include <mesh_msgs/TriangleMesh.h>
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/PolygonMesh.h>
-#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/conversions.h>
 #include <ros/ros.h>
 
 #include "gtest/gtest.h"
@@ -316,23 +316,6 @@ TEST(test_common_functions, MeshSurfaceExist) {
   adj_surfaces[1].push_back(2);
   adj_surfaces[5] = std::vector<size_t>{2};
   EXPECT_TRUE(SurfaceExists(poly_3, adj_surfaces, surfaces));
-}
-
-TEST(test_common_functions, InOctreeBoundingBox) {
-  typedef pcl::PointXYZ Point;
-  typedef pcl::PointCloud<Point> PointCloud;
-  typedef pcl::octree::OctreePointCloudSearch<Point> Octree;
-  Octree octree(1.0);
-  PointCloud::Ptr vertices(new PointCloud);
-
-  vertices->push_back(Point(0.0, 0.0, 0.0));
-  vertices->push_back(Point(1.1, 1.1, 1.1));
-
-  octree.setInputCloud(vertices);
-  octree.addPointsFromInputCloud();
-
-  EXPECT_TRUE(InOctreeBoundingBox<pcl::PointXYZ>(octree, Point(0.5, 0.5, 0.5)));
-  EXPECT_FALSE(InOctreeBoundingBox<pcl::PointXYZ>(octree, Point(10, 10, 10)));
 }
 
 }  // namespace kimera_pgmo

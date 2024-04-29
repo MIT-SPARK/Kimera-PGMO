@@ -6,9 +6,11 @@
 
 #include "kimera_pgmo/utils/CommonStructs.h"
 
-#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/conversions.h>
+#include <pcl/point_types.h>
 
 #include <algorithm>
+#include <chrono>
 #include <numeric>
 
 namespace kimera_pgmo {

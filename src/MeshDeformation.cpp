@@ -7,25 +7,80 @@
 #include "kimera_pgmo/MeshDeformation.h"
 
 #include <gtsam/geometry/Pose3.h>
+#include <pcl/octree/octree_search.h>
 
 namespace kimera_pgmo {
 namespace deformation {
 
-using XYZCloud = pcl::PointCloud<pcl::PointXYZ>;
-using Octree = pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>;
+template <typename Scalar>
+pcl::PointXYZ eigenToPcl(const Eigen::Matrix<Scalar, 3, 1>& point) {
+  return {static_cast<float>(point.x()),
+          static_cast<float>(point.y()),
+          static_cast<float>(point.z())};
+}
+
+struct SearchTree::Impl {
+  using XYZCloud = pcl::PointCloud<pcl::PointXYZ>;
+  using XYZOctree = pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>;
+
+  explicit Impl(double resolution)
+      : search_tree(resolution), search_cloud(new XYZCloud()) {
+    search_tree.setInputCloud(search_cloud);
+  }
+
+  size_t getLeafCount() const { return search_tree.getLeafCount(); }
+
+  void addPoint(const gtsam::Point3& point, bool valid) {
+    search_cloud->push_back(eigenToPcl(point));
+    if (valid) {
+      search_tree.addPointFromCloud(search_cloud->size() - 1, nullptr);
+    }
+  }
+
+  void removePoint(size_t index) { search_tree.deleteVoxelAtPoint(index); }
+
+  void search(const traits::Pos& point,
+              size_t k,
+              std::vector<int>& nn_index,
+              std::vector<float>& nn_sq_dist) {
+    search_tree.nearestKSearch(eigenToPcl<float>(point), k + 1, nn_index, nn_sq_dist);
+  }
+
+  XYZOctree search_tree;
+  XYZCloud::Ptr search_cloud;
+};
+
+SearchTree::SearchTree(double resolution) : impl_(std::make_unique<Impl>(resolution)) {}
+
+SearchTree::~SearchTree() {}
+
+size_t SearchTree::getLeafCount() const { return impl_->getLeafCount(); }
+
+void SearchTree::addPoint(const gtsam::Point3& point, bool valid) {
+  return impl_->addPoint(point, valid);
+}
+
+void SearchTree::removePoint(size_t index) { impl_->removePoint(index); }
+
+void SearchTree::search(const traits::Pos& point,
+                        size_t k,
+                        std::vector<int>& nn_index,
+                        std::vector<float>& nn_sq_dist) const {
+  impl_->search(point, k, nn_index, nn_sq_dist);
+}
 
 // Calculate new point location from k points
 traits::Pos interpPoint(std::set<size_t>& control_points_seen,
                         char prefix,
                         const std::vector<gtsam::Point3>& control_points,
                         const gtsam::Values& values,
-                        Octree& octree,
+                        const SearchTree& tree,
                         size_t k,
                         const traits::Pos& old_point) {
   // Query octree
   std::vector<int> nn_index;
   std::vector<float> nn_sq_dist;
-  octree.nearestKSearch(eigenToPcl<float>(old_point), k + 1, nn_index, nn_sq_dist);
+  tree.search(old_point, k + 1, nn_index, nn_sq_dist);
 
   const double d_max = std::sqrt(nn_sq_dist[nn_index.size() - 1]);
   bool use_const_weight = std::sqrt(nn_sq_dist[0]) == d_max || d_max == 0;

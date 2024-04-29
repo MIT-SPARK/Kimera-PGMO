@@ -13,8 +13,6 @@
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 #include <pcl/PolygonMesh.h>
-#include <pcl/common/io.h>
-#include <pcl/octree/octree_search.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <visualization_msgs/Marker.h>
@@ -66,7 +64,7 @@ class DeformationEdgeFactor
   gtsam::Vector evaluateError(const gtsam::Pose3& p1,
                               const gtsam::Pose3& p2,
                               GtsamJacobianType H1 = JACOBIAN_DEFAULT,
-                              GtsamJacobianType H2 = JACOBIAN_DEFAULT) const {
+                              GtsamJacobianType H2 = JACOBIAN_DEFAULT) const override {
     // position of node 2 in frame of node 1
     gtsam::Point3 t_12 = node1_pose.rotation().inverse().rotate(
         node2_position - node1_pose.translation());
@@ -583,8 +581,6 @@ class DeformationGraph {
 
  private:
   bool verbose_;
-
-  typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
 
   // Keep track of vertices not part of mesh
   // for embedding trajectory, etc.

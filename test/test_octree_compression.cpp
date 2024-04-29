@@ -4,12 +4,11 @@
  * @author Yun Chang
  */
 
-#include "gtest/gtest.h"
-
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/PolygonMesh.h>
-#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/conversions.h>
 
+#include "gtest/gtest.h"
 #include "kimera_pgmo/compression/OctreeCompression.h"
 
 namespace kimera_pgmo {
@@ -79,7 +78,24 @@ pcl::PolygonMesh createMesh(double scale) {
   return mesh;
 }
 
-} // namespace
+}  // namespace
+
+TEST(test_common_functions, InOctreeBoundingBox) {
+  typedef pcl::PointXYZ Point;
+  typedef pcl::PointCloud<Point> PointCloud;
+  typedef pcl::octree::OctreePointCloudSearch<Point> Octree;
+  Octree octree(1.0);
+  PointCloud::Ptr vertices(new PointCloud);
+
+  vertices->push_back(Point(0.0, 0.0, 0.0));
+  vertices->push_back(Point(1.1, 1.1, 1.1));
+
+  octree.setInputCloud(vertices);
+  octree.addPointsFromInputCloud();
+
+  EXPECT_TRUE(InOctreeBoundingBox<pcl::PointXYZ>(octree, Point(0.5, 0.5, 0.5)));
+  EXPECT_FALSE(InOctreeBoundingBox<pcl::PointXYZ>(octree, Point(10, 10, 10)));
+}
 
 TEST(test_octree_compression, constructor) {
   OctreeCompression compression(1.0);
@@ -90,8 +106,7 @@ TEST(test_octree_compression, constructor) {
       new pcl::PointCloud<pcl::PointXYZ>);
   std::shared_ptr<std::vector<pcl::Vertices> > triangles(
       new std::vector<pcl::Vertices>);
-  std::shared_ptr<std::vector<double> > vertex_timestamps(
-      new std::vector<double>);
+  std::shared_ptr<std::vector<double> > vertex_timestamps(new std::vector<double>);
 
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);
@@ -177,8 +192,7 @@ TEST(test_octree_compression, storedValues) {
       new pcl::PointCloud<pcl::PointXYZ>);
   std::shared_ptr<std::vector<pcl::Vertices> > triangles(
       new std::vector<pcl::Vertices>);
-  std::shared_ptr<std::vector<double> > vertex_timestamps(
-      new std::vector<double>);
+  std::shared_ptr<std::vector<double> > vertex_timestamps(new std::vector<double>);
 
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);
@@ -263,8 +277,7 @@ TEST(test_octree_compression, pruneStoredMesh) {
       new pcl::PointCloud<pcl::PointXYZ>);
   std::shared_ptr<std::vector<pcl::Vertices> > triangles(
       new std::vector<pcl::Vertices>);
-  std::shared_ptr<std::vector<double> > vertex_timestamps(
-      new std::vector<double>);
+  std::shared_ptr<std::vector<double> > vertex_timestamps(new std::vector<double>);
 
   // try pruning
   compression.pruneStoredMesh(100.5);
@@ -400,8 +413,7 @@ TEST(test_octree_compression, storedValuesCompressed) {
       new pcl::PointCloud<pcl::PointXYZ>);
   std::shared_ptr<std::vector<pcl::Vertices> > triangles(
       new std::vector<pcl::Vertices>);
-  std::shared_ptr<std::vector<double> > vertex_timestamps(
-      new std::vector<double>);
+  std::shared_ptr<std::vector<double> > vertex_timestamps(new std::vector<double>);
 
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);

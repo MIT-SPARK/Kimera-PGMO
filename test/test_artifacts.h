@@ -5,14 +5,13 @@
  */
 #pragma once
 
-#include <string>
-
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/inference/Symbol.h>
 #include <pcl/PolygonMesh.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl_msgs/PolygonMesh.h>
+#include <pcl/conversions.h>
 #include <pose_graph_tools_msgs/PoseGraph.h>
+
+#include <string>
 
 #include "kimera_pgmo/KimeraPgmoMesh.h"
 #include "kimera_pgmo/compression/OctreeCompression.h"
@@ -21,7 +20,7 @@
 
 namespace kimera_pgmo {
 pose_graph_tools_msgs::PoseGraph SingleOdomGraph(const ros::Time& stamp,
-                                            const size_t& robot_id) {
+                                                 const size_t& robot_id) {
   pose_graph_tools_msgs::PoseGraph inc_graph;
 
   pose_graph_tools_msgs::PoseGraphEdge e0;
@@ -34,9 +33,8 @@ pose_graph_tools_msgs::PoseGraph SingleOdomGraph(const ros::Time& stamp,
   e0.pose.position.x = 1;
   e0.pose.orientation.w = 1;
   e0.type = pose_graph_tools_msgs::PoseGraphEdge::ODOM;
-  e0.covariance = {3.1, 0, 0,   0, 0,   0, 0, 3.1, 0, 0,   0, 0,
-                   0,   0, 3.1, 0, 0,   0, 0, 0,   0, 0.1, 0, 0,
-                   0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
+  e0.covariance = {3.1, 0, 0, 0,   0, 0, 0, 3.1, 0, 0, 0,   0, 0, 0, 3.1, 0, 0, 0,
+                   0,   0, 0, 0.1, 0, 0, 0, 0,   0, 0, 0.1, 0, 0, 0, 0,   0, 0, 0.1};
 
   n0.header.stamp = stamp;
   n0.key = 0;
@@ -57,7 +55,7 @@ pose_graph_tools_msgs::PoseGraph SingleOdomGraph(const ros::Time& stamp,
 }
 
 pose_graph_tools_msgs::PoseGraph OdomLoopclosureGraph(const ros::Time& stamp,
-                                                 const size_t& robot_id) {
+                                                      const size_t& robot_id) {
   pose_graph_tools_msgs::PoseGraph inc_graph;
 
   pose_graph_tools_msgs::PoseGraphEdge e1, e2;
@@ -71,9 +69,8 @@ pose_graph_tools_msgs::PoseGraph OdomLoopclosureGraph(const ros::Time& stamp,
   e1.pose.position.y = 1;
   e1.pose.orientation.w = 1;
   e1.type = pose_graph_tools_msgs::PoseGraphEdge::ODOM;
-  e1.covariance = {3.1, 0, 0,   0, 0,   0, 0, 3.1, 0, 0,   0, 0,
-                   0,   0, 3.1, 0, 0,   0, 0, 0,   0, 0.1, 0, 0,
-                   0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
+  e1.covariance = {3.1, 0, 0, 0,   0, 0, 0, 3.1, 0, 0, 0,   0, 0, 0, 3.1, 0, 0, 0,
+                   0,   0, 0, 0.1, 0, 0, 0, 0,   0, 0, 0.1, 0, 0, 0, 0,   0, 0, 0.1};
 
   e2.header.stamp = stamp;
   e2.key_from = 0;
@@ -84,9 +81,8 @@ pose_graph_tools_msgs::PoseGraph OdomLoopclosureGraph(const ros::Time& stamp,
   e2.pose.position.y = 1;
   e2.pose.orientation.w = 1;
   e2.type = pose_graph_tools_msgs::PoseGraphEdge::LOOPCLOSE;
-  e2.covariance = {0.1, 0, 0,   0, 0,   0, 0, 0.1, 0, 0,   0, 0,
-                   0,   0, 0.1, 0, 0,   0, 0, 0,   0, 0.1, 0, 0,
-                   0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
+  e2.covariance = {0.1, 0, 0, 0,   0, 0, 0, 0.1, 0, 0, 0,   0, 0, 0, 0.1, 0, 0, 0,
+                   0,   0, 0, 0.1, 0, 0, 0, 0,   0, 0, 0.1, 0, 0, 0, 0,   0, 0, 0.1};
 
   n1.header.stamp = stamp;
   n1.key = 1;
@@ -109,7 +105,7 @@ pose_graph_tools_msgs::PoseGraph OdomLoopclosureGraph(const ros::Time& stamp,
 }
 
 pose_graph_tools_msgs::PoseGraph OdomLoopclosureGraph2(const ros::Time& stamp,
-                                                  const size_t& robot_id) {
+                                                       const size_t& robot_id) {
   pose_graph_tools_msgs::PoseGraph inc_graph;
 
   pose_graph_tools_msgs::PoseGraphEdge e1, e2;
@@ -123,9 +119,8 @@ pose_graph_tools_msgs::PoseGraph OdomLoopclosureGraph2(const ros::Time& stamp,
   e1.pose.position.z = 1;
   e1.pose.orientation.w = 1;
   e1.type = pose_graph_tools_msgs::PoseGraphEdge::ODOM;
-  e1.covariance = {3.1, 0, 0,   0, 0,   0, 0, 3.1, 0, 0,   0, 0,
-                   0,   0, 3.1, 0, 0,   0, 0, 0,   0, 0.1, 0, 0,
-                   0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
+  e1.covariance = {3.1, 0, 0, 0,   0, 0, 0, 3.1, 0, 0, 0,   0, 0, 0, 3.1, 0, 0, 0,
+                   0,   0, 0, 0.1, 0, 0, 0, 0,   0, 0, 0.1, 0, 0, 0, 0,   0, 0, 0.1};
 
   e2.header.stamp = stamp;
   e2.key_from = 0;
@@ -136,9 +131,8 @@ pose_graph_tools_msgs::PoseGraph OdomLoopclosureGraph2(const ros::Time& stamp,
   e2.pose.position.x = -1;
   e2.pose.orientation.w = 1;
   e2.type = pose_graph_tools_msgs::PoseGraphEdge::LOOPCLOSE;
-  e2.covariance = {0.1, 0, 0,   0, 0,   0, 0, 0.1, 0, 0,   0, 0,
-                   0,   0, 0.1, 0, 0,   0, 0, 0,   0, 0.1, 0, 0,
-                   0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
+  e2.covariance = {0.1, 0, 0, 0,   0, 0, 0, 0.1, 0, 0, 0,   0, 0, 0, 0.1, 0, 0, 0,
+                   0,   0, 0, 0.1, 0, 0, 0, 0,   0, 0, 0.1, 0, 0, 0, 0,   0, 0, 0.1};
 
   n1.header.stamp = stamp;
   n1.key = 0;
@@ -159,8 +153,8 @@ pose_graph_tools_msgs::PoseGraph OdomLoopclosureGraph2(const ros::Time& stamp,
 }
 
 pose_graph_tools_msgs::PoseGraph InterRobotLoopClosureGraph(const ros::Time& stamp,
-                                                       const size_t& robot_1,
-                                                       const size_t& robot_2) {
+                                                            const size_t& robot_1,
+                                                            const size_t& robot_2) {
   pose_graph_tools_msgs::PoseGraph inc_graph;
 
   pose_graph_tools_msgs::PoseGraphEdge e1;
@@ -173,9 +167,8 @@ pose_graph_tools_msgs::PoseGraph InterRobotLoopClosureGraph(const ros::Time& sta
   e1.pose.position.z = 1;
   e1.pose.orientation.w = 1;
   e1.type = pose_graph_tools_msgs::PoseGraphEdge::LOOPCLOSE;
-  e1.covariance = {3.1, 0, 0,   0, 0,   0, 0, 3.1, 0, 0,   0, 0,
-                   0,   0, 3.1, 0, 0,   0, 0, 0,   0, 0.1, 0, 0,
-                   0,   0, 0,   0, 0.1, 0, 0, 0,   0, 0,   0, 0.1};
+  e1.covariance = {3.1, 0, 0, 0,   0, 0, 0, 3.1, 0, 0, 0,   0, 0, 0, 3.1, 0, 0, 0,
+                   0,   0, 0, 0.1, 0, 0, 0, 0,   0, 0, 0.1, 0, 0, 0, 0,   0, 0, 0.1};
 
   inc_graph.edges.push_back(e1);
 
@@ -259,8 +252,7 @@ pose_graph_tools_msgs::PoseGraph processMeshToGraph(
   pcl::fromPCLPointCloud2(mesh.cloud, *mesh_vertices);
   std::shared_ptr<std::vector<pcl::Vertices> > graph_triangles(
       new std::vector<pcl::Vertices>);
-  std::shared_ptr<std::vector<size_t> > graph_indices(
-      new std::vector<size_t>);
+  std::shared_ptr<std::vector<size_t> > graph_indices(new std::vector<size_t>);
   std::shared_ptr<std::unordered_map<size_t, size_t> > index_remappings =
       std::make_shared<std::unordered_map<size_t, size_t> >();
 
@@ -297,8 +289,7 @@ pose_graph_tools_msgs::PoseGraph processMeshToGraph(
         PclToGtsam<pcl::PointXYZRGBA>(graph_vertices->at(from_node));
     gtsam::Point3 to_node_pos =
         PclToGtsam<pcl::PointXYZRGBA>(graph_vertices->at(to_node));
-    pg_edge.pose =
-        GtsamToRos(gtsam::Pose3(gtsam::Rot3(), to_node_pos - from_node_pos));
+    pg_edge.pose = GtsamToRos(gtsam::Pose3(gtsam::Rot3(), to_node_pos - from_node_pos));
 
     pg_edge.type = pose_graph_tools_msgs::PoseGraphEdge::MESH;
 
@@ -314,8 +305,7 @@ pose_graph_tools_msgs::PoseGraph processMeshToGraph(
 
     pg_node.key = n;
 
-    gtsam::Point3 node_pos =
-        PclToGtsam<pcl::PointXYZRGBA>(graph_vertices->at(n));
+    gtsam::Point3 node_pos = PclToGtsam<pcl::PointXYZRGBA>(graph_vertices->at(n));
     pg_node.pose = GtsamToRos(gtsam::Pose3(gtsam::Rot3(), node_pos));
 
     // Add node to pose graph

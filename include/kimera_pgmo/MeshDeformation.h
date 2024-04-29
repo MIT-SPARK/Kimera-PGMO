@@ -9,7 +9,6 @@
 #include <gtsam/geometry/Point3.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/Values.h>
-#include <pcl/octree/octree_search.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <ros/console.h>
@@ -20,22 +19,34 @@
 namespace kimera_pgmo {
 namespace deformation {
 
-using XYZCloud = pcl::PointCloud<pcl::PointXYZ>;
-using XYZOctree = pcl::octree::OctreePointCloudSearch<pcl::PointXYZ>;
+class SearchTree {
+ public:
+  explicit SearchTree(double resolution = 1.0);
 
-template <typename Scalar>
-pcl::PointXYZ eigenToPcl(const Eigen::Matrix<Scalar, 3, 1>& point) {
-  return {static_cast<float>(point.x()),
-          static_cast<float>(point.y()),
-          static_cast<float>(point.z())};
-}
+  ~SearchTree();
+
+  size_t getLeafCount() const;
+
+  void addPoint(const gtsam::Point3& point, bool valid);
+
+  void removePoint(size_t index);
+
+  void search(const traits::Pos& point,
+              size_t k,
+              std::vector<int>& nn_index,
+              std::vector<float>& nn_sq_dist) const;
+
+ private:
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
 
 // Calculate new point location from k points
 traits::Pos interpPoint(std::set<size_t>& control_points_seen,
                         char prefix,
                         const std::vector<gtsam::Point3>& control_points,
                         const gtsam::Values& values,
-                        XYZOctree& octree,
+                        const SearchTree& octree,
                         size_t k,
                         const traits::Pos& vi);
 
@@ -77,19 +88,12 @@ void deformPoints(CloudOut& new_points,
   control_point_map.clear();
 
   // Build Octree
-  XYZOctree search_octree(1.0);
-  XYZCloud::Ptr search_cloud(new XYZCloud());
-  search_octree.setInputCloud(search_cloud);
+  SearchTree search_tree;
   for (size_t j = 0; j < control_points.size(); j++) {
-    search_cloud->push_back(eigenToPcl(control_points[j]));
-    if (!values.exists(gtsam::Symbol(prefix, j))) {
-      continue;
-    }
-
-    search_octree.addPointFromCloud(search_cloud->points.size() - 1, nullptr);
+    search_tree.addPoint(control_points[j], values.exists(gtsam::Symbol(prefix, j)));
   }
 
-  if (search_octree.getLeafCount() < k) {
+  if (search_tree.getLeafCount() < k) {
     ROS_WARN("Not enough valid control points to deform points.");
     return;
   }
@@ -101,7 +105,7 @@ void deformPoints(CloudOut& new_points,
                                    prefix,
                                    control_points,
                                    values,
-                                   search_octree,
+                                   search_tree,
                                    k,
                                    traits::get_vertex(points, ii));
     traits::set_vertex(new_points, ii, p_new);
@@ -148,11 +152,7 @@ void deformPoints(CloudOut& new_points,
   }
 
   control_point_map.clear();
-
-  // Build Octree
-  XYZOctree search_octree(1.0);
-  XYZCloud::Ptr search_cloud(new XYZCloud());
-  search_octree.setInputCloud(search_cloud);
+  SearchTree search_tree;
 
   // By doing this implicitly assuming control_point_stamps is increasing
   // TODO(yun) check this assumption
@@ -161,23 +161,23 @@ void deformPoints(CloudOut& new_points,
   for (size_t point_index = 0; point_index < num_points; ++point_index) {
     const size_t ii = indices ? indices->at(point_index) : point_index;
     const auto stamp = traits::get_timestamp(points, ii);
-    size_t num_ctrl_pts = search_octree.getLeafCount();
+    size_t num_ctrl_pts = search_tree.getLeafCount();
     // Add control points to octree until both
     // exceeds interpolate horizon and have enough points to deform
     while (ctrl_pt_idx < control_points.size() &&
            (control_point_stamps[ctrl_pt_idx] <= stamp + stampFromSec(tol_t) ||
             num_ctrl_pts < k + 1)) {
-      search_cloud->push_back(eigenToPcl(control_points[ctrl_pt_idx]));
-      if (!values.exists(gtsam::Symbol(prefix, ctrl_pt_idx))) {
-        ctrl_pt_idx++;
+      const auto ctrl_valid = values.exists(gtsam::Symbol(prefix, ctrl_pt_idx));
+      search_tree.addPoint(control_points[ctrl_pt_idx], ctrl_valid);
+      ctrl_pt_idx++;
+      if (!ctrl_valid) {
         continue;
       }
-      search_octree.addPointFromCloud(search_cloud->points.size() - 1, nullptr);
+
       num_ctrl_pts++;
-      ctrl_pt_idx++;
     }
 
-    if (search_octree.getLeafCount() < k + 1) {
+    if (search_tree.getLeafCount() < k + 1) {
       ROS_ERROR("Not enough valid control points in octree to interpolate point.");
       if (num_ctrl_pts > 1) {
         k = num_ctrl_pts - 1;
@@ -192,19 +192,20 @@ void deformPoints(CloudOut& new_points,
                                    prefix,
                                    control_points,
                                    values,
-                                   search_octree,
+                                   search_tree,
                                    k,
                                    p_old);
     traits::set_vertex(new_points, ii, p_new);
 
-    size_t num_leaves = search_octree.getLeafCount();
+    size_t num_leaves = search_tree.getLeafCount();
     while (lower_ctrl_pt_idx < control_points.size() && num_leaves > k + 1 &&
            control_point_stamps[lower_ctrl_pt_idx] < stamp - stampFromSec(tol_t)) {
       if (!values.exists(gtsam::Symbol(prefix, lower_ctrl_pt_idx))) {
         lower_ctrl_pt_idx++;
         continue;
       }
-      search_octree.deleteVoxelAtPoint(lower_ctrl_pt_idx);
+
+      search_tree.removePoint(lower_ctrl_pt_idx);
       num_leaves--;
       lower_ctrl_pt_idx++;
     }

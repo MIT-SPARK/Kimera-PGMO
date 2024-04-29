@@ -13,7 +13,6 @@
 #include <nav_msgs/Odometry.h>
 #include <nav_msgs/Path.h>
 #include <pcl/PolygonMesh.h>
-#include <pcl_msgs/PolygonMesh.h>
 #include <pose_graph_tools_msgs/PoseGraph.h>
 #include <ros/ros.h>
 #include <std_msgs/Header.h>
@@ -27,7 +26,6 @@
 #include "kimera_pgmo/AbsolutePoseStamped.h"
 #include "kimera_pgmo/DeformationGraph.h"
 #include "kimera_pgmo/KimeraPgmoMesh.h"
-#include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
 namespace kimera_pgmo {

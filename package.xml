@@ -9,33 +9,27 @@
   <license>BSD</license>
 
   <buildtool_depend>catkin</buildtool_depend>
-  <buildtool_depend>catkin_simple</buildtool_depend>
+  <build_depend>message_generation</build_depend>
 
+  <depend>eigen</depend>
   <depend>gtsam</depend>
-  <depend>Eigen</depend>
+  <depend>kimera_rpgo</depend>
 
-  <depend>roscpp</depend>
-  <depend>std_msgs</depend>
-  <depend>sensor_msgs</depend>
   <depend>geometry_msgs</depend>
-  <depend>visualization_msgs</depend>
-  <depend>nav_msgs</depend>
-  <depend>rosbag</depend>
-  <depend>tf</depend>
   <depend>mesh_msgs</depend>
-  <depend>rviz_mesh_plugin</depend>
-  <depend>message_generation</depend>
-  <depend>message_runtime</depend>
-  <depend>voxblox_msgs</depend>
-  <depend>voxblox</depend>
+  <depend>nav_msgs</depend>
   <depend>pose_graph_tools_msgs</depend>
   <depend>pose_graph_tools_ros</depend>
-  <depend>kimera_rpgo</depend>
+  <depend>roscpp</depend>
+  <depend>std_msgs</depend>
   <depend>tf2_ros</depend>
+  <depend>visualization_msgs</depend>
+  <depend>voxblox</depend>
+  <depend>voxblox_msgs</depend>
 
-  <depend>pcl_conversions</depend>
-  <depend>pcl_msgs</depend>
+  <test_depend>rosunit</test_depend>
+  <test_depend>rostest</test_depend>
 
-  <depend>rosunit</depend>
-  <depend>rostest</depend>
+  <exec_depend>rviz_mesh_plugin</exec_depend>
+  <exec_depend>message_runtime</exec_depend>
 </package>

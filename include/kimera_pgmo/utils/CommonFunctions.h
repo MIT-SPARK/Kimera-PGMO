@@ -13,10 +13,8 @@
 #include <gtsam/nonlinear/Values.h>
 #include <kimera_pgmo/KimeraPgmoMesh.h>
 #include <pcl/PolygonMesh.h>
-#include <pcl/octree/octree_search.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <pcl_msgs/PolygonMesh.h>
 #include <pose_graph_tools_msgs/PoseGraph.h>
 #include <ros/console.h>
 #include <voxblox_msgs/Mesh.h>
@@ -233,18 +231,5 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
 bool SurfaceExists(const pcl::Vertices& new_surface,
                    const std::map<size_t, std::vector<size_t>>& adjacent_surfaces,
                    const std::vector<pcl::Vertices>& surfaces);
-
-/*! \brief Check if a point is within the bounding box of an octree structure
- *  - octree: pcl octree type
- *  - p: point to query
- */
-template <class point_type>
-bool InOctreeBoundingBox(const pcl::octree::OctreePointCloudSearch<point_type>& octree,
-                         const point_type& p) {
-  double min_x, min_y, min_z, max_x, max_y, max_z;
-  octree.getBoundingBox(min_x, min_y, min_z, max_x, max_y, max_z);
-  return (p.x >= min_x && p.x <= max_x) && (p.y >= min_y && p.y <= max_y) &&
-         (p.z >= min_z && p.z <= max_z);
-}
 
 }  // namespace kimera_pgmo

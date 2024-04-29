@@ -12,7 +12,7 @@
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
 #include <pcl/PCLPointCloud2.h>
-#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/common/io.h>
 #include <ros/console.h>
 
 #include <algorithm>

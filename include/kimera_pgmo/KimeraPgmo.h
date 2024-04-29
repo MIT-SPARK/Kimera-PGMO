@@ -10,7 +10,6 @@
 #include "kimera_pgmo/KimeraPgmoMesh.h"
 #include "kimera_pgmo/LoadGraphMesh.h"
 #include "kimera_pgmo/RequestMeshFactors.h"
-#include "kimera_pgmo/compression/OctreeCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
 #include <memory>

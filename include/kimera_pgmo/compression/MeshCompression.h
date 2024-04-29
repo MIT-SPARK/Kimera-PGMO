@@ -7,7 +7,6 @@
 #pragma once
 
 #include <pcl/PolygonMesh.h>
-#include <pcl/octree/octree_search.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <ros/ros.h>
@@ -27,7 +26,6 @@ namespace kimera_pgmo {
 
 typedef pcl::PointCloud<pcl::PointXYZRGBA> PointCloud;
 typedef pcl::PointCloud<pcl::PointXYZ> PointCloudXYZ;
-typedef pcl::octree::OctreePointCloudSearch<pcl::PointXYZ> Octree;
 
 class MeshCompression {
  public:

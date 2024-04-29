@@ -6,7 +6,6 @@
 #include <ros/ros.h>
 
 #include <pcl/PCLPointCloud2.h>
-#include <pcl_conversions/pcl_conversions.h>
 #include <voxblox_msgs/Mesh.h>
 #include <voxblox_msgs/MeshBlock.h>
 

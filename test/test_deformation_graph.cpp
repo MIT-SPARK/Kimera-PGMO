@@ -8,6 +8,7 @@
 #include <geometry_msgs/Pose.h>
 #include <gtsam/inference/Symbol.h>
 #include <pcl/PolygonMesh.h>
+#include <pcl/conversions.h>
 
 #include "gtest/gtest.h"
 #include "kimera_pgmo/DeformationGraph.h"

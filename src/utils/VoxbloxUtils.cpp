@@ -3,22 +3,21 @@
  * @brief  Some utility functions in working with voxblox msg types
  * @author Yun Chang
  */
+#include "kimera_pgmo/utils/VoxbloxUtils.h"
+
+#include <pcl/PCLPointCloud2.h>
+#include <pcl/PolygonMesh.h>
+#include <pcl/conversions.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <voxblox_msgs/Mesh.h>
+#include <voxblox_msgs/MeshBlock.h>
+
 #include <algorithm>
 #include <chrono>
 #include <limits>
 
-#include <pcl/PCLPointCloud2.h>
-#include <pcl/PolygonMesh.h>
-#include <pcl/io/ply_io.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pcl_conversions/pcl_conversions.h>
-#include <pcl_msgs/PolygonMesh.h>
-#include <voxblox_msgs/Mesh.h>
-#include <voxblox_msgs/MeshBlock.h>
-
 #include "kimera_pgmo/utils/CommonFunctions.h"
-#include "kimera_pgmo/utils/VoxbloxUtils.h"
 
 namespace kimera_pgmo {
 
@@ -27,20 +26,16 @@ pcl::PointXYZRGBA ExtractPoint(const voxblox_msgs::MeshBlock& mesh_block,
                                const size_t& idx) {
   // (2*block_size), see mesh_vis.h for the slightly convoluted
   // justification of the 2.
-  constexpr float point_conv_factor =
-      2.0f / std::numeric_limits<uint16_t>::max();
-  const float mesh_x =
-      (static_cast<float>(mesh_block.x.at(idx)) * point_conv_factor +
-       static_cast<float>(mesh_block.index[0])) *
-      block_edge_length;
-  const float mesh_y =
-      (static_cast<float>(mesh_block.y.at(idx)) * point_conv_factor +
-       static_cast<float>(mesh_block.index[1])) *
-      block_edge_length;
-  const float mesh_z =
-      (static_cast<float>(mesh_block.z.at(idx)) * point_conv_factor +
-       static_cast<float>(mesh_block.index[2])) *
-      block_edge_length;
+  constexpr float point_conv_factor = 2.0f / std::numeric_limits<uint16_t>::max();
+  const float mesh_x = (static_cast<float>(mesh_block.x.at(idx)) * point_conv_factor +
+                        static_cast<float>(mesh_block.index[0])) *
+                       block_edge_length;
+  const float mesh_y = (static_cast<float>(mesh_block.y.at(idx)) * point_conv_factor +
+                        static_cast<float>(mesh_block.index[1])) *
+                       block_edge_length;
+  const float mesh_z = (static_cast<float>(mesh_block.z.at(idx)) * point_conv_factor +
+                        static_cast<float>(mesh_block.index[2])) *
+                       block_edge_length;
 
   // Create point
   pcl::PointXYZRGBA point;
@@ -62,8 +57,7 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
     std::shared_ptr<std::vector<pcl::Vertices> > triangles,
     const std::vector<size_t>& original_indices,
     std::shared_ptr<std::vector<size_t> > updated_indices,
-    std::shared_ptr<std::map<size_t, std::vector<pcl::Vertices> > >
-        adjacent_surfaces) {
+    std::shared_ptr<std::map<size_t, std::vector<pcl::Vertices> > > adjacent_surfaces) {
   // For speed, assume mesh is incrementally increasing
   if (mesh_block.x.size() <= original_indices.size()) {
     *updated_indices = original_indices;
@@ -89,8 +83,7 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
     bool point_exists = false;
     bool point_exists_in_new = false;  // does point exist in the partial mesh
     for (size_t j : original_indices) {
-      if (point.x == vertices->points[j].x &&
-          point.y == vertices->points[j].y &&
+      if (point.x == vertices->points[j].x && point.y == vertices->points[j].y &&
           point.z == vertices->points[j].z) {
         vidx = j;
         point_exists = true;
@@ -101,8 +94,7 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
     // Also check the new vertices
     for (size_t j = 0; j < updated_indices->size(); j++) {
       size_t k = updated_indices->at(j);
-      if (point.x == vertices->points[k].x &&
-          point.y == vertices->points[k].y &&
+      if (point.x == vertices->points[k].x && point.y == vertices->points[k].y &&
           point.z == vertices->points[k].z) {
         vidx = k;
         // For partial mesh, the indices should start with 0
@@ -147,8 +139,7 @@ pcl::PolygonMesh UpdateMeshFromVoxbloxMeshBlock(
 
 bool CheckAndUpdateAdjacentSurfaces(
     const pcl::Vertices& new_triangle,
-    std::shared_ptr<std::map<size_t, std::vector<pcl::Vertices> > >
-        adjacent_surfaces) {
+    std::shared_ptr<std::map<size_t, std::vector<pcl::Vertices> > > adjacent_surfaces) {
   if (new_triangle.vertices.size() < 3) return false;
   size_t idx0 = new_triangle.vertices.at(0);
   bool exist = false;
@@ -169,8 +160,7 @@ bool CheckAndUpdateAdjacentSurfaces(
       if (adjacent_surfaces->find(idx) == adjacent_surfaces->end()) {
         // Add the new vertex
         adjacent_surfaces->insert(
-            std::pair<size_t, std::vector<pcl::Vertices> >(idx,
-                                                           {new_triangle}));
+            std::pair<size_t, std::vector<pcl::Vertices> >(idx, {new_triangle}));
       } else {
         // Add surface
         adjacent_surfaces->at(idx).push_back(new_triangle);
@@ -223,8 +213,7 @@ void VoxbloxMeshBlockToPolygonMesh(
     bool point_exists = false;
     // Check for duplicates.
     for (size_t k = first_index_to_check; k < vertices->points.size(); k++) {
-      if (point.x == vertices->points[k].x &&
-          point.y == vertices->points[k].y &&
+      if (point.x == vertices->points[k].x && point.y == vertices->points[k].y &&
           point.z == vertices->points[k].z) {
         vidx = k;
         point_exists = true;
@@ -248,14 +237,13 @@ void VoxbloxMeshBlockToPolygonMesh(
   return;
 }
 
-pcl::PolygonMesh VoxbloxToPolygonMesh(
-    const voxblox_msgs::Mesh::ConstPtr& voxblox_msg) {
+pcl::PolygonMesh VoxbloxToPolygonMesh(const voxblox_msgs::Mesh::ConstPtr& voxblox_msg) {
   pcl::PolygonMesh new_mesh;
 
   // Extract mesh block
   for (const voxblox_msgs::MeshBlock& mesh_block : voxblox_msg->mesh_blocks) {
-    pcl::PolygonMesh partial_mesh = VoxbloxMeshBlockToPolygonMesh(
-        mesh_block, voxblox_msg->block_edge_length);
+    pcl::PolygonMesh partial_mesh =
+        VoxbloxMeshBlockToPolygonMesh(mesh_block, voxblox_msg->block_edge_length);
     new_mesh = CombineMeshes(new_mesh, partial_mesh);
   }
 

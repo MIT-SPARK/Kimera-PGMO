@@ -10,8 +10,9 @@
 #include "gtest/gtest.h"
 #include "kimera_pgmo/compression/DeltaCompression.h"
 
-std::ostream& operator<<(std::ostream& out,
-                         const std::unordered_map<size_t, size_t>& map) {
+template <typename T>
+std::string mapToString(const T& map) {
+  std::stringstream out;
   out << "{";
 
   auto iter = map.begin();
@@ -25,28 +26,11 @@ std::ostream& operator<<(std::ostream& out,
   }
 
   out << "}";
-  return out;
+  return out.str();
 }
 
-std::ostream& operator<<(std::ostream& out, const std::map<size_t, size_t>& map) {
-  out << "{";
-
-  auto iter = map.begin();
-  while (iter != map.end()) {
-    out << iter->first << ": " << iter->second;
-    ++iter;
-
-    if (iter != map.end()) {
-      out << ", ";
-    }
-  }
-
-  out << "}";
-  return out;
-}
-
-std::ostream& operator<<(std::ostream& out,
-                         const std::vector<kimera_pgmo::Face>& faces) {
+std::string facesToString(const std::vector<kimera_pgmo::Face>& faces) {
+  std::stringstream out;
   out << "[";
 
   auto iter = faces.begin();
@@ -60,7 +44,7 @@ std::ostream& operator<<(std::ostream& out,
   }
 
   out << "]";
-  return out;
+  return out.str();
 }
 
 namespace kimera_pgmo {
@@ -115,9 +99,7 @@ std::vector<Face> remapFaces(const std::vector<Face>& faces,
                              const std::map<size_t, size_t>& remapping) {
   std::vector<Face> to_return;
   for (const auto& face : faces) {
-    Face new_face(remapping.at(face.v1),
-                  remapping.at(face.v2),
-                  remapping.at(face.v3));
+    Face new_face(remapping.at(face.v1), remapping.at(face.v2), remapping.at(face.v3));
     to_return.push_back(new_face);
   }
 
@@ -167,19 +149,19 @@ struct ExpectedDelta {
   void checkTriangles(const std::vector<Face>& result,
                       const std::map<size_t, size_t>& result_remapping) const {
     EXPECT_EQ(expected_triangles.size(), result.size())
-        << "expected: " << expected_triangles
-        << ", result: " << remapFaces(result, result_remapping)
-        << ", result (original): " << result;
+        << "expected: " << facesToString(expected_triangles)
+        << ", result: " << facesToString(remapFaces(result, result_remapping))
+        << ", result (original): " << facesToString(result);
 
     std::vector<Face> absolute_faces;
     for (size_t i = 0; i < result.size(); ++i) {
       const auto& rface = result.at(i);
       EXPECT_TRUE(result_remapping.count(rface.v1))
-          << rface << " @ " << i << "(map: " << result_remapping << ")";
+          << rface << " @ " << i << "(map: " << mapToString(result_remapping) << ")";
       EXPECT_TRUE(result_remapping.count(rface.v2))
-          << rface << " @ " << i << "(map: " << result_remapping << ")";
+          << rface << " @ " << i << "(map: " << mapToString(result_remapping) << ")";
       EXPECT_TRUE(result_remapping.count(rface.v3))
-          << rface << " @ " << i << "(map: " << result_remapping << ")";
+          << rface << " @ " << i << "(map: " << mapToString(result_remapping) << ")";
       if (!result_remapping.count(rface.v1) || !result_remapping.count(rface.v2) ||
           !result_remapping.count(rface.v3)) {
         continue;
@@ -201,7 +183,7 @@ struct ExpectedDelta {
       EXPECT_TRUE(found_match)
           << "result face "
           << " (r: " << rface << ", a: " << absolute_face << ", i: " << i
-          << ") has no match in expected: " << expected_triangles;
+          << ") has no match in expected: " << facesToString(expected_triangles);
     }
 
     for (size_t i = 0; i < expected_triangles.size(); ++i) {
@@ -215,8 +197,9 @@ struct ExpectedDelta {
         }
       }
 
-      EXPECT_TRUE(found_match) << "expected face (r: " << expected << ", i: " << i
-                               << ") has no match in result: " << absolute_faces;
+      EXPECT_TRUE(found_match)
+          << "expected face (r: " << expected << ", i: " << i
+          << ") has no match in result: " << facesToString(absolute_faces);
     }
   }
 
@@ -244,8 +227,10 @@ struct ExpectedDelta {
       }
 
       EXPECT_EQ(absolute_map, expected_remapping.at(block))
-          << "result map " << result.at(block) << " (absolute: " << absolute_map
-          << ") does not agree with expected: " << expected_remapping.at(block);
+          << "result map " << mapToString(result.at(block))
+          << " (absolute: " << mapToString(absolute_map)
+          << ") does not agree with expected: "
+          << mapToString(expected_remapping.at(block));
     }
 
     EXPECT_EQ(result.size(), expected_remapping.size());
@@ -296,7 +281,6 @@ std::ostream& operator<<(std::ostream& out,
       << ") with inputs: " << std::endl;
   for (const auto& input : config.inputs) {
     out << " - input: " << input.first << std::endl;
-    ;
     // out << " - expected: " << input.second;
   }
   return out;

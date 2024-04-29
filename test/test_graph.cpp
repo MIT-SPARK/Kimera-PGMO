@@ -8,7 +8,8 @@
 #include "gtest/gtest.h"
 
 #include <pcl/PolygonMesh.h>
-#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/conversions.h>
+#include <pcl/point_types.h>
 
 #include "kimera_pgmo/utils/CommonStructs.h"
 #include "test_config.h"

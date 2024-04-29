@@ -8,7 +8,7 @@
 
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/PolygonMesh.h>
-#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/conversions.h>
 
 #include "kimera_pgmo/compression/VoxbloxCompression.h"
 

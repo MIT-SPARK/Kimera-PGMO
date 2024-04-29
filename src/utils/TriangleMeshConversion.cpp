@@ -5,7 +5,7 @@
  */
 #include "kimera_pgmo/utils/TriangleMeshConversion.h"
 
-#include <pcl_conversions/pcl_conversions.h>
+#include <pcl/conversions.h>
 
 #include "kimera_pgmo/PclMeshTraits.h"
 
