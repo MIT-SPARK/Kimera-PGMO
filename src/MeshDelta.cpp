@@ -97,7 +97,7 @@ MeshDelta::MeshDelta(const KimeraPgmoMeshDelta& msg)
       face_start(msg.face_start),
       stamp_updates(msg.stamp_updates),
       semantic_updates(msg.semantic_updates) {
-  assert(msg.vertex_updates.size() == msg.vertex_updates.colors.size());
+  assert(msg.vertex_updates.size() == msg.vertex_updates_colors.size());
 
   vertex_updates.reset(new pcl::PointCloud<pcl::PointXYZRGBA>());
   vertex_updates->resize(msg.vertex_updates.size());

@@ -120,7 +120,7 @@ void MeshFrontendInterface::processVoxbloxMeshFull(const voxblox_msgs::Mesh& msg
   full_mesh_compression_->getVertices(vertices_);
   full_mesh_compression_->getStoredPolygons(triangles_);
   full_mesh_compression_->getTimestamps(vertex_stamps_);
-  assert(vertex_stamps_.size() == vertices_.size());
+  assert(vertex_stamps_->size() == vertices_->size());
   // save the active indices
   active_indices_ = full_mesh_compression_->getActiveVerticesIndex();
   invalid_indices_ = full_mesh_compression_->getInvalidIndices();

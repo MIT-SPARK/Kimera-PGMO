@@ -295,7 +295,7 @@ void DeformationGraph::addNewMeshEdgesAndNodes(
     std::vector<size_t>* added_indices,
     std::vector<Timestamp>* added_index_stamps,
     double variance) {
-  assert(stamps.size() == mesh_nodes.size());
+  assert(node_stamps.size() == mesh_nodes.size());
   // New mesh edge factors
   gtsam::NonlinearFactorGraph new_mesh_factors;
   // New mesh node factors
