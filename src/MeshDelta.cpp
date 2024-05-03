@@ -117,6 +117,12 @@ MeshDelta::MeshDelta(const KimeraPgmoMeshDelta& msg)
   deleted_indices =
       std::set<size_t>(msg.deleted_indices.begin(), msg.deleted_indices.end());
 
+  std::transform(msg.prev_indices.begin(),
+                 msg.prev_indices.end(),
+                 msg.curr_indices.begin(),
+                 std::inserter(prev_to_curr, prev_to_curr.end()),
+                 [](size_t prev, size_t curr) { return std::make_pair(prev, curr); });
+
   for (size_t i = 0; i < msg.face_updates.size(); i++) {
     Face face(msg.face_updates[i].vertex_indices[0],
               msg.face_updates[i].vertex_indices[1],
