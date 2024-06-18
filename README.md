@@ -112,7 +112,7 @@ rviz -d $(rospack find kimera_pgmo)/rviz/uHumans2.rviz
 ```
 And load mesh and deformation graph:
 ```bash
-rosservice call /kimera_pgmo/load_graph_mesh '{robot_id: 0, dgrf_file: /home/yunchang/catkin_ws/src/kimera_pgmo/log/pgmo.dgrf, ply_file: /home/yunchang/catkin_ws/src/kimera_pgmo/log/mesh_pgmo.ply}'
+rosservice call /kimera_pgmo/load_graph_mesh '{robot_id: 0, dgrf_file: /home/yunchang/catkin_ws/src/kimera_pgmo/kimera_pgmo/log/pgmo.dgrf, ply_file: /home/yunchang/catkin_ws/src/kimera_pgmo/kimera_pgmo/log/mesh_pgmo.ply}'
 ```
 
 ## Developer notes 

@@ -1,0 +1,26 @@
+<?xml version="1.0"?>
+<package format="2">
+  <name>kimera_pgmo_rviz</name>
+  <version>0.0.1</version>
+  <description>Kimera PGMO RViz tools</description>
+
+  <maintainer email="yunchang@mit.edu">Yun Chang</maintainer>
+  <author email="na26933@mit.edu">Nathan Hughes</author>
+
+  <license>BSD</license>
+
+  <buildtool_depend>catkin</buildtool_depend>
+
+  <depend>kimera_pgmo</depend>
+  <depend>roscpp</depend>
+  <depend>rviz</depend>
+
+  <build_depend>qtbase5-dev</build_depend>
+  <exec_depend>libqt5-core</exec_depend>
+  <exec_depend>libqt5-gui</exec_depend>
+  <exec_depend>libqt5-widgets</exec_depend>
+
+  <export>
+    <rviz plugin="${prefix}/plugins.xml"/>
+  </export>
+</package>
