@@ -47,6 +47,8 @@ class MeshDisplay
  private:
   void processMessage(const kimera_pgmo_msgs::KimeraPgmoMesh::ConstPtr& msg) override;
 
+  VisualsMap visuals_;
+
   // Getting transforms of visuals.
   std::unique_ptr<TfEventBuffer> tf_buffer_;
 

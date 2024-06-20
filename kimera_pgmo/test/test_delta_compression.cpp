@@ -149,8 +149,8 @@ struct ExpectedDelta {
       }
 
       EXPECT_TRUE(found_match)
-          << "result face "
-          << " (r: " << rface << ", a: " << absolute_face << ", i: " << i
+          << "result face " << " (r: " << rface << ", a: " << absolute_face
+          << ", i: " << i
           << ") has no match in expected: " << facesToString(expected_triangles);
     }
 
@@ -540,6 +540,7 @@ CompressionTestConfiguration test_configurations[] = {
        {4, 1, 2, {{15, 16, 5}}, t6_remappings[3]}}}},
 };
 
+// TODO(lschmid): BROKEN Reinstantiate once gtest deps is sorted out.
 INSTANTIATE_TEST_SUITE_P(TestDeltaCompression,
-                         DeltaCompressionTest,
-                         testing::ValuesIn(test_configurations));
+                        DeltaCompressionTest,
+                        testing::ValuesIn(test_configurations));

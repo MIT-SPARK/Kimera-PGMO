@@ -31,7 +31,7 @@ class MeshVisual {
   void setPose(const Ogre::Vector3& parent_t_mesh,
                const Ogre::Quaternion& parent_R_mesh);
 
-  void setMessage(const kimera_pgmo::KimeraPgmoMesh& mesh);
+  void setMessage(const kimera_pgmo_msgs::KimeraPgmoMesh& mesh);
 
   void shouldCull(bool cull);
   void shouldLight(bool light);

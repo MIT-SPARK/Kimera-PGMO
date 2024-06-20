@@ -7,7 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_compile_options(-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter)
 
-option(KIMERA_PGMO_ENABLE_TESTS "Build unit tets" ON)
+option(KIMERA_PGMO_ENABLE_TESTS "Build unit tets" OFF)
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
 find_package(config_utilities REQUIRED)

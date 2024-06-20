@@ -87,7 +87,7 @@ void MeshVisual::setPose(const Ogre::Vector3& parent_t_mesh,
   node_->setOrientation(parent_R_mesh);
 }
 
-void MeshVisual::setMessage(const kimera_pgmo::KimeraPgmoMesh& mesh) {
+void MeshVisual::setMessage(const kimera_pgmo_msgs::KimeraPgmoMesh& mesh) {
   ROS_DEBUG_STREAM("Setting mesh with " << mesh.vertices.size() << " vertices and "
                                         << mesh.triangles.size() << " faces");
   ROS_DEBUG_STREAM("Names: mesh=" << mesh_name_ << ", material=" << material_name_);

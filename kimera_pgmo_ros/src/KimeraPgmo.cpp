@@ -286,7 +286,7 @@ void KimeraPgmo::optimizedPathCallback(const nav_msgs::Path& msg) {
   }
 }
 
-void KimeraPgmo::fullMeshCallback(const kimera_pgmo::KimeraPgmoMesh& msg) {
+void KimeraPgmo::fullMeshCallback(const kimera_pgmo_msgs::KimeraPgmoMesh& msg) {
   auto start = std::chrono::high_resolution_clock::now();
 
   std::vector<int> graph_indices;
