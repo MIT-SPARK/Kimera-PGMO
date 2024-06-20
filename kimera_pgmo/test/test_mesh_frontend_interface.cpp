@@ -8,8 +8,8 @@
 #include <gtsam/geometry/Pose3.h>
 #include <voxblox/mesh/mesh_layer.h>
 
-#include "kimera_pgmo/MeshFrontendInterface.h"
-#include "kimera_pgmo/utils/VoxbloxMeshInterface.h"
+#include "kimera_pgmo/mesh_frontend_interface.h"
+#include "kimera_pgmo/utils/voxblox_mesh_interface.h"
 #include "pgmo_fixtures.h"
 
 namespace kimera_pgmo {

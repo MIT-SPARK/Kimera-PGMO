@@ -1,18 +1,18 @@
 /**
- * @file   KimeraPgmo.cpp
+ * @file   kimera_pgmo.cpp
  * @brief  KimeraPgmo class: Main class and ROS interface
  * @author Yun Chang
  */
 #include <config_utilities/config.h>
 #include <config_utilities/parsing/ros.h>
-#include <kimera_pgmo/KimeraPgmoInterface.h>
-#include <kimera_pgmo/utils/Logging.h>
-#include <kimera_pgmo/utils/MeshIO.h>
+#include <kimera_pgmo/kimera_pgmo_interface.h>
+#include <kimera_pgmo/utils/logging.h>
+#include <kimera_pgmo/utils/mesh_io.h>
 
 #include <chrono>
 #include <cmath>
 
-#include "kimera_pgmo_ros/RosLogSink.h"
+#include "kimera_pgmo_ros/ros_log_sink.h"
 
 namespace kimera_pgmo {
 

@@ -8,8 +8,8 @@
 #include <gtest/gtest.h>
 #include <voxblox/mesh/mesh_layer.h>
 
-#include "kimera_pgmo/compression/VoxelClearingCompression.h"
-#include "kimera_pgmo/utils/VoxbloxMeshInterface.h"
+#include "kimera_pgmo/compression/voxel_clearing_compression.h"
+#include "kimera_pgmo/utils/voxblox_mesh_interface.h"
 #include "pgmo_fixtures.h"
 
 namespace kimera_pgmo {

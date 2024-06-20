@@ -7,7 +7,7 @@
 #include <pcl/conversions.h>
 
 #include "gtest/gtest.h"
-#include "kimera_pgmo/utils/MeshIO.h"
+#include "kimera_pgmo/utils/mesh_io.h"
 #include "test_config.h"
 
 namespace kimera_pgmo {

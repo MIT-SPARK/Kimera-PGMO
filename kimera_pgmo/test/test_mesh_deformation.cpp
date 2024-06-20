@@ -7,8 +7,8 @@
 #include <gtsam/geometry/Pose3.h>
 
 #include "gtest/gtest.h"
-#include "kimera_pgmo/MeshDeformation.h"
-#include "kimera_pgmo/PclMeshTraits.h"
+#include "kimera_pgmo/mesh_deformation.h"
+#include "kimera_pgmo/pcl_mesh_traits.h"
 #include "test_config.h"
 
 namespace kimera_pgmo {

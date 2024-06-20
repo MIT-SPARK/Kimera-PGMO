@@ -11,12 +11,12 @@
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
-#include <kimera_pgmo/utils/CommonStructs.h>
-#include <kimera_pgmo/utils/Logging.h>
+#include <kimera_pgmo/utils/common_structs.h>
+#include <kimera_pgmo/utils/logging.h>
 #include <ros/ros.h>
 
-#include "kimera_pgmo_ros/KimeraPgmo.h"
-#include "kimera_pgmo_ros/MeshConversion.h"
+#include "kimera_pgmo_ros/kimera_pgmo.h"
+#include "kimera_pgmo_ros/mesh_conversion.h"
 #include "test_artifacts.h"
 
 namespace kimera_pgmo {

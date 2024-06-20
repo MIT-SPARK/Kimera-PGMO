@@ -9,7 +9,7 @@
 #include <pcl/conversions.h>
 
 #include "gtest/gtest.h"
-#include "kimera_pgmo/compression/VoxbloxCompression.h"
+#include "kimera_pgmo/compression/voxblox_compression.h"
 #include "kimera_pgmo/utils/PclMeshInterface.h"
 #include "pgmo_fixtures.h"
 

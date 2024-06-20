@@ -23,25 +23,25 @@ include(CMakePackageConfigHelpers)
 
 add_library(
   ${PROJECT_NAME}
-  src/compression/MeshCompression.cpp
-  src/compression/DeltaCompression.cpp
-  src/compression/OctreeCompression.cpp
-  src/compression/VoxelClearingCompression.cpp
-  src/compression/VoxbloxCompression.cpp
-  src/utils/CommonFunctions.cpp
-  src/utils/CommonStructs.cpp
-  src/utils/Logging.cpp
-  src/utils/MeshIO.cpp
-  src/utils/RangeGenerator.cpp
-  src/utils/VoxbloxMeshInterface.cpp
-  src/DeformationGraph.cpp
-  src/DeformationGraphIo.cpp
-  src/MeshDeformation.cpp
-  src/MeshDelta.cpp
-  src/MeshFrontendInterface.cpp
-  src/MeshTraits.cpp
-  src/KimeraPgmoInterface.cpp
-  src/SparseKeyframe.cpp)
+  src/compression/mesh_compression.cpp
+  src/compression/delta_compression.cpp
+  src/compression/octree_compression.cpp
+  src/compression/voxel_clearing_compression.cpp
+  src/compression/voxblox_compression.cpp
+  src/utils/common_functions.cpp
+  src/utils/common_structs.cpp
+  src/utils/logging.cpp
+  src/utils/mesh_io.cpp
+  src/utils/range_generator.cpp
+  src/utils/voxblox_mesh_interface.cpp
+  src/deformation_graph.cpp
+  src/deformation_graph_io.cpp
+  src/mesh_deformation.cpp
+  src/mesh_delta.cpp
+  src/mesh_frontend_interface.cpp
+  src/mesh_traits.cpp
+  src/kimera_pgmo_interface.cpp
+  src/sparse_keyframe.cpp)
 target_include_directories(
   ${PROJECT_NAME}
   PUBLIC $<INSTALL_INTERFACE:include>

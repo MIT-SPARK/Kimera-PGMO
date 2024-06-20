@@ -5,14 +5,14 @@
  */
 
 #include <gtest/gtest.h>
-#include <kimera_pgmo/utils/MeshIO.h>
+#include <kimera_pgmo/utils/mesh_io.h>
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/conversions.h>
 #include <ros/package.h>
 
 #include <filesystem>
 
-#include "kimera_pgmo_ros/MeshConversion.h"
+#include "kimera_pgmo_ros/mesh_conversion.h"
 
 namespace kimera_pgmo {
 

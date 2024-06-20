@@ -6,7 +6,7 @@
 #include <gtsam/nonlinear/Values.h>
 
 #include "gtest/gtest.h"
-#include "kimera_pgmo/DeformationGraph.h"
+#include "kimera_pgmo/deformation_graph.h"
 #include "test_config.h"
 
 using gtsam::Point3;

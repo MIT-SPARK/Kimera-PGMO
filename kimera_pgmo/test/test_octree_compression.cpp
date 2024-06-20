@@ -9,7 +9,7 @@
 #include <pcl/PolygonMesh.h>
 #include <pcl/conversions.h>
 
-#include "kimera_pgmo/compression/OctreeCompression.h"
+#include "kimera_pgmo/compression/octree_compression.h"
 #include "kimera_pgmo/utils/PclMeshInterface.h"
 #include "pgmo_fixtures.h"
 

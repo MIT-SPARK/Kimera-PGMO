@@ -6,7 +6,7 @@
  */
 #include <gtest/gtest.h>
 
-#include "kimera_pgmo/utils/Logging.h"
+#include "kimera_pgmo/utils/logging.h"
 
 int main(int argc, char **argv) {
   logging::Logger::addSink("cout", std::make_shared<logging::CoutSink>());

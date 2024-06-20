@@ -2,9 +2,9 @@
 
 #include <numeric>
 
-#include "kimera_pgmo/MeshTraits.h"
-#include "kimera_pgmo/PclMeshTraits.h"
-#include "kimera_pgmo/utils/RangeGenerator.h"
+#include "kimera_pgmo/mesh_traits.h"
+#include "kimera_pgmo/pcl_mesh_traits.h"
+#include "kimera_pgmo/utils/range_generator.h"
 
 namespace kimera_pgmo {
 

@@ -7,9 +7,9 @@
 #include <gtest/gtest.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/slam/BetweenFactor.h>
-#include <kimera_pgmo/utils/CommonStructs.h>
+#include <kimera_pgmo/utils/common_structs.h>
 
-#include "kimera_pgmo_ros/GtsamConversions.h"
+#include "kimera_pgmo_ros/gtsam_conversions.h"
 
 namespace kimera_pgmo {
 

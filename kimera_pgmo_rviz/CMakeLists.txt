@@ -26,13 +26,13 @@ catkin_package(
   LIBRARIES)
 
 add_library(${PROJECT_NAME} 
-  src/MeshDisplay.cpp 
-  src/MeshVisual.cpp
-  src/TfEventBuffer.cpp
-  src/VisibilityField.cpp
-  src/VisualsMap.cpp
-  include/kimera_pgmo_rviz/MeshDisplay.h
-  include/kimera_pgmo_rviz/VisibilityField.h
+  src/mesh_display.cpp 
+  src/mesh_visual.cpp
+  src/tf_event_buffer.cpp
+  src/visbility_field.cpp
+  src/visuals_map.cpp
+  include/kimera_pgmo_rviz/mesh_display.h
+  include/kimera_pgmo_rviz/visbility_field.h
 )
 target_include_directories(${PROJECT_NAME} PUBLIC include
                                                   ${catkin_INCLUDE_DIRS})

@@ -9,7 +9,7 @@
 #include <voxblox/mesh/mesh_layer.h>
 
 #include "kimera_pgmo/utils/PclMeshInterface.h"
-#include "kimera_pgmo/utils/VoxbloxMeshInterface.h"
+#include "kimera_pgmo/utils/voxblox_mesh_interface.h"
 
 namespace kimera_pgmo::test {
 

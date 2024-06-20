@@ -11,7 +11,7 @@
 #include <pcl/conversions.h>
 #include <pcl/point_types.h>
 
-#include "kimera_pgmo/utils/CommonStructs.h"
+#include "kimera_pgmo/utils/common_structs.h"
 #include "pgmo_fixtures.h"
 
 namespace kimera_pgmo {

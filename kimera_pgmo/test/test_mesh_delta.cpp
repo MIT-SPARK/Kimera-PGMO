@@ -5,7 +5,7 @@
  */
 #include <gtest/gtest.h>
 
-#include "kimera_pgmo/MeshDelta.h"
+#include "kimera_pgmo/mesh_delta.h"
 
 namespace kimera_pgmo {
 

@@ -7,10 +7,10 @@
 #include <gtest/gtest.h>
 #include <pcl/conversions.h>
 
-#include "kimera_pgmo/DeformationGraph.h"
-#include "kimera_pgmo/utils/CommonFunctions.h"
-#include "kimera_pgmo/utils/CommonStructs.h"
-#include "kimera_pgmo/utils/MeshIO.h"
+#include "kimera_pgmo/deformation_graph.h"
+#include "kimera_pgmo/utils/common_functions.h"
+#include "kimera_pgmo/utils/common_structs.h"
+#include "kimera_pgmo/utils/mesh_io.h"
 #include "pgmo_fixtures.h"
 #include "test_config.h"
 

@@ -7,9 +7,9 @@
 
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/inference/Symbol.h>
-#include <kimera_pgmo/compression/OctreeCompression.h>
+#include <kimera_pgmo/compression/octree_compression.h>
 #include <kimera_pgmo/utils/PclMeshInterface.h>
-#include <kimera_pgmo/utils/CommonFunctions.h>
+#include <kimera_pgmo/utils/common_functions.h>
 #include <kimera_pgmo_msgs/KimeraPgmoMesh.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/conversions.h>
@@ -17,7 +17,7 @@
 
 #include <string>
 
-#include "kimera_pgmo_ros/GtsamConversions.h"
+#include "kimera_pgmo_ros/gtsam_conversions.h"
 
 namespace kimera_pgmo {
 pose_graph_tools_msgs::PoseGraph SingleOdomGraph(const ros::Time& stamp,

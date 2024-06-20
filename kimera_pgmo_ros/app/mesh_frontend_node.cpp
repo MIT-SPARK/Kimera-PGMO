@@ -7,8 +7,8 @@
 #include <config_utilities/parsing/ros.h>
 #include <ros/ros.h>
 
-#include "kimera_pgmo_ros/MeshFrontend.h"
-#include "kimera_pgmo_ros/RosLogSink.h"
+#include "kimera_pgmo_ros/mesh_frontend.h"
+#include "kimera_pgmo_ros/ros_log_sink.h"
 
 int main(int argc, char* argv[]) {
   // Initialize ROS node.

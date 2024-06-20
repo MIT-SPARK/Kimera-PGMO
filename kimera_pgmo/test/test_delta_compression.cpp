@@ -9,7 +9,7 @@
 
 #include <chrono>
 
-#include "kimera_pgmo/compression/DeltaCompression.h"
+#include "kimera_pgmo/compression/delta_compression.h"
 #include "pgmo_fixtures.h"
 
 template <typename T>

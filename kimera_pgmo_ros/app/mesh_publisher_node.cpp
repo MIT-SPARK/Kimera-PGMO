@@ -7,14 +7,14 @@
 #include <config_utilities/config_utilities.h>
 #include <config_utilities/parsing/ros.h>
 #include <config_utilities/types/path.h>
-#include <kimera_pgmo/utils/MeshIO.h>
+#include <kimera_pgmo/utils/mesh_io.h>
 #include <ros/assert.h>
 #include <ros/ros.h>
 #include <std_srvs/Empty.h>
 
 #include <filesystem>
 
-#include "kimera_pgmo_ros/MeshConversion.h"
+#include "kimera_pgmo_ros/mesh_conversion.h"
 
 namespace kimera_pgmo {
 

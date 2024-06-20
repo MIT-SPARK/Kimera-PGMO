@@ -41,14 +41,14 @@ catkin_package(
 
 add_library(
   ${PROJECT_NAME}
-  src/GtsamConversions.cpp
-  src/KimeraPgmo.cpp
-  src/MeshConversion.cpp
-  src/MeshDeltaConversion.cpp
-  src/MeshFrontend.cpp
-  src/VisualizationFunctions.cpp
-  src/VoxbloxMsgConversion.cpp
-  src/VoxbloxMsgInterface.cpp)
+  src/gtsam_conversions.cpp
+  src/kimera_pgmo.cpp
+  src/mesh_conversion.cpp
+  src/mesh_delta_conversion.cpp
+  src/mesh_frontend.cpp
+  src/visualization_functions.cpp
+  src/voxblox_msg_conversion.cpp
+  src/voxblox_msg_interface.cpp)
 target_include_directories(${PROJECT_NAME} PUBLIC include
                                                   ${catkin_INCLUDE_DIRS})
 target_link_libraries(

@@ -5,8 +5,8 @@
  */
 #include <ros/ros.h>
 
-#include "kimera_pgmo_ros/KimeraPgmo.h"
-#include "kimera_pgmo_ros/RosLogSink.h"
+#include "kimera_pgmo_ros/kimera_pgmo.h"
+#include "kimera_pgmo_ros/ros_log_sink.h"
 
 int main(int argc, char* argv[]) {
   // Initialize ROS node.
