@@ -5,10 +5,12 @@
  * @author Nathan Hughes
  */
 
+#include <gtest/gtest.h>
+
 #include <chrono>
 
-#include "gtest/gtest.h"
 #include "kimera_pgmo/compression/DeltaCompression.h"
+#include "pgmo_fixtures.h"
 
 template <typename T>
 std::string mapToString(const T& map) {
@@ -49,6 +51,8 @@ std::string facesToString(const std::vector<kimera_pgmo::Face>& faces) {
 
 namespace kimera_pgmo {
 
+using VoxbloxIndexMapping = DeltaCompression::VoxbloxIndexMapping;
+
 bool operator==(const Face& lhs, const Face& rhs) {
   std::set<size_t> lset{lhs.v1, lhs.v2, lhs.v3};
   std::set<size_t> rset{rhs.v1, rhs.v2, rhs.v3};
@@ -58,42 +62,6 @@ bool operator==(const Face& lhs, const Face& rhs) {
 bool operator!=(const Face& lhs, const Face& rhs) { return !(lhs == rhs); }
 
 using voxblox::BlockIndex;
-
-struct BlockConfig {
-  using FaceCoordinates = std::array<std::array<float, 3>, 3>;
-
-  std::string name;
-  std::array<int64_t, 3> index;
-  std::vector<FaceCoordinates> faces;
-  static uint8_t point_index;
-
-  voxblox_msgs::MeshBlock instantiate() const {
-    voxblox_msgs::MeshBlock block;
-    std::memcpy(block.index.data(), index.data(), sizeof(block.index));
-
-    // original voxblox conversion: x = (a * \bar{x} + block.x) * L
-    // inverse conversion: \bar{x} = 1 / a * (x / L - block.x)
-    // for simplicity, block-lenght (L) is 1
-    for (const auto& face : faces) {
-      for (size_t i = 0; i < face.size(); ++i) {
-        const float a = std::numeric_limits<uint16_t>::max() / 2.0f;
-        block.x.push_back(static_cast<uint16_t>(a * (face[i][0] - index[0])));
-        block.y.push_back(static_cast<uint16_t>(a * (face[i][1] - index[1])));
-        block.z.push_back(static_cast<uint16_t>(a * (face[i][2] - index[2])));
-        block.r.push_back(point_index);
-        block.g.push_back(point_index);
-        block.b.push_back(point_index);
-        ++point_index;
-      }
-    }
-
-    return block;
-  }
-
-  static void resetIndex() { point_index = 0; }
-};
-
-uint8_t BlockConfig::point_index = 0;
 
 std::vector<Face> remapFaces(const std::vector<Face>& faces,
                              const std::map<size_t, size_t>& remapping) {
@@ -240,7 +208,7 @@ struct ExpectedDelta {
 struct CompressionInput {
   std::optional<std::chrono::nanoseconds> prune_time_ns;
   std::chrono::nanoseconds timestamp_ns;
-  std::vector<BlockConfig> blocks;
+  std::vector<test::BlockConfig> blocks;
 };
 
 std::ostream& operator<<(std::ostream& out, const CompressionInput& input) {
@@ -286,7 +254,7 @@ std::ostream& operator<<(std::ostream& out,
   return out;
 }
 
-TEST(test_delta_compression, vertexInfoCorrect) {
+TEST(TestDeltaCompression, vertexInfoCorrect) {
   // base info should have ref counts of 0
   VertexInfo info;
   EXPECT_TRUE(info.notObserved());
@@ -324,9 +292,7 @@ TEST(test_delta_compression, vertexInfoCorrect) {
 }  // namespace kimera_pgmo
 
 using namespace std::chrono_literals;
-using kimera_pgmo::BlockConfig;
 using kimera_pgmo::CompressionTestConfiguration;
-using kimera_pgmo::VoxbloxIndexMapping;
 
 struct DeltaCompressionTest
     : public testing::TestWithParam<CompressionTestConfiguration> {};
@@ -336,7 +302,7 @@ TEST_P(DeltaCompressionTest, CompressionCorrect) {
   kimera_pgmo::DeltaCompression compression(config.compression_size);
 
   // reset absoulte index count for vertices
-  BlockConfig::resetIndex();
+  kimera_pgmo::test::BlockConfig::resetIndex();
 
   // keep track of mapping to absolute index
   std::map<size_t, size_t> result_remapping;
@@ -348,41 +314,42 @@ TEST_P(DeltaCompressionTest, CompressionCorrect) {
       compression.pruneStoredMesh(input.prune_time_ns->count());
     }
 
-    voxblox_msgs::Mesh mesh;
-    mesh.block_edge_length = 1.0;
-    for (const auto& block : input.blocks) {
-      mesh.mesh_blocks.push_back(block.instantiate());
-    }
+    auto mesh = kimera_pgmo::test::createMesh(input.blocks);
+    ASSERT_TRUE(mesh);
 
-    VoxbloxIndexMapping remapping;
+    kimera_pgmo::DeltaCompression::VoxbloxIndexMapping remapping;
     const auto output =
-        compression.update(mesh, input.timestamp_ns.count(), &remapping);
+        compression.update(*mesh, input.timestamp_ns.count(), &remapping);
     ASSERT_TRUE(output != nullptr);
     SCOPED_TRACE(input);
     expected.checkOutput(*output, remapping, result_remapping);
   }
 }
 
-BlockConfig block1_empty{"block1_empty", {0, 0, 0}, {}};
-BlockConfig block1_v1{"block1_v1",
-                      {0, 0, 0},
-                      {{{{0.5, 0.5, 0.5}, {0.5, 0.75, 0.75}, {0.5, 0.75, 0.5}}},
-                       {{{0.5, 0.5, 0.5}, {0.5, 0.75, 0.75}, {0.5, 0.75, 0.5}}},
-                       {{{0.0, 0.0, 0.0}, {0.0, 0.5, 0.5}, {0.0, 0.0, 0.5}}}}};
-BlockConfig block1_v2{"block1_v2",
-                      {0, 0, 0},
-                      {{{{0.5, 0.5, 0.5}, {0.5, 0.75, 0.75}, {0.5, 0.75, 0.5}}},
-                       {{{0.0, 0.0, 0.0}, {0.0, 0.5, 0.5}, {0.0, 0.0, 0.5}}}}};
+kimera_pgmo::test::BlockConfig block1_empty{"block1_empty", {0, 0, 0}, {}};
+kimera_pgmo::test::BlockConfig block1_v1{
+    "block1_v1",
+    {0, 0, 0},
+    {{{{0.5, 0.5, 0.5}, {0.5, 0.75, 0.75}, {0.5, 0.75, 0.5}}},
+     {{{0.5, 0.5, 0.5}, {0.5, 0.75, 0.75}, {0.5, 0.75, 0.5}}},
+     {{{0.0, 0.0, 0.0}, {0.0, 0.5, 0.5}, {0.0, 0.0, 0.5}}}}};
+kimera_pgmo::test::BlockConfig block1_v2{
+    "block1_v2",
+    {0, 0, 0},
+    {{{{0.5, 0.5, 0.5}, {0.5, 0.75, 0.75}, {0.5, 0.75, 0.5}}},
+     {{{0.0, 0.0, 0.0}, {0.0, 0.5, 0.5}, {0.0, 0.0, 0.5}}}}};
 
-BlockConfig block2_empty{"block2_empty", {-1, 0, 0}, {}};
-BlockConfig block2_v1{"block2_v1",
-                      {-1, 0, 0},
-                      {{{{-0.5, 0.5, 0.5}, {-0.5, 0.75, 0.75}, {-0.5, 0.75, 0.5}}},
-                       {{{0.0, 0.0, 0.0}, {0.0, 0.5, 0.5}, {0.0, 0.0, 0.5}}}}};
-BlockConfig block2_v2{"block2_v2",
-                      {-1, 0, 0},
-                      {{{{-0.5, 0.5, 0.5}, {-0.5, 0.75, 0.75}, {-0.5, 0.75, 0.5}}},
-                       {{{0.0, 0.0, 0.0}, {0.0, 0.5, 0.5}, {0.0, 0.0, -0.5}}}}};
+kimera_pgmo::test::BlockConfig block2_empty{"block2_empty", {-1, 0, 0}, {}};
+kimera_pgmo::test::BlockConfig block2_v1{
+    "block2_v1",
+    {-1, 0, 0},
+    {{{{-0.5, 0.5, 0.5}, {-0.5, 0.75, 0.75}, {-0.5, 0.75, 0.5}}},
+     {{{0.0, 0.0, 0.0}, {0.0, 0.5, 0.5}, {0.0, 0.0, 0.5}}}}};
+kimera_pgmo::test::BlockConfig block2_v2{
+    "block2_v2",
+    {-1, 0, 0},
+    {{{{-0.5, 0.5, 0.5}, {-0.5, 0.75, 0.75}, {-0.5, 0.75, 0.5}}},
+     {{{0.0, 0.0, 0.0}, {0.0, 0.5, 0.5}, {0.0, 0.0, -0.5}}}}};
 
 // notes:
 // - 0: block1_empty means an empty remapping
@@ -392,13 +359,13 @@ BlockConfig block2_v2{"block2_v2",
 // - 4: block1_empty clears duplicate vertices with block1_v1
 // - 5: block2_empty clears duplicate vertices with block2_v1
 // - 6: block2_test2 has only unique faces
-VoxbloxIndexMapping t1_remappings[] = {
+kimera_pgmo::DeltaCompression::VoxbloxIndexMapping t1_remappings[] = {
     {{{0, 0, 0},
       {{0, 0}, {1, 1}, {2, 2}, {3, 0}, {4, 1}, {5, 2}, {6, 6}, {7, 7}, {8, 8}}}},
     {{{0, 0, 0}, {}}},
 };
 
-VoxbloxIndexMapping t2_remappings[] = {
+kimera_pgmo::DeltaCompression::VoxbloxIndexMapping t2_remappings[] = {
     {{{0, 0, 0},
       {{0, 0}, {1, 1}, {2, 2}, {3, 0}, {4, 1}, {5, 2}, {6, 6}, {7, 7}, {8, 8}}}},
     {{{0, 0, 0}, {}}},
@@ -406,7 +373,7 @@ VoxbloxIndexMapping t2_remappings[] = {
       {{0, 9}, {1, 10}, {2, 11}, {3, 9}, {4, 10}, {5, 11}, {6, 15}, {7, 16}, {8, 17}}}},
 };
 
-VoxbloxIndexMapping t3_remappings[] = {
+kimera_pgmo::DeltaCompression::VoxbloxIndexMapping t3_remappings[] = {
     {{{0, 0, 0},
       {{0, 0}, {1, 1}, {2, 2}, {3, 0}, {4, 1}, {5, 2}, {6, 6}, {7, 7}, {8, 8}}},
      {{-1, 0, 0}, {{0, 9}, {1, 10}, {2, 11}, {3, 6}, {4, 7}, {5, 8}}}},
@@ -436,7 +403,7 @@ VoxbloxIndexMapping t3_remappings[] = {
      {{-1, 0, 0}, {}}},
 };
 
-VoxbloxIndexMapping t4_remappings[] = {
+kimera_pgmo::DeltaCompression::VoxbloxIndexMapping t4_remappings[] = {
     {{{0, 0, 0},
       {{0, 0}, {1, 1}, {2, 2}, {3, 0}, {4, 1}, {5, 2}, {6, 6}, {7, 7}, {8, 8}}}},
     {{{-1, 0, 0}, {{0, 9}, {1, 10}, {2, 11}, {3, 12}, {4, 13}, {5, 14}}}},
@@ -463,7 +430,7 @@ VoxbloxIndexMapping t4_remappings[] = {
        {8, 32}}}},
 };
 
-VoxbloxIndexMapping t5_remappings[] = {
+kimera_pgmo::DeltaCompression::VoxbloxIndexMapping t5_remappings[] = {
     {{{0, 0, 0},
       {{0, 0}, {1, 1}, {2, 2}, {3, 0}, {4, 1}, {5, 2}, {6, 6}, {7, 7}, {8, 8}}}},
     {{{-1, 0, 0}, {{0, 9}, {1, 10}, {2, 11}, {3, 12}, {4, 13}, {5, 14}}}},
@@ -484,7 +451,7 @@ VoxbloxIndexMapping t5_remappings[] = {
     {{{0, 0, 0}, {}}, {{-1, 0, 0}, {}}},
 };
 
-VoxbloxIndexMapping t6_remappings[] = {
+kimera_pgmo::DeltaCompression::VoxbloxIndexMapping t6_remappings[] = {
     {{{0, 0, 0}, {{0, 0}, {1, 1}, {2, 2}, {3, 3}, {4, 4}, {5, 5}}}},
     {{{-1, 0, 0}, {{0, 6}, {1, 7}, {2, 8}, {3, 9}, {4, 10}, {5, 11}}}},
     {{{0, 0, 0}, {}},
@@ -573,6 +540,6 @@ CompressionTestConfiguration test_configurations[] = {
        {4, 1, 2, {{15, 16, 5}}, t6_remappings[3]}}}},
 };
 
-INSTANTIATE_TEST_CASE_P(DeltaCompression,
-                        DeltaCompressionTest,
-                        testing::ValuesIn(test_configurations));
+INSTANTIATE_TEST_SUITE_P(TestDeltaCompression,
+                         DeltaCompressionTest,
+                         testing::ValuesIn(test_configurations));

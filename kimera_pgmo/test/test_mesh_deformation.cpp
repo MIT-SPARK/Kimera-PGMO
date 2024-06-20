@@ -13,7 +13,7 @@
 
 namespace kimera_pgmo {
 
-TEST(test_common_functions, deformPoints) {
+TEST(TestMeshDeformation, deformPoints) {
   typedef pcl::PointXYZ Point;
   typedef pcl::PointCloud<Point> PointCloud;
 
@@ -49,7 +49,7 @@ TEST(test_common_functions, deformPoints) {
   }
 }
 
-TEST(test_common_functions, deformPointsWithTimeCheck) {
+TEST(TestMeshDeformation, deformPointsWithTimeCheck) {
   typedef pcl::PointXYZ Point;
   typedef pcl::PointCloud<Point> PointCloud;
 

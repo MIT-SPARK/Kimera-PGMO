@@ -14,6 +14,8 @@
 
 namespace kimera_pgmo {
 
+using kimera_pgmo_msgs::KimeraPgmoMesh;
+
 MeshDisplay::MeshDisplay() {
   // Setup rviz properties.
   cull_ = std::make_unique<rviz::BoolProperty>("Cull Backfaces",

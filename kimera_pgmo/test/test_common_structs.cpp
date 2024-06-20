@@ -9,12 +9,12 @@
 #include "test_config.h"
 
 namespace kimera_pgmo {
-TEST(test_common_structs, stampFromSec) {
+TEST(TestCommonStructs, stampFromSec) {
   double seconds = 105867.312345678;
   EXPECT_EQ(105867312345678, stampFromSec(seconds));
 }
 
-TEST(test_common_structs, stampToSec) {
+TEST(TestCommonStructs, stampToSec) {
   Timestamp stamp = 105867312345678;
   EXPECT_EQ(105867.312345678, stampToSec(stamp));
 }

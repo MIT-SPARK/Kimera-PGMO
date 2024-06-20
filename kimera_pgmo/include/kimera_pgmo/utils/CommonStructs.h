@@ -6,8 +6,9 @@
 
 #pragma once
 #include <pcl/PolygonMesh.h>
-#include <voxblox/core/block_hash.h>
-#include <voxblox/core/common.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pose_graph_tools/pose_graph.h>
 
 #include <cstdint>
 #include <map>
@@ -20,15 +21,10 @@
 
 namespace kimera_pgmo {
 
-typedef uint64_t Vertex;
-typedef std::vector<Vertex> Vertices;
-typedef std::map<Vertex, Vertices> Edges;
-typedef std::pair<Vertex, Vertex> Edge;
-
-typedef std::unordered_map<size_t, size_t> IndexMapping;
-typedef voxblox::AnyIndexHashMapType<IndexMapping>::type VoxbloxIndexMapping;
-typedef std::pair<voxblox::BlockIndex, IndexMapping> VoxbloxIndexPair;
-typedef std::pair<voxblox::BlockIndex, size_t> VoxbloxBlockIndexPair;
+using Vertex = uint64_t;
+using Vertices = std::vector<Vertex>;
+using Edges = std::map<Vertex, Vertices>;
+using Edge = std::pair<Vertex, Vertex>;
 
 using traits::Timestamp;
 Timestamp stampFromSec(double sec);
@@ -43,6 +39,7 @@ enum class ProcessPoseGraphStatus {
   SUCCESS,
   LC_MISSING_NODES
 };
+
 enum class ProcessMeshGraphStatus {
   EMPTY,
   INVALID,
@@ -124,6 +121,23 @@ class Graph {
   Vertex max_vertex_ = 0;
 };
 
-typedef std::shared_ptr<Graph> GraphPtr;
+using GraphPtr = std::shared_ptr<Graph>;
+
+/*! \brief Publish the factors corresponding to the new edges added to the
+ * simplified mesh / deformation graph and also the initial values (positions
+ * of the new vertices added to the simplified mesh)
+ *  - new_edges: new edges of type Edge (std::pair<Vertex, Vertex>)
+ *  - new_indices: new vertices of type Vertex
+ *  - graph_vertices: deformation graph vertices
+ *  - header: current mesh header
+ *  - robot_id: robot for the deformation graph
+ *  returns: published pose graph
+ */
+pose_graph_tools::PoseGraph::Ptr makePoseGraph(
+    int robot_id,
+    double time_in_sec,
+    const std::vector<Edge>& new_edges,
+    const std::vector<size_t>& new_indices,
+    const pcl::PointCloud<pcl::PointXYZRGBA>& vertices);
 
 }  // namespace kimera_pgmo

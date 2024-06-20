@@ -6,8 +6,6 @@
 #pragma once
 
 #include <voxblox/core/block_hash.h>
-#include <voxblox/core/common.h>
-#include <voxblox/mesh/mesh.h>
 
 #include "kimera_pgmo/compression/MeshCompression.h"
 
@@ -16,7 +14,8 @@ namespace kimera_pgmo {
 class VoxbloxCompression : public MeshCompression {
  public:
   VoxbloxCompression(double resolution);
-  virtual~VoxbloxCompression();
+
+  virtual ~VoxbloxCompression();
 
   /*! \brief Reinitialize the cell hash map
    *  - active_vertices: xyz of the active vertices
@@ -25,8 +24,7 @@ class VoxbloxCompression : public MeshCompression {
 
   /*! \brief Check if vertex exists in structure
    */
-  bool checkIfVertexUnique(const pcl::PointXYZ& v,
-                           int* matched_ind) const override;
+  bool checkIfVertexUnique(const pcl::PointXYZ& v, int* matched_ind) const override;
 
   /*! \brief Updatae structure
    */
@@ -34,8 +32,7 @@ class VoxbloxCompression : public MeshCompression {
 
   /*! \brief Check if vertex exists in temporary structure
    */
-  bool checkIfVertexTempUnique(const pcl::PointXYZ& v,
-                               int* matched_ind) const override;
+  bool checkIfVertexTempUnique(const pcl::PointXYZ& v, int* matched_ind) const override;
 
   /*! \brief Initialize temporary structure
    */
@@ -51,5 +48,6 @@ class VoxbloxCompression : public MeshCompression {
   voxblox::LongIndexHashMapType<size_t>::type temp_cell_hash_;
 };
 
-typedef std::shared_ptr<VoxbloxCompression> VoxbloxCompressionPtr;
+using VoxbloxCompressionPtr = std::shared_ptr<VoxbloxCompression>;
+
 }  // namespace kimera_pgmo

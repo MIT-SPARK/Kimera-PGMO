@@ -92,51 +92,6 @@ MeshDelta::MeshDelta(size_t vertex_start, size_t face_start)
   vertex_updates.reset(new pcl::PointCloud<pcl::PointXYZRGBA>());
 }
 
-MeshDelta::MeshDelta(const KimeraPgmoMeshDelta& msg)
-    : vertex_start(msg.vertex_start),
-      face_start(msg.face_start),
-      stamp_updates(msg.stamp_updates),
-      semantic_updates(msg.semantic_updates) {
-  assert(msg.vertex_updates.size() == msg.vertex_updates_colors.size());
-
-  vertex_updates.reset(new pcl::PointCloud<pcl::PointXYZRGBA>());
-  vertex_updates->resize(msg.vertex_updates.size());
-  constexpr float color_conv_factor = 1.0f * std::numeric_limits<uint8_t>::max();
-  for (size_t i = 0; i < msg.vertex_updates.size(); i++) {
-    pcl::PointXYZRGBA v;
-    v.x = msg.vertex_updates[i].x;
-    v.y = msg.vertex_updates[i].y;
-    v.z = msg.vertex_updates[i].z;
-    v.r = static_cast<uint8_t>(color_conv_factor * msg.vertex_updates_colors[i].r);
-    v.g = static_cast<uint8_t>(color_conv_factor * msg.vertex_updates_colors[i].g);
-    v.b = static_cast<uint8_t>(color_conv_factor * msg.vertex_updates_colors[i].b);
-    v.a = static_cast<uint8_t>(color_conv_factor * msg.vertex_updates_colors[i].a);
-    (*vertex_updates)[i] = v;
-  }
-
-  deleted_indices =
-      std::set<size_t>(msg.deleted_indices.begin(), msg.deleted_indices.end());
-
-  std::transform(msg.prev_indices.begin(),
-                 msg.prev_indices.end(),
-                 msg.curr_indices.begin(),
-                 std::inserter(prev_to_curr, prev_to_curr.end()),
-                 [](size_t prev, size_t curr) { return std::make_pair(prev, curr); });
-
-  for (size_t i = 0; i < msg.face_updates.size(); i++) {
-    Face face(msg.face_updates[i].vertex_indices[0],
-              msg.face_updates[i].vertex_indices[1],
-              msg.face_updates[i].vertex_indices[2]);
-    face_updates.push_back(face);
-  }
-  for (size_t i = 0; i < msg.face_archive_updates.size(); i++) {
-    Face face(msg.face_archive_updates[i].vertex_indices[0],
-              msg.face_archive_updates[i].vertex_indices[1],
-              msg.face_archive_updates[i].vertex_indices[2]);
-    face_archive_updates.push_back(face);
-  }
-}
-
 MeshDelta::MeshDelta(const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
                      const std::vector<uint64_t>& stamps,
                      const std::vector<pcl::Vertices>& faces,
@@ -298,68 +253,6 @@ void MeshDelta::checkFaces(const std::string& name) const {
       throw std::runtime_error(ss.str());
     }
   }
-}
-
-KimeraPgmoMeshDelta MeshDelta::toRosMsg(uint64_t timestamp_ns) const {
-  KimeraPgmoMeshDelta mesh_delta_msg;
-
-  mesh_delta_msg.header.stamp.fromNSec(timestamp_ns);
-
-  mesh_delta_msg.vertex_start = vertex_start;
-  mesh_delta_msg.face_start = face_start;
-
-  // Convert vertices
-  const auto& vertices = *vertex_updates;
-  mesh_delta_msg.vertex_updates.resize(vertices.size());
-  mesh_delta_msg.vertex_updates_colors.resize(vertices.size());
-  for (size_t i = 0; i < vertices.size(); i++) {
-    geometry_msgs::Point vertex_p;
-    vertex_p.x = vertices[i].x;
-    vertex_p.y = vertices[i].y;
-    vertex_p.z = vertices[i].z;
-    mesh_delta_msg.vertex_updates[i] = vertex_p;
-    // Point color
-    std_msgs::ColorRGBA vertex_c;
-    constexpr float color_conv_factor = 1.0f / std::numeric_limits<uint8_t>::max();
-    vertex_c.r = color_conv_factor * static_cast<float>(vertices[i].r);
-    vertex_c.g = color_conv_factor * static_cast<float>(vertices[i].g);
-    vertex_c.b = color_conv_factor * static_cast<float>(vertices[i].b);
-    vertex_c.a = color_conv_factor * static_cast<float>(vertices[i].a);
-    mesh_delta_msg.vertex_updates_colors[i] = vertex_c;
-  }
-  mesh_delta_msg.stamp_updates = stamp_updates;
-  if (hasSemantics()) {
-    mesh_delta_msg.semantic_updates = semantic_updates;
-  }
-  mesh_delta_msg.deleted_indices.resize(deleted_indices.size());
-  std::copy(deleted_indices.begin(),
-            deleted_indices.end(),
-            mesh_delta_msg.deleted_indices.begin());
-
-  mesh_delta_msg.face_updates.resize(face_updates.size());
-  mesh_delta_msg.face_archive_updates.resize(face_archive_updates.size());
-  for (size_t i = 0; i < face_updates.size(); i++) {
-    TriangleIndices face;
-    face.vertex_indices[0] = face_updates[i].v1;
-    face.vertex_indices[1] = face_updates[i].v2;
-    face.vertex_indices[2] = face_updates[i].v3;
-    mesh_delta_msg.face_updates[i] = face;
-  }
-
-  for (size_t i = 0; i < face_archive_updates.size(); i++) {
-    TriangleIndices face;
-    face.vertex_indices[0] = face_archive_updates[i].v1;
-    face.vertex_indices[1] = face_archive_updates[i].v2;
-    face.vertex_indices[2] = face_archive_updates[i].v3;
-    mesh_delta_msg.face_archive_updates[i] = face;
-  }
-
-  for (const auto& prev_curr : prev_to_curr) {
-    mesh_delta_msg.prev_indices.push_back(prev_curr.first);
-    mesh_delta_msg.curr_indices.push_back(prev_curr.second);
-  }
-
-  return mesh_delta_msg;
 }
 
 std::ostream& operator<<(std::ostream& out, const MeshDelta& delta) {

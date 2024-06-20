@@ -7,7 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_compile_options(-Wall -Wextra)
 
-find_package(catkin REQUIRED COMPONENTS kimera_pgmo roscpp rviz)
+find_package(catkin REQUIRED COMPONENTS kimera_pgmo_msgs roscpp rviz)
 
 # from
 # https://github.com/ros-visualization/visualization_tutorials/blob/noetic-devel/rviz_plugin_tutorials/CMakeLists.txt
@@ -17,7 +17,7 @@ set(QT_LIBRARIES Qt5::Widgets)
 
 catkin_package(
   CATKIN_DEPENDS
-  kimera_pgmo
+  kimera_pgmo_msgs
   roscpp
   rviz
   DEPENDS

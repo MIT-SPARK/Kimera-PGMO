@@ -4,8 +4,7 @@
  * @author Nathan Hughes
  */
 #pragma once
-
-#include <kimera_pgmo/KimeraPgmoMesh.h>
+#include <kimera_pgmo_msgs/KimeraPgmoMesh.h>
 
 #include <atomic>
 #include <string>

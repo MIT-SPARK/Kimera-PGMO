@@ -4,7 +4,7 @@
  * @author Nathan Hughes
  */
 #pragma once
-#include <kimera_pgmo/KimeraPgmoMesh.h>
+#include <kimera_pgmo_msgs/KimeraPgmoMesh.h>
 #include <rviz/message_filter_display.h>
 
 #include <memory>
@@ -21,7 +21,8 @@ class MeshVisual;
 class VisibilityField;
 class TfEventBuffer;
 
-class MeshDisplay : public rviz::MessageFilterDisplay<KimeraPgmoMesh> {
+class MeshDisplay
+    : public rviz::MessageFilterDisplay<kimera_pgmo_msgs::KimeraPgmoMesh> {
   Q_OBJECT
  public:
   MeshDisplay();
@@ -44,10 +45,7 @@ class MeshDisplay : public rviz::MessageFilterDisplay<KimeraPgmoMesh> {
   void toggleVisibilityAllSloT();
 
  private:
-  void processMessage(const KimeraPgmoMesh::ConstPtr& msg) override;
-
-  // All mesh visuals.
-  VisualsMap visuals_;
+  void processMessage(const kimera_pgmo_msgs::KimeraPgmoMesh::ConstPtr& msg) override;
 
   // Getting transforms of visuals.
   std::unique_ptr<TfEventBuffer> tf_buffer_;

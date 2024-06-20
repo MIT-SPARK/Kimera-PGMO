@@ -66,6 +66,7 @@ IOData::Ptr IOData::load(const std::string& filename) {
 
   // Get data from the object
   happly::PLYData ply_in(filename);
+  const auto elements = ply_in.getElementNames();
   to_return->x = ply_in.getElement("vertex").getProperty<float>("x");
   to_return->y = ply_in.getElement("vertex").getProperty<float>("y");
   to_return->z = ply_in.getElement("vertex").getProperty<float>("z");
@@ -95,7 +96,7 @@ IOData::Ptr IOData::load(const std::string& filename) {
   }
 
   to_return->faces =
-      ply_in.getElement("face").getListProperty<uint32_t>("vertex_indices");
+      ply_in.getElement("face").getListPropertyAnySign<uint32_t>("vertex_indices");
 
   return to_return;
 }

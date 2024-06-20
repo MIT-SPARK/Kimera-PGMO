@@ -9,7 +9,6 @@
 #include <iterator>
 
 #include "kimera_pgmo/utils/CommonFunctions.h"
-#include "kimera_pgmo/utils/VoxbloxMsgInterface.h"
 
 namespace kimera_pgmo {
 
@@ -234,13 +233,6 @@ void DeltaCompression::addActiveFaces(uint64_t timestamp_ns,
       delta_->addFace(face);
     }
   }
-}
-
-MeshDelta::Ptr DeltaCompression::update(const voxblox_msgs::Mesh& mesh,
-                                        uint64_t timestamp_ns,
-                                        VoxbloxIndexMapping* remapping) {
-  VoxbloxMsgInterface interface(&mesh);
-  return update(interface, timestamp_ns, remapping);
 }
 
 MeshDelta::Ptr DeltaCompression::update(MeshInterface& mesh,

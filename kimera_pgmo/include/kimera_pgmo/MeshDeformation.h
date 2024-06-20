@@ -11,10 +11,10 @@
 #include <gtsam/nonlinear/Values.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <ros/console.h>
 
 #include "kimera_pgmo/MeshTraits.h"
 #include "kimera_pgmo/utils/CommonStructs.h"
+#include "kimera_pgmo/utils/Logging.h"
 
 namespace kimera_pgmo {
 namespace deformation {
@@ -81,7 +81,7 @@ void deformPoints(CloudOut& new_points,
 
   // Cannot deform if no nodes in the deformation graph
   if (control_points.size() == 0) {
-    ROS_WARN("No control points. No deformation.");
+    SPARK_LOG(WARNING) << "No control points. No deformation";
     return;
   }
 
@@ -94,7 +94,7 @@ void deformPoints(CloudOut& new_points,
   }
 
   if (search_tree.getLeafCount() < k) {
-    ROS_WARN("Not enough valid control points to deform points.");
+    SPARK_LOG(WARNING) << "Not enough valid control points to deform points";
     return;
   }
 
@@ -147,7 +147,7 @@ void deformPoints(CloudOut& new_points,
 
   // Cannot deform if no nodes in the deformation graph
   if (control_points.size() < k) {
-    ROS_WARN("Not enough valid control points to deform points.");
+    SPARK_LOG(WARNING) << "Not enough valid control points to deform points";
     return;
   }
 
@@ -178,7 +178,7 @@ void deformPoints(CloudOut& new_points,
     }
 
     if (search_tree.getLeafCount() < k + 1) {
-      ROS_ERROR("Not enough valid control points in octree to interpolate point.");
+      SPARK_LOG(ERROR) << "Not enough valid control points in octree to interpolate";
       if (num_ctrl_pts > 1) {
         k = num_ctrl_pts - 1;
       } else {

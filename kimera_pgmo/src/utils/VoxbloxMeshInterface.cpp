@@ -18,7 +18,7 @@ const voxblox::BlockIndexList& VoxbloxMeshInterface::blockIndices() const {
   return mesh_blocks_;
 }
 
-void VoxbloxMeshInterface::markBlockActive(const voxblox::BlockIndex& block) {
+void VoxbloxMeshInterface::markBlockActive(const voxblox::BlockIndex& block) const {
   active_block_ = mesh_->getMeshPtrByIndex(block);
 }
 
@@ -58,7 +58,7 @@ SemanticVoxbloxMeshInterface::SemanticVoxbloxMeshInterface(
   assert(nullptr != semantics);
 }
 
-void SemanticVoxbloxMeshInterface::markBlockActive(const voxblox::BlockIndex& block) {
+void SemanticVoxbloxMeshInterface::markBlockActive(const voxblox::BlockIndex& block) const {
   VoxbloxMeshInterface::markBlockActive(block);
   auto iter = semantics_->find(block);
   if (iter == semantics_->end()) {

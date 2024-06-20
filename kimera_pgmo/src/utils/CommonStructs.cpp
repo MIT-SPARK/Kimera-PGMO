@@ -15,6 +15,8 @@
 
 namespace kimera_pgmo {
 
+using pose_graph_tools::PoseGraph;
+
 // Timestamps
 Timestamp stampFromSec(double sec) {
   auto t = std::chrono::duration<double>(sec);
@@ -162,6 +164,56 @@ void Graph::print(std::string header) const {
     }
   }
   std::cout << std::endl;
+}
+
+Eigen::Vector3d PclToEigen(const pcl::PointXYZRGBA& p) { return {p.x, p.y, p.z}; }
+
+/*! \brief Publish the factors corresponding to the new edges added to the
+ * simplified mesh / deformation graph and also the initial values (positions
+ * of the new vertices added to the simplified mesh)
+ *  - new_edges: new edges of type Edge (std::pair<Vertex, Vertex>)
+ *  - new_indices: new vertices of type Vertex
+ *  - graph_vertices: deformation graph vertices
+ *  - header: current mesh header
+ *  - robot_id: robot for the deformation graph
+ *  returns: published pose graph
+ */
+PoseGraph::Ptr makePoseGraph(int robot_id,
+                             double time_in_sec,
+                             const std::vector<Edge>& new_edges,
+                             const std::vector<size_t>& new_indices,
+                             const pcl::PointCloud<pcl::PointXYZRGBA>& vertices) {
+  // Create message
+  auto pose_graph = std::make_shared<PoseGraph>();
+  pose_graph->stamp_ns = stampFromSec(time_in_sec);
+
+  // Encode the edges as factors
+  pose_graph->edges.reserve(new_edges.size());
+  for (auto&& [from_node, to_node] : new_edges) {
+    auto& pg_edge = pose_graph->edges.emplace_back();
+    pg_edge.key_from = from_node;
+    pg_edge.key_to = to_node;
+    pg_edge.robot_from = robot_id;
+    pg_edge.robot_to = robot_id;
+    pg_edge.type = pose_graph_tools::PoseGraphEdge::MESH;
+    pg_edge.stamp_ns = pose_graph->stamp_ns;
+
+    const auto p_from = PclToEigen(vertices.at(from_node));
+    const auto p_to = PclToEigen(vertices.at(to_node));
+    pg_edge.pose = Eigen::Translation<double, 3>(p_to - p_from);
+  }
+
+  // Encode the new vertices as nodes
+  pose_graph->nodes.reserve(new_indices.size());
+  for (const auto& idx : new_indices) {
+    auto& pg_node = pose_graph->nodes.emplace_back();
+    pg_node.stamp_ns = pose_graph->stamp_ns;
+    pg_node.robot_id = robot_id;
+    pg_node.key = idx;
+    pg_node.pose = Eigen::Translation<double, 3>(PclToEigen(vertices.at(idx)));
+  }
+
+  return pose_graph;
 }
 
 }  // namespace kimera_pgmo

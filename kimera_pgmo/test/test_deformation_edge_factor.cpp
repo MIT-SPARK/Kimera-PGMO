@@ -47,7 +47,7 @@ void evaluateFactor(const Factor& factor,
   EXPECT_TRUE(gtsam::assert_equal(H2_expected, H2_actual, tol));
 }
 
-TEST(test_deformation_edge_factor, ZeroRotation) {
+TEST(TestDeformationEdgeFactor, zeroRotation) {
   Pose3 node_1 = Pose3(Rot3(), Point3(0, 0, 0));
   Point3 node_2 = Point3(1, 1, 1);
 
@@ -62,7 +62,7 @@ TEST(test_deformation_edge_factor, ZeroRotation) {
   evaluateFactor(factor, pose_1, pose_2, expected, 1.0e-5);
 }
 
-TEST(test_deformation_edge_factor, ZeroTranslation1) {
+TEST(TestDeformationEdgeFactor, zeroTranslation1) {
   Pose3 node_1 = Pose3(Rot3(), Point3(0, 0, 0));
   Point3 node_2 = Point3(1, 1, 1);
 
@@ -77,22 +77,22 @@ TEST(test_deformation_edge_factor, ZeroTranslation1) {
   evaluateFactor(factor, pose_1, pose_2, expected, 1.0e-5);
 }
 
-TEST(test_deformation_edge_factor, ZeroTranslation2) {
+TEST(TestDeformationEdgeFactor, zeroTranslation2) {
   Pose3 node_1 = Pose3(Rot3(), Point3(0, 0, 0));
   Point3 node_2 = Point3(1, 1, 1);
 
-  Pose3 pose_1 = Pose3(Rot3(0, 0, 0, 1), Point3());
+  Pose3 pose_1 = Pose3(Rot3(0, 0, 0, 1), Eigen::Vector3d::Zero());
   Pose3 pose_2 = Pose3(Rot3(), node_2);
 
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(3, 1e-3);
 
-  gtsam::Vector expected = Point3(-2, -2, 1);
+  gtsam::Vector expected = Point3(-2, -2, 0);
   DeformationEdgeFactor factor(1, 2, node_1, node_2, noise);
   evaluateFactor(factor, pose_1, pose_2, expected, 1.0e-5);
 }
 
-TEST(test_deformation_edge_factor, Simple) {
+TEST(TestDeformationEdgeFactor, simple) {
   Pose3 node_1 = Pose3(Rot3(), Point3(0, 1, 0));
   Point3 node_2 = Point3(1, 3, 1);
 
@@ -109,7 +109,7 @@ TEST(test_deformation_edge_factor, Simple) {
   evaluateFactor(factor, pose_1, pose_2, expected, 1.0e-5);
 }
 
-TEST(test_deformation_edge_factor, Relative1) {
+TEST(TestDeformationEdgeFactor, relative1) {
   Pose3 node_1 = Pose3(Rot3(0, 0, 0, 1), Point3(1, 0, 0));
   Point3 node_2 = Point3(1, 1, 1);
 
@@ -124,7 +124,7 @@ TEST(test_deformation_edge_factor, Relative1) {
   evaluateFactor(factor, pose_1, pose_2, expected, 1.0e-5);
 }
 
-TEST(test_deformation_edge_factor, Relative2) {
+TEST(TestDeformationEdgeFactor, relative2) {
   Pose3 node_1 = Pose3(Rot3(0, 0, 0, 1), Point3(1, 0, 0));
   Point3 node_2 = Point3(1, 1, 1);
 

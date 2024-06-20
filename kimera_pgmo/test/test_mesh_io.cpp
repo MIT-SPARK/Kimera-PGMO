@@ -12,7 +12,7 @@
 
 namespace kimera_pgmo {
 
-TEST(test_common_functions, testReadWritePly) {
+TEST(TestMeshIO, readWritePly) {
   pcl::PolygonMeshPtr original_mesh(new pcl::PolygonMesh());
   ReadMeshFromPly(std::string(DATASET_PATH) + "/cube.ply", original_mesh);
   pcl::PointCloud<pcl::PointXYZRGBA> cloud;

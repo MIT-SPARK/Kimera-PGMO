@@ -5,7 +5,7 @@
  * @author Nathan Hughes
  */
 #pragma once
-#include <voxblox_msgs/Mesh.h>
+#include <voxblox/core/block_hash.h>
 
 #include "kimera_pgmo/MeshDelta.h"
 #include "kimera_pgmo/utils/CommonStructs.h"
@@ -39,20 +39,17 @@ struct BlockInfo {
   std::vector<size_t> indices;
 };
 
-using VoxelInfoMap = voxblox::LongIndexHashMapType<VertexInfo>::type;
-using BlockInfoMap = voxblox::AnyIndexHashMapType<BlockInfo>::type;
-
 class DeltaCompression {
  public:
+  // TODO(nathan) unify with mesh compression
+  using VoxbloxIndexMapping = voxblox::AnyIndexHashMapType<IndexMapping>::type;
+  using VoxelInfoMap = voxblox::LongIndexHashMapType<VertexInfo>::type;
+  using BlockInfoMap = voxblox::AnyIndexHashMapType<BlockInfo>::type;
   using Ptr = std::shared_ptr<DeltaCompression>;
 
   explicit DeltaCompression(double resolution);
 
   virtual ~DeltaCompression() = default;
-
-  MeshDelta::Ptr update(const voxblox_msgs::Mesh& mesh,
-                        uint64_t timestamp_ns,
-                        VoxbloxIndexMapping* remapping = nullptr);
 
   MeshDelta::Ptr update(MeshInterface& mesh,
                         uint64_t timestamp_ns,

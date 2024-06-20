@@ -12,34 +12,12 @@
 #include <pcl/point_types.h>
 
 #include "kimera_pgmo/utils/CommonStructs.h"
-#include "test_config.h"
+#include "pgmo_fixtures.h"
 
 namespace kimera_pgmo {
 
-pcl::PolygonMesh createSimpleMesh() {
-  // Create simple pcl mesh
-  pcl::PolygonMesh mesh;
-
-  pcl::PointCloud<pcl::PointXYZ> ptcld;
-  ptcld.points.push_back(pcl::PointXYZ(0, 0, 0));
-  ptcld.points.push_back(pcl::PointXYZ(1, 0, 0));
-  ptcld.points.push_back(pcl::PointXYZ(0, 1, 0));
-  ptcld.points.push_back(pcl::PointXYZ(1, 1, 0));
-  ptcld.points.push_back(pcl::PointXYZ(0, 0, 1));
-  pcl::toPCLPointCloud2(ptcld, mesh.cloud);
-
-  pcl::Vertices tri_1, tri_2, tri_3, tri_4;
-  tri_1.vertices = std::vector<uint>{0, 1, 2};
-  tri_2.vertices = std::vector<uint>{1, 3, 2};
-  tri_3.vertices = std::vector<uint>{0, 1, 4};
-  tri_4.vertices = std::vector<uint>{0, 4, 2};
-  mesh.polygons = std::vector<pcl::Vertices>{tri_1, tri_2, tri_3, tri_4};
-
-  return mesh;
-}
-
-TEST(test_graph, createFromPclMesh) {
-  pcl::PolygonMesh mesh = createSimpleMesh();
+TEST(TestGraph, createFromPclMesh) {
+  auto mesh = test::createSimpleMesh();
 
   Graph new_graph;
   new_graph.createFromPclMesh(mesh);
@@ -59,8 +37,8 @@ TEST(test_graph, createFromPclMesh) {
   EXPECT_EQ(valences_4, new_graph.getValence(4));
 }
 
-TEST(test_graph, createFromPclMeshBidirection) {
-  pcl::PolygonMesh mesh = createSimpleMesh();
+TEST(TestGraph, createFromPclMeshBidirection) {
+  auto mesh = test::createSimpleMesh();
 
   Graph new_graph;
   new_graph.createFromPclMeshBidirection(mesh);
@@ -89,7 +67,7 @@ TEST(test_graph, createFromPclMeshBidirection) {
   EXPECT_EQ(valences_4, actual_4);
 }
 
-TEST(test_graph, addEdgeAndVertices) {
+TEST(TestGraph, addEdgeAndVertices) {
   Graph new_graph;
   new_graph.addEdgeAndVertices(Edge(0, 1));
   Vertices new_vertices = Vertices{0, 1};
@@ -110,8 +88,8 @@ TEST(test_graph, addEdgeAndVertices) {
   EXPECT_EQ(valence_0, new_graph.getValence(0));
 }
 
-TEST(test_graph, addEdge) {
-  pcl::PolygonMesh mesh = createSimpleMesh();
+TEST(TestGraph, addEdge) {
+  auto mesh = test::createSimpleMesh();
 
   Graph new_graph;
   new_graph.createFromPclMesh(mesh);
@@ -131,7 +109,7 @@ TEST(test_graph, addEdge) {
   EXPECT_EQ(valences_4, new_graph.getValence(4));
 }
 
-TEST(test_graph, combineGraph) {
+TEST(TestGraph, combineGraph) {
   Graph graph_1, graph_2;
 
   graph_1.addEdgeAndVertices(Edge(0, 1));
@@ -152,7 +130,7 @@ TEST(test_graph, combineGraph) {
   EXPECT_EQ(Edge(3, 2), graph_1.getEdges()[5]);
 }
 
-TEST(test_graph, addPointsAndSurfaces) {
+TEST(TestGraph, addPointsAndSurfaces) {
   Graph graph;
 
   graph.addEdgeAndVertices(Edge(0, 1));
@@ -173,7 +151,7 @@ TEST(test_graph, addPointsAndSurfaces) {
   std::vector<Edge> new_edges =
       graph.addPointsAndSurfaces(new_indices, new_polygons);
 
-  EXPECT_EQ(size_t(10), new_edges.size());
+  EXPECT_EQ(10u, new_edges.size());
   EXPECT_EQ(Edge(2, 3), new_edges[0]);
   EXPECT_EQ(Edge(0, 4), new_edges[9]);
 
@@ -181,7 +159,7 @@ TEST(test_graph, addPointsAndSurfaces) {
   std::iota(std::begin(expected_vertices), std::end(expected_vertices), 0);
   EXPECT_EQ(expected_vertices, graph.getVertices());
 
-  EXPECT_EQ(size_t(16), graph.getEdges().size());
+  EXPECT_EQ(16u, graph.getEdges().size());
   EXPECT_EQ(Edge(0, 1), graph.getEdges()[0]);
   EXPECT_EQ(Edge(4, 0), graph.getEdges()[15]);
 }

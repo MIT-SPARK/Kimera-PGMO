@@ -10,12 +10,11 @@
 #include <pcl/pcl_base.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <ros/ros.h>
 
 #include <optional>
 #include <vector>
+#include <set>
 
-#include "kimera_pgmo/KimeraPgmoMeshDelta.h"
 #include "kimera_pgmo/MeshTraits.h"
 #include "kimera_pgmo/PclMeshTraits.h"
 #include "kimera_pgmo/utils/CommonStructs.h"
@@ -45,8 +44,6 @@ class MeshDelta {
   MeshDelta();
 
   MeshDelta(size_t vertex_start, size_t face_start);
-
-  MeshDelta(const KimeraPgmoMeshDelta& msg);
 
   MeshDelta(const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
             const std::vector<Timestamp>& stamps,
@@ -103,8 +100,6 @@ class MeshDelta {
                 std::vector<Timestamp>& stamps,
                 std::vector<pcl::Vertices>& faces,
                 std::vector<uint32_t>* semantics = nullptr) const;
-
-  KimeraPgmoMeshDelta toRosMsg(Timestamp timestamp_ns) const;
 
   size_t vertex_start = 0;
   size_t face_start = 0;

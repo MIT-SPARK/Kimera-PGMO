@@ -4,16 +4,18 @@
  * @author Yun Chang
  * @author Nathan Hughes
  */
+#include "kimera_pgmo/compression/VoxelClearingCompression.h"
+
 #include <iterator>
 
-#include "kimera_pgmo/compression/VoxelClearingCompression.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 #include "kimera_pgmo/utils/VoxbloxUtils.h"
 
 namespace kimera_pgmo {
 
-void updatePolygons(std::vector<pcl::Vertices> &faces,
-                    const std::vector<size_t> &indices) {
+using PclFaces = std::vector<pcl::Vertices>;
+
+void updatePolygons(PclFaces &faces, const std::vector<size_t> &indices) {
   pcl::Vertices face;
   for (const auto &point_index : indices) {
     face.vertices.push_back(point_index);
@@ -30,21 +32,15 @@ VoxelClearingCompression::VoxelClearingCompression(double resolution)
   active_vertices_xyz_.reset(new PointCloudXYZ);
 }
 
-void VoxelClearingCompression::compressAndIntegrate(
-    const voxblox_msgs::Mesh &mesh,
-    pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
-    std::shared_ptr<std::vector<pcl::Vertices>> new_triangles,
-    std::shared_ptr<std::vector<size_t>> new_indices,
-    std::shared_ptr<VoxbloxIndexMapping> remapping,
-    const double &stamp_in_sec) {
-  // Avoid nullptr pointers
-  assert(nullptr != new_vertices);
-  assert(nullptr != new_triangles);
-  assert(nullptr != new_indices);
-  assert(nullptr != remapping);
-  new_vertices->clear();
-  new_triangles->clear();
-  new_indices->clear();
+void VoxelClearingCompression::compressAndIntegrate(const MeshInterface &mesh,
+                                                    PointCloud &new_vertices,
+                                                    PclFaces &new_faces,
+                                                    std::vector<size_t> &new_indices,
+                                                    VoxbloxIndexMapping &remapping,
+                                                    double stamp_in_sec) {
+  new_vertices.clear();
+  new_faces.clear();
+  new_indices.clear();
 
   updateRemapping(mesh, stamp_in_sec, remapping);
   updateVertices();
@@ -59,8 +55,8 @@ void VoxelClearingCompression::updateActiveIndices() {
   }
 }
 
-void VoxelClearingCompression::pruneStoredMesh(const double &earliest_time_s) {
-  BlockIndexList to_clear;
+void VoxelClearingCompression::pruneStoredMesh(double earliest_time_s) {
+  BlockIndices to_clear;
   for (const auto &idx_time_pair : block_update_times_) {
     if (idx_time_pair.second <= earliest_time_s) {
       to_clear.push_back(idx_time_pair.first);
@@ -70,22 +66,16 @@ void VoxelClearingCompression::pruneStoredMesh(const double &earliest_time_s) {
   pruneMeshBlocks(to_clear);
 }
 
-void VoxelClearingCompression::clearArchivedBlocks(const voxblox_msgs::Mesh& mesh) {
-  BlockIndexList to_clear;
-  for (const auto& block : mesh.mesh_blocks) {
-    BlockIndex block_index(block.index[0], block.index[1], block.index[2]);
-    to_clear.push_back(block_index);
-  }
-
-  pruneMeshBlocks(to_clear);
+void VoxelClearingCompression::clearArchivedBlocks(const BlockIndices &blocks) {
+  pruneMeshBlocks(blocks);
 }
 
-void VoxelClearingCompression::pruneMeshBlocks(const BlockIndexList& to_clear) {
+void VoxelClearingCompression::pruneMeshBlocks(const BlockIndices &to_clear) {
   for (const auto &idx : to_clear) {
     auto voxels = prev_meshes_[idx];
     for (const auto &voxel : voxels) {
       const size_t mesh_idx = vertices_map_[voxel];
-      indices_to_active_refs_[mesh_idx]--; // only decrement active ref count
+      indices_to_active_refs_[mesh_idx]--;  // only decrement active ref count
 
       if (indices_to_active_refs_[mesh_idx] != 0) {
         continue;
@@ -119,32 +109,29 @@ void VoxelClearingCompression::updateVertices() {
   }
 }
 
-void VoxelClearingCompression::updateRemapping(
-    const voxblox_msgs::Mesh& mesh,
-    double stamp_in_sec,
-    std::shared_ptr<VoxbloxIndexMapping> remapping) {
+void VoxelClearingCompression::updateRemapping(const MeshInterface &mesh,
+                                               double stamp_in_sec,
+                                               VoxbloxIndexMapping &remapping) {
   const auto threshold_inv = 1.0 / resolution_;
-  const auto block_edge_length = mesh.block_edge_length;
-
-  const Timestamp vertex_stamp = stampFromSec(stamp_in_sec);
+  const auto vertex_stamp = stampFromSec(stamp_in_sec);
 
   pcl::PointXYZRGBA fake_point;
   fake_point.x = 0.0f;
   fake_point.y = 0.0f;
   fake_point.z = 0.0f;
 
-  for (const auto &block : mesh.mesh_blocks) {
-    BlockIndex block_index(block.index[0], block.index[1], block.index[2]);
+  for (const auto &block_index : mesh.blockIndices()) {
     block_update_times_[block_index] = stamp_in_sec;
-    remapping->insert(VoxbloxIndexPair(block_index, IndexMapping()));
+    remapping.insert({block_index, IndexMapping()});
+    mesh.markBlockActive(block_index);
 
-    const size_t block_size = block.x.size();
+    const size_t block_size = mesh.activeBlockSize();
     std::vector<size_t> face_map;
     face_map.reserve(block_size);
 
     voxblox::LongIndexSet curr_voxels;
     for (size_t i = 0; i < block_size; ++i) {
-      const pcl::PointXYZRGBA p = ExtractPoint(block, block_edge_length, i);
+      const auto p = mesh.getActiveVertex(i);
       const voxblox::LongIndex vertex_index(std::round(p.x * threshold_inv),
                                             std::round(p.y * threshold_inv),
                                             std::round(p.z * threshold_inv));
@@ -165,7 +152,7 @@ void VoxelClearingCompression::updateRemapping(
         all_vertices_.push_back(p);
       }
 
-      remapping->at(block_index)[i] = mesh_index;
+      remapping.at(block_index)[i] = mesh_index;
       all_vertices_[mesh_index] = p;
       face_map.push_back(mesh_index);
       if (!curr_voxels.count(vertex_index)) {
@@ -223,4 +210,4 @@ void VoxelClearingCompression::updateRemapping(
   }
 }
 
-} // namespace kimera_pgmo
+}  // namespace kimera_pgmo

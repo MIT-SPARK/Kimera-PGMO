@@ -5,33 +5,23 @@
  */
 #pragma once
 
+#include <gtsam/geometry/Pose3.h>
+#include <gtsam/inference/Symbol.h>
+#include <pcl/PolygonMesh.h>
+#include <pose_graph_tools/pose_graph.h>
+
 #include <map>
 #include <queue>
 #include <string>
 
-#include <mesh_msgs/TriangleMeshStamped.h>
-#include <nav_msgs/Odometry.h>
-#include <nav_msgs/Path.h>
-#include <pcl/PolygonMesh.h>
-#include <pose_graph_tools_msgs/PoseGraph.h>
-#include <ros/ros.h>
-#include <std_msgs/Header.h>
-#include <std_msgs/String.h>
-#include <std_srvs/Empty.h>
-#include <tf2_ros/transform_broadcaster.h>
-
-#include <gtsam/geometry/Pose3.h>
-#include <gtsam/inference/Symbol.h>
-
-#include "kimera_pgmo/AbsolutePoseStamped.h"
 #include "kimera_pgmo/DeformationGraph.h"
-#include "kimera_pgmo/KimeraPgmoMesh.h"
+#include "kimera_pgmo/SparseKeyframe.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 
 namespace kimera_pgmo {
 
-typedef std::vector<gtsam::Pose3> Path;
-typedef std::shared_ptr<Path> PathPtr;
+using Path = std::vector<gtsam::Pose3>;
+using PathPtr = std::shared_ptr<Path>;
 
 enum class RunMode {
   FULL = 0u,  // Optimize mesh and pose graph
@@ -42,12 +32,7 @@ enum class RunMode {
 struct KimeraPgmoConfig {
   KimeraPgmoConfig() = default;
 
-  bool load(const ros::NodeHandle& nh);
-
   KimeraRPGO::RobustSolverParams getRobustSolverParams() const;
-
-  // config state (whether or not required params have been parsed)
-  bool valid = false;
 
   // pgmo behavior
   RunMode mode;
@@ -82,20 +67,7 @@ struct KimeraPgmoConfig {
   std::string log_path = "";
 };
 
-struct SparseKeyframe {
-  gtsam::Key key;
-  std::map<gtsam::Key, gtsam::Pose3> keyed_transforms;
-  bool active = true;
-  gtsam::Pose3 current_transform;
-  std::vector<pose_graph_tools_msgs::PoseGraphEdge> edges;
-
-  void initialize(const gtsam::Key& sparse_key,
-                  const size_t& robot_id,
-                  const size_t& pose_id);
-  bool addNewEdge(const pose_graph_tools_msgs::PoseGraphEdge& new_edge,
-                  double trans_threshold,
-                  double rot_threshold);
-};
+void declare_config(KimeraPgmoConfig& config);
 
 class KimeraPgmoInterface {
   friend class KimeraPgmoInterfaceTest;
@@ -107,79 +79,12 @@ class KimeraPgmoInterface {
    * and trajectory
    */
   KimeraPgmoInterface();
-  ~KimeraPgmoInterface();
 
-  /*! \brief Initializes callbacks and publishers, and also parse the parameters
-   *  - n: ROS node handle.
-   */
-  virtual bool initialize(const ros::NodeHandle& n) = 0;
+  ~KimeraPgmoInterface() = default;
 
-  /*! \brief Get the factors of the underlying deformation graph
+  /*! \brief Sets the config and intializes information if config valid
    */
-  inline gtsam::NonlinearFactorGraph getDeformationGraphFactors() const {
-    return deformation_graph_->getGtsamFactors();
-  }
-
-  /*! \brief Get the estimates of the underlying deformation graph
-   */
-  inline gtsam::Values getDeformationGraphValues() const {
-    return deformation_graph_->getGtsamValues();
-  }
-
-  /*! \brief Ptr to deformation graph
-   */
-  inline DeformationGraphPtr getDeformationGraphPtr() const {
-    return deformation_graph_;
-  }
-
-  /*! \brief get whether the mesh has been updated
-   */
-  inline bool wasFullMeshUpdated(bool clear_flag = true) {
-    bool to_return = full_mesh_updated_;
-    if (clear_flag) {
-      full_mesh_updated_ = false;
-    }
-    return to_return;
-  }
-
-  /*! \brief force deformation graph to optimize
-   */
-  inline void forceOptimize() { return deformation_graph_->optimize(); }
-
-  /*! \brief Get the optimized trajectory of a robot
-   * - robot_id: id of the robot referred to in query
-   */
-  Path getOptimizedTrajectory(const size_t& robot_id) const;
-
-  /*! \brief Get the timestamps of the robot trajectory
-   * - robot_id: id of the robot referred to in query
-   */
-  std::vector<Timestamp> getRobotTimestamps(const size_t& robot_id) const;
-
-  /*! \brief Reset deformation graph
-   */
-  void resetDeformationGraph() {
-    KimeraRPGO::RobustSolverParams pgo_params = deformation_graph_->getParams();
-    deformation_graph_.reset(new DeformationGraph);
-    deformation_graph_->initialize(pgo_params);
-  }
-
-  /*! \brief Load deformation graph
-   * - input: dgrf file (deformation graph file)
-   */
-  void loadDeformationGraphFromFile(const std::string& input) {
-    deformation_graph_->load(input);
-    num_loop_closures_ = deformation_graph_->getNumLoopclosures();
-  }
-
-  /*! \brief Load deformation graph and assign specific robot id
-   * - input: dgrf file (deformation graph file)
-   * - robot_id: robot id
-   */
-  void loadDeformationGraphFromFile(const std::string& input, const size_t& robot_id) {
-    deformation_graph_->load(input, true, true, robot_id);
-    num_loop_closures_ = deformation_graph_->getNumLoopclosures();
-  }
+  virtual bool initialize(const KimeraPgmoConfig& config);
 
   /*! \brief Load deformation graph and mesh from file
    * - robot_id: robot id
@@ -188,7 +93,7 @@ class KimeraPgmoInterface {
    * - optimized_mesh: ptr to optimized mesh (to be returned)
    * - do_optimize: toggle optimization
    */
-  bool loadGraphAndMesh(const size_t& robot_id,
+  bool loadGraphAndMesh(size_t robot_id,
                         const std::string& ply_path,
                         const std::string& dgrf_path,
                         const std::string& sparse_mapping_file_path,
@@ -196,41 +101,53 @@ class KimeraPgmoInterface {
                         std::vector<Timestamp>* mesh_vertex_stamps,
                         bool do_optimize);
 
+  /*! \brief Get the optimized trajectory of a robot
+   * - robot_id: id of the robot referred to in query
+   */
+  Path getOptimizedTrajectory(size_t robot_id) const;
+
+  /*! \brief Get the timestamps of the robot trajectory
+   * - robot_id: id of the robot referred to in query
+   */
+  std::vector<Timestamp> getRobotTimestamps(size_t robot_id) const;
+
+  /*! \brief Get the factors of the underlying deformation graph
+   */
+  gtsam::NonlinearFactorGraph getDeformationGraphFactors() const;
+
+  /*! \brief Get the estimates of the underlying deformation graph
+   */
+  gtsam::Values getDeformationGraphValues() const;
+
+  /*! \brief Ptr to deformation graph
+   */
+  DeformationGraphPtr getDeformationGraphPtr() const;
+
+  /*! \brief get whether the mesh has been updated
+   */
+  bool wasFullMeshUpdated(bool clear_flag = true);
+
+  /*! \brief force deformation graph to optimize
+   */
+  void forceOptimize();
+
+  /*! \brief Reset deformation graph
+   */
+  void resetDeformationGraph();
+
+  /*! \brief Load deformation graph
+   * - input: dgrf file (deformation graph file)
+   */
+  void loadDeformationGraphFromFile(const std::string& input);
+
+  /*! \brief Load deformation graph and assign specific robot id
+   * - input: dgrf file (deformation graph file)
+   * - robot_id: robot id
+   */
+  void loadDeformationGraphFromFile(const std::string& input, size_t robot_id);
+
  protected:
   bool initializeFromConfig();
-
-  /*! \brief Load the parameters required by this class through ROS
-   *  - n: ROS node handle
-   */
-  virtual bool loadParameters(const ros::NodeHandle& n);
-
-  /*! \brief Creates the ROS publishers used
-   *  - n: ROS node handle
-   */
-  virtual bool createPublishers(const ros::NodeHandle& n) = 0;
-
-  /*! \brief Starts the callbacks in this class
-   *  - n: ROS node handle
-   */
-  virtual bool registerCallbacks(const ros::NodeHandle& n) = 0;
-
-  /*! \brief Publish mesh
-   * - mesh: mesh to publish
-   * - header: header for the published message
-   * - publisher: associated ros publisher
-   */
-  bool publishMesh(const pcl::PolygonMesh& mesh,
-                   const std_msgs::Header& header,
-                   const ros::Publisher* publisher) const;
-
-  /*! \brief Publish trajectory
-   * - path: path to publish
-   * - header: header for published message
-   * - publisher: associated publisher
-   */
-  bool publishPath(const Path& path,
-                   const std_msgs::Header& header,
-                   const ros::Publisher* publisher) const;
 
   /*! \brief Recieves latest edges in the pose graph and add to deformation
    * graph. Also updates the initial trajectory, the node connection queue, and
@@ -243,22 +160,10 @@ class KimeraPgmoInterface {
    * - node_timestamps: vector of the timestamps of each odometric node
    */
   ProcessPoseGraphStatus processIncrementalPoseGraph(
-      const pose_graph_tools_msgs::PoseGraph::ConstPtr& msg,
-      Path* initial_trajectory,
-      std::queue<size_t>* unconnected_nodes,
-      std::vector<Timestamp>* node_timestamps);
-
-  /*! \brief Optimize the full mesh (and pose graph) using the deformation graph
-   * then publish the deformed mesh
-   *  - mesh_msg: the full unoptimized mesh in KimeraPgmoMesh format
-   * format
-   * - optimized_mesh: ptr to optimized (deformed) mesh
-   * - do_optimize: call optimize. Optimize before deforming mesh.
-   */
-  bool optimizeFullMesh(const KimeraPgmoMesh& mesh_msg,
-                        pcl::PolygonMesh::Ptr optimized_mesh,
-                        std::vector<Timestamp>* mesh_vertex_stamps,
-                        bool do_optimize);
+      const pose_graph_tools::PoseGraph& pose_graph,
+      Path& initial_trajectory,
+      std::vector<Timestamp>& node_timestamps,
+      std::queue<size_t>& unconnected_nodes);
 
   /*! \brief Process the mesh graph that consists of the new mesh edges and mesh
    * nodes to be added to the deformation graph
@@ -268,19 +173,32 @@ class KimeraPgmoInterface {
    * still within the embed time window
    */
   ProcessMeshGraphStatus processIncrementalMeshGraph(
-      const pose_graph_tools_msgs::PoseGraph::ConstPtr& mesh_graph_msg,
+      const pose_graph_tools::PoseGraph& mesh_graph_msg,
       const std::vector<Timestamp>& node_timestamps,
-      std::queue<size_t>* unconnected_nodes);
+      std::queue<size_t>& unconnected_nodes);
 
   /*! \brief Given an optimized trajectory, adjust the mesh. The path should
    * correspond to the nodes of the pose graph received in the
    * incrementalPoseGraphCallback. Note that this is currently only supported in
    * the single robot pose graph case.
-   *  - path_msg: ros msg of the optimized path
+   *  - path: optimized path
    * - robot_id: id of the robot this path corresponds to
    */
-  void processOptimizedPath(const nav_msgs::Path::ConstPtr& path_msg,
-                            const size_t& robot_id = 0);
+  void processOptimizedPath(const Path& path, size_t robot_id = 0);
+
+  /*! \brief Optimize the full mesh (and pose graph) using the deformation graph
+   * then publish the deformed mesh
+   *  - mesh_msg: the full unoptimized mesh in KimeraPgmoMesh format
+   * format
+   * - optimized_mesh: ptr to optimized (deformed) mesh
+   * - do_optimize: call optimize. Optimize before deforming mesh.
+   */
+  bool optimizeFullMesh(size_t robot_id,
+                        const pcl::PolygonMesh& input_mesh,
+                        const std::vector<Timestamp>& mesh_vertex_stamps,
+                        const std::vector<int> mesh_vertex_graph_inds,
+                        pcl::PolygonMesh& optimized_mesh,
+                        bool do_optimize);
 
   /*! \brief Saves mesh as a ply file.
    * - mesh: mesh to save
@@ -316,35 +234,17 @@ class KimeraPgmoInterface {
    * - pg_mesh_msg: pointer to the factors and initial values
    * - vertex_index_offset start index for vertices from this index (default 0)
    */
-  bool getConsistencyFactors(const size_t& robot_id,
-                             pose_graph_tools_msgs::PoseGraph* pg_mesh_msg,
-                             const size_t& vertex_index_offset = 0) const;
+  bool getConsistencyFactors(size_t robot_id,
+                             pose_graph_tools::PoseGraph& pg_mesh_msg,
+                             size_t vertex_index_offset = 0) const;
 
-  void inline insertDpgmoValues(const gtsam::Key& key, const gtsam::Pose3& pose) {
-    if (dpgmo_values_.exists(key)) {
-      ROS_ERROR("Attempting to insert existing key to dpgmo values. ");
-      return;
-    }
-    dpgmo_values_.insert(key, pose);
-  }
+  void insertDpgmoValues(const gtsam::Key& key, const gtsam::Pose3& pose);
+
   /*! \brief Get the DPGMO optimized values
    */
-  gtsam::Values inline getDpgmoValues() const { return dpgmo_values_; }
+  gtsam::Values getDpgmoValues() const;
 
-  /*! \brief visualize the mesh-to-mesh edges and pose-to-mesh edges of the
-  deformation graph
-  - mesh_mesh_pub: publisher publishing the mesh to mesh edges
-  - pose_mesh_pub: publisher publishing the pose to mesh edges
-   */
-  void visualizeDeformationGraphMeshEdges(const ros::Publisher* mesh_mesh_pub,
-                                          const ros::Publisher* pose_mesh_pub) const;
-
-  inline void setVerboseFlag(bool verbose) {
-    verbose_ = verbose;
-    if (deformation_graph_) {
-      deformation_graph_->setVerboseFlag(verbose);
-    }
-  }
+  void setVerboseFlag(bool verbose);
 
  protected:
   bool verbose_;  // whether or not to print messages

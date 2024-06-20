@@ -1,36 +1,51 @@
-find_package(rostest REQUIRED)
+# catkin forwards gtest, but eventually we won't have catkin dependencies
+if(NOT TARGET gtest)
+  include(FetchContent)
+  FetchContent_Declare(
+    googletest
+    GIT_REPOSITORY https://github.com/google/googletest.git
+    GIT_TAG v1.13.0)
+
+  FetchContent_GetProperties(googletest)
+  if(NOT googletest_POPULATED)
+    FetchContent_Populate(googletest)
+    set(BUILD_SHARED_LIBS_THIS ${BUILD_SHARED_LIBS})
+    set(BUILD_SHARED_LIBS
+        OFF
+        CACHE INTERNAL "Build static libraries")
+    add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR}
+                     EXCLUDE_FROM_ALL)
+    set(BUILD_SHARED_LIBS
+        ${BUILD_SHARED_LIBS_THIS}
+        CACHE BOOL "Build shared libraries")
+  endif()
+endif()
+
+include(GoogleTest)
+enable_testing()
 
 # Unit tests
 set(TEST_DATA_PATH "${CMAKE_CURRENT_SOURCE_DIR}/data")
 configure_file(test_config.h.in test_config.h)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
-catkin_add_gtest(
+add_executable(
   ${PROJECT_NAME}-test
+  pgmo_fixtures.cpp
   pgmo_unit_tests.cpp
-  test_common_structs.cpp
   test_common_functions.cpp
+  test_common_structs.cpp
   test_deformation_edge_factor.cpp
   test_deformation_graph.cpp
+  test_delta_compression.cpp
   test_graph.cpp
   test_mesh_deformation.cpp
   test_mesh_delta.cpp
+  test_mesh_frontend_interface.cpp
   test_mesh_io.cpp
-  test_delta_compression.cpp
-  test_voxblox_compression.cpp
-  test_voxel_clearing_compression.cpp
   test_octree_compression.cpp
-  test_traits.cpp)
-target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
-
-add_rostest_gtest(${PROJECT_NAME}-test_mesh_frontend test_mesh_frontend.test
-                  test_mesh_frontend.cpp)
-target_link_libraries(${PROJECT_NAME}-test_mesh_frontend ${PROJECT_NAME})
-
-add_rostest_gtest(${PROJECT_NAME}-test_kimera_pgmo test_kimera_pgmo.test
-                  test_kimera_pgmo.cpp)
-target_link_libraries(${PROJECT_NAME}-test_kimera_pgmo ${PROJECT_NAME})
-
-add_rostest_gtest(${PROJECT_NAME}-test_kimera_dpgmo test_kimera_dpgmo.test
-                  test_kimera_dpgmo.cpp)
-target_link_libraries(${PROJECT_NAME}-test_kimera_dpgmo ${PROJECT_NAME})
+  test_traits.cpp
+  test_voxblox_compression.cpp
+  test_voxel_clearing_compression.cpp)
+target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME} GTest::gtest_main)
+gtest_add_tests(TARGET ${PROJECT_NAME}-test)

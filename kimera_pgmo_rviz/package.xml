@@ -11,7 +11,7 @@
 
   <buildtool_depend>catkin</buildtool_depend>
 
-  <depend>kimera_pgmo</depend>
+  <depend>kimera_pgmo_msgs</depend>
   <depend>roscpp</depend>
   <depend>rviz</depend>
 

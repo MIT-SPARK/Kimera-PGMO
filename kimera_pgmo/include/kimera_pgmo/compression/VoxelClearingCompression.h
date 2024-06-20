@@ -6,43 +6,45 @@
  */
 #pragma once
 
-#include <voxblox/core/block_hash.h>
-#include <voxblox/core/common.h>
-#include <voxblox/mesh/mesh.h>
-
 #include "kimera_pgmo/compression/MeshCompression.h"
 
 namespace kimera_pgmo {
 
-using IndexSet = voxblox::IndexSet;
-using VoxelToMeshIndex = voxblox::LongIndexHashMapType<size_t>::type;
-using BlockMap = voxblox::AnyIndexHashMapType<voxblox::LongIndexSet>::type;
-using BlockTimeMap = voxblox::AnyIndexHashMapType<double>::type;
-using BlockSizeMap = voxblox::AnyIndexHashMapType<size_t>::type;
-using BlockFaceMap = voxblox::AnyIndexHashMapType<std::vector<size_t>>::type;
-using voxblox::BlockIndexList;
-
 class VoxelClearingCompression : public MeshCompression {
  public:
+  using VoxelToMeshIndex = voxblox::LongIndexHashMapType<size_t>::type;
+  using BlockMap = voxblox::AnyIndexHashMapType<voxblox::LongIndexSet>::type;
+  using BlockTimeMap = voxblox::AnyIndexHashMapType<double>::type;
+  using BlockSizeMap = voxblox::AnyIndexHashMapType<size_t>::type;
+  using BlockFaceMap = voxblox::AnyIndexHashMapType<std::vector<size_t>>::type;
+
   explicit VoxelClearingCompression(double resolution);
 
   virtual ~VoxelClearingCompression() = default;
 
-  void compressAndIntegrate(const voxblox_msgs::Mesh &mesh,
-                            pcl::PointCloud<pcl::PointXYZRGBA>::Ptr new_vertices,
-                            std::shared_ptr<std::vector<pcl::Vertices>> new_triangles,
-                            std::shared_ptr<std::vector<size_t>> new_indices,
-                            std::shared_ptr<VoxbloxIndexMapping> remapping,
-                            const double &stamp_in_sec) override;
+  /*! \brief Compress and integrate with the full compressed mesh
+   *  - mesh: input mesh as abstract mesh type
+   *  - new_vertices: new vertices added after compression
+   *  - new_triangles: new mesh surfaces (as triangles) added after compression
+   *  - new_indices: indices of the vertices of the compressed partial mesh
+   *  - stamp_in_sec: current time stamp in seconds
+   */
+  virtual void compressAndIntegrate(const MeshInterface& mesh,
+                                    PointCloud& new_vertices,
+                                    std::vector<pcl::Vertices>& new_triangles,
+                                    std::vector<size_t>& new_indices,
+                                    VoxbloxIndexMapping& remapping,
+                                    double stamp_in_sec) override;
 
-  void pruneStoredMesh(const double &earliest_time_sec) override;
+  void pruneStoredMesh(double earliest_time_sec) override;
 
+  // TODO(nathan) push interface to different class
   inline void reInitializeStructure(PointCloudXYZ::Ptr /*active_vertices*/) override {
     throw std::logic_error("not implemented");
   }
 
-  inline bool checkIfVertexUnique(const pcl::PointXYZ & /*v*/,
-                                  int * /*matched_ind*/) const override {
+  inline bool checkIfVertexUnique(const pcl::PointXYZ& /*v*/,
+                                  int* /*matched_ind*/) const override {
     throw std::logic_error("not implemented");
   }
 
@@ -50,8 +52,8 @@ class VoxelClearingCompression : public MeshCompression {
     throw std::logic_error("not implemented");
   }
 
-  bool checkIfVertexTempUnique(const pcl::PointXYZ & /*v*/,
-                               int * /*matched_ind*/) const override {
+  bool checkIfVertexTempUnique(const pcl::PointXYZ& /*v*/,
+                               int* /*matched_ind*/) const override {
     throw std::logic_error("not implemented");
   }
 
@@ -65,14 +67,14 @@ class VoxelClearingCompression : public MeshCompression {
 
   inline std::vector<size_t> getInvalidIndices() const override { return empty_slots_; }
 
-  void clearArchivedBlocks(const voxblox_msgs::Mesh &mesh) override;
+  void clearArchivedBlocks(const BlockIndices& indices) override;
 
  protected:
-  void pruneMeshBlocks(const BlockIndexList &to_clear);
+  void pruneMeshBlocks(const BlockIndices& to_clear);
 
-  void updateRemapping(const voxblox_msgs::Mesh &mesh,
+  void updateRemapping(const MeshInterface& mesh,
                        double stamp_in_sec,
-                       std::shared_ptr<VoxbloxIndexMapping> remapping);
+                       VoxbloxIndexMapping& remapping);
 
   void updateVertices();
 
@@ -93,6 +95,6 @@ class VoxelClearingCompression : public MeshCompression {
   size_t archived_polygon_size_ = 0;
 };
 
-typedef std::shared_ptr<VoxelClearingCompression> VoxelClearingCompressionPtr;
+using VoxelClearingCompressionPtr = std::shared_ptr<VoxelClearingCompression>;
 
 }  // namespace kimera_pgmo

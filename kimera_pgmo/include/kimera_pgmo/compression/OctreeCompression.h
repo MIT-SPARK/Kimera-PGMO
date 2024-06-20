@@ -40,7 +40,7 @@ class OctreeCompression : public MeshCompression {
    */
   bool checkIfVertexUnique(const pcl::PointXYZ& v, int* matched_ind) const override;
 
-  /*! \brief Updatae structure
+  /*! \brief Update structure
    */
   void updateStructure(PointCloudXYZ::Ptr vertices) override;
 

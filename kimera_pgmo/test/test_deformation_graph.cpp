@@ -4,17 +4,14 @@
  * @author Yun Chang
  */
 
-#include <KimeraRPGO/SolverParams.h>
-#include <geometry_msgs/Pose.h>
-#include <gtsam/inference/Symbol.h>
-#include <pcl/PolygonMesh.h>
+#include <gtest/gtest.h>
 #include <pcl/conversions.h>
 
-#include "gtest/gtest.h"
 #include "kimera_pgmo/DeformationGraph.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 #include "kimera_pgmo/utils/CommonStructs.h"
 #include "kimera_pgmo/utils/MeshIO.h"
+#include "pgmo_fixtures.h"
 #include "test_config.h"
 
 namespace kimera_pgmo {
@@ -55,69 +52,6 @@ pcl::PolygonMesh createMeshTriangle() {
   return mesh;
 }
 
-pcl::PolygonMesh SimpleMesh() {
-  // Create simple pcl mesh
-  pcl::PolygonMesh mesh;
-
-  pcl::PointCloud<pcl::PointXYZRGBA> ptcld;
-  pcl::PointXYZRGBA v0, v1, v2, v3, v4;
-  v0.x = 0;
-  v0.y = 0;
-  v0.z = 0;
-  v0.r = 23;
-  v0.g = 24;
-  v0.b = 122;
-  v0.a = 255;
-
-  v1.x = 1;
-  v1.y = 0;
-  v1.z = 0;
-  v1.r = 33;
-  v1.g = 34;
-  v1.b = 52;
-  v1.a = 255;
-
-  v2.x = 0;
-  v2.y = 1;
-  v2.z = 0;
-  v2.r = 12;
-  v2.g = 144;
-  v2.b = 22;
-  v2.a = 255;
-
-  v3.x = 1;
-  v3.y = 1;
-  v3.z = 0;
-  v3.r = 0;
-  v3.g = 14;
-  v3.b = 0;
-  v3.a = 255;
-
-  v4.x = 0;
-  v4.y = 0;
-  v4.z = 1;
-  v4.r = 144;
-  v4.g = 0;
-  v4.b = 12;
-  v4.a = 255;
-
-  ptcld.points.push_back(v0);
-  ptcld.points.push_back(v1);
-  ptcld.points.push_back(v2);
-  ptcld.points.push_back(v3);
-  ptcld.points.push_back(v4);
-  pcl::toPCLPointCloud2(ptcld, mesh.cloud);
-
-  pcl::Vertices tri_1, tri_2, tri_3, tri_4;
-  tri_1.vertices = std::vector<uint>{0, 1, 2};
-  tri_2.vertices = std::vector<uint>{1, 3, 2};
-  tri_3.vertices = std::vector<uint>{0, 1, 4};
-  tri_4.vertices = std::vector<uint>{0, 4, 2};
-  mesh.polygons = std::vector<pcl::Vertices>{tri_1, tri_2, tri_3, tri_4};
-
-  return mesh;
-}
-
 bool ComparePointcloud(const pcl::PointCloud<pcl::PointXYZRGBA>& cloud1,
                        const pcl::PointCloud<pcl::PointXYZRGBA>& cloud2,
                        double precision = 0.0) {
@@ -139,7 +73,7 @@ bool ComparePointcloud(const pcl::PointCloud<pcl::PointXYZRGBA>& cloud1,
 void MeshToEdgesAndNodes(const pcl::PolygonMesh& mesh,
                          const char& prefix,
                          gtsam::Values* mesh_nodes,
-                         std::vector<std::pair<gtsam::Key, gtsam::Key> >* mesh_edges,
+                         std::vector<std::pair<gtsam::Key, gtsam::Key>>* mesh_edges,
                          std::unordered_map<gtsam::Key, Timestamp>* node_stamps) {
   pcl::PointCloud<pcl::PointXYZ> vertices;
   pcl::fromPCLPointCloud2(mesh.cloud, vertices);
@@ -162,14 +96,19 @@ void MeshToEdgesAndNodes(const pcl::PolygonMesh& mesh,
   }
 }
 
-void SetUpDeformationGraph(DeformationGraph* graph) {
+void SetUpDeformationGraph(DeformationGraph* graph, bool quiet = true) {
   KimeraRPGO::RobustSolverParams pgo_params;
-  pgo_params.setPcmSimple3DParams(100, 100, 100, 100, KimeraRPGO::Verbosity::UPDATE);
+  pgo_params.setPcmSimple3DParams(
+      100,
+      100,
+      100,
+      100,
+      quiet ? KimeraRPGO::Verbosity::QUIET : KimeraRPGO::Verbosity::UPDATE);
   graph->initialize(pgo_params);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
 
   gtsam::Values mesh_nodes;
-  std::vector<std::pair<gtsam::Key, gtsam::Key> > mesh_edges;
+  std::vector<std::pair<gtsam::Key, gtsam::Key>> mesh_edges;
   std::unordered_map<gtsam::Key, Timestamp> mesh_node_stamps;
   MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges, &mesh_node_stamps);
 
@@ -185,7 +124,7 @@ void SetUpDeformationGraph(DeformationGraph* graph) {
 void SetUpOriginalMesh(pcl::PolygonMesh* mesh,
                        std::vector<Timestamp>* stamps,
                        std::vector<int>* indices) {
-  *mesh = SimpleMesh();
+  *mesh = test::createSimpleMesh();
   size_t num_vertices = mesh->cloud.width * mesh->cloud.height;
   for (size_t i = 0; i < num_vertices; i++) {
     stamps->push_back(0);
@@ -197,7 +136,7 @@ void SetUpOriginalMesh(pcl::PolygonMesh* mesh,
   }
 }
 
-TEST(test_deformation_graph, addNewMeshEdgesAndNodes) {
+TEST(TestDeformationGraph, addNewMeshEdgesAndNodes) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
 
@@ -218,7 +157,7 @@ TEST(test_deformation_graph, addNewMeshEdgesAndNodes) {
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor.toPoint()));
 }
 
-TEST(test_deformation_graph, reconstructMesh) {
+TEST(TestDeformationGraph, reconstructMesh) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
   pcl::PolygonMesh original_mesh;
@@ -258,21 +197,21 @@ TEST(test_deformation_graph, reconstructMesh) {
   EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
 }
 
-TEST(test_deformation_graph, deformMeshtranslation) {
+TEST(TestDeformationGraph, deformMeshTranslation) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
-  pcl::PolygonMesh original_mesh;
-  std::vector<Timestamp> original_mesh_stamps;
-  std::vector<int> original_mesh_inds;
-  SetUpOriginalMesh(&original_mesh, &original_mesh_stamps, &original_mesh_inds);
+
+  pcl::PolygonMesh original;
+  std::vector<Timestamp> original_stamps;
+  std::vector<int> original_inds;
+  SetUpOriginalMesh(&original, &original_stamps, &original_inds);
 
   // deform mesh
-  geometry_msgs::Pose distortion;
-  distortion.position.x = 1.5;
-  graph.addMeasurement(1, distortion, 'v');
+  gtsam::Pose3 distortion(gtsam::Rot3(), gtsam::Point3(1.5, 0.0, 0.0));
+  graph.addGraphNodeMeasurement('v', 1, distortion);
 
   pcl::PointCloud<pcl::PointXYZRGBA> original_vertices, expected_vertices;
-  pcl::fromPCLPointCloud2(original_mesh.cloud, original_vertices);
+  pcl::fromPCLPointCloud2(original.cloud, original_vertices);
   for (pcl::PointXYZRGBA p : original_vertices.points) {
     pcl::PointXYZRGBA new_point;
     new_point.x = p.x + 0.5;
@@ -284,27 +223,26 @@ TEST(test_deformation_graph, deformMeshtranslation) {
     new_point.a = p.a;
     expected_vertices.push_back(new_point);
   }
+
   // First try deform with k = 1, should not change
   graph.optimize();
-  pcl::PolygonMesh new_mesh =
-      graph.deformMesh(original_mesh, original_mesh_stamps, original_mesh_inds, 'v', 1);
+  auto new_mesh = graph.deformMesh(original, original_stamps, original_inds, 'v', 1);
+
   pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
-
   EXPECT_TRUE(ComparePointcloud(expected_vertices, actual_vertices, 1e-6));
-  EXPECT_EQ(original_mesh.polygons[0].vertices, new_mesh.polygons[0].vertices);
-  EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
+  EXPECT_EQ(original.polygons[0].vertices, new_mesh.polygons[0].vertices);
+  EXPECT_EQ(original.polygons[3].vertices, new_mesh.polygons[3].vertices);
 
   // Try with k = 2
-  new_mesh =
-      graph.deformMesh(original_mesh, original_mesh_stamps, original_mesh_inds, 'v', 2);
+  new_mesh = graph.deformMesh(original, original_stamps, original_inds, 'v', 2);
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
   EXPECT_TRUE(ComparePointcloud(expected_vertices, actual_vertices, 1e-6));
-  EXPECT_EQ(original_mesh.polygons[0].vertices, new_mesh.polygons[0].vertices);
-  EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
+  EXPECT_EQ(original.polygons[0].vertices, new_mesh.polygons[0].vertices);
+  EXPECT_EQ(original.polygons[3].vertices, new_mesh.polygons[3].vertices);
 }
 
-TEST(test_deformation_graph, deformMesh) {
+TEST(TestDeformationGraph, deformMesh) {
   pcl::PolygonMeshPtr cube_mesh(new pcl::PolygonMesh());
   ReadMeshFromPly(std::string(DATASET_PATH) + "/cube.ply", cube_mesh);
 
@@ -316,14 +254,6 @@ TEST(test_deformation_graph, deformMesh) {
     cube_mesh_inds.push_back(-1);
   }
 
-  // deform mesh
-  DeformationGraph graph;
-  SetUpDeformationGraph(&graph);
-
-  geometry_msgs::Pose distortion;
-  distortion.position.x = -0.5;
-  graph.addMeasurement(0, distortion, 'v');
-  graph.optimize();
   pcl::PointCloud<pcl::PointXYZRGBA> original_vertices, expected_vertices;
   pcl::fromPCLPointCloud2(cube_mesh->cloud, original_vertices);
   for (pcl::PointXYZRGBA p : original_vertices.points) {
@@ -337,8 +267,17 @@ TEST(test_deformation_graph, deformMesh) {
     new_point.a = p.a;
     expected_vertices.push_back(new_point);
   }
+
+  // deform mesh
+  DeformationGraph graph;
+  SetUpDeformationGraph(&graph);
+
+  gtsam::Pose3 distortion(gtsam::Rot3(), gtsam::Point3(-0.5, 0.0, 0.0));
+  graph.addGraphNodeMeasurement('v', 0, distortion);
+  graph.optimize();
+
   // Try with k = 3
-  pcl::PolygonMesh new_mesh =
+  auto new_mesh =
       graph.deformMesh(*cube_mesh, cube_mesh_stamps, cube_mesh_inds, 'v', 3);
   pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
@@ -347,21 +286,20 @@ TEST(test_deformation_graph, deformMesh) {
   EXPECT_EQ(cube_mesh->polygons[3].vertices, new_mesh.polygons[3].vertices);
 
   // deform mesh again
-  geometry_msgs::Pose distortion2;
-  distortion2.position.x = 1.5;
-  graph.addMeasurement(1, distortion2, 'v');
+  gtsam::Pose3 distortion2(gtsam::Rot3(), gtsam::Point3(1.5, 0.0, 0.0));
+  graph.addGraphNodeMeasurement('v', 1, distortion2);
   graph.optimize();
+
   // Try with k = 3
   new_mesh = graph.deformMesh(*cube_mesh, cube_mesh_stamps, cube_mesh_inds, 'v', 2);
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
   EXPECT_NEAR(-0.5, actual_vertices.points[0].x, 0.001);
   EXPECT_NEAR(1.273, actual_vertices.points[1].x, 0.001);
-
   EXPECT_EQ(cube_mesh->polygons[0].vertices, new_mesh.polygons[0].vertices);
   EXPECT_EQ(cube_mesh->polygons[3].vertices, new_mesh.polygons[3].vertices);
 }
 
-TEST(test_deformation_graph, updateMesh) {
+TEST(TestDeformationGraph, updateMesh) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
 
@@ -422,7 +360,7 @@ TEST(test_deformation_graph, updateMesh) {
   EXPECT_EQ(gtsam::Symbol('a', 1).key(), factor12.back());
 }
 
-TEST(test_deformation_graph, addNodeMeasurements) {
+TEST(TestDeformationGraph, addNodeMeasurements) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
@@ -448,7 +386,7 @@ TEST(test_deformation_graph, addNodeMeasurements) {
   gtsam::NonlinearFactorGraph factors = graph.getGtsamNewFactors();
 
   // Add node measurement
-  std::vector<std::pair<gtsam::Key, gtsam::Pose3> > measurements;
+  std::vector<std::pair<gtsam::Key, gtsam::Pose3>> measurements;
   measurements.push_back(std::pair<gtsam::Key, gtsam::Pose3>(
       gtsam::Symbol('a', 0), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2))));
   measurements.push_back(std::pair<gtsam::Key, gtsam::Pose3>(
@@ -460,8 +398,8 @@ TEST(test_deformation_graph, addNodeMeasurements) {
   factors = graph.getGtsamNewFactors();
 
   EXPECT_EQ(size_t(12), factors.size());
-  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3> >(factors[10]));
-  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3> >(factors[11]));
+  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors[10]));
+  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors[11]));
 
   graph.optimize();
   pcl::PolygonMesh new_mesh =
@@ -478,7 +416,7 @@ TEST(test_deformation_graph, addNodeMeasurements) {
   EXPECT_NEAR(4, actual_vertices.points[2].x, 0.001);
 }
 
-TEST(test_deformation_graph, removePriorsWithPrefix) {
+TEST(TestDeformationGraph, removePriorsWithPrefix) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
@@ -500,7 +438,7 @@ TEST(test_deformation_graph, removePriorsWithPrefix) {
   graph.addNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
 
   // Add node measurement
-  std::vector<std::pair<gtsam::Key, gtsam::Pose3> > measurements;
+  std::vector<std::pair<gtsam::Key, gtsam::Pose3>> measurements;
   measurements.push_back(std::pair<gtsam::Key, gtsam::Pose3>(
       gtsam::Symbol('a', 0), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2))));
   measurements.push_back(std::pair<gtsam::Key, gtsam::Pose3>(
@@ -512,8 +450,8 @@ TEST(test_deformation_graph, removePriorsWithPrefix) {
   gtsam::NonlinearFactorGraph factors = graph.getGtsamNewFactors();
 
   EXPECT_EQ(size_t(12), factors.size());
-  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3> >(factors[10]));
-  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3> >(factors[11]));
+  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors[10]));
+  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors[11]));
 
   graph.optimize();
   pcl::PolygonMesh new_mesh =
@@ -537,7 +475,7 @@ TEST(test_deformation_graph, removePriorsWithPrefix) {
   EXPECT_EQ(size_t(10), factors.size());
 
   // Add another prior to see if mesh reset
-  std::vector<std::pair<gtsam::Key, gtsam::Pose3> > priors;
+  std::vector<std::pair<gtsam::Key, gtsam::Pose3>> priors;
   priors.push_back({gtsam::Symbol('a', 0),
                     gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2))});
   graph.addNodeMeasurements(priors);
@@ -556,7 +494,7 @@ TEST(test_deformation_graph, removePriorsWithPrefix) {
   EXPECT_NEAR(0, actual_vertices.points[2].x, 0.001);
 }
 
-TEST(test_deformation_graph, addNewBetween) {
+TEST(TestDeformationGraph, addNewBetween) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
   pcl::PolygonMesh original_mesh;
@@ -582,18 +520,18 @@ TEST(test_deformation_graph, addNewBetween) {
   EXPECT_EQ(size_t(5), values.size());
 
   // Check the between factor
-  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[0]));
+  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors[0]));
   gtsam::BetweenFactor<gtsam::Pose3> factor0 =
-      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[0]);
+      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors[0]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)),
                                   factor0.measured()));
   EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor0.front());
   EXPECT_EQ(gtsam::Symbol('a', 1).key(), factor0.back());
 
   // Check the prior factor
-  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3> >(factors[7]));
+  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors[7]));
   gtsam::PriorFactor<gtsam::Pose3> factor7 =
-      *cast_factor<gtsam::PriorFactor<gtsam::Pose3> >(factors[7]);
+      *cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors[7]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
                                   factor7.prior()));
   EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor7.key());
@@ -643,18 +581,18 @@ TEST(test_deformation_graph, addNewBetween) {
   EXPECT_EQ(size_t(6), values.size());
 
   // Check the between factor
-  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[1]));
+  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors[1]));
   gtsam::BetweenFactor<gtsam::Pose3> new1 =
-      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[1]);
+      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors[1]);
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)), new1.measured()));
   EXPECT_EQ(gtsam::Symbol('a', 1).key(), new1.front());
   EXPECT_EQ(gtsam::Symbol('a', 2).key(), new1.back());
 
   // Check the between factor
-  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[15]));
+  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors[15]));
   gtsam::BetweenFactor<gtsam::Pose3> new2 =
-      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[15]);
+      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors[15]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
                                   new2.measured()));
   EXPECT_EQ(gtsam::Symbol('a', 0).key(), new2.front());
@@ -675,7 +613,7 @@ TEST(test_deformation_graph, addNewBetween) {
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.05, 2.05)), traj[2], 0.05));
 }
 
-TEST(test_deformation_graph, addTemporary) {
+TEST(TestDeformationGraph, addTemporary) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
 
@@ -757,7 +695,7 @@ TEST(test_deformation_graph, addTemporary) {
   EXPECT_EQ(size_t(1), temp_values.size());
 }
 
-TEST(test_deformation_graph, addNewTempNodesValences) {
+TEST(TestDeformationGraph, addNewTempNodesValences) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
 
@@ -819,7 +757,7 @@ TEST(test_deformation_graph, addNewTempNodesValences) {
   EXPECT_EQ(size_t(0), temp_values.size());
 }
 
-TEST(test_deformation_graph, addNewTempEdges) {
+TEST(TestDeformationGraph, addNewTempEdges) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
 
@@ -835,9 +773,9 @@ TEST(test_deformation_graph, addNewTempEdges) {
   }
   graph.addNewTempNodesValences(temp_keys, temp_key_poses, temp_valences, 'v', false);
 
-  pose_graph_tools_msgs::PoseGraph temp_edges;
+  pose_graph_tools::PoseGraph temp_edges;
   for (size_t i = 0; i < 3; i++) {
-    pose_graph_tools_msgs::PoseGraphEdge edge;
+    pose_graph_tools::PoseGraphEdge edge;
     edge.key_from = gtsam::Symbol('p', i);
     edge.key_to = gtsam::Symbol('p', i + 1);
     temp_edges.edges.push_back(edge);
@@ -859,7 +797,7 @@ TEST(test_deformation_graph, addNewTempEdges) {
 
   for (size_t i = 0; i < 3; i++) {
     gtsam::BetweenFactor<gtsam::Pose3> factor =
-        *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(temp_factors[i]);
+        *cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(temp_factors[i]);
     EXPECT_EQ(gtsam::Symbol('p', i).key(), factor.front());
     EXPECT_EQ(gtsam::Symbol('p', i + 1).key(), factor.back());
   }
@@ -873,7 +811,7 @@ TEST(test_deformation_graph, addNewTempEdges) {
   EXPECT_EQ(size_t(0), temp_values.size());
 }
 
-TEST(test_deformation_graph, saveAndLoad) {
+TEST(TestDeformationGraph, saveAndLoad) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
 

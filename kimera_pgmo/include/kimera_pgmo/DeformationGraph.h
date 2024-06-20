@@ -6,7 +6,6 @@
 #pragma once
 
 #include <KimeraRPGO/RobustSolver.h>
-#include <geometry_msgs/Pose.h>
 #include <gtsam/geometry/Point3.h>
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/nonlinear/NonlinearFactor.h>
@@ -15,7 +14,7 @@
 #include <pcl/PolygonMesh.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <visualization_msgs/Marker.h>
+#include <pose_graph_tools/pose_graph.h>
 
 #include <map>
 #include <unordered_map>
@@ -24,6 +23,7 @@
 #include "kimera_pgmo/MeshDeformation.h"
 #include "kimera_pgmo/utils/CommonFunctions.h"
 #include "kimera_pgmo/utils/CommonStructs.h"
+#include "kimera_pgmo/utils/Logging.h"
 #include "kimera_pgmo/utils/RangeGenerator.h"
 
 namespace kimera_pgmo {
@@ -125,19 +125,16 @@ class DeformationGraph {
    */
   bool initialize(const KimeraRPGO::RobustSolverParams& params);
 
-  /*! \brief Fix the transform of a node corresponding to a sampled mesh vertex
-   * in deformation graph. Note that all vertices has an original rotation of
-   * identity.
-   *  - v: Vertex (index) to impose transform on
-   *  - transform: imposed transform (geometry_msgs Pose)
-   *  - prefix: the prefixes of the key of the nodes corresponding to mesh
-   * vertices
-   *  - variance: covariance of the prior to attach
+  /*! \brief Fix the transform of a node corresponding to a deformation graph node
+   *  - key: Key of the node to transform. Note that this is the key after
+   * adding the prefix, etc gtsam::Symbol(prefix, index).key()
+   *  - pose: Transform to impose (GTSAM Pose3)
+   *  - variance: covariance of the prior
    */
-  void addMeasurement(const Vertex& v,
-                      const geometry_msgs::Pose& transform,
-                      const char& prefix,
-                      double variance = 1e-10);
+  void addGraphNodeMeasurement(char prefix,
+                               size_t index,
+                               const gtsam::Pose3& pose,
+                               double variance = 1e-10);
 
   /*! \brief Fix the transform of a node corresponding to a pose graph node
    *  - key: Key of the node to transform. Note that this is the key after
@@ -146,7 +143,7 @@ class DeformationGraph {
    *  - variance: covariance of the prior
    */
   void addNodeMeasurement(const gtsam::Key& key,
-                          const gtsam::Pose3 pose,
+                          const gtsam::Pose3& pose,
                           double variance = 1e-4);
 
   /*! \brief Fix the measurements of multiple nodes
@@ -224,10 +221,10 @@ class DeformationGraph {
                          double variance = 1e-2);
 
   /*! \brief Add new edges as temporary between factor to the deformation graph
-   *  - edges: pose_graph_tools_msgs::PoseGraph type with the edges to add
+   *  - edges: pose_graph_tools::PoseGraph type with the edges to add
    *  - variance: covariance on the added temp edges
    */
-  void addNewTempEdges(const pose_graph_tools_msgs::PoseGraph& edges,
+  void addNewTempEdges(const pose_graph_tools::PoseGraph& edges,
                        double variance = 1e-2,
                        bool rotations_known = true);
 
@@ -428,13 +425,10 @@ class DeformationGraph {
   /*! \brief Gets the pose graph from the backend
    *   - timestamps: map of robot id to sequential timestamps in order to stamp
    * the nodes in the output pose graph msg
-   *  - outputs the pose graph in pose_graph_tools_msgs PoseGraph type
+   *  - outputs the pose graph in pose_graph_tools::PoseGraph type
    */
-  inline GraphMsgPtr getPoseGraph(
-      const std::map<size_t, std::vector<Timestamp>>& timestamps,
-      const std::string& frame_id = "world") const {
-    return GtsamGraphToRos(nfg_, values_, timestamps, gnc_weights_, frame_id);
-  }
+  pose_graph_tools::PoseGraph::Ptr getPoseGraph(
+      const std::map<size_t, std::vector<Timestamp>>& timestamps) const;
 
   /*! \brief Get the consistency factors (ie. the deformation edge factors)
    */
@@ -579,6 +573,12 @@ class DeformationGraph {
                        char prefix,
                        size_t start_index);
 
+ protected:
+  void addPrior(const gtsam::Key& key,
+                const gtsam::Pose3& pose,
+                double variance,
+                double rotation_factor = 1.0e-2);
+
  private:
   bool verbose_;
 
@@ -620,19 +620,7 @@ class DeformationGraph {
   std::map<char, pcl::PointCloud<pcl::PointXYZ>> last_calculated_vertices_;
 };
 
-typedef std::shared_ptr<DeformationGraph> DeformationGraphPtr;
-
-/*! \brief fill rviz markers for the deformation graph
- * - graph: deformation graph to make the message for
- * - stamp: ros timestamp of messages
- * - mesh_mesh_viz: marker for mesh-mesh edges
- * - pose_mesh_viz: marker for pose-mesh edges
- */
-void fillDeformationGraphMarkers(const DeformationGraph& graph,
-                                 const ros::Time& stamp,
-                                 visualization_msgs::Marker& mesh_mesh_viz,
-                                 visualization_msgs::Marker& pose_mesh_viz,
-                                 const std::string& frame_id = "world");
+using DeformationGraphPtr = std::shared_ptr<DeformationGraph>;
 
 template <typename Cloud>
 size_t DeformationGraph::findStartIndex(char prefix,
@@ -646,7 +634,7 @@ size_t DeformationGraph::findStartIndex(char prefix,
   }
 
   if (recalculate_vertices_) {
-    ROS_INFO("DeformationGraph: Re-calculating all mesh vertices in deformMesh. ");
+    SPARK_LOG(INFO) << "DeformationGraph: Recalculating mesh vertices in deformMesh";
     return 0;
   }
 
@@ -739,7 +727,8 @@ void DeformationGraph::deformPoints(CloudOut& vertices,
                                     std::vector<std::set<size_t>>* vertex_graph_map) {
   // Cannot deform if no nodes in the deformation graph
   if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
-    ROS_DEBUG("Deformation graph has no vertices for mesh prefix. No deformation.");
+    SPARK_LOG(DEBUG)
+        << "Deformation graph has no vertices for mesh prefix. No deformation";
     return;
   }
 
