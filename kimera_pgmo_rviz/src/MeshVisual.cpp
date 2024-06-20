@@ -35,8 +35,11 @@ inline void updateNormal(const Eigen::Vector3f& n,
 
 }  // namespace
 
-MeshVisual::MeshVisual(Ogre::SceneManager* manager, Ogre::SceneNode* parent)
-    : cull_faces_(false),
+MeshVisual::MeshVisual(Ogre::SceneManager* manager,
+                       Ogre::SceneNode* parent,
+                       const std::string& ns)
+    : visual_ns_(ns),
+      cull_faces_(false),
       lighting_enabled_(false),
       manager_(manager),
       node_(nullptr),
@@ -62,21 +65,35 @@ MeshVisual::~MeshVisual() {
   }
 
   auto& material_manager = Ogre::MaterialManager::getSingleton();
+  material_manager.unload(material_name_);
   material_manager.remove(material_name_);
 
   manager_->destroySceneNode(node_);
 }
 
-void MeshVisual::setMessage(const kimera_pgmo::KimeraPgmoMesh& mesh,
-                            const Ogre::Vector3& parent_t_mesh,
-                            const Ogre::Quaternion& parent_R_mesh) {
+void MeshVisual::reset() {
+  // TODO(lschmid): WIP, check if needed.
+  if (mesh_) {
+    mesh_->clear();
+  }
+}
+
+void MeshVisual::setPose(const Ogre::Vector3& parent_t_mesh,
+                         const Ogre::Quaternion& parent_R_mesh) {
+  ROS_DEBUG_STREAM("Setting pose for mesh '" << visual_ns_
+                                             << "' to pos: " << parent_t_mesh
+                                             << " rot: " << parent_R_mesh);
+  node_->setPosition(parent_t_mesh);
+  node_->setOrientation(parent_R_mesh);
+}
+
+void MeshVisual::setMessage(const kimera_pgmo::KimeraPgmoMesh& mesh) {
   ROS_DEBUG_STREAM("Setting mesh with " << mesh.vertices.size() << " vertices and "
                                         << mesh.triangles.size() << " faces");
   ROS_DEBUG_STREAM("Names: mesh=" << mesh_name_ << ", material=" << material_name_);
-  node_->setPosition(parent_t_mesh);
-  node_->setOrientation(parent_R_mesh);
 
-  node_->setVisible(true);
+  reset();
+  
   if (!mesh_) {
     mesh_ = manager_->createManualObject(mesh_name_);
     setCullMode();
@@ -89,6 +106,7 @@ void MeshVisual::setMessage(const kimera_pgmo::KimeraPgmoMesh& mesh,
 
   mesh_->estimateVertexCount(mesh.vertices.size());
   mesh_->estimateIndexCount(3 * mesh.triangles.size());
+  mesh_->setDynamic(false);
   mesh_->begin(material_name_, Ogre::RenderOperation::OT_TRIANGLE_LIST);
 
   for (const auto& face : mesh.triangles) {
@@ -136,6 +154,13 @@ void MeshVisual::shouldLight(bool light) {
   lighting_enabled_ = light;
   setLightingMode();
 }
+
+
+void MeshVisual::setVisible(bool visible) {
+  visible_ = visible;
+  node_->setVisible(visible_);
+}
+
 
 Ogre::Material& MeshVisual::getMaterial() const {
   auto& material_manager = Ogre::MaterialManager::getSingleton();

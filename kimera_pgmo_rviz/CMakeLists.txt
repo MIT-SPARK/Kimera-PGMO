@@ -25,8 +25,15 @@ catkin_package(
   include
   LIBRARIES)
 
-add_library(${PROJECT_NAME} include/kimera_pgmo_rviz/MeshDisplay.h
-                            src/MeshDisplay.cpp src/MeshVisual.cpp)
+add_library(${PROJECT_NAME} 
+  src/MeshDisplay.cpp 
+  src/MeshVisual.cpp
+  src/TfEventBuffer.cpp
+  src/VisibilityField.cpp
+  src/VisualsMap.cpp
+  include/kimera_pgmo_rviz/MeshDisplay.h
+  include/kimera_pgmo_rviz/VisibilityField.h
+)
 target_include_directories(${PROJECT_NAME} PUBLIC include
                                                   ${catkin_INCLUDE_DIRS})
 target_compile_options(${PROJECT_NAME} PRIVATE -Wno-register
@@ -42,4 +49,5 @@ install(
   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION})
 install(DIRECTORY include/ DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
 install(FILES plugins.xml DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
-install(DIRECTORY icons/ DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION})
+install(DIRECTORY icons/ DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/icons)
+

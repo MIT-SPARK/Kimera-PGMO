@@ -9,35 +9,85 @@
 #include <rviz/properties/bool_property.h>
 
 #include "kimera_pgmo_rviz/MeshVisual.h"
+#include "kimera_pgmo_rviz/TfEventBuffer.h"
+#include "kimera_pgmo_rviz/VisibilityField.h"
 
 namespace kimera_pgmo {
 
-using kimera_pgmo::KimeraPgmoMesh;
-
 MeshDisplay::MeshDisplay() {
-  cull_ = std::make_unique<rviz::BoolProperty>(
-      "Cull Backfaces", true, "Toggle culling backfaces", this, SLOT(updateSettings()));
+  // Setup rviz properties.
+  cull_ = std::make_unique<rviz::BoolProperty>("Cull Backfaces",
+                                               true,
+                                               "Toggle culling backfaces",
+                                               this,
+                                               SLOT(updateGlobalSettingsSlot()));
   lighting_ = std::make_unique<rviz::BoolProperty>("Enable Lighting",
                                                    false,
                                                    "Toggle enabling lighting",
                                                    this,
-                                                   SLOT(updateSettings()));
+                                                   SLOT(updateGlobalSettingsSlot()));
+
+  visibility_fields_ = std::make_unique<VisibilityField>("Visible", this, this);
+  toggle_visibility_all_property_ =
+      std::make_unique<rviz::BoolProperty>("Toggle Visibility All",
+                                           true,
+                                           "Toggle visibility for all meshes",
+                                           this,
+                                           SLOT(toggleVisibilityAllSloT()));
 }
 
 MeshDisplay::~MeshDisplay() {}
 
-void MeshDisplay::onInitialize() { MFDClass::onInitialize(); }
+void MeshDisplay::onInitialize() {
+  tf_buffer_ = std::make_unique<TfEventBuffer>(context_->getFrameManager(),
+                                               TfEventBuffer::Config());
+  MFDClass::onInitialize();
+}
 
 void MeshDisplay::reset() {
   MFDClass::reset();
-  mesh_.reset();
+  visuals_.reset();
+  tf_buffer_->reset();
 }
 
-void MeshDisplay::updateSettings() {
-  if (mesh_) {
-    mesh_->shouldCull(cull_->getBool());
-    mesh_->shouldLight(lighting_->getBool());
+void MeshDisplay::update(float /* wall_dt */, float /* ros_dt */) {
+  // Update the poses of all visuals if new transforms are available.
+  for (const auto& update : tf_buffer_->getTransformUpdates()) {
+    auto visual = visuals_.get(update.ns);
+    if (visual) {
+      visual->setPose(update.position, update.orientation);
+    }
   }
+}
+
+void MeshDisplay::updateGlobalSettingsSlot() {
+  visuals_.applyToAll([this](MeshVisual& visual) { updateVisualSettings(visual); });
+}
+
+void MeshDisplay::updateVisualSettings(MeshVisual& visual) const {
+  visual.shouldCull(cull_->getBool());
+  visual.shouldLight(lighting_->getBool());
+}
+
+void MeshDisplay::visibleSlot() { updateVisible(); }
+
+void MeshDisplay::updateVisible() {
+  // Set visibility of all visuals base on the configured visbility.
+  for (auto& [ns, visual] : visuals_) {
+    bool visible = false;
+    if (isEnabled()) {
+      visible = visibility_fields_->isEnabled(ns);
+    }
+    visual->setVisible(visible);
+  }
+}
+
+void MeshDisplay::toggleVisibilityAllSloT() {
+  // Toggle all visibility fields except for the root.
+  const bool root_visible = visibility_fields_->getBool();
+  visibility_fields_->setEnabledForAll(toggle_visibility_all_property_->getBool());
+  visibility_fields_->setBool(root_visible);
+  updateVisible();
 }
 
 void MeshDisplay::processMessage(const KimeraPgmoMesh::ConstPtr& msg) {
@@ -45,22 +95,44 @@ void MeshDisplay::processMessage(const KimeraPgmoMesh::ConstPtr& msg) {
     return;
   }
 
-  Ogre::Vector3 rviz_t_msg;
-  Ogre::Quaternion rviz_R_msg;
-  if (!context_->getFrameManager()->getTransform(
-          msg->header.frame_id, msg->header.stamp, rviz_t_msg, rviz_R_msg)) {
-    ROS_DEBUG_STREAM("Failed to transform msg frame "
-                     << msg->header.frame_id << " to " << qPrintable(fixed_frame_)
-                     << " @ " << msg->header.stamp.toNSec() << " [ns]");
+  // Parse namespace and id into a single namespace for now.
+  const std::string ns =
+      std::to_string(msg->id) + (msg->ns.empty() ? "" : kNsSeparator + msg->ns);
+
+  if (msg->vertices.empty()) {
+    deleteVisual(ns);
     return;
   }
 
-  if (!mesh_) {
-    mesh_ = std::make_unique<MeshVisual>(context_->getSceneManager(), scene_node_);
-    mesh_->shouldCull(cull_->getBool());
+  // Always reset the target frame in case it has changed.
+  // TODO(lschmid): Can consider moving this into createVisual if we think the frame
+  // names will not change.
+  tf_buffer_->addTransformQuery(ns, msg->header.frame_id);
+
+  MeshVisual* visual = visuals_.get(ns);
+  if (!visual) {
+    visual = createVisual(ns);
+    const auto pose = tf_buffer_->getTransform(ns, true);
+    if (pose) {
+      visual->setPose(pose->position, pose->orientation);
+    }
   }
 
-  mesh_->setMessage(*msg, rviz_t_msg, rviz_R_msg);
+  visual->setMessage(*msg);
+}
+
+MeshVisual* MeshDisplay::createVisual(const std::string& ns) {
+  auto& visual = visuals_.create(ns, context_->getSceneManager(), scene_node_);
+  updateVisualSettings(visual);
+  visibility_fields_->addField(ns);
+  visual.setVisible(visibility_fields_->isEnabled(ns));
+  return &visual;
+}
+
+void MeshDisplay::deleteVisual(const std::string& ns) {
+  visuals_.deleteVisual(ns);
+  visibility_fields_->removeField(ns);
+  tf_buffer_->removeTransformQuery(ns);
 }
 
 }  // namespace kimera_pgmo

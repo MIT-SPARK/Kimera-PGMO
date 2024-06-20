@@ -9,6 +9,8 @@
 
 #include <memory>
 
+#include "kimera_pgmo_rviz/VisualsMap.h"
+
 namespace rviz {
 class BoolProperty;
 }
@@ -16,30 +18,62 @@ class BoolProperty;
 namespace kimera_pgmo {
 
 class MeshVisual;
+class VisibilityField;
+class TfEventBuffer;
 
-class MeshDisplay : public rviz::MessageFilterDisplay<kimera_pgmo::KimeraPgmoMesh> {
+class MeshDisplay : public rviz::MessageFilterDisplay<KimeraPgmoMesh> {
   Q_OBJECT
  public:
   MeshDisplay();
-
-  virtual ~MeshDisplay();
+  ~MeshDisplay() override;
 
  protected:
+  // Override Display functions.
   void onInitialize() override;
 
   void reset() override;
 
+  void update(float /* wall_dt */, float /* ros_dt */) override;
+
  private Q_SLOTS:
-  void updateSettings();
+   // Trigger an update of the settings for all visuals.
+  void updateGlobalSettingsSlot();
+  
+  void visibleSlot();
+
+  void toggleVisibilityAllSloT();
 
  private:
-  void processMessage(const kimera_pgmo::KimeraPgmoMesh::ConstPtr& msg) override;
+  void processMessage(const KimeraPgmoMesh::ConstPtr& msg) override;
 
-  std::unique_ptr<MeshVisual> mesh_;
+  // All mesh visuals.
+  VisualsMap visuals_;
+
+  // Getting transforms of visuals.
+  std::unique_ptr<TfEventBuffer> tf_buffer_;
 
   // properties
   std::unique_ptr<rviz::BoolProperty> cull_;
   std::unique_ptr<rviz::BoolProperty> lighting_;
+  // The root of the visibility tree.
+  std::unique_ptr<VisibilityField> visibility_fields_;
+
+  // Property to set visibility for all submaps.
+  std::unique_ptr<rviz::BoolProperty> toggle_visibility_all_property_;
+
+  inline static const std::string kNsSeparator = "/";
+
+ private:
+  // Update the common settings of a single visual.
+  void updateVisualSettings(MeshVisual& visual) const;
+
+  MeshVisual* createVisual(const std::string& ns);
+  void deleteVisual(const std::string& ns);
+
+ private:
+  // Interface for VisibilityFields to trigger visibility updates.
+  friend class VisibilityField;
+  void updateVisible();
 };
 
 }  // namespace kimera_pgmo
