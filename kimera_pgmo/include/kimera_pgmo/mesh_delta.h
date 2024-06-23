@@ -130,12 +130,13 @@ void MeshDelta::updateVertices(Vertices& vertices) const {
     const size_t idx = i + vertex_start;
     const auto& p = vertex_updates->at(i);
     const traits::Pos pos(p.x, p.y, p.z);
-    const traits::Color color{p.r, p.g, p.b};
-    std::optional<uint32_t> label;
+    traits::VertexTraits traits;
+    traits.color = {p.r, p.g, p.b, p.a};
+    traits.stamp = stamp_updates.at(i);
     if (use_semantics) {
-      label = semantic_updates.at(i);
+      traits.label = semantic_updates.at(i);
     }
-    traits::set_vertex(vertices, idx, pos, color, p.a, stamp_updates.at(i), label);
+    traits::set_vertex(vertices, idx, pos, traits);
   }
 }
 

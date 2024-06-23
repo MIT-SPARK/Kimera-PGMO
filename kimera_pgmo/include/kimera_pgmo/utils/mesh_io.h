@@ -78,32 +78,26 @@ void WriteMesh(const std::string& filename,
   const auto num_vertices = traits::num_vertices(vertices);
   IOData data;
   for (size_t i = 0; i < num_vertices; ++i) {
-    std::optional<traits::Color> color;
-    std::optional<uint8_t> alpha;
-    std::optional<uint64_t> stamp;
-    std::optional<uint32_t> label;
-    const auto pos = traits::get_vertex(vertices, i, &color, &alpha, &stamp, &label);
+    traits::VertexTraits traits;
+    const auto pos = traits::get_vertex(vertices, i, &traits);
     data.x.push_back(pos.x());
     data.y.push_back(pos.y());
     data.z.push_back(pos.z());
 
-    if (color) {
-      const auto& c = *color;
+    if (traits.color) {
+      const auto& c = *traits.color;
       data.r.push_back(c[0]);
       data.g.push_back(c[1]);
       data.b.push_back(c[2]);
+      data.a.push_back(c[3]);
     }
 
-    if (alpha) {
-      data.a.push_back(*alpha);
+    if (traits.stamp) {
+      data.stamps.push_back(*traits.stamp);
     }
 
-    if (stamp) {
-      data.stamps.push_back(*stamp);
-    }
-
-    if (label) {
-      data.labels.push_back(*label);
+    if (traits.label) {
+      data.labels.push_back(*traits.label);
     }
   }
 
@@ -136,26 +130,21 @@ void ReadMesh(const std::string& filename, Vertices& vertices, Faces& faces) {
   for (size_t i = 0; i < num_vertices; i++) {
     const traits::Pos pos(data.x[i], data.y[i], data.z[i]);
 
-    std::optional<traits::Color> color;
-    std::optional<uint8_t> alpha;
+    traits::VertexTraits traits;
     if (has_colors) {
-      color = traits::Color{{data.r[i], data.g[i], data.b[i]}};
-      if (i < data.a.size()) {
-        alpha = data.a[i];
-      }
+      traits.color = traits::Color{
+          data.r[i], data.g[i], data.b[i], i < data.a.size() ? data.a[i] : 255u};
     }
 
-    std::optional<uint64_t> timestamp;
     if (has_stamps) {
-      timestamp = data.stamps[i];
+      traits.stamp = data.stamps[i];
     }
 
-    std::optional<uint32_t> label;
     if (has_labels) {
-      label = data.labels[i];
+      traits.label = data.labels[i];
     }
 
-    traits::set_vertex(vertices, i, pos, color, alpha, timestamp, label);
+    traits::set_vertex(vertices, i, pos, traits);
   }
 
   traits::resize_faces(faces, data.faces.size());

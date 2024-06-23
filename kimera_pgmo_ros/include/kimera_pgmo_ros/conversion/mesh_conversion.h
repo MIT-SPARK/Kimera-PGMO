@@ -89,30 +89,27 @@ void fillMsg(size_t robot_id,
   msg.vertex_stamps.reserve(num_vertices);
 
   for (size_t i = 0; i < num_vertices; ++i) {
-    std::optional<traits::Color> color;
-    std::optional<uint8_t> alpha;
-    std::optional<uint64_t> stamp;
-    std::optional<uint32_t> label;
-    const auto pos = traits::get_vertex(vertices, i, &color, &alpha, &stamp, &label);
+    traits::VertexTraits traits;
+    const auto pos = traits::get_vertex(vertices, i, &traits);
     // tf2::eigen doesn't handle floats well, so we manually convert
     auto& p = msg.vertices.emplace_back();
     p.x = pos.x();
     p.y = pos.y();
     p.z = pos.z();
 
-    if (color) {
+    if (traits.color) {
       constexpr float color_conv_factor = 1.0f / std::numeric_limits<uint8_t>::max();
-      const auto& color_ref = *color;
+      const auto& color_ref = *traits.color;
       auto& c = msg.vertex_colors.emplace_back();
       c.r = color_conv_factor * color_ref[0];
       c.g = color_conv_factor * color_ref[1];
       c.b = color_conv_factor * color_ref[2];
-      c.a = color_conv_factor * alpha.value_or(255);
+      c.a = color_conv_factor * color_ref[3];
     }
 
-    if (stamp) {
+    if (traits.stamp) {
       auto& timestamp = msg.vertex_stamps.emplace_back();
-      timestamp.fromNSec(*stamp);
+      timestamp.fromNSec(*traits.stamp);
     }
 
     if (index_mapping) {
@@ -170,26 +167,24 @@ void fillFromMsg(const kimera_pgmo_msgs::KimeraPgmoMesh& msg,
     const auto& p = msg.vertices[i];
     const traits::Pos pos(p.x, p.y, p.z);
 
-    std::optional<traits::Color> color;
-    std::optional<uint8_t> alpha;
+    traits::VertexTraits traits;
     if (has_colors) {
       const std_msgs::ColorRGBA& c = msg.vertex_colors[i];
-      color = traits::Color{{static_cast<uint8_t>(color_conv_factor * c.r),
-                             static_cast<uint8_t>(color_conv_factor * c.g),
-                             static_cast<uint8_t>(color_conv_factor * c.b)}};
-      alpha = static_cast<uint8_t>(color_conv_factor * c.a);
+      traits.color = traits::Color{{static_cast<uint8_t>(color_conv_factor * c.r),
+                                    static_cast<uint8_t>(color_conv_factor * c.g),
+                                    static_cast<uint8_t>(color_conv_factor * c.b),
+                                    static_cast<uint8_t>(color_conv_factor * c.a)}};
     }
 
-    std::optional<uint64_t> timestamp;
     if (has_stamps) {
-      timestamp = msg.vertex_stamps[i].toNSec();
+      traits.stamp = msg.vertex_stamps[i].toNSec();
     }
 
     if (has_indices && graph_indices) {
       graph_indices->push_back(msg.vertex_indices[i]);
     }
 
-    traits::set_vertex(vertices, i, pos, color, alpha, timestamp, std::nullopt);
+    traits::set_vertex(vertices, i, pos, traits);
   }
 
   const auto num_faces = msg.triangles.size();

@@ -48,26 +48,20 @@ void pgmoResizeVertices(LabeledStampedCloud& cloud, size_t size) {
 void pgmoSetVertex(LabeledCloud& cloud,
                    size_t i,
                    const traits::Pos& pos,
-                   const std::optional<traits::Color>& color,
-                   const std::optional<uint8_t>& alpha,
-                   const std::optional<traits::Timestamp>& stamp,
-                   const std::optional<traits::Label>& label) {
-  pgmoSetVertex(cloud.points, i, pos, color, alpha, stamp, label);
-  if (label) {
-    cloud.labels.at(i) = *label;
+                   const traits::VertexTraits& traits) {
+  pgmoSetVertex(cloud.points, i, pos, traits);
+  if (traits.label) {
+    cloud.labels.at(i) = *traits.label;
   }
 }
 
 void pgmoSetVertex(LabeledStampedCloud& cloud,
                    size_t i,
                    const traits::Pos& pos,
-                   const std::optional<traits::Color>& color,
-                   const std::optional<uint8_t>& alpha,
-                   const std::optional<traits::Timestamp>& stamp,
-                   const std::optional<traits::Label>& label) {
-  pgmoSetVertex(static_cast<LabeledCloud&>(cloud), i, pos, color, alpha, stamp, label);
-  if (stamp) {
-    cloud.stamps.at(i) = *stamp;
+                   const traits::VertexTraits& traits) {
+  pgmoSetVertex(static_cast<LabeledCloud&>(cloud), i, pos, traits);
+  if (traits.stamp) {
+    cloud.stamps.at(i) = *traits.stamp;
   }
 }
 

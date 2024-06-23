@@ -7,6 +7,7 @@
 
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/slam/BetweenFactor.h>
+#include <kimera_pgmo/mesh_traits.h>
 #include <kimera_pgmo/utils/common_functions.h>
 #include <pose_graph_tools_msgs/PoseGraphEdge.h>
 #include <pose_graph_tools_msgs/PoseGraphNode.h>

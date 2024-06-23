@@ -20,20 +20,14 @@ void pgmoResizeVertices(SimpleMesh& mesh,
 
 traits::Pos pgmoGetVertex(const SimpleMesh& mesh,
                           size_t i,
-                          std::optional<traits::Color>* /* color */,
-                          std::optional<uint8_t>* /* alpha */,
-                          std::optional<uint64_t>* /* stamp */,
-                          std::optional<uint32_t>* /* label */) {
+                          traits::VertexTraits* /* traits */) {
   return mesh.points.at(i);
 }
 
 void pgmoSetVertex(SimpleMesh& mesh,
                    size_t i,
                    const traits::Pos& pos,
-                   const std::optional<traits::Color>& /* color */,
-                   const std::optional<uint8_t>& /* alpha */,
-                   const std::optional<uint64_t>& /* stamp */,
-                   const std::optional<uint32_t>& /* label */) {
+                   const traits::VertexTraits& /* traits */) {
   mesh.points.at(i) = pos;
 }
 

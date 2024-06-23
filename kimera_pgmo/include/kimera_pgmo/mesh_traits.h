@@ -29,19 +29,12 @@ void pgmoResizeVertices(SimpleMesh& mesh, size_t size);
 
 traits::Pos pgmoGetVertex(const SimpleMesh& mesh,
                           size_t i,
-                          std::optional<traits::Color>* color,
-                          std::optional<uint8_t>* alpha,
-                          std::optional<traits::Timestamp>* stamp,
-                          std::optional<traits::Label>* label);
+                          traits::VertexTraits* traits);
 
 void pgmoSetVertex(SimpleMesh& mesh,
                    size_t i,
                    const traits::Pos& pos,
-                   const std::optional<traits::Color>& color,
-                   const std::optional<uint8_t>& alpha,
-                   const std::optional<traits::Timestamp>& stamp,
-                   const std::optional<traits::Label>& label);
-
+                   const traits::VertexTraits& traits);
 size_t pgmoNumFaces(const SimpleMesh& mesh);
 
 void pgmoResizeFaces(SimpleMesh& mesh, size_t size);
@@ -86,28 +79,17 @@ struct vertex_resize_fn {
 
 struct vertex_get_fn {
   template <typename T>
-  constexpr auto operator()(const T& v,
-                            size_t i,
-                            std::optional<Color>* c,
-                            std::optional<uint8_t>* a,
-                            std::optional<Timestamp>* t,
-                            std::optional<Label>* l) const
-      -> decltype(pgmoGetVertex(v, i, c, a, t, l)) {
-    return pgmoGetVertex(v, i, c, a, t, l);
+  constexpr auto operator()(const T& v, size_t i, traits::VertexTraits* t) const
+      -> decltype(pgmoGetVertex(v, i, t)) {
+    return pgmoGetVertex(v, i, t);
   }
 };
 
 struct vertex_set_fn {
   template <typename T>
-  constexpr auto operator()(T& v,
-                            size_t i,
-                            const Pos& p,
-                            const std::optional<Color>& c,
-                            const std::optional<uint8_t>& a,
-                            const std::optional<Timestamp>& t,
-                            const std::optional<Label>& l) const
-      -> decltype(pgmoSetVertex(v, i, p, c, a, t, l)) {
-    return pgmoSetVertex(v, i, p, c, a, t, l);
+  constexpr auto operator()(T& v, size_t i, const Pos& p, const traits::VertexTraits& t)
+      const -> decltype(pgmoSetVertex(v, i, p, t)) {
+    return pgmoSetVertex(v, i, p, t);
   }
 };
 
@@ -133,16 +115,17 @@ struct face_get_fn {
 
 struct face_set_fn {
   template <typename T>
-  constexpr auto operator()(T& f, size_t i, const Face& t) const
-      -> decltype(pgmoSetFace(f, i, t)) {
+  constexpr auto operator()(T& f,
+                            size_t i,
+                            const Face& t) const -> decltype(pgmoSetFace(f, i, t)) {
     return pgmoSetFace(f, i, t);
   }
 };
 
 struct vertex_stamp_fn {
   template <typename T>
-  constexpr auto operator()(const T& v, size_t i) const
-      -> decltype(pgmoGetVertexStamp(v, i)) {
+  constexpr auto operator()(const T& v,
+                            size_t i) const -> decltype(pgmoGetVertexStamp(v, i)) {
     return pgmoGetVertexStamp(v, i);
   }
 };
@@ -180,24 +163,16 @@ void resize_vertices(T& vertices, size_t size) {
 }
 
 template <typename T>
-Pos get_vertex(const T& vertices,
-               size_t i,
-               std::optional<Color>* color = nullptr,
-               std::optional<uint8_t>* alpha = nullptr,
-               std::optional<Timestamp>* stamp = nullptr,
-               std::optional<Label>* label = nullptr) {
-  return ::kimera_pgmo::traits::pgmoGetVertex(vertices, i, color, alpha, stamp, label);
+Pos get_vertex(const T& vertices, size_t i, traits::VertexTraits* traits = nullptr) {
+  return ::kimera_pgmo::traits::pgmoGetVertex(vertices, i, traits);
 }
 
 template <typename T>
 void set_vertex(T& vertices,
                 size_t i,
                 const Pos& pos,
-                const std::optional<Color>& color = std::nullopt,
-                const std::optional<uint8_t>& alpha = std::nullopt,
-                const std::optional<Timestamp>& stamp = std::nullopt,
-                const std::optional<Label>& label = std::nullopt) {
-  ::kimera_pgmo::traits::pgmoSetVertex(vertices, i, pos, color, alpha, stamp, label);
+                const traits::VertexTraits& traits = {}) {
+  ::kimera_pgmo::traits::pgmoSetVertex(vertices, i, pos, traits);
 }
 
 // faces

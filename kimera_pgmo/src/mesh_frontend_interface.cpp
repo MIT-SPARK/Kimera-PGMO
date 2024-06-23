@@ -104,11 +104,8 @@ void MeshFrontendInterface::update(const MeshInterface& mesh, double time_s) {
   std::thread graph_thread(
       &MeshFrontendInterface::updateGraph, this, mesh.clone(), time_s);
 
-  latest_blocks_.clear();
-  for (const auto& idx : mesh.blockIndices()) {
-    latest_blocks_.push_back(idx);
-  }
-
+  latest_blocks_ = mesh.blockIndices();
+  
   full_thread.join();
   graph_thread.join();
 
