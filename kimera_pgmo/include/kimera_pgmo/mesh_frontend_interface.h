@@ -1,17 +1,18 @@
 /**
  * @file   mesh_frontend.h
- * @brief  MeshFrontend class: process incoming voxblox meshes
+ * @brief  MeshFrontend class: process incoming meshes
  * @author Yun Chang
  */
 #pragma once
 
+#include <config_utilities/types/enum.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pose_graph_tools/pose_graph.h>
-#include <voxblox/core/block_hash.h>
-#include <voxblox/mesh/mesh_layer.h>
+#include <spatial_hash/types.h>
 
 #include "kimera_pgmo/compression/mesh_compression.h"
+#include "kimera_pgmo/hashing.h"
 #include "kimera_pgmo/utils/common_structs.h"
 
 namespace kimera_pgmo {
@@ -20,9 +21,8 @@ class MeshFrontendInterface {
   friend class MeshFrontendTest;
 
  public:
-  using VoxbloxIndexMapping = MeshCompression::VoxbloxIndexMapping;
-  using BlockIndices = std::vector<voxblox::BlockIndex>;
-
+  enum class FullCompressionMethod { OCTREE, BLOCK, VOXEL_CLEARING };
+  enum class GraphCompressionMethod { OCTREE, BLOCK };
   struct Config {
     int robot_id = 0;
     //! only merge meshes for the blocks detected within defined time horizon (secs)
@@ -30,10 +30,8 @@ class MeshFrontendInterface {
     bool track_mesh_graph_mapping = true;
     std::string log_path = "";
     bool log_output = true;
-    //! 0 for octree, 1 for voxblox, 2 for voxel clearing
-    int full_compression_method = 2;
-    //! 0 for octree, 1 for voxblox
-    int graph_compression_method = 1;
+    FullCompressionMethod full_compression_method = FullCompressionMethod::BLOCK;
+    GraphCompressionMethod graph_compression_method = GraphCompressionMethod::BLOCK;
     double d_graph_resolution = 3.0;
     double mesh_resolution = 0.2;
   } const config;
@@ -47,7 +45,7 @@ class MeshFrontendInterface {
    */
   void update(const MeshInterface& mesh, double time_in_sec);
 
-  /*! \brief Get last mesh graph created in voxblox callback
+  /*! \brief Get last mesh graph created in callback
    */
   inline pose_graph_tools::PoseGraph::Ptr getLastProcessedMeshGraph() const {
     return last_mesh_graph_;
@@ -55,8 +53,8 @@ class MeshFrontendInterface {
 
   /*! \brief Get the mappings from vxblx msg to graph index for tracking.
    */
-  inline const VoxbloxIndexMapping& getVoxbloxMsgToGraphMapping() const {
-    return *vxblx_msg_to_graph_idx_;
+  inline const HashedIndexMapping& getVoxbloxMsgToGraphMapping() const {
+    return *msg_to_graph_idx_;
   }
 
  protected:
@@ -117,8 +115,8 @@ class MeshFrontendInterface {
   pose_graph_tools::PoseGraph::Ptr last_mesh_graph_;
 
   // Book keeping for indices
-  std::shared_ptr<VoxbloxIndexMapping> vxblx_msg_to_graph_idx_;
-  std::shared_ptr<VoxbloxIndexMapping> vxblx_msg_to_mesh_idx_;
+  std::shared_ptr<HashedIndexMapping> msg_to_graph_idx_;
+  std::shared_ptr<HashedIndexMapping> msg_to_mesh_idx_;
   std::shared_ptr<IndexMapping> mesh_to_graph_idx_;
   BlockIndices latest_blocks_;
 
@@ -127,6 +125,17 @@ class MeshFrontendInterface {
 
   std::vector<size_t> active_indices_;
   std::vector<size_t> invalid_indices_;
+
+ private:
+  inline static const auto enum_init_ =
+      config::Enum<FullCompressionMethod>::Initializer(
+          {{FullCompressionMethod::OCTREE, "OCTREE"},
+           {FullCompressionMethod::BLOCK, "BLOCK"},
+           {FullCompressionMethod::VOXEL_CLEARING, "VOXEL_CLEARING"}});
+  inline static const auto enum_init_2 =
+      config::Enum<GraphCompressionMethod>::Initializer(
+          {{GraphCompressionMethod::OCTREE, "OCTREE"},
+           {GraphCompressionMethod::BLOCK, "BLOCK"}});
 };
 
 void declare_config(MeshFrontendInterface::Config& config);

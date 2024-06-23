@@ -1,4 +1,4 @@
-#include "kimera_pgmo_rviz/visbility_field.h"
+#include "kimera_pgmo_rviz/visibility_field.h"
 
 #include "kimera_pgmo_rviz/mesh_display.h"
 

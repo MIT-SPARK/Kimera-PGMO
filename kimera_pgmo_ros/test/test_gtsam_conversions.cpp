@@ -9,9 +9,11 @@
 #include <gtsam/slam/BetweenFactor.h>
 #include <kimera_pgmo/utils/common_structs.h>
 
-#include "kimera_pgmo_ros/gtsam_conversions.h"
+#include "kimera_pgmo_ros/conversion/gtsam_conversions.h"
 
 namespace kimera_pgmo {
+
+using namespace conversions;
 
 TEST(TestGtsamConversions, RosPoseToGtsam) {
   geometry_msgs::Pose ros_pose;

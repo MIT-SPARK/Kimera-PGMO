@@ -39,7 +39,7 @@ add_executable(
   test_mesh_io.cpp
   test_octree_compression.cpp
   test_traits.cpp
-  test_voxblox_compression.cpp
+  test_block_compression.cpp
   test_voxel_clearing_compression.cpp)
 target_link_libraries(test_${PROJECT_NAME} ${PROJECT_NAME} GTest::gtest_main)
 gtest_add_tests(TARGET test_${PROJECT_NAME})

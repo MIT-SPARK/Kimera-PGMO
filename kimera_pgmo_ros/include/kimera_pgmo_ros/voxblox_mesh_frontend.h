@@ -1,19 +1,19 @@
 /**
- * @file   mesh_frontend.h
- * @brief  MeshFrontend class: process incoming meshes
+ * @file   voxblox_mesh_frontend.h
+ * @brief  VoxbloxMeshFrontend class: process incoming voxblox mesh messages
  * @author Yun Chang
  */
 #pragma once
 
-#include <kimera_pgmo_msgs/KimeraPgmoMesh.h>
 #include <ros/ros.h>
+#include <voxblox_msgs/Mesh.h>
 
 #include "kimera_pgmo/mesh_frontend_interface.h"
 
 namespace kimera_pgmo {
 
-class MeshFrontend : public MeshFrontendInterface {
-  friend class MeshFrontendTest;
+class VoxbloxMeshFrontend : public MeshFrontendInterface {
+  friend class VoxbloxMeshFrontendTest;
 
  public:
   struct Config : MeshFrontendInterface::Config {
@@ -21,16 +21,16 @@ class MeshFrontend : public MeshFrontendInterface {
     std::string frame_id = "world";
   } const config;
 
-  /*! \brief Constructor for MeshFrontend class, which is in charge of
-   * converting from mesh msg type to our mesh type while storing and
+  /*! \brief Constructor for VoxbloxMeshFrontend class, which is in charge of
+   * converting from Voxblox msg type to our mesh type while storing and
    * compressing the full unoptimized mesh
    */
-  explicit MeshFrontend(const Config& config, const ros::NodeHandle& nh);
+  explicit VoxbloxMeshFrontend(const Config& config, const ros::NodeHandle& nh);
 
-  virtual ~MeshFrontend() = default;
+  virtual ~VoxbloxMeshFrontend() = default;
 
  protected:
-  void handleMesh(const kimera_pgmo_msgs::KimeraPgmoMesh::ConstPtr& mesh);
+  void handleMesh(const voxblox_msgs::Mesh::ConstPtr& mesh);
 
   void publishFullMesh() const;
 
@@ -44,6 +44,6 @@ class MeshFrontend : public MeshFrontendInterface {
   ros::Publisher mesh_graph_pub_;
 };
 
-void declare_config(MeshFrontend::Config& config);
+void declare_config(VoxbloxMeshFrontend::Config& config);
 
 }  // namespace kimera_pgmo

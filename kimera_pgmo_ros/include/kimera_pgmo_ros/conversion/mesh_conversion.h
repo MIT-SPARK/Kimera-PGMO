@@ -72,7 +72,7 @@ void fillMsg(size_t robot_id,
              const std::optional<std_msgs::Header>& header) {
   // a little inefficient, but easier than manually clearing everything
   msg = kimera_pgmo_msgs::KimeraPgmoMesh();
-  msg.id = robot_id;
+  msg.ns = std::to_string(robot_id);
   if (header) {
     msg.header = *header;
   }
@@ -233,7 +233,7 @@ kimera_pgmo_msgs::KimeraPgmoMesh::Ptr toMsg(
     const IndexMapping* index_mapping = nullptr);
 
 pcl::PolygonMesh fromMsg(const kimera_pgmo_msgs::KimeraPgmoMesh& mesh_msg,
-                         std::vector<Timestamp>& vertex_stamps,
-                         std::vector<int>& vertex_graph_indices);
+                         std::vector<Timestamp>* vertex_stamps = nullptr,
+                         std::vector<int>* vertex_graph_indices = nullptr);
 
 }  // namespace kimera_pgmo::conversions

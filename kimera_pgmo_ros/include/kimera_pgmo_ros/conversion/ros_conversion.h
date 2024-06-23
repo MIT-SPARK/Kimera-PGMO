@@ -1,10 +1,9 @@
 #pragma once
-#include "kimera_pgmo/KimeraPgmoMesh.h"
+#include "kimera_pgmo_msgs/KimeraPgmoMesh.h"
 #include "kimera_pgmo/mesh_traits.h"
 
 namespace kimera_pgmo {
 
-// TODO(lschmid): Clean this up at some point.
 
 /**
  * @brief Fill mesh_msgs::TriangleMesh message from mesh
@@ -12,7 +11,7 @@ namespace kimera_pgmo {
  * @param faces Mesh faces to export
  */
 template <typename Vertices, typename Faces>
-KimeraPgmoMesh toMsg(const Vertices& vertices, const Faces& faces) {
+kimera_pgmo_msgs::KimeraPgmoMesh toMsg(const Vertices& vertices, const Faces& faces) {
   KimeraPgmoMesh msg;
   const auto num_vertices = traits::num_vertices(vertices);
   if (!num_vertices) {
@@ -65,7 +64,7 @@ KimeraPgmoMesh toMsg(const Vertices& vertices, const Faces& faces) {
  * @param mesh Mesh to export
  */
 template <typename Mesh>
-KimeraPgmoMesh toMsg(const Mesh& mesh) {
+kimera_pgmo_msgs::KimeraPgmoMesh toMsg(const Mesh& mesh) {
   // dispatch meshes that implement face and vertex traits
   return toMsg(mesh, mesh);
 }

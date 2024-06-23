@@ -6,16 +6,13 @@
  */
 
 #include <gtest/gtest.h>
-#include <voxblox/mesh/mesh_layer.h>
 
 #include "kimera_pgmo/compression/voxel_clearing_compression.h"
-#include "kimera_pgmo/utils/voxblox_mesh_interface.h"
 #include "pgmo_fixtures.h"
 
 namespace kimera_pgmo {
 
 using Cloud = pcl::PointCloud<pcl::PointXYZRGBA>;
-using VoxbloxIndexMapping = MeshCompression::VoxbloxIndexMapping;
 
 test::BlockConfig block1_empty{"block1_empty", {0, 0, 0}, {}};
 test::BlockConfig block1_test1{
@@ -36,7 +33,7 @@ struct CompressionInputs {
   MeshCompression::PointCloud vertices;
   std::vector<pcl::Vertices> triangles;
   std::vector<size_t> indices;
-  VoxbloxIndexMapping remappings;
+  HashedIndexMapping remappings;
 };
 
 struct CompressionOutput {

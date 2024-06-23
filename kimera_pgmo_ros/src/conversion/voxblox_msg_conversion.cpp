@@ -3,7 +3,7 @@
  * @brief
  * @author Yun Chang
  */
-#include "kimera_pgmo_ros/voxblox_msg_conversion.h"
+#include "kimera_pgmo_ros/conversion/voxblox_msg_conversion.h"
 
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/conversions.h>
@@ -13,9 +13,8 @@
 #include <limits>
 
 #include "kimera_pgmo/utils/common_functions.h"
-#include "kimera_pgmo/utils/voxblox_utils.h"
 
-namespace kimera_pgmo {
+namespace kimera_pgmo::conversions {
 
 pcl::PointXYZRGBA ExtractPoint(const voxblox_msgs::MeshBlock& mesh_block,
                                const float& block_edge_length,
@@ -212,4 +211,4 @@ pcl::PolygonMesh VoxbloxToPolygonMesh(const voxblox_msgs::Mesh::ConstPtr& voxblo
   return new_mesh;
 }
 
-}  // namespace kimera_pgmo
+}  // namespace kimera_pgmo::conversions

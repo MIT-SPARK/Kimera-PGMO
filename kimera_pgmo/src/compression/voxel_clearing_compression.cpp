@@ -9,7 +9,6 @@
 #include <iterator>
 
 #include "kimera_pgmo/utils/common_functions.h"
-#include "kimera_pgmo/utils/voxblox_utils.h"
 
 namespace kimera_pgmo {
 
@@ -36,7 +35,7 @@ void VoxelClearingCompression::compressAndIntegrate(const MeshInterface &mesh,
                                                     PointCloud &new_vertices,
                                                     PclFaces &new_faces,
                                                     std::vector<size_t> &new_indices,
-                                                    VoxbloxIndexMapping &remapping,
+                                                    HashedIndexMapping &remapping,
                                                     double stamp_in_sec) {
   new_vertices.clear();
   new_faces.clear();
@@ -111,7 +110,7 @@ void VoxelClearingCompression::updateVertices() {
 
 void VoxelClearingCompression::updateRemapping(const MeshInterface &mesh,
                                                double stamp_in_sec,
-                                               VoxbloxIndexMapping &remapping) {
+                                               HashedIndexMapping &remapping) {
   const auto threshold_inv = 1.0 / resolution_;
   const auto vertex_stamp = stampFromSec(stamp_in_sec);
 
@@ -129,12 +128,12 @@ void VoxelClearingCompression::updateRemapping(const MeshInterface &mesh,
     std::vector<size_t> face_map;
     face_map.reserve(block_size);
 
-    voxblox::LongIndexSet curr_voxels;
+    LongIndexSet curr_voxels;
     for (size_t i = 0; i < block_size; ++i) {
       const auto p = mesh.getActiveVertex(i);
-      const voxblox::LongIndex vertex_index(std::round(p.x * threshold_inv),
-                                            std::round(p.y * threshold_inv),
-                                            std::round(p.z * threshold_inv));
+      const LongIndex vertex_index(std::round(p.x * threshold_inv),
+                                   std::round(p.y * threshold_inv),
+                                   std::round(p.z * threshold_inv));
 
       size_t mesh_index;
       auto map_iter = vertices_map_.find(vertex_index);

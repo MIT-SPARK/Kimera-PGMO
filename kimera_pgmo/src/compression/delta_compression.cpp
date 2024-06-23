@@ -12,8 +12,8 @@
 
 namespace kimera_pgmo {
 
-using voxblox::BlockIndex;
-using voxblox::BlockIndexList;
+using spatial_hash::BlockIndex;
+using spatial_hash::BlockIndices;
 
 struct RedunancyChecker {
   using SparseAdjacencyMatrix = std::map<size_t, std::set<size_t>>;
@@ -77,10 +77,10 @@ void DeltaCompression::addPoint(const pcl::PointXYZRGBA& point,
                                 std::optional<uint32_t> semantic_label,
                                 uint64_t timestamp_ns,
                                 std::vector<size_t>& face_map,
-                                voxblox::LongIndexSet& curr_voxels) {
+                                spatial_hash::LongIndexSet& curr_voxels) {
   // do voxel hashing at compression size to determine remapping to previous compressed
   // vertex (if it exists)
-  const voxblox::LongIndex vertex_index(std::round(point.x * index_scale_),
+  const spatial_hash::LongIndex vertex_index(std::round(point.x * index_scale_),
                                         std::round(point.y * index_scale_),
                                         std::round(point.z * index_scale_));
 
@@ -109,7 +109,7 @@ void DeltaCompression::addPoint(const pcl::PointXYZRGBA& point,
 }
 
 void DeltaCompression::removeBlockObservations(const BlockIndex& /* block_index */,
-                                               const voxblox::LongIndexSet& to_remove) {
+                                               const spatial_hash::LongIndexSet& to_remove) {
   // for every previous voxel observed by the block
   //   - remove an observation
   //   - if there are NO "inactive" (archived) blocks pointing to the voxel
@@ -175,7 +175,7 @@ void DeltaCompression::addActiveVertices(uint64_t timestamp_ns) {
 }
 
 void DeltaCompression::addActiveFaces(uint64_t timestamp_ns,
-                                      VoxbloxIndexMapping* remapping) {
+                                      HashedIndexMapping* remapping) {
   // for every current tracked block we
   //   - iterate through every "face" (set of 3 vertex indices)
   //   - if the face is from a block contained in the latest message, grab the new face
@@ -237,7 +237,7 @@ void DeltaCompression::addActiveFaces(uint64_t timestamp_ns,
 
 MeshDelta::Ptr DeltaCompression::update(MeshInterface& mesh,
                                         uint64_t timestamp_ns,
-                                        VoxbloxIndexMapping* remapping) {
+                                        HashedIndexMapping* remapping) {
   while (timestamp_cache_.count(timestamp_ns)) {
     ++timestamp_ns;
   }
@@ -299,7 +299,7 @@ void DeltaCompression::updateRemapping(MeshInterface& mesh, uint64_t stamp_ns) {
     block_info.update_time = stamp_ns;
     block_info.indices.clear();
 
-    voxblox::LongIndexSet curr_voxels;
+    spatial_hash::LongIndexSet curr_voxels;
     mesh.markBlockActive(block_index);
     for (size_t i = 0; i < mesh.activeBlockSize(); ++i) {
       addPoint(mesh.getActiveVertex(i),
@@ -317,7 +317,7 @@ void DeltaCompression::updateRemapping(MeshInterface& mesh, uint64_t stamp_ns) {
   }
 }
 
-void DeltaCompression::addActive(uint64_t stamp_ns, VoxbloxIndexMapping* remapping) {
+void DeltaCompression::addActive(uint64_t stamp_ns, HashedIndexMapping* remapping) {
   addActiveVertices(stamp_ns);
   // note: this provides an invariant: every face that belongs to a block in
   // block_info_map_ has the correct indices after this is called and before the next
@@ -327,7 +327,7 @@ void DeltaCompression::addActive(uint64_t stamp_ns, VoxbloxIndexMapping* remappi
 }
 
 void DeltaCompression::pruneStoredMesh(uint64_t earliest_time_ns) {
-  BlockIndexList to_clear;
+  BlockIndices to_clear;
   for (const auto& id_info_pair : block_info_map_) {
     if (id_info_pair.second.update_time <= earliest_time_ns) {
       to_clear.push_back(id_info_pair.first);
@@ -337,11 +337,11 @@ void DeltaCompression::pruneStoredMesh(uint64_t earliest_time_ns) {
   pruneMeshBlocks(to_clear);
 }
 
-void DeltaCompression::clearArchivedBlocks(const BlockIndexList& to_clear) {
+void DeltaCompression::clearArchivedBlocks(const BlockIndices& to_clear) {
   pruneMeshBlocks(to_clear);
 }
 
-void DeltaCompression::pruneMeshBlocks(const BlockIndexList& to_clear) {
+void DeltaCompression::pruneMeshBlocks(const BlockIndices& to_clear) {
   archive_delta_.reset(new MeshDelta(num_archived_vertices_, num_archived_faces_));
 
   // for every block we want to archive:

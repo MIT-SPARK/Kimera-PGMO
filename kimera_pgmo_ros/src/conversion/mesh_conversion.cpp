@@ -3,7 +3,7 @@
  * @brief  Conversion to and from ROS types
  * @author Yun Chang
  */
-#include "kimera_pgmo_ros/mesh_conversion.h"
+#include "kimera_pgmo_ros/conversion/mesh_conversion.h"
 
 #include <kimera_pgmo/pcl_mesh_traits.h>
 #include <pcl/conversions.h>
@@ -42,12 +42,16 @@ KimeraPgmoMesh::Ptr toMsg(size_t robot_id,
 }
 
 pcl::PolygonMesh fromMsg(const KimeraPgmoMesh& msg,
-                         std::vector<Timestamp>& vertex_stamps,
-                         std::vector<int>& vertex_graph_indices) {
+                         std::vector<Timestamp>* vertex_stamps,
+                         std::vector<int>* vertex_graph_indices) {
   pcl::PolygonMesh mesh;
   pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
-  StampedCloud vertices{vertices_cloud, vertex_stamps};
-  fillFromMsg(msg, vertices, mesh.polygons, &vertex_graph_indices);
+  if (vertex_stamps) {
+    StampedCloud vertices{vertices_cloud, *vertex_stamps};
+    fillFromMsg(msg, vertices, mesh.polygons, vertex_graph_indices);
+  } else {
+    fillFromMsg(msg, vertices_cloud, mesh.polygons, vertex_graph_indices);
+  }
 
   pcl::toPCLPointCloud2(vertices_cloud, mesh.cloud);
   return mesh;

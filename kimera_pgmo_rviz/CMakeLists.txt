@@ -29,10 +29,10 @@ add_library(${PROJECT_NAME}
   src/mesh_display.cpp 
   src/mesh_visual.cpp
   src/tf_event_buffer.cpp
-  src/visbility_field.cpp
+  src/visibility_field.cpp
   src/visuals_map.cpp
   include/kimera_pgmo_rviz/mesh_display.h
-  include/kimera_pgmo_rviz/visbility_field.h
+  include/kimera_pgmo_rviz/visibility_field.h
 )
 target_include_directories(${PROJECT_NAME} PUBLIC include
                                                   ${catkin_INCLUDE_DIRS})

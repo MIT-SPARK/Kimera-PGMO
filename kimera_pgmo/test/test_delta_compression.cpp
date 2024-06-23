@@ -51,8 +51,6 @@ std::string facesToString(const std::vector<kimera_pgmo::Face>& faces) {
 
 namespace kimera_pgmo {
 
-using VoxbloxIndexMapping = DeltaCompression::VoxbloxIndexMapping;
-
 bool operator==(const Face& lhs, const Face& rhs) {
   std::set<size_t> lset{lhs.v1, lhs.v2, lhs.v3};
   std::set<size_t> rset{rhs.v1, rhs.v2, rhs.v3};
@@ -60,8 +58,6 @@ bool operator==(const Face& lhs, const Face& rhs) {
 }
 
 bool operator!=(const Face& lhs, const Face& rhs) { return !(lhs == rhs); }
-
-using voxblox::BlockIndex;
 
 std::vector<Face> remapFaces(const std::vector<Face>& faces,
                              const std::map<size_t, size_t>& remapping) {
@@ -79,10 +75,10 @@ struct ExpectedDelta {
   size_t face_start;
   size_t num_vertices;
   std::vector<Face> expected_triangles;
-  VoxbloxIndexMapping expected_remapping;
+  HashedIndexMapping expected_remapping;
 
   void checkOutput(const MeshDelta& output,
-                   const VoxbloxIndexMapping& output_remapping,
+                   const HashedIndexMapping& output_remapping,
                    std::map<size_t, size_t>& prev_remapping) const {
     EXPECT_EQ(output.vertex_updates->size(), output.stamp_updates.size())
         << "vertex and timestamp sizes disagree";
@@ -171,7 +167,7 @@ struct ExpectedDelta {
     }
   }
 
-  void checkRemapping(const VoxbloxIndexMapping& result,
+  void checkRemapping(const HashedIndexMapping& result,
                       const std::map<size_t, size_t>& result_map) const {
     for (const auto& block_map_pair : expected_remapping) {
       const auto& block = block_map_pair.first;
@@ -293,6 +289,7 @@ TEST(TestDeltaCompression, vertexInfoCorrect) {
 
 using namespace std::chrono_literals;
 using kimera_pgmo::CompressionTestConfiguration;
+using kimera_pgmo::HashedIndexMapping;
 
 struct DeltaCompressionTest
     : public testing::TestWithParam<CompressionTestConfiguration> {};
@@ -317,7 +314,7 @@ TEST_P(DeltaCompressionTest, CompressionCorrect) {
     auto mesh = kimera_pgmo::test::createMesh(input.blocks);
     ASSERT_TRUE(mesh);
 
-    kimera_pgmo::DeltaCompression::VoxbloxIndexMapping remapping;
+    HashedIndexMapping remapping;
     const auto output =
         compression.update(*mesh, input.timestamp_ns.count(), &remapping);
     ASSERT_TRUE(output != nullptr);
@@ -359,13 +356,13 @@ kimera_pgmo::test::BlockConfig block2_v2{
 // - 4: block1_empty clears duplicate vertices with block1_v1
 // - 5: block2_empty clears duplicate vertices with block2_v1
 // - 6: block2_test2 has only unique faces
-kimera_pgmo::DeltaCompression::VoxbloxIndexMapping t1_remappings[] = {
+HashedIndexMapping t1_remappings[] = {
     {{{0, 0, 0},
       {{0, 0}, {1, 1}, {2, 2}, {3, 0}, {4, 1}, {5, 2}, {6, 6}, {7, 7}, {8, 8}}}},
     {{{0, 0, 0}, {}}},
 };
 
-kimera_pgmo::DeltaCompression::VoxbloxIndexMapping t2_remappings[] = {
+HashedIndexMapping t2_remappings[] = {
     {{{0, 0, 0},
       {{0, 0}, {1, 1}, {2, 2}, {3, 0}, {4, 1}, {5, 2}, {6, 6}, {7, 7}, {8, 8}}}},
     {{{0, 0, 0}, {}}},
@@ -373,7 +370,7 @@ kimera_pgmo::DeltaCompression::VoxbloxIndexMapping t2_remappings[] = {
       {{0, 9}, {1, 10}, {2, 11}, {3, 9}, {4, 10}, {5, 11}, {6, 15}, {7, 16}, {8, 17}}}},
 };
 
-kimera_pgmo::DeltaCompression::VoxbloxIndexMapping t3_remappings[] = {
+HashedIndexMapping t3_remappings[] = {
     {{{0, 0, 0},
       {{0, 0}, {1, 1}, {2, 2}, {3, 0}, {4, 1}, {5, 2}, {6, 6}, {7, 7}, {8, 8}}},
      {{-1, 0, 0}, {{0, 9}, {1, 10}, {2, 11}, {3, 6}, {4, 7}, {5, 8}}}},
@@ -403,7 +400,7 @@ kimera_pgmo::DeltaCompression::VoxbloxIndexMapping t3_remappings[] = {
      {{-1, 0, 0}, {}}},
 };
 
-kimera_pgmo::DeltaCompression::VoxbloxIndexMapping t4_remappings[] = {
+HashedIndexMapping t4_remappings[] = {
     {{{0, 0, 0},
       {{0, 0}, {1, 1}, {2, 2}, {3, 0}, {4, 1}, {5, 2}, {6, 6}, {7, 7}, {8, 8}}}},
     {{{-1, 0, 0}, {{0, 9}, {1, 10}, {2, 11}, {3, 12}, {4, 13}, {5, 14}}}},
@@ -430,7 +427,7 @@ kimera_pgmo::DeltaCompression::VoxbloxIndexMapping t4_remappings[] = {
        {8, 32}}}},
 };
 
-kimera_pgmo::DeltaCompression::VoxbloxIndexMapping t5_remappings[] = {
+HashedIndexMapping t5_remappings[] = {
     {{{0, 0, 0},
       {{0, 0}, {1, 1}, {2, 2}, {3, 0}, {4, 1}, {5, 2}, {6, 6}, {7, 7}, {8, 8}}}},
     {{{-1, 0, 0}, {{0, 9}, {1, 10}, {2, 11}, {3, 12}, {4, 13}, {5, 14}}}},
@@ -451,7 +448,7 @@ kimera_pgmo::DeltaCompression::VoxbloxIndexMapping t5_remappings[] = {
     {{{0, 0, 0}, {}}, {{-1, 0, 0}, {}}},
 };
 
-kimera_pgmo::DeltaCompression::VoxbloxIndexMapping t6_remappings[] = {
+HashedIndexMapping t6_remappings[] = {
     {{{0, 0, 0}, {{0, 0}, {1, 1}, {2, 2}, {3, 3}, {4, 4}, {5, 5}}}},
     {{{-1, 0, 0}, {{0, 6}, {1, 7}, {2, 8}, {3, 9}, {4, 10}, {5, 11}}}},
     {{{0, 0, 0}, {}},
@@ -540,7 +537,6 @@ CompressionTestConfiguration test_configurations[] = {
        {4, 1, 2, {{15, 16, 5}}, t6_remappings[3]}}}},
 };
 
-// TODO(lschmid): BROKEN Reinstantiate once gtest deps is sorted out.
 INSTANTIATE_TEST_SUITE_P(TestDeltaCompression,
-                        DeltaCompressionTest,
-                        testing::ValuesIn(test_configurations));
+                         DeltaCompressionTest,
+                         testing::ValuesIn(test_configurations));

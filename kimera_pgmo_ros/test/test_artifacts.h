@@ -8,7 +8,7 @@
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/inference/Symbol.h>
 #include <kimera_pgmo/compression/octree_compression.h>
-#include <kimera_pgmo/utils/PclMeshInterface.h>
+#include <kimera_pgmo/utils/pcl_mesh_interface.h>
 #include <kimera_pgmo/utils/common_functions.h>
 #include <kimera_pgmo_msgs/KimeraPgmoMesh.h>
 #include <pcl/PolygonMesh.h>
@@ -17,7 +17,7 @@
 
 #include <string>
 
-#include "kimera_pgmo_ros/gtsam_conversions.h"
+#include "kimera_pgmo_ros/conversion/gtsam_conversions.h"
 
 namespace kimera_pgmo {
 pose_graph_tools_msgs::PoseGraph SingleOdomGraph(const ros::Time& stamp,
@@ -248,7 +248,7 @@ pose_graph_tools_msgs::PoseGraph processMeshToGraph(
   pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
   std::vector<pcl::Vertices> new_triangles;
   std::vector<size_t> graph_indices;
-  MeshCompression::VoxbloxIndexMapping index_remappings;
+  HashedIndexMapping index_remappings;
 
   const PclMeshInterface mesh_interface(mesh);
   compressor->compressAndIntegrate(mesh_interface,

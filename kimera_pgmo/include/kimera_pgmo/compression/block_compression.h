@@ -1,21 +1,25 @@
 /**
- * @file   voxblox_compression.h
- * @brief  Combine and simplify meshes based on Voxblox createConnectedMesh
+ * @file   block_compression.h
+ * @brief  Combine and simplify meshes based on voxel/mesh block hashing
  * @author Yun Chang
  */
 #pragma once
 
-#include <voxblox/core/block_hash.h>
+#include <spatial_hash/grid.h>
 
 #include "kimera_pgmo/compression/mesh_compression.h"
+#include "kimera_pgmo/hashing.h"
 
 namespace kimera_pgmo {
 
-class VoxbloxCompression : public MeshCompression {
+class BlockCompression : public MeshCompression {
  public:
-  VoxbloxCompression(double resolution);
+  using CellHash = spatial_hash::LongIndexHashMap<size_t>;
+  using Ptr = std::shared_ptr<BlockCompression>;
 
-  virtual ~VoxbloxCompression();
+  BlockCompression(double resolution);
+
+  virtual ~BlockCompression() = default;
 
   /*! \brief Reinitialize the cell hash map
    *  - active_vertices: xyz of the active vertices
@@ -43,11 +47,12 @@ class VoxbloxCompression : public MeshCompression {
   void updateTempStructure(PointCloudXYZ::Ptr vertices) override;
 
  protected:
-  // Grid hash from voxblox
-  voxblox::LongIndexHashMapType<size_t>::type cell_hash_;
-  voxblox::LongIndexHashMapType<size_t>::type temp_cell_hash_;
-};
+  // Block grid hash.
+  spatial_hash::Grid<LongIndex> grid_;
+  CellHash cell_hash_;
+  CellHash temp_cell_hash_;
 
-using VoxbloxCompressionPtr = std::shared_ptr<VoxbloxCompression>;
+  LongIndex toIndex(const pcl::PointXYZ& p) const;
+};
 
 }  // namespace kimera_pgmo

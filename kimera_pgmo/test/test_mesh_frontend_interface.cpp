@@ -6,36 +6,38 @@
  */
 #include <gtest/gtest.h>
 #include <gtsam/geometry/Pose3.h>
-#include <voxblox/mesh/mesh_layer.h>
 
 #include "kimera_pgmo/mesh_frontend_interface.h"
-#include "kimera_pgmo/utils/voxblox_mesh_interface.h"
 #include "pgmo_fixtures.h"
 
 namespace kimera_pgmo {
 
-using test::OrderedVoxbloxMeshInterface;
+using test::OrderedBlockMeshInterface;
 
 namespace {
 
-void CreateMeshBlock(voxblox::MeshLayer& mesh,
+void CreateMeshBlock(test::MeshLayer& mesh,
                      const BlockIndex& index,
                      const std::vector<float>& x_coords,
                      const std::vector<float>& y_coords,
                      const std::vector<float>& z_coords) {
-  const auto block = mesh.allocateMeshPtrByIndex(index);
-
-  const voxblox::Color color(123, 22, 250);
+  auto& block = mesh.allocateBlock(index);
   for (size_t i = 0; i < x_coords.size(); i++) {
-    voxblox::Point p(x_coords[i], y_coords[i], z_coords[i]);
-    block->vertices.push_back(p);
-    block->colors.push_back(color);
+    pcl::PointXYZRGBA point;
+    point.x = x_coords[i];
+    point.y = y_coords[i];
+    point.z = z_coords[i];
+    point.r = 123;
+    point.g = 22;
+    point.b = 250;
+    point.a = 255;
+    block.vertices.push_back(point);
   }
 }
 
 // time = 10.0
-OrderedVoxbloxMeshInterface CreateSimpleMesh1() {
-  const auto mesh = std::make_shared<voxblox::MeshLayer>(1.6);
+OrderedBlockMeshInterface CreateSimpleMesh1() {
+  const auto mesh = std::make_shared<test::MeshLayer>(1.6);
 
   // single mesh block
   std::vector<float> x_coords = {0, 1, 0, 1, 1, 0};
@@ -43,13 +45,13 @@ OrderedVoxbloxMeshInterface CreateSimpleMesh1() {
   std::vector<float> z_coords = {0, 0, 0, 0, 0, 0};
   CreateMeshBlock(*mesh, BlockIndex(0, 0, 0), x_coords, y_coords, z_coords);
 
-  OrderedVoxbloxMeshInterface interface(mesh, {{0, 0, 0}});
+  OrderedBlockMeshInterface interface(mesh, {{0, 0, 0}});
   return interface;
 }
 
 // time = 10.5
-OrderedVoxbloxMeshInterface CreateSimpleMesh2() {
-  const auto mesh = std::make_shared<voxblox::MeshLayer>(1.6);
+OrderedBlockMeshInterface CreateSimpleMesh2() {
+  const auto mesh = std::make_shared<test::MeshLayer>(1.6);
 
   std::vector<float> x_coords = {0, 1, 0, 1, 1, 0};
   std::vector<float> y_coords = {0, 0, 1, 0, 1, 1};
@@ -70,8 +72,8 @@ OrderedVoxbloxMeshInterface CreateSimpleMesh2() {
 }
 
 // time = 11.6
-test::OrderedVoxbloxMeshInterface CreateSimpleMesh3() {
-  const auto mesh = std::make_shared<voxblox::MeshLayer>(1.6);
+test::OrderedBlockMeshInterface CreateSimpleMesh3() {
+  const auto mesh = std::make_shared<test::MeshLayer>(1.6);
 
   std::vector<float> x_coords = {0, 1, 0, 1, 1, 0};
   std::vector<float> y_coords = {0, 0, 1, 0, 1, 1};
@@ -87,8 +89,8 @@ test::OrderedVoxbloxMeshInterface CreateSimpleMesh3() {
 }
 
 // time = 10.5
-OrderedVoxbloxMeshInterface CreateSimpleMesh4() {
-  const auto mesh = std::make_shared<voxblox::MeshLayer>(1.6);
+OrderedBlockMeshInterface CreateSimpleMesh4() {
+  const auto mesh = std::make_shared<test::MeshLayer>(1.6);
 
   std::vector<float> x_coords = {3.5, 4.5, 3.5, 4.5, 4.5, 3.5};
   std::vector<float> y_coords = {3.5, 3.5, 4.5, 3.5, 4.5, 4.5};
@@ -104,8 +106,8 @@ OrderedVoxbloxMeshInterface CreateSimpleMesh4() {
 }
 
 // time = 10.5
-OrderedVoxbloxMeshInterface CreateSimpleMesh5() {
-  const auto mesh = std::make_shared<voxblox::MeshLayer>(1.6);
+OrderedBlockMeshInterface CreateSimpleMesh5() {
+  const auto mesh = std::make_shared<test::MeshLayer>(1.6);
 
   std::vector<float> x_coords = {1.7, 3.1, 3.1, 1.7, 1.7, 3.1};
   std::vector<float> y_coords = {0.0, 0.0, 1.5, 0.0, 1.5, 1.5};
@@ -132,7 +134,7 @@ class MeshFrontendTest : public ::testing::Test {
     MeshPair full;
     MeshPair graph;
     pose_graph_tools::PoseGraph deformation_graph;
-    MeshCompression::VoxbloxIndexMapping mapping;
+    HashedIndexMapping mapping;
 
     MeshResult() : valid(false) {
       full = MeshPair(Vertices::Ptr(new Vertices()), Faces());
@@ -145,8 +147,8 @@ class MeshFrontendTest : public ::testing::Test {
   MeshFrontendTest() {
     config.robot_id = 0;
     config.time_horizon = 1.0;
-    config.full_compression_method = 0;
-    config.graph_compression_method = 0;
+    config.full_compression_method = MeshFrontendInterface::FullCompressionMethod::OCTREE;
+    config.graph_compression_method = MeshFrontendInterface::GraphCompressionMethod::OCTREE;
     config.d_graph_resolution = 0.5;
     config.mesh_resolution = 0.05;
   }
@@ -155,7 +157,7 @@ class MeshFrontendTest : public ::testing::Test {
 
   void init() { frontend = std::make_shared<MeshFrontendInterface>(config); }
 
-  MeshResult update(const OrderedVoxbloxMeshInterface& mesh, double time_in_sec) {
+  MeshResult update(const OrderedBlockMeshInterface& mesh, double time_in_sec) {
     if (!frontend) {
       return {};
     }
@@ -169,7 +171,7 @@ class MeshFrontendTest : public ::testing::Test {
     *result.graph.first = *frontend->graph_vertices_;
     result.graph.second = *frontend->graph_triangles_;
     result.deformation_graph = *frontend->last_mesh_graph_;
-    result.mapping = *frontend->vxblx_msg_to_graph_idx_;
+    result.mapping = *frontend->msg_to_graph_idx_;
     return result;
   }
 

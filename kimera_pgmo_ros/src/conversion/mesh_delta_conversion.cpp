@@ -5,11 +5,11 @@
  * @author Yun Chang
  */
 
-#include "kimera_pgmo_ros/mesh_delta_conversion.h"
+#include "kimera_pgmo_ros/conversion/mesh_delta_conversion.h"
 
 #include <numeric>
 
-namespace kimera_pgmo {
+namespace kimera_pgmo::conversions {
 
 using kimera_pgmo_msgs::KimeraPgmoMeshDelta;
 
@@ -122,4 +122,4 @@ KimeraPgmoMeshDelta::ConstPtr toRosMsg(const MeshDelta& delta, uint64_t timestam
   return msg;
 }
 
-}  // namespace kimera_pgmo
+}  // namespace kimera_pgmo::conversions

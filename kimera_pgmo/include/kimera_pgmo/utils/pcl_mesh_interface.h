@@ -1,6 +1,6 @@
 /**
- * @file   voxblox_mesh_interface.h
- * @brief  Interface wrapper around voxblox mesh
+ * @file   pcl_mesh_interface.h
+ * @brief  Interface wrapper around pcl mesh
  * @author Yun Chang
  * @author Nathan Hughes
  */

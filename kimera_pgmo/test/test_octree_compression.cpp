@@ -10,7 +10,7 @@
 #include <pcl/conversions.h>
 
 #include "kimera_pgmo/compression/octree_compression.h"
-#include "kimera_pgmo/utils/PclMeshInterface.h"
+#include "kimera_pgmo/utils/pcl_mesh_interface.h"
 #include "pgmo_fixtures.h"
 
 namespace kimera_pgmo {
@@ -57,7 +57,7 @@ TEST(TestOctreeCompression, returnedValues) {
   pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
   std::vector<pcl::Vertices> new_triangles;
   std::vector<size_t> new_indices;
-  MeshCompression::VoxbloxIndexMapping index_remappings;
+  HashedIndexMapping index_remappings;
 
   auto mesh = test::createSimpleMeshInterface(1.0);
   compression.compressAndIntegrate(
@@ -106,7 +106,7 @@ TEST(TestOctreeCompression, storedValues) {
   pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
   std::vector<pcl::Vertices> new_triangles;
   std::vector<size_t> new_indices;
-  MeshCompression::VoxbloxIndexMapping index_remappings;
+  HashedIndexMapping index_remappings;
 
   auto mesh = test::createSimpleMeshInterface(1.0);
   compression.compressAndIntegrate(
@@ -178,7 +178,7 @@ TEST(TestOctreeCompression, pruneStoredMesh) {
   pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
   std::vector<pcl::Vertices> new_triangles;
   std::vector<size_t> new_indices;
-  MeshCompression::VoxbloxIndexMapping index_remappings;
+  HashedIndexMapping index_remappings;
 
   auto mesh = test::createSimpleMeshInterface(1.0);
   compression.compressAndIntegrate(
@@ -279,7 +279,7 @@ TEST(TestOctreeCompression, returnedValuesCompressed) {
   pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
   std::vector<pcl::Vertices> new_triangles;
   std::vector<size_t> new_indices;
-  MeshCompression::VoxbloxIndexMapping index_remappings;
+  HashedIndexMapping index_remappings;
 
   auto mesh = test::createSimpleMeshInterface(1.0);
   compression.compressAndIntegrate(
@@ -318,7 +318,7 @@ TEST(TestOctreeCompression, storedValuesCompressed) {
   pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
   std::vector<pcl::Vertices> new_triangles;
   std::vector<size_t> new_indices;
-  MeshCompression::VoxbloxIndexMapping index_remappings;
+  HashedIndexMapping index_remappings;
 
   auto mesh = test::createSimpleMeshInterface(1.0);
   compression.compressAndIntegrate(

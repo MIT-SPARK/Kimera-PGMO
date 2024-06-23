@@ -8,7 +8,7 @@
 
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
-#include <voxblox/core/block_hash.h>
+#include <spatial_hash/hash.h>
 
 #include <Eigen/Dense>
 #include <map>
@@ -26,7 +26,6 @@ class MeshCompression {
  public:
   using PointCloud = pcl::PointCloud<pcl::PointXYZRGBA>;
   using PointCloudXYZ = pcl::PointCloud<pcl::PointXYZ>;
-  using VoxbloxIndexMapping = voxblox::AnyIndexHashMapType<IndexMapping>::type;
 
   MeshCompression(double resolution) : resolution_(resolution) {}
 
@@ -87,7 +86,7 @@ class MeshCompression {
                                     PointCloud& new_vertices,
                                     std::vector<pcl::Vertices>& new_triangles,
                                     std::vector<size_t>& new_indices,
-                                    VoxbloxIndexMapping& remapping,
+                                    HashedIndexMapping& remapping,
                                     double stamp_in_sec);
 
   /*! \brief Discard parts of the stored compressed full mesh by detection time
@@ -128,7 +127,7 @@ class MeshCompression {
 
   /*! \brief Archive blocks outside active window
    */
-  virtual void clearArchivedBlocks(const voxblox::BlockIndexList& blocks) {}
+  virtual void clearArchivedBlocks(const spatial_hash::BlockIndices& blocks) {}
 
  protected:
   double resolution_;

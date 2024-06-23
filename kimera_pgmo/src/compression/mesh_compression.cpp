@@ -13,7 +13,6 @@
 
 #include "kimera_pgmo/utils/common_functions.h"
 #include "kimera_pgmo/utils/logging.h"
-#include "kimera_pgmo/utils/voxblox_utils.h"
 
 namespace kimera_pgmo {
 
@@ -218,7 +217,7 @@ void MeshCompression::compressAndIntegrate(const MeshInterface& mesh,
                                            PointCloud& new_vertices,
                                            std::vector<pcl::Vertices>& new_triangles,
                                            std::vector<size_t>& new_indices,
-                                           VoxbloxIndexMapping& remapping,
+                                           HashedIndexMapping& remapping,
                                            double stamp_in_sec) {
   new_vertices.clear();
   new_triangles.clear();
@@ -243,7 +242,7 @@ void MeshCompression::compressAndIntegrate(const MeshInterface& mesh,
 
   size_t count = 0;
   // For book keeping track count to mesh block and index
-  std::unordered_map<size_t, std::pair<voxblox::AnyIndex, size_t>> count_to_block;
+  std::unordered_map<size_t, std::pair<BlockIndex, size_t>> count_to_block;
   PointCloud all_parsed_points;
 
   // Vertices that end up on each other after compression

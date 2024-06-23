@@ -6,18 +6,46 @@
  * @author Nathan Hughes
  */
 
-#include <voxblox/mesh/mesh_layer.h>
+#include <spatial_hash/block_layer.h>
 
-#include "kimera_pgmo/utils/PclMeshInterface.h"
-#include "kimera_pgmo/utils/voxblox_mesh_interface.h"
+#include "kimera_pgmo/hashing.h"
+#include "kimera_pgmo/utils/pcl_mesh_interface.h"
 
 namespace kimera_pgmo::test {
 
-class OrderedVoxbloxMeshInterface : public VoxbloxMeshInterface {
+struct MeshBlock : spatial_hash::Block {
+  MeshBlock(const float block_size, const BlockIndex &index);
+  std::vector<pcl::PointXYZRGBA> vertices;
+};
+
+using MeshLayer = spatial_hash::BlockLayer<MeshBlock>;
+
+/**
+ * @brief Interface for testing meshes.
+ * TODO(lschmid): This simply hallucinates a block-grid-mesh. Clean up in the future
+ * potentially for more general utests.
+ */
+class OrderedBlockMeshInterface : public MeshInterface {
  public:
-  OrderedVoxbloxMeshInterface(const voxblox::MeshLayer::Ptr &mesh,
-                              const voxblox::BlockIndexList &blocks);
-  virtual ~OrderedVoxbloxMeshInterface() = default;
+
+  OrderedBlockMeshInterface(const std::shared_ptr<MeshLayer> &mesh,
+                            const BlockIndices &blocks);
+  virtual ~OrderedBlockMeshInterface() = default;
+
+  const BlockIndices &blockIndices() const override;
+
+  void markBlockActive(const BlockIndex &block) const override;
+
+  size_t activeBlockSize() const override;
+
+  pcl::PointXYZRGBA getActiveVertex(size_t i) const override;
+    
+    std::shared_ptr<MeshInterface> clone() const override;
+
+ protected:
+  BlockIndices mesh_blocks_;
+  std::shared_ptr<MeshLayer> mesh_;
+  mutable std::shared_ptr<MeshBlock> active_block_;
 };
 
 struct BlockConfig {
@@ -28,7 +56,7 @@ struct BlockConfig {
   std::vector<FaceCoordinates> faces;
   static uint8_t point_index;
 
-  void addBlock(voxblox::MeshLayer &layer) const;
+  void addBlock(MeshLayer &layer) const;
 
   static void resetIndex();
 };

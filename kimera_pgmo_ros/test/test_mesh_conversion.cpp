@@ -12,7 +12,7 @@
 
 #include <filesystem>
 
-#include "kimera_pgmo_ros/mesh_conversion.h"
+#include "kimera_pgmo_ros/conversion/mesh_conversion.h"
 
 namespace kimera_pgmo {
 

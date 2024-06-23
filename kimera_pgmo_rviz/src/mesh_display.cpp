@@ -10,7 +10,7 @@
 
 #include "kimera_pgmo_rviz/mesh_visual.h"
 #include "kimera_pgmo_rviz/tf_event_buffer.h"
-#include "kimera_pgmo_rviz/visbility_field.h"
+#include "kimera_pgmo_rviz/visibility_field.h"
 
 namespace kimera_pgmo {
 
@@ -96,10 +96,7 @@ void MeshDisplay::processMessage(const KimeraPgmoMesh::ConstPtr& msg) {
   if (!msg) {
     return;
   }
-
-  // Parse namespace and id into a single namespace for now.
-  const std::string ns =
-      std::to_string(msg->id) + (msg->ns.empty() ? "" : kNsSeparator + msg->ns);
+  const std::string& ns = msg->ns;
 
   if (msg->vertices.empty()) {
     deleteVisual(ns);

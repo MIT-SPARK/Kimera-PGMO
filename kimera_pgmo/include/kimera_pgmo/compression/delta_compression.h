@@ -5,8 +5,7 @@
  * @author Nathan Hughes
  */
 #pragma once
-#include <voxblox/core/block_hash.h>
-
+#include "kimera_pgmo/hashing.h"
 #include "kimera_pgmo/mesh_delta.h"
 #include "kimera_pgmo/utils/common_structs.h"
 #include "kimera_pgmo/utils/mesh_interface.h"
@@ -34,17 +33,15 @@ struct VertexInfo {
 };
 
 struct BlockInfo {
-  voxblox::LongIndexSet vertices;
+  spatial_hash::LongIndexSet vertices;
   uint64_t update_time;
   std::vector<size_t> indices;
 };
 
 class DeltaCompression {
  public:
-  // TODO(nathan) unify with mesh compression
-  using VoxbloxIndexMapping = voxblox::AnyIndexHashMapType<IndexMapping>::type;
-  using VoxelInfoMap = voxblox::LongIndexHashMapType<VertexInfo>::type;
-  using BlockInfoMap = voxblox::AnyIndexHashMapType<BlockInfo>::type;
+  using VoxelInfoMap = LongIndexMap<VertexInfo>;
+  using BlockInfoMap = BlockIndexMap<BlockInfo>;
   using Ptr = std::shared_ptr<DeltaCompression>;
 
   explicit DeltaCompression(double resolution);
@@ -53,29 +50,29 @@ class DeltaCompression {
 
   MeshDelta::Ptr update(MeshInterface& mesh,
                         uint64_t timestamp_ns,
-                        VoxbloxIndexMapping* remapping = nullptr);
+                        HashedIndexMapping* remapping = nullptr);
 
   void pruneStoredMesh(uint64_t earliest_time_ns);
 
-  void clearArchivedBlocks(const voxblox::BlockIndexList& mesh);
+  void clearArchivedBlocks(const spatial_hash::BlockIndices& mesh);
 
  protected:
   void addPoint(const pcl::PointXYZRGBA& point,
                 std::optional<uint32_t> semantic_label,
                 uint64_t timestamp_ns,
                 std::vector<size_t>& face_map,
-                voxblox::LongIndexSet& curr_voxels);
+                spatial_hash::LongIndexSet& curr_voxels);
 
-  void removeBlockObservations(const voxblox::BlockIndex& block_index,
-                               const voxblox::LongIndexSet& to_remove);
+  void removeBlockObservations(const spatial_hash::BlockIndex& block_index,
+                               const spatial_hash::LongIndexSet& to_remove);
 
-  void addActive(uint64_t stamp_ns, VoxbloxIndexMapping* remapping);
+  void addActive(uint64_t stamp_ns, HashedIndexMapping* remapping);
 
-  void addActiveFaces(uint64_t timestamp_ns, VoxbloxIndexMapping* remapping);
+  void addActiveFaces(uint64_t timestamp_ns, HashedIndexMapping* remapping);
 
   void addActiveVertices(uint64_t timestamp_ns);
 
-  void pruneMeshBlocks(const voxblox::BlockIndexList& to_clear);
+  void pruneMeshBlocks(const spatial_hash::BlockIndices& to_clear);
 
   void updateAndAddArchivedFaces();
 

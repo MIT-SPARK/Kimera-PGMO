@@ -7,7 +7,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_compile_options(-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter)
 
-option(KIMERA_PGMO_ENABLE_TESTS "Build unit tets" OFF)
+option(KIMERA_PGMO_ENABLE_TESTS "Build unit tets" ON)
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
 find_package(config_utilities REQUIRED)
@@ -16,7 +16,7 @@ find_package(GTSAM REQUIRED)
 find_package(KimeraRPGO REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common geometry kdtree octree)
 find_package(pose_graph_tools REQUIRED)
-find_package(voxblox REQUIRED)
+find_package(spatial_hash REQUIRED)
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
@@ -27,13 +27,12 @@ add_library(
   src/compression/delta_compression.cpp
   src/compression/octree_compression.cpp
   src/compression/voxel_clearing_compression.cpp
-  src/compression/voxblox_compression.cpp
+  src/compression/block_compression.cpp
   src/utils/common_functions.cpp
   src/utils/common_structs.cpp
   src/utils/logging.cpp
   src/utils/mesh_io.cpp
   src/utils/range_generator.cpp
-  src/utils/voxblox_mesh_interface.cpp
   src/deformation_graph.cpp
   src/deformation_graph_io.cpp
   src/mesh_deformation.cpp
@@ -46,11 +45,11 @@ target_include_directories(
   ${PROJECT_NAME}
   PUBLIC $<INSTALL_INTERFACE:include>
          $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-         ${PCL_INCLUDE_DIRS} ${voxblox_INCLUDE_DIRS})
+         ${PCL_INCLUDE_DIRS})
 target_link_libraries(
   ${PROJECT_NAME}
-  PUBLIC ${PCL_LIBRARIES} ${voxblox_LIBRARIES} Eigen3::Eigen KimeraRPGO gtsam
-         pose_graph_tools::pose_graph_tools
+  PUBLIC ${PCL_LIBRARIES} Eigen3::Eigen KimeraRPGO gtsam
+         pose_graph_tools::pose_graph_tools spatial_hash::spatial_hash
   PRIVATE "$<BUILD_INTERFACE:config_utilities::config_utilities>")
 set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
 add_library(kimera_pgmo::${PROJECT_NAME} ALIAS ${PROJECT_NAME})

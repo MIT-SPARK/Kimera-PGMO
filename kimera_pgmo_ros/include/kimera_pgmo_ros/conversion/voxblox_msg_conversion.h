@@ -5,6 +5,7 @@
  * @author Nathan Hughes
  */
 
+// TODO(lschmid): These are not used anywhere but potentially don't hurt to carry around?
 #pragma once
 
 #include <pcl/PolygonMesh.h>
@@ -14,7 +15,7 @@
 
 #include <string>
 
-namespace kimera_pgmo {
+namespace kimera_pgmo::conversions {
 
 /*! \brief Extract point in pcl format from voxblox mesh block
  *  - mesh_block: voxblox mesh block to update mesh with
@@ -77,4 +78,4 @@ void VoxbloxMeshBlockToPolygonMesh(
  */
 pcl::PolygonMesh VoxbloxToPolygonMesh(const voxblox_msgs::Mesh::ConstPtr& voxblox_mesh);
 
-}  // namespace kimera_pgmo
+}  // namespace kimera_pgmo::conversions

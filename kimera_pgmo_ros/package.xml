@@ -9,7 +9,6 @@
   <license>BSD</license>
 
   <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>message_generation</build_depend>
 
   <depend>config_utilities</depend>
   <depend>kimera_pgmo</depend>
@@ -20,12 +19,11 @@
   <depend>roscpp</depend>
   <depend>tf2_ros</depend>
   <depend>visualization_msgs</depend>
-  <depend>voxblox</depend>
-  <depend>voxblox_msgs</depend>
 
   <test_depend>rosunit</test_depend>
   <test_depend>roslib</test_depend>
   <test_depend>rostest</test_depend>
 
   <exec_depend>kimera_pgmo_rviz</exec_depend>
+  <exec_depend>voxblox_msgs</exec_depend>
 </package>

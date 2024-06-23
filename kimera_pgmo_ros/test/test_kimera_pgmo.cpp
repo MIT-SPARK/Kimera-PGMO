@@ -16,7 +16,7 @@
 #include <ros/ros.h>
 
 #include "kimera_pgmo_ros/kimera_pgmo.h"
-#include "kimera_pgmo_ros/mesh_conversion.h"
+#include "kimera_pgmo_ros/conversion/mesh_conversion.h"
 #include "test_artifacts.h"
 
 namespace kimera_pgmo {

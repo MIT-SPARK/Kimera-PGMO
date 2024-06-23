@@ -7,16 +7,17 @@
 #pragma once
 
 #include "kimera_pgmo/compression/mesh_compression.h"
+#include "kimera_pgmo/hashing.h"
 
 namespace kimera_pgmo {
 
 class VoxelClearingCompression : public MeshCompression {
  public:
-  using VoxelToMeshIndex = voxblox::LongIndexHashMapType<size_t>::type;
-  using BlockMap = voxblox::AnyIndexHashMapType<voxblox::LongIndexSet>::type;
-  using BlockTimeMap = voxblox::AnyIndexHashMapType<double>::type;
-  using BlockSizeMap = voxblox::AnyIndexHashMapType<size_t>::type;
-  using BlockFaceMap = voxblox::AnyIndexHashMapType<std::vector<size_t>>::type;
+  using VoxelToMeshIndex = spatial_hash::LongIndexHashMap<size_t>;
+  using BlockMap = BlockIndexMap<LongIndexSet>;
+  using BlockTimeMap = BlockIndexMap<double>;
+  using BlockSizeMap = BlockIndexMap<size_t>;
+  using BlockFaceMap = BlockIndexMap<std::vector<size_t>>;
 
   explicit VoxelClearingCompression(double resolution);
 
@@ -33,7 +34,7 @@ class VoxelClearingCompression : public MeshCompression {
                                     PointCloud& new_vertices,
                                     std::vector<pcl::Vertices>& new_triangles,
                                     std::vector<size_t>& new_indices,
-                                    VoxbloxIndexMapping& remapping,
+                                    HashedIndexMapping& remapping,
                                     double stamp_in_sec) override;
 
   void pruneStoredMesh(double earliest_time_sec) override;
@@ -74,7 +75,7 @@ class VoxelClearingCompression : public MeshCompression {
 
   void updateRemapping(const MeshInterface& mesh,
                        double stamp_in_sec,
-                       VoxbloxIndexMapping& remapping);
+                       HashedIndexMapping& remapping);
 
   void updateVertices();
 

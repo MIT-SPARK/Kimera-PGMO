@@ -15,8 +15,8 @@
 #include <pose_graph_tools_ros/conversions.h>
 #include <visualization_msgs/Marker.h>
 
-#include "kimera_pgmo_ros/gtsam_conversions.h"
-#include "kimera_pgmo_ros/mesh_conversion.h"
+#include "kimera_pgmo_ros/conversion/gtsam_conversions.h"
+#include "kimera_pgmo_ros/conversion/mesh_conversion.h"
 #include "kimera_pgmo_ros/visualization_functions.h"
 
 namespace kimera_pgmo {
@@ -265,7 +265,7 @@ void KimeraPgmo::optimizedPathCallback(const nav_msgs::Path& msg) {
 
   Path path;
   for (const auto& stamped_pose : msg.poses) {
-    path.push_back(RosToGtsam(stamped_pose.pose));
+    path.push_back(conversions::RosToGtsam(stamped_pose.pose));
   }
 
   {  // start interface critical section
@@ -290,7 +290,7 @@ void KimeraPgmo::fullMeshCallback(const kimera_pgmo_msgs::KimeraPgmoMesh& msg) {
   auto start = std::chrono::high_resolution_clock::now();
 
   std::vector<int> graph_indices;
-  auto mesh = conversions::fromMsg(msg, mesh_vertex_stamps_, graph_indices);
+  auto mesh = conversions::fromMsg(msg, &mesh_vertex_stamps_, &graph_indices);
 
   bool opt_mesh;
   {  // start interface critical section
@@ -363,7 +363,7 @@ void KimeraPgmo::dpgmoCallback(const pose_graph_tools_msgs::PoseGraph& msg) {
       }
 
       gtsam::Symbol key = gtsam::Symbol(prefix, index);
-      gtsam::Pose3 pose = RosToGtsam(node.pose);
+      gtsam::Pose3 pose = conversions::RosToGtsam(node.pose);
       insertDpgmoValues(key, pose);
     }
 

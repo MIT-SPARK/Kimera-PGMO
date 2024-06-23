@@ -1,19 +1,18 @@
 /**
- * @file   voxblox_mesh_interface.h
- * @brief  Interface wrapper around voxblox mesh
+ * @file   mesh_interface.h
+ * @brief  Interface wrapper around meshes
  * @author Yun Chang
  * @author Nathan Hughes
  */
 #pragma once
+
 #include <pcl/point_types.h>
 
 #include <optional>
 
-namespace kimera_pgmo {
+#include "kimera_pgmo/hashing.h"
 
-using BlockIndex = Eigen::Vector3i;
-using BlockIndices =
-    std::vector<Eigen::Vector3i, Eigen::aligned_allocator<Eigen::Vector3i>>;
+namespace kimera_pgmo {
 
 struct MeshInterface {
   using Ptr = std::shared_ptr<MeshInterface>;

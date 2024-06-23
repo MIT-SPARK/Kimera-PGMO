@@ -7,7 +7,7 @@ find_dependency(Eigen3 REQUIRED)
 find_dependency(GTSAM REQUIRED)
 find_dependency(KimeraRPGO REQUIRED)
 find_dependency(pose_graph_tools REQUIRED)
-find_dependency(voxblox REQUIRED)
+find_dependency(spatial_hash REQUIRED)
 find_dependency(PCL REQUIRED COMPATIBILITY common geometry kdtree octree)
 
 if(NOT TARGET kimera_pgmo::kimera_pgmo)

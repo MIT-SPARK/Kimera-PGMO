@@ -1,6 +1,6 @@
 /**
- * @file   test_voxblox_compression.cpp
- * @brief  Unit-tests for mesh compression using voxblox-based hashing
+ * @file   test_block_compression.cpp
+ * @brief  Unit-tests for mesh compression using voxel-block-based hashing
  * @author Yun Chang
  */
 
@@ -9,14 +9,14 @@
 #include <pcl/conversions.h>
 
 #include "gtest/gtest.h"
-#include "kimera_pgmo/compression/voxblox_compression.h"
-#include "kimera_pgmo/utils/PclMeshInterface.h"
+#include "kimera_pgmo/compression/block_compression.h"
+#include "kimera_pgmo/utils/pcl_mesh_interface.h"
 #include "pgmo_fixtures.h"
 
 namespace kimera_pgmo {
 
-TEST(TestVoxbloxCompression, constructor) {
-  VoxbloxCompression compression(1.0);
+TEST(TestBlockCompression, constructor) {
+  BlockCompression compression(1.0);
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertices(
       new pcl::PointCloud<pcl::PointXYZRGBA>);
@@ -37,13 +37,13 @@ TEST(TestVoxbloxCompression, constructor) {
   EXPECT_EQ(0u, vertex_timestamps->size());
 }
 
-TEST(TestVoxbloxCompression, returnedValues) {
-  VoxbloxCompression compression(0.1);
+TEST(TestBlockCompression, returnedValues) {
+  BlockCompression compression(0.1);
 
   pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
   std::vector<pcl::Vertices> new_triangles;
   std::vector<size_t> new_indices;
-  MeshCompression::VoxbloxIndexMapping index_remappings;
+  HashedIndexMapping index_remappings;
 
   auto mesh = test::createSimpleMeshInterface(1.0);
   compression.compressAndIntegrate(
@@ -86,13 +86,13 @@ TEST(TestVoxbloxCompression, returnedValues) {
   EXPECT_EQ(6, new_triangles.at(3).vertices[2]);
 }
 
-TEST(TestVoxbloxCompression, storedValues) {
-  VoxbloxCompression compression(0.1);
+TEST(TestBlockCompression, storedValues) {
+  BlockCompression compression(0.1);
 
   pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
   std::vector<pcl::Vertices> new_triangles;
   std::vector<size_t> new_indices;
-  MeshCompression::VoxbloxIndexMapping index_remappings;
+  HashedIndexMapping index_remappings;
 
   auto mesh = test::createSimpleMeshInterface(1.0);
   compression.compressAndIntegrate(
@@ -158,13 +158,13 @@ TEST(TestVoxbloxCompression, storedValues) {
   EXPECT_EQ(101.0, vertex_timestamps->at(8));
 }
 
-TEST(TestVoxbloxCompression, pruneStoredMesh) {
-  VoxbloxCompression compression(0.1);
+TEST(TestBlockCompression, pruneStoredMesh) {
+  BlockCompression compression(0.1);
 
   pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
   std::vector<pcl::Vertices> new_triangles;
   std::vector<size_t> new_indices;
-  MeshCompression::VoxbloxIndexMapping index_remappings;
+  HashedIndexMapping index_remappings;
 
   auto mesh = test::createSimpleMeshInterface(1.0);
   compression.compressAndIntegrate(
@@ -259,13 +259,13 @@ TEST(TestVoxbloxCompression, pruneStoredMesh) {
   EXPECT_EQ(10, new_triangles.at(3).vertices[2]);
 }
 
-TEST(TestVoxbloxCompression, returnedValuesCompressed) {
-  VoxbloxCompression compression(10.0);
+TEST(TestBlockCompression, returnedValuesCompressed) {
+  BlockCompression compression(10.0);
 
   pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
   std::vector<pcl::Vertices> new_triangles;
   std::vector<size_t> new_indices;
-  MeshCompression::VoxbloxIndexMapping index_remappings;
+  HashedIndexMapping index_remappings;
 
   auto mesh = test::createSimpleMeshInterface(1.0);
   compression.compressAndIntegrate(
@@ -298,13 +298,13 @@ TEST(TestVoxbloxCompression, returnedValuesCompressed) {
   EXPECT_EQ(expected_indices, new_indices);
 }
 
-TEST(TestVoxbloxCompression, storedValuesCompressed) {
-  VoxbloxCompression compression(10.0);
+TEST(TestBlockCompression, storedValuesCompressed) {
+  BlockCompression compression(10.0);
 
   pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
   std::vector<pcl::Vertices> new_triangles;
   std::vector<size_t> new_indices;
-  MeshCompression::VoxbloxIndexMapping index_remappings;
+  HashedIndexMapping index_remappings;
 
   auto mesh = test::createSimpleMeshInterface(1.0);
   compression.compressAndIntegrate(

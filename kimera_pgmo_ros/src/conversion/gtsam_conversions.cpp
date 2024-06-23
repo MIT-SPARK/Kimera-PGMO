@@ -3,7 +3,7 @@
  * @brief  Conversion to and from ROS types
  * @author Yun Chang
  */
-#include "kimera_pgmo_ros/gtsam_conversions.h"
+#include "kimera_pgmo_ros/conversion/gtsam_conversions.h"
 
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/slam/BetweenFactor.h>
@@ -12,7 +12,7 @@
 #include <pose_graph_tools_msgs/PoseGraphNode.h>
 #include <ros/console.h>
 
-namespace kimera_pgmo {
+namespace kimera_pgmo::conversions {
 
 gtsam::Pose3 RosToGtsam(const geometry_msgs::Pose& transform) {
   gtsam::Pose3 pose;
@@ -159,4 +159,4 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
   return posegraph;
 }
 
-}  // namespace kimera_pgmo
+}  // namespace kimera_pgmo::conversions

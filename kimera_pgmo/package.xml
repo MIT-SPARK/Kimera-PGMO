@@ -14,7 +14,7 @@
   <depend>gtsam</depend>
   <depend>kimera_rpgo</depend>
   <depend>pose_graph_tools</depend>
-  <depend>voxblox</depend>
+  <depend>spatial_hash</depend>
 
   <export>
       <build_type>cmake</build_type>

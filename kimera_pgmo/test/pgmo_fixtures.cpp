@@ -11,33 +11,68 @@ namespace kimera_pgmo::test {
 
 uint8_t BlockConfig::point_index = 0;
 
-OrderedVoxbloxMeshInterface::OrderedVoxbloxMeshInterface(
-    const voxblox::MeshLayer::Ptr &mesh,
-    const voxblox::BlockIndexList &blocks)
-    : VoxbloxMeshInterface(mesh) {
+MeshBlock::MeshBlock(const float block_size, const BlockIndex &index)
+    : Block(block_size, index) {}
+
+OrderedBlockMeshInterface::OrderedBlockMeshInterface(
+    const std::shared_ptr<MeshLayer> &mesh,
+    const BlockIndices &blocks) {
   mesh_blocks_ = blocks;
+  mesh_ = mesh;
 }
 
-inline void addPointToBlock(voxblox::Mesh &block,
+const BlockIndices &OrderedBlockMeshInterface::blockIndices() const {
+  return mesh_blocks_;
+}
+
+void OrderedBlockMeshInterface::markBlockActive(const BlockIndex &block) const {
+  active_block_ = mesh_->getBlockPtr(block);
+}
+
+size_t OrderedBlockMeshInterface::activeBlockSize() const {
+  if (!active_block_) {
+    return 0;
+  }
+
+  return active_block_->vertices.size();
+};
+
+pcl::PointXYZRGBA OrderedBlockMeshInterface::getActiveVertex(size_t i) const {
+  if (!active_block_) {
+    throw std::runtime_error("no active block set");
+  }
+  return active_block_->vertices[i];
+}
+
+std::shared_ptr<MeshInterface> OrderedBlockMeshInterface::clone() const {
+  return std::make_shared<OrderedBlockMeshInterface>(
+      std::make_shared<MeshLayer>(*mesh_), mesh_blocks_);
+}
+
+inline void addPointToBlock(MeshBlock &block,
                             const std::array<float, 3> &point,
                             uint8_t point_index) {
-  voxblox::Point p(point[0], point[1], point[2]);
-
-  block.vertices.push_back(p);
-  voxblox::Color c(point_index, point_index, point_index);
-  block.colors.push_back(c);
+  pcl::PointXYZRGBA pcl_point;
+  pcl_point.x = point[0];
+  pcl_point.y = point[1];
+  pcl_point.z = point[2];
+  pcl_point.r = point_index;
+  pcl_point.g = point_index;
+  pcl_point.b = point_index;
+  pcl_point.a = 255;
+  block.vertices.push_back(pcl_point);
 }
 
-void BlockConfig::addBlock(voxblox::MeshLayer &layer) const {
-  voxblox::BlockIndex block_idx(index[0], index[1], index[2]);
-  auto mesh = layer.allocateMeshPtrByIndex(block_idx);
+void BlockConfig::addBlock(MeshLayer &layer) const {
+  BlockIndex block_idx(index[0], index[1], index[2]);
+  auto &mesh = layer.allocateBlock(block_idx);
 
   for (const auto &face : faces) {
-    addPointToBlock(*mesh, face[0], point_index);
+    addPointToBlock(mesh, face[0], point_index);
     ++point_index;
-    addPointToBlock(*mesh, face[1], point_index);
+    addPointToBlock(mesh, face[1], point_index);
     ++point_index;
-    addPointToBlock(*mesh, face[2], point_index);
+    addPointToBlock(mesh, face[2], point_index);
     ++point_index;
   }
 }
@@ -45,17 +80,16 @@ void BlockConfig::addBlock(voxblox::MeshLayer &layer) const {
 void BlockConfig::resetIndex() { point_index = 0; }
 
 std::shared_ptr<MeshInterface> createMesh(const std::vector<BlockConfig> &configs) {
-  auto mesh = std::make_shared<voxblox::MeshLayer>(1.0);
-  voxblox::BlockIndexList order;
+  auto mesh = std::make_shared<MeshLayer>(1.0);
+  spatial_hash::BlockIndices order;
   for (const auto &config : configs) {
     config.addBlock(*mesh);
 
-    const voxblox::BlockIndex block_idx(
-        config.index[0], config.index[1], config.index[2]);
+    const BlockIndex block_idx(config.index[0], config.index[1], config.index[2]);
     order.push_back(block_idx);
   }
 
-  return std::make_shared<OrderedVoxbloxMeshInterface>(mesh, order);
+  return std::make_shared<OrderedBlockMeshInterface>(mesh, order);
 }
 
 pcl::PolygonMesh createSimpleMesh(double scale) {

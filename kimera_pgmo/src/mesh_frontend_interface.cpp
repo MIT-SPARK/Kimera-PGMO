@@ -1,6 +1,6 @@
 /**
  * @file   mesh_frontend_interface.cpp
- * @brief  MeshFrontendInterface class: process incoming voxblox meshes and sample it
+ * @brief  MeshFrontendInterface class: process incoming meshes and sample it
  * for the mesh parts of the deformation graph
  * @author Yun Chang
  */
@@ -13,13 +13,15 @@
 #include <fstream>
 #include <thread>
 
+#include "kimera_pgmo/compression/block_compression.h"
 #include "kimera_pgmo/compression/octree_compression.h"
-#include "kimera_pgmo/compression/voxblox_compression.h"
 #include "kimera_pgmo/compression/voxel_clearing_compression.h"
 #include "kimera_pgmo/utils/common_functions.h"
-#include "kimera_pgmo/utils/voxblox_mesh_interface.h"
 
 namespace kimera_pgmo {
+
+using FullCompressionMethod = MeshFrontendInterface::FullCompressionMethod;
+using GraphCompressionMethod = MeshFrontendInterface::GraphCompressionMethod;
 
 void declare_config(MeshFrontendInterface::Config& config) {
   using namespace config;
@@ -28,25 +30,38 @@ void declare_config(MeshFrontendInterface::Config& config) {
   field(config.track_mesh_graph_mapping, "track_mesh_graph_mapping");
   field(config.log_path, "log_path");
   field(config.log_output, "log_output");
-  field(config.full_compression_method, "full_compression_method");
-  field(config.graph_compression_method, "graph_compression_method");
+  field<Enum<FullCompressionMethod>>(config.full_compression_method,
+                                     "full_compression_method");
+  field<Enum<GraphCompressionMethod>>(config.graph_compression_method,
+                                      "graph_compression_method");
   field(config.d_graph_resolution, "d_graph_resolution");
   field(config.mesh_resolution, "mesh_resolution");
   // validation
   check(config.time_horizon, GT, 0.0, "time_horizon");
-  checkInRange(config.graph_compression_method, 0, 2, "graph_compression_method");
-  checkInRange(config.full_compression_method, 0, 1, "full_compression_method");
   check(config.mesh_resolution, GT, 0.0, "mesh_resolution");
 }
 
-MeshCompressionPtr createCompression(int method, double resolution) {
+MeshCompressionPtr createFullCompression(FullCompressionMethod method,
+                                         double resolution) {
   switch (method) {
-    case 0:
+    case FullCompressionMethod::OCTREE:
       return std::make_shared<OctreeCompression>(resolution);
-    case 1:
-      return std::make_shared<VoxbloxCompression>(resolution);
-    case 2:
+    case FullCompressionMethod::BLOCK:
+      return std::make_shared<BlockCompression>(resolution);
+    case FullCompressionMethod::VOXEL_CLEARING:
       return std::make_shared<VoxelClearingCompression>(resolution);
+    default:
+      return nullptr;
+  }
+}
+
+MeshCompressionPtr createGraphCompression(GraphCompressionMethod method,
+                                          double resolution) {
+  switch (method) {
+    case GraphCompressionMethod::OCTREE:
+      return std::make_shared<OctreeCompression>(resolution);
+    case GraphCompressionMethod::BLOCK:
+      return std::make_shared<BlockCompression>(resolution);
     default:
       return nullptr;
   }
@@ -60,17 +75,17 @@ MeshFrontendInterface::MeshFrontendInterface(const Config& config)
       graph_vertices_(new pcl::PointCloud<pcl::PointXYZRGBA>()),
       graph_triangles_(new std::vector<pcl::Vertices>()),
       graph_stamps_(new std::vector<Timestamp>()),
-      vxblx_msg_to_graph_idx_(new VoxbloxIndexMapping()),
-      vxblx_msg_to_mesh_idx_(new VoxbloxIndexMapping()),
+      msg_to_graph_idx_(new HashedIndexMapping()),
+      msg_to_mesh_idx_(new HashedIndexMapping()),
       mesh_to_graph_idx_(new IndexMapping()),
       init_graph_log_(false),
       init_full_log_(false) {
-  d_graph_compression_ =
-      createCompression(config.graph_compression_method, config.d_graph_resolution);
+  d_graph_compression_ = createGraphCompression(config.graph_compression_method,
+                                                config.d_graph_resolution);
   assert(d_graph_compression_ != nullptr);
 
   full_mesh_compression_ =
-      createCompression(config.full_compression_method, config.mesh_resolution);
+      createFullCompression(config.full_compression_method, config.mesh_resolution);
   assert(full_mesh_compression_ != nullptr);
 
   // Log header to file
@@ -118,12 +133,8 @@ void MeshFrontendInterface::updateFullMesh(const MeshInterface::Ptr mesh,
 
   // Add to full mesh compressor
   auto f_comp_start = std::chrono::high_resolution_clock::now();
-  full_mesh_compression_->compressAndIntegrate(*mesh,
-                                               new_vertices,
-                                               new_triangles,
-                                               new_indices,
-                                               *vxblx_msg_to_mesh_idx_,
-                                               time_in_sec);
+  full_mesh_compression_->compressAndIntegrate(
+      *mesh, new_vertices, new_triangles, new_indices, *msg_to_mesh_idx_, time_in_sec);
   auto f_comp_stop = std::chrono::high_resolution_clock::now();
 
   auto f_comp_duration =
@@ -160,7 +171,7 @@ void MeshFrontendInterface::updateGraph(const MeshInterface::Ptr mesh,
                                              new_graph_vertices,
                                              new_triangles,
                                              new_indices,
-                                             *vxblx_msg_to_graph_idx_,
+                                             *msg_to_graph_idx_,
                                              msg_time);
   auto g_comp_stop = std::chrono::high_resolution_clock::now();
 
@@ -189,13 +200,13 @@ void MeshFrontendInterface::updateGraph(const MeshInterface::Ptr mesh,
 void MeshFrontendInterface::updateMeshToGraphMappings(
     const std::vector<BlockIndex>& updated_blocks) {
   for (const auto& block : updated_blocks) {
-    for (const auto& remap : vxblx_msg_to_mesh_idx_->at(block)) {
+    for (const auto& remap : msg_to_mesh_idx_->at(block)) {
       // TODO(Yun) some mesh vertex might not have graph index if part of the
       // mesh is disconnected and all contained within a block since we remove
       // degenerate faces
-      if (vxblx_msg_to_graph_idx_->at(block).count(remap.first)) {
+      if (msg_to_graph_idx_->at(block).count(remap.first)) {
         mesh_to_graph_idx_->insert(
-            {remap.second, vxblx_msg_to_graph_idx_->at(block).at(remap.first)});
+            {remap.second, msg_to_graph_idx_->at(block).at(remap.first)});
       }
     }
   }

@@ -13,7 +13,7 @@
 #include <kimera_pgmo/mesh_types.h>
 #include <pose_graph_tools_msgs/PoseGraph.h>
 
-namespace kimera_pgmo {
+namespace kimera_pgmo::conversions {
 
 using GraphMsgPtr = pose_graph_tools_msgs::PoseGraph::ConstPtr;
 using kimera_pgmo::traits::Timestamp;
@@ -45,4 +45,4 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
                             const gtsam::Vector& gnc_weights = gtsam::Vector(),
                             const std::string& frame_id = "world");
 
-}  // namespace kimera_pgmo
+}  // namespace kimera_pgmo::conversions
