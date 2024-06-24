@@ -15,8 +15,8 @@
 #include <kimera_pgmo/utils/logging.h>
 #include <ros/ros.h>
 
-#include "kimera_pgmo_ros/kimera_pgmo.h"
 #include "kimera_pgmo_ros/conversion/mesh_conversion.h"
+#include "kimera_pgmo_ros/kimera_pgmo.h"
 #include "test_artifacts.h"
 
 namespace kimera_pgmo {
@@ -47,7 +47,7 @@ class KimeraPgmoTest : public ::testing::Test {
   KimeraPgmoTest() : nh("~") {
     nh.setParam("frame_id", "world");
     nh.setParam("robot_id", 0);
-    nh.setParam("run_mode", 0);
+    nh.setParam("run_mode", "FULL");
     nh.setParam("output_prefix", "test");
     nh.setParam("embed_trajectory_delta_t", 3.0);
     nh.setParam("num_interp_pts", 4);

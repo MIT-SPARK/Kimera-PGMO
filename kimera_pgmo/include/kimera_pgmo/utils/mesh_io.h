@@ -132,8 +132,10 @@ void ReadMesh(const std::string& filename, Vertices& vertices, Faces& faces) {
 
     traits::VertexTraits traits;
     if (has_colors) {
-      traits.color = traits::Color{
-          data.r[i], data.g[i], data.b[i], i < data.a.size() ? data.a[i] : 255u};
+      traits.color = traits::Color{data.r[i],
+                                   data.g[i],
+                                   data.b[i],
+                                   i < data.a.size() ? data.a[i] : static_cast<uint8_t>(255)};
     }
 
     if (has_stamps) {

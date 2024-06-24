@@ -15,6 +15,8 @@
 
 namespace kimera_pgmo::conversions {
 
+// TODO(lschmid): Clean up interfaces here and unify with ros_conversion.
+
 using kimera_pgmo::traits::Timestamp;
 
 /*! \brief Convert a mesh to a pgmo mesh msg

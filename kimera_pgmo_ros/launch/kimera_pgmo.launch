@@ -1,7 +1,7 @@
 <launch>
   <arg name="dataset" default="uHumans2" />
   <arg name="robot_id" default="0" />
-  <arg name="run_mode" default="0" />
+  <arg name="run_mode" default="FULL" />
   <arg name="optimized_path_topic" default="optimized_path" />
   <arg name="dpgmo_topic" default="optimized_pose_graph" />
   <arg name="output_path" default="$(find kimera_pgmo_ros)/log" />

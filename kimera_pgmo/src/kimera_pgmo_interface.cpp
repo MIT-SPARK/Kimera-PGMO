@@ -6,8 +6,8 @@
 #include "kimera_pgmo/kimera_pgmo_interface.h"
 
 #include <config_utilities/config.h>
-#include <config_utilities/validation.h>
 #include <config_utilities/types/enum.h>
+#include <config_utilities/validation.h>
 
 #include <chrono>
 #include <cmath>
@@ -51,9 +51,10 @@ KimeraRPGO::RobustSolverParams KimeraPgmoConfig::getRobustSolverParams() const {
 void declare_config(KimeraPgmoConfig& config) {
   using namespace config;
   name("KimeraPgmoConfig");
-  enum_field(config.mode,
-             "run_mode",
-             {{RunMode::FULL, "0"}, {RunMode::MESH, "1"}, {RunMode::DPGMO, "2"}});
+  enum_field(
+      config.mode,
+      "run_mode",
+      {{RunMode::FULL, "FULL"}, {RunMode::MESH, "MESH"}, {RunMode::DPGMO, "DPGMO"}});
   field(config.embed_delta_t, "embed_trajectory_delta_t");
   field(config.num_interp_pts, "num_interp_pts");
   field(config.interp_horizon, "interp_horizon");
@@ -63,7 +64,7 @@ void declare_config(KimeraPgmoConfig& config) {
   field(config.trans_sparse_dist, "trans_node_dist");
   field(config.rot_sparse_dist, "rot_node_dist");
 
-  { // config namespace covariance
+  {  // config namespace covariance
     NameSpace ns("covariance");
     field(config.odom_variance, "odom");
     field(config.lc_variance, "loop_close");
@@ -72,7 +73,7 @@ void declare_config(KimeraPgmoConfig& config) {
     field(config.pose_mesh_variance, "pose_mesh");
   }
 
-  { // config namespace rpgo
+  {  // config namespace rpgo
     NameSpace ns("rpgo");
     field(config.odom_trans_threshold, "odom_trans_threshold");
     field(config.odom_rot_threshold, "odom_rot_threshold");

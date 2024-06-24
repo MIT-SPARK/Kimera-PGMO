@@ -1,7 +1,7 @@
 <launch>
   <arg name="dataset" default="Jackal" />
   <arg name="robot_id" default="0" />
-  <arg name="run_mode" default="1" />
+  <arg name="run_mode" default="MESH" />
   <arg name="output_path" default="$(find kimera_pgmo_ros)/log" />
   <arg name="log" default="true" />
   <arg name="enable_sparsify" default="false"/>

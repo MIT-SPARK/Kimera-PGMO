@@ -44,7 +44,7 @@ class KimeraDpgmoTest : public ::testing::Test {
   KimeraDpgmoTest() : nh("~") {
     nh.setParam("frame_id", "world");
     nh.setParam("robot_id", 0);
-    nh.setParam("run_mode", 2);
+    nh.setParam("run_mode", "DPGMO");
     nh.setParam("embed_trajectory_delta_t", 3.0);
     nh.setParam("num_interp_pts", 4);
     nh.setParam("interp_horizon", 10.0);
