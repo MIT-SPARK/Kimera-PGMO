@@ -1,20 +1,4 @@
-if(NOT TARGET gtest)
-  include(FetchContent)
-  FetchContent_Declare(
-    googletest GIT_REPOSITORY https://github.com/google/googletest.git GIT_TAG v1.13.0
-  )
-
-  FetchContent_GetProperties(googletest)
-  if(NOT googletest_POPULATED)
-    FetchContent_Populate(googletest)
-  endif()
-
-  set(BUILD_SHARED_LIBS_THIS ${BUILD_SHARED_LIBS})
-  set(BUILD_SHARED_LIBS OFF CACHE INTERNAL "")
-  add_subdirectory(${googletest_SOURCE_DIR} ${googletest_BINARY_DIR} EXCLUDE_FROM_ALL)
-  set(BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS_THIS} CACHE BOOL "")
-endif()
-
+find_package(GTest REQUIRED)
 include(GoogleTest)
 enable_testing()
 
@@ -41,5 +25,6 @@ add_executable(
   test_traits.cpp
   test_block_compression.cpp
   test_voxel_clearing_compression.cpp)
-target_link_libraries(test_${PROJECT_NAME} ${PROJECT_NAME} GTest::gtest_main)
+target_link_libraries(test_${PROJECT_NAME} ${PROJECT_NAME}
+                      config_utilities::config_utilities GTest::gtest_main)
 gtest_add_tests(TARGET test_${PROJECT_NAME})
