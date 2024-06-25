@@ -14,12 +14,14 @@
 #include <kimera_pgmo/utils/logging.h>
 #include <ros/ros.h>
 
-#include "kimera_pgmo_ros/kimera_pgmo.h"
 #include "kimera_pgmo_ros/conversion/mesh_conversion.h"
+#include "kimera_pgmo_ros/kimera_pgmo.h"
 #include "test_artifacts.h"
 
 namespace kimera_pgmo {
 
+using conversions::GtsamToRos;
+using conversions::RosToGtsam;
 using kimera_pgmo_msgs::KimeraPgmoMesh;
 using kimera_pgmo_msgs::RequestMeshFactors;
 

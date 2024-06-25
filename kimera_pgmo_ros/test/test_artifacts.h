@@ -8,8 +8,8 @@
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/inference/Symbol.h>
 #include <kimera_pgmo/compression/octree_compression.h>
-#include <kimera_pgmo/utils/pcl_mesh_interface.h>
 #include <kimera_pgmo/utils/common_functions.h>
+#include <kimera_pgmo/utils/pcl_mesh_interface.h>
 #include <kimera_pgmo_msgs/KimeraPgmoMesh.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/conversions.h>
@@ -284,7 +284,8 @@ pose_graph_tools_msgs::PoseGraph processMeshToGraph(
 
     auto from_node_pos = PclToGtsam<pcl::PointXYZRGBA>(all_vertices->at(from_node));
     auto to_node_pos = PclToGtsam<pcl::PointXYZRGBA>(all_vertices->at(to_node));
-    pg_edge.pose = GtsamToRos(gtsam::Pose3(gtsam::Rot3(), to_node_pos - from_node_pos));
+    pg_edge.pose = conversions::GtsamToRos(
+        gtsam::Pose3(gtsam::Rot3(), to_node_pos - from_node_pos));
 
     pg_edge.type = pose_graph_tools_msgs::PoseGraphEdge::MESH;
 
@@ -301,7 +302,7 @@ pose_graph_tools_msgs::PoseGraph processMeshToGraph(
     pg_node.key = n;
 
     auto node_pos = PclToGtsam<pcl::PointXYZRGBA>(all_vertices->at(n));
-    pg_node.pose = GtsamToRos(gtsam::Pose3(gtsam::Rot3(), node_pos));
+    pg_node.pose = conversions::GtsamToRos(gtsam::Pose3(gtsam::Rot3(), node_pos));
 
     // Add node to pose graph
     pose_graph_msg.nodes.push_back(pg_node);

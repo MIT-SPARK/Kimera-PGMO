@@ -35,7 +35,7 @@ TEST(TestMeshConversion, PCLtoMeshMsg) {
   // Convert back
   std::vector<Timestamp> stamps;
   std::vector<int> vertex_graph_indices;
-  const auto new_mesh = conversions::fromMsg(*msg, stamps, vertex_graph_indices);
+  const auto new_mesh = conversions::fromMsg(*msg, &stamps, &vertex_graph_indices);
   pcl::PointCloud<pcl::PointXYZRGBA> converted_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, converted_vertices);
 
