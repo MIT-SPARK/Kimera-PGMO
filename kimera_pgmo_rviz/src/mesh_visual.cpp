@@ -102,7 +102,6 @@ void MeshVisual::setMessage(const kimera_pgmo_msgs::KimeraPgmoMesh& mesh) {
   }
 
   Eigen::Matrix4Xf normals = Eigen::Matrix4Xf::Zero(4, mesh.vertices.size());
-  // std::vector<uint8_t> init(mesh.vertices.size());
 
   mesh_->estimateVertexCount(mesh.vertices.size());
   mesh_->estimateIndexCount(3 * mesh.triangles.size());
