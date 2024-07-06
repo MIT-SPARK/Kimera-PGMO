@@ -93,7 +93,7 @@ void MeshVisual::setMessage(const kimera_pgmo_msgs::KimeraPgmoMesh& mesh) {
   ROS_DEBUG_STREAM("Names: mesh=" << mesh_name_ << ", material=" << material_name_);
 
   reset();
-  
+
   if (!mesh_) {
     mesh_ = manager_->createManualObject(mesh_name_);
     setCullMode();
@@ -102,7 +102,6 @@ void MeshVisual::setMessage(const kimera_pgmo_msgs::KimeraPgmoMesh& mesh) {
   }
 
   Eigen::Matrix4Xf normals = Eigen::Matrix4Xf::Zero(4, mesh.vertices.size());
-  std::vector<uint8_t> init(mesh.vertices.size());
 
   mesh_->estimateVertexCount(mesh.vertices.size());
   mesh_->estimateIndexCount(3 * mesh.triangles.size());
@@ -111,6 +110,10 @@ void MeshVisual::setMessage(const kimera_pgmo_msgs::KimeraPgmoMesh& mesh) {
 
   for (const auto& face : mesh.triangles) {
     const auto& triangle = face.vertex_indices;
+    if (triangle[0] >= mesh.vertices.size() || triangle[1] >= mesh.vertices.size() ||
+        triangle[2] >= mesh.vertices.size()) {
+      continue;
+    }
     mesh_->triangle(triangle[0], triangle[1], triangle[2]);
     Eigen::Vector3f p1;
     fillVec(mesh.vertices[triangle[0]], p1);
@@ -155,12 +158,10 @@ void MeshVisual::shouldLight(bool light) {
   setLightingMode();
 }
 
-
 void MeshVisual::setVisible(bool visible) {
   visible_ = visible;
   node_->setVisible(visible_);
 }
-
 
 Ogre::Material& MeshVisual::getMaterial() const {
   auto& material_manager = Ogre::MaterialManager::getSingleton();
