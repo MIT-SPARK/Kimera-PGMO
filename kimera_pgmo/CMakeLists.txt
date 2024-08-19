@@ -23,11 +23,12 @@ include(CMakePackageConfigHelpers)
 
 add_library(
   ${PROJECT_NAME}
-  src/compression/mesh_compression.cpp
-  src/compression/delta_compression.cpp
-  src/compression/octree_compression.cpp
-  src/compression/voxel_clearing_compression.cpp
   src/compression/block_compression.cpp
+  src/compression/delta_compression.cpp
+  src/compression/mesh_compression.cpp
+  src/compression/octree_compression.cpp
+  src/compression/redundancy_checker.cpp
+  src/compression/voxel_clearing_compression.cpp
   src/utils/common_functions.cpp
   src/utils/common_structs.cpp
   src/utils/logging.cpp

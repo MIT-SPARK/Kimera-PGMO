@@ -27,7 +27,6 @@ using MeshLayer = spatial_hash::BlockLayer<MeshBlock>;
  */
 class OrderedBlockMeshInterface : public MeshInterface {
  public:
-
   OrderedBlockMeshInterface(const std::shared_ptr<MeshLayer> &mesh,
                             const BlockIndices &blocks);
   virtual ~OrderedBlockMeshInterface() = default;
@@ -39,8 +38,8 @@ class OrderedBlockMeshInterface : public MeshInterface {
   size_t activeBlockSize() const override;
 
   pcl::PointXYZRGBA getActiveVertex(size_t i) const override;
-    
-    std::shared_ptr<MeshInterface> clone() const override;
+
+  std::shared_ptr<MeshInterface> clone() const override;
 
  protected:
   BlockIndices mesh_blocks_;

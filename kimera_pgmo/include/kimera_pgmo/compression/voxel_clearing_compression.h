@@ -14,7 +14,7 @@ namespace kimera_pgmo {
 class VoxelClearingCompression : public MeshCompression {
  public:
   using VoxelToMeshIndex = spatial_hash::LongIndexHashMap<size_t>;
-  using BlockMap = BlockIndexMap<LongIndexSet>;
+  using BlockMap = BlockIndexMap<spatial_hash::LongIndexSet>;
   using BlockTimeMap = BlockIndexMap<double>;
   using BlockSizeMap = BlockIndexMap<size_t>;
   using BlockFaceMap = BlockIndexMap<std::vector<size_t>>;

@@ -12,9 +12,9 @@ namespace kimera_pgmo {
 using spatial_hash::BlockIndex;
 using spatial_hash::BlockIndices;
 using spatial_hash::LongIndex;
+using spatial_hash::LongIndexSet;
 using LongIndices = std::vector<LongIndex>;
 using BlockIndexSet = std::unordered_set<BlockIndex, spatial_hash::IndexHash>;
-using LongIndexSet = std::unordered_set<LongIndex, spatial_hash::LongIndexHash>;
 template <typename ValueT>
 using BlockIndexMap = spatial_hash::IndexHashMap<ValueT>;
 template <typename ValueT>
