@@ -166,7 +166,7 @@ void MeshVisual::setVisible(bool visible) {
 Ogre::Material& MeshVisual::getMaterial() const {
   auto& material_manager = Ogre::MaterialManager::getSingleton();
   auto material = material_manager.getByName(material_name_);
-  ROS_ASSERT_MSG(material, "invalid material @ '%s'", material_name_.c_str());
+  ROS_ASSERT_MSG(!material.isNull(), "invalid material @ '%s'", material_name_.c_str());
   return *material;
 }
 
