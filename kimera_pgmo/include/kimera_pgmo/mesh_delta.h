@@ -12,8 +12,8 @@
 #include <pcl/point_types.h>
 
 #include <optional>
-#include <vector>
 #include <set>
+#include <vector>
 
 #include "kimera_pgmo/mesh_traits.h"
 #include "kimera_pgmo/pcl_mesh_traits.h"
@@ -25,6 +25,7 @@ struct Face {
   Face(size_t v1, size_t v2, size_t v3);
 
   Face(const std::vector<size_t>& indices, size_t i);
+  Face(const traits::Face& face);
 
   bool valid() const;
 
@@ -49,6 +50,12 @@ class MeshDelta {
             const std::vector<Timestamp>& stamps,
             const std::vector<pcl::Vertices>& faces,
             std::optional<std::vector<uint32_t>> semantics = std::nullopt);
+
+  template <typename Vertices, typename Faces>
+  static MeshDelta::Ptr fromMesh(const Vertices& vertices, const Faces& faces);
+
+  template <typename Mesh>
+  static MeshDelta::Ptr fromMesh(const Mesh& mesh);
 
   template <typename Vertices>
   void updateVertices(Vertices& vertices) const;
@@ -87,6 +94,10 @@ class MeshDelta {
   size_t getTotalArchivedVertices() const;
 
   size_t getTotalArchivedFaces() const;
+
+  size_t getTotalVertices() const;
+
+  size_t getTotalFaces() const;
 
   size_t getLocalIndex(size_t index) const;
 
@@ -168,6 +179,48 @@ template <typename Mesh>
 void MeshDelta::updateMesh(Mesh& mesh) const {
   // dispatch for types implementing faces and vertices adl api
   updateMesh(mesh, mesh);
+}
+
+template <typename Vertices, typename Faces>
+MeshDelta::Ptr MeshDelta::fromMesh(const Vertices& vertices, const Faces& faces) {
+  auto delta = std::make_shared<MeshDelta>(0, 0);
+
+  const auto num_vertices = traits::num_vertices(vertices);
+  for (size_t i = 0; i < num_vertices; ++i) {
+    traits::VertexTraits traits;
+    const auto pos = traits::get_vertex(vertices, i, &traits);
+    auto& point = delta->vertex_updates->emplace_back();
+    point.x = pos.x();
+    point.y = pos.y();
+    point.z = pos.z();
+    if (traits.color) {
+      const auto& c = *traits.color;
+      point.r = c[0];
+      point.g = c[1];
+      point.b = c[2];
+      point.a = c[3];
+    }
+
+    if (traits.stamp) {
+      delta->stamp_updates.push_back(*traits.stamp);
+    }
+
+    if (traits.label) {
+      delta->semantic_updates.push_back(*traits.label);
+    }
+  }
+
+  const auto num_faces = traits::num_faces(faces);
+  for (size_t i = 0; i < num_faces; ++i) {
+    delta->face_updates.push_back(traits::get_face(faces, i));
+  }
+
+  return delta;
+}
+
+template <typename Mesh>
+MeshDelta::Ptr MeshDelta::fromMesh(const Mesh& mesh) {
+  return fromMesh(mesh, mesh);
 }
 
 }  // namespace kimera_pgmo

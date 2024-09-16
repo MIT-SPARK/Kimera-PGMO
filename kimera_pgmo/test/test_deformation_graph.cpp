@@ -699,18 +699,13 @@ TEST(TestDeformationGraph, addNewTempNodesValences) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
 
-  std::vector<gtsam::Key> temp_keys;
-  std::vector<gtsam::Pose3> temp_key_poses;
-  std::vector<Vertices> temp_valences;
-  for (size_t i = 0; i < 3; i++) {
-    temp_keys.push_back(gtsam::Symbol('p', i));
-    temp_key_poses.push_back(
-        gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(static_cast<double>(i), 0, 0)));
-    Vertices temp_node_valences{i};
-    temp_valences.push_back(temp_node_valences);
+  NodeValenceInfoList info;
+  for (size_t i = 0; i < 4; i++) {
+    const gtsam::Pose3 pose(gtsam::Rot3(), gtsam::Point3(static_cast<double>(i), 0, 0));
+    info.push_back({'v', gtsam::Symbol('p', i), pose, {i}});
   }
 
-  graph.addNewTempNodesValences(temp_keys, temp_key_poses, temp_valences, 'v', false);
+  graph.addNewTempNodesValences(info, false);
 
   // Check added factors
   graph.optimize();
@@ -761,17 +756,13 @@ TEST(TestDeformationGraph, addNewTempEdges) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
 
-  std::vector<gtsam::Key> temp_keys;
-  std::vector<gtsam::Pose3> temp_key_poses;
-  std::vector<Vertices> temp_valences;
+  NodeValenceInfoList info;
   for (size_t i = 0; i < 4; i++) {
-    temp_keys.push_back(gtsam::Symbol('p', i));
-    temp_key_poses.push_back(
-        gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(static_cast<double>(i), 0, 0)));
-    Vertices temp_node_valences;
-    temp_valences.push_back(temp_node_valences);
+    const gtsam::Pose3 pose(gtsam::Rot3(), gtsam::Point3(static_cast<double>(i), 0, 0));
+    info.push_back({'v', gtsam::Symbol('p', i), pose, {}});
   }
-  graph.addNewTempNodesValences(temp_keys, temp_key_poses, temp_valences, 'v', false);
+
+  graph.addNewTempNodesValences(info, false);
 
   pose_graph_tools::PoseGraph temp_edges;
   for (size_t i = 0; i < 3; i++) {

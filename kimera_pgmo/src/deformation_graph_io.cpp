@@ -198,7 +198,8 @@ gtsam::Key rekey(gtsam::Symbol key, size_t robot_id) {
 void DeformationGraph::load(const std::string& filename,
                             bool include_temp,
                             bool set_robot_id,
-                            size_t new_robot_id) {
+                            size_t new_robot_id,
+                            bool include_priors) {
   gtsam::Values new_vals, new_temp_vals;
   gtsam::NonlinearFactorGraph new_factors, new_temp_factors;
 
@@ -302,13 +303,17 @@ void DeformationGraph::load(const std::string& filename,
           m(j, i) = e_ij;
         }
       }
-      gtsam::Symbol gtsam_key(key);
-      if (set_robot_id) {
-        gtsam_key = rekey(gtsam_key, new_robot_id);
+
+      if (include_priors) {
+        gtsam::Symbol gtsam_key(key);
+        if (set_robot_id) {
+          gtsam_key = rekey(gtsam_key, new_robot_id);
+        }
+
+        gtsam::Pose3 meas(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
+        gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
+        new_factors.add(gtsam::PriorFactor<gtsam::Pose3>(gtsam_key, meas, noise));
       }
-      gtsam::Pose3 meas(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
-      gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
-      new_factors.add(gtsam::PriorFactor<gtsam::Pose3>(gtsam_key, meas, noise));
     } else if (tag == "VERTEX") {
       size_t key;
       double x, y, z;

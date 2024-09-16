@@ -144,7 +144,9 @@ class KimeraPgmoInterface {
    * - input: dgrf file (deformation graph file)
    * - robot_id: robot id
    */
-  void loadDeformationGraphFromFile(const std::string& input, size_t robot_id);
+  void loadDeformationGraphFromFile(const std::string& input,
+                                    size_t robot_id,
+                                    bool include_priors = true);
 
  protected:
   bool initializeFromConfig();

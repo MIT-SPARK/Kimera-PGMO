@@ -427,57 +427,41 @@ void DeformationGraph::addNewTempNode(const gtsam::Key& key,
 }
 
 // TODO(yun) add unittests
-void DeformationGraph::addNewTempNodesValences(
-    const std::vector<gtsam::Key>& keys,
-    const std::vector<gtsam::Pose3>& initial_poses,
-    const std::vector<Vertices>& valences,
-    const char& valence_prefix,
-    bool add_prior,
-    double edge_variance,
-    const std::vector<gtsam::Pose3>& initial_guesses,
-    double prior_variance) {
-  gtsam::Values new_values;
-  gtsam::NonlinearFactorGraph new_factors;
-
-  assert(keys.size() == initial_poses.size());
-  assert(keys.size() == valences.size());
-
+void DeformationGraph::addNewTempNodesValences(const NodeValenceInfoList& info,
+                                               bool add_prior,
+                                               double edge_variance,
+                                               double prior_variance) {
+  // Define noise. Hardcoded for now
   gtsam::Vector6 variances;
   variances.head<3>().setConstant(1e-02 * prior_variance);
   variances.tail<3>().setConstant(prior_variance);
-  static const gtsam::SharedNoiseModel& noise =
-      gtsam::noiseModel::Diagonal::Variances(variances);
+  const auto pose_noise = gtsam::noiseModel::Diagonal::Variances(variances);
+  const auto edge_noise = gtsam::noiseModel::Isotropic::Variance(3, edge_variance);
 
-  for (size_t i = 0; i < keys.size(); i++) {
-    temp_pg_initial_poses_[keys[i]] = initial_poses[i];
-    if (initial_guesses.size() > i) {
-      new_values.insert(keys[i], initial_guesses[i]);
-    } else {
-      new_values.insert(keys[i], initial_poses[i]);
-    }
+  gtsam::Values new_values;
+  gtsam::NonlinearFactorGraph new_factors;
+  for (const auto& factor : info) {
+    temp_pg_initial_poses_[factor.key] = factor.pose;
+    new_values.insert(factor.key, factor.pose);
     if (add_prior) {
       new_factors.add(
-          gtsam::PriorFactor<gtsam::Pose3>(keys[i], initial_poses[i], noise));
+          gtsam::PriorFactor<gtsam::Pose3>(factor.key, factor.pose, pose_noise));
     }
 
-    for (Vertex v : valences[i]) {
-      const gtsam::Symbol vertex(valence_prefix, v);
-      if (!values_.exists(vertex) && !new_values_.exists(vertex)) continue;
+    const auto& vertex_positions = vertex_positions_[factor.valence_prefix];
+    for (const auto v : factor.valence) {
+      const gtsam::Symbol vertex(factor.valence_prefix, v);
+      if (!values_.exists(vertex) && !new_values_.exists(vertex)) {
+        continue;
+      }
 
-      const gtsam::Pose3& node_pose = initial_poses[i];
-      const gtsam::Pose3 vertex_pose(gtsam::Rot3(),
-                                     vertex_positions_[valence_prefix].at(v));
+      const gtsam::Pose3 vertex_pose(gtsam::Rot3(), vertex_positions.at(v));
 
-      // Define noise. Hardcoded for now
-      static const gtsam::SharedNoiseModel& noise =
-          gtsam::noiseModel::Isotropic::Variance(3, edge_variance);
       // Create deformation edge factor
-      const DeformationEdgeFactor new_edge_1(
-          keys[i], vertex, node_pose, vertex_pose.translation(), noise);
-      const DeformationEdgeFactor new_edge_2(
-          vertex, keys[i], vertex_pose, node_pose.translation(), noise);
-      new_factors.add(new_edge_1);
-      new_factors.add(new_edge_2);
+      new_factors.add(DeformationEdgeFactor(
+          factor.key, vertex, factor.pose, vertex_pose.translation(), edge_noise));
+      new_factors.add(DeformationEdgeFactor(
+          vertex, factor.key, vertex_pose, factor.pose.translation(), edge_noise));
     }
   }
 

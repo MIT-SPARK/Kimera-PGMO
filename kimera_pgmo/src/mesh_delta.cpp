@@ -75,6 +75,8 @@ Face::Face(size_t v1, size_t v2, size_t v3) : v1(v1), v2(v2), v3(v3) {}
 Face::Face(const std::vector<size_t>& indices, size_t i)
     : v1(indices.at(i)), v2(indices.at(i + 1)), v3(indices.at(i + 2)) {}
 
+Face::Face(const traits::Face& face) : v1(face[0]), v2(face[1]), v3(face[2]) {}
+
 bool Face::valid() const { return v1 != v2 && v1 != v3 && v2 != v3; }
 
 void Face::fill(std::vector<uint32_t>& other) const { other = {v1, v2, v3}; }
@@ -174,6 +176,14 @@ size_t MeshDelta::getTotalArchivedVertices() const {
 
 size_t MeshDelta::getTotalArchivedFaces() const {
   return face_start + face_archive_updates.size();
+}
+
+size_t MeshDelta::getTotalVertices() const {
+  return vertex_start + vertex_updates->size();
+}
+
+size_t MeshDelta::getTotalFaces() const {
+  return face_start + face_archive_updates.size() + face_updates.size();
 }
 
 size_t MeshDelta::getLocalIndex(size_t index) const { return index - vertex_start; }

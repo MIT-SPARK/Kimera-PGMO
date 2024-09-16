@@ -209,8 +209,9 @@ void KimeraPgmoInterface::loadDeformationGraphFromFile(const std::string& input)
 }
 
 void KimeraPgmoInterface::loadDeformationGraphFromFile(const std::string& input,
-                                                       size_t robot_id) {
-  deformation_graph_->load(input, true, true, robot_id);
+                                                       size_t robot_id,
+                                                       bool include_priors) {
+  deformation_graph_->load(input, true, true, robot_id, include_priors);
   num_loop_closures_ = deformation_graph_->getNumLoopclosures();
 }
 

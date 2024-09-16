@@ -37,6 +37,18 @@ using GtsamJacobianType = gtsam::OptionalMatrixType;
 #define JACOBIAN_DEFAULT nullptr
 #endif
 
+/*
+ * @brief Struct containing necessary info to add valence factor for a node
+ */
+struct NodeValenceInfo {
+  char valence_prefix;
+  gtsam::Key key;
+  gtsam::Pose3 pose;
+  Vertices valence;
+};
+
+using NodeValenceInfoList = std::vector<NodeValenceInfo>;
+
 /*! \brief Define a factor type for edges between two mesh vertices or between a
  * mesh vertex and a pose graph node to be added to deformation graph. Inherited
  * from GTSAM NoiseModelFactor2
@@ -185,13 +197,9 @@ class DeformationGraph {
    *  - edge_variance: covariance of the node to mesh edges
    *  - prior_variance: if add prior, covariance on the nodes
    */
-  void addNewTempNodesValences(const std::vector<gtsam::Key>& keys,
-                               const std::vector<gtsam::Pose3>& initial_poses,
-                               const std::vector<Vertices>& valences,
-                               const char& valence_prefix,
+  void addNewTempNodesValences(const NodeValenceInfoList& factors,
                                bool add_prior,
                                double edge_variance = 1e-2,
-                               const std::vector<gtsam::Pose3>& initial_guesses = {},
                                double prior_variance = 1e-8);
 
   /*! \brief Add a new between factor to the deformation graph
@@ -546,7 +554,8 @@ class DeformationGraph {
   void load(const std::string& filename,
             bool include_temp = true,
             bool set_robot_id = false,
-            size_t new_robot_id = 0);
+            size_t new_robot_id = 0,
+            bool include_priors = true);
 
   inline bool hasPrefixPoses(char prefix) const {
     return pg_initial_poses_.count(prefix);
