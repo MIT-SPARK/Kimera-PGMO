@@ -199,7 +199,8 @@ void DeformationGraph::load(const std::string& filename,
                             bool include_temp,
                             bool set_robot_id,
                             size_t new_robot_id,
-                            bool include_priors) {
+                            bool include_priors,
+                            bool optimize_on_load) {
   gtsam::Values new_vals, new_temp_vals;
   gtsam::NonlinearFactorGraph new_factors, new_temp_factors;
 
@@ -336,12 +337,20 @@ void DeformationGraph::load(const std::string& filename,
       std::invalid_argument("DeformationGraph load: unknown tag. ");
     }
   }
-  pgo_->updateTempFactorsValues(new_temp_factors, new_temp_vals);
-  pgo_->update(new_factors, new_vals);
-  values_ = pgo_->calculateEstimate();
-  nfg_ = pgo_->getFactorsUnsafe();
-  temp_nfg_ = pgo_->getTempFactorsUnsafe();
-  temp_values_ = pgo_->getTempValues();
+
+  if (optimize_on_load) {
+    pgo_->updateTempFactorsValues(new_temp_factors, new_temp_vals);
+    pgo_->update(new_factors, new_vals);
+    values_ = pgo_->calculateEstimate();
+    nfg_ = pgo_->getFactorsUnsafe();
+    temp_nfg_ = pgo_->getTempFactorsUnsafe();
+    temp_values_ = pgo_->getTempValues();
+  } else {
+    values_ = new_vals;
+    nfg_ = new_factors;
+    temp_nfg_ = new_temp_factors;
+    temp_values_ = new_temp_vals;
+  }
 }
 
 }  // namespace kimera_pgmo

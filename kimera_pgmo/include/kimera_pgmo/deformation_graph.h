@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "kimera_pgmo/mesh_deformation.h"
+#include "kimera_pgmo/pcl_mesh_traits.h"
 #include "kimera_pgmo/utils/common_functions.h"
 #include "kimera_pgmo/utils/common_structs.h"
 #include "kimera_pgmo/utils/logging.h"
@@ -555,7 +556,8 @@ class DeformationGraph {
             bool include_temp = true,
             bool set_robot_id = false,
             size_t new_robot_id = 0,
-            bool include_priors = true);
+            bool include_priors = true,
+            bool optimize_on_load = true);
 
   inline bool hasPrefixPoses(char prefix) const {
     return pg_initial_poses_.count(prefix);
