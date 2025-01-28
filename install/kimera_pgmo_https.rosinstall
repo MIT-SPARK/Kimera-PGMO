@@ -15,5 +15,8 @@
     uri: https://github.com/MIT-SPARK/Kimera-RPGO.git
     version: master
 - git:
+    local-name: spatial_hash
+    uri: https://github.com/MIT-SPARK/Spatial-Hash.git
+- git:
     local-name: voxblox
     uri: https://github.com/ethz-asl/voxblox.git

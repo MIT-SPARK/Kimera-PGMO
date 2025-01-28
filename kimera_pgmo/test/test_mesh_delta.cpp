@@ -5,7 +5,7 @@
  */
 #include <gtest/gtest.h>
 
-#include "kimera_pgmo/MeshDelta.h"
+#include "kimera_pgmo/mesh_delta.h"
 
 namespace kimera_pgmo {
 
@@ -36,13 +36,13 @@ struct TestPoint {
   }
 };
 
-TEST(test_mesh_delta, constructor) {
+TEST(TestMeshDelta, constructor) {
   MeshDelta mesh;
   EXPECT_EQ(mesh.vertex_start, 0u);
   EXPECT_EQ(mesh.face_start, 0u);
 }
 
-TEST(test_mesh_delta, updateSimple) {
+TEST(TestMeshDelta, updateSimple) {
   MeshDelta delta1;
   delta1.addVertex(100, TestPoint{1.0, 2.0, 3.0, 0, 0, 0});
   delta1.addVertex(100, TestPoint{1.0, 2.0, 3.0, 1, 0, 0});
@@ -77,7 +77,7 @@ TEST(test_mesh_delta, updateSimple) {
   EXPECT_EQ(result.faces.size(), 3u);
 }
 
-TEST(test_mesh_delta, archiveVerticesCorrect) {
+TEST(TestMeshDelta, archiveVerticesCorrect) {
   MeshDelta delta(1, 3);
   EXPECT_EQ(delta.addVertex(100, TestPoint{1.0, 2.0, 3.0, 0, 0, 0}, std::nullopt, true),
             1u);
@@ -91,7 +91,7 @@ TEST(test_mesh_delta, archiveVerticesCorrect) {
   EXPECT_EQ(delta.getNumArchivedVertices(), 2u);
 }
 
-TEST(test_mesh_delta, archiveFacesCorrect) {
+TEST(TestMeshDelta, archiveFacesCorrect) {
   MeshDelta delta(1, 3);
   delta.addFace({0, 1, 2}, true);
   delta.addFace({1, 2, 3}, true);

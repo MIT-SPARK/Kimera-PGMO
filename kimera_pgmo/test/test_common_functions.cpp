@@ -4,45 +4,21 @@
  * @author Yun Chang
  */
 
+#include <gtest/gtest.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/slam/BetweenFactor.h>
-#include <mesh_msgs/TriangleMesh.h>
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/conversions.h>
-#include <ros/ros.h>
 
-#include "gtest/gtest.h"
-#include "kimera_pgmo/utils/CommonFunctions.h"
-#include "kimera_pgmo/utils/CommonStructs.h"
-#include "kimera_pgmo/utils/MeshIO.h"
+#include "kimera_pgmo/utils/common_functions.h"
+#include "kimera_pgmo/utils/common_structs.h"
+#include "kimera_pgmo/utils/mesh_io.h"
 #include "test_config.h"
 
 namespace kimera_pgmo {
 
-TEST(test_common_functions, PCLtoMeshMsg) {
-  pcl::PolygonMeshPtr mesh(new pcl::PolygonMesh());
-  ReadMeshFromPly(std::string(DATASET_PATH) + "/sphere.ply", mesh);
-
-  // Convert to triangle mesh msg
-  mesh_msgs::TriangleMesh triangle_mesh = PolygonMeshToTriangleMeshMsg(*mesh);
-
-  // Convert back
-  pcl::PolygonMesh new_mesh = TriangleMeshMsgToPolygonMesh(triangle_mesh);
-  pcl::PointCloud<pcl::PointXYZRGBA> converted_vertices;
-  pcl::fromPCLPointCloud2(new_mesh.cloud, converted_vertices);
-
-  EXPECT_EQ(422, converted_vertices.points.size());
-  EXPECT_EQ(-127, converted_vertices.points[0].z);
-  EXPECT_EQ(5, converted_vertices.points[1].x);
-  EXPECT_EQ(-1, converted_vertices.points[420].x);
-  EXPECT_EQ(127, converted_vertices.points[421].z);
-  EXPECT_EQ(mesh->polygons[0].vertices[2], new_mesh.polygons[0].vertices[2]);
-  EXPECT_EQ(mesh->polygons[100].vertices[1], new_mesh.polygons[100].vertices[1]);
-  EXPECT_EQ(mesh->polygons[839].vertices[0], new_mesh.polygons[839].vertices[0]);
-}
-
-TEST(test_common_functions, PolygonsEqual) {
+TEST(TestCommonFunctions, polygonsEqual) {
   pcl::Vertices p0, p1, p2, p3;
 
   p0.vertices.push_back(0);
@@ -68,44 +44,7 @@ TEST(test_common_functions, PolygonsEqual) {
   EXPECT_FALSE(PolygonsEqual(p0, p3));
 }
 
-TEST(test_common_functions, RosPoseToGtsam) {
-  geometry_msgs::Pose ros_pose;
-  gtsam::Pose3 gtsam_pose = RosToGtsam(ros_pose);
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(), gtsam_pose));
-
-  ros_pose.position.x = 1;
-  ros_pose.position.z = 100;
-  ros_pose.orientation.y = 0.707;
-  ros_pose.orientation.w = 0.707;
-  gtsam_pose = RosToGtsam(ros_pose);
-  EXPECT_TRUE(gtsam::assert_equal(
-      gtsam::Pose3(gtsam::Rot3(0.707, 0, 0.707, 0), gtsam::Point3(1, 0, 100)),
-      gtsam_pose));
-}
-
-TEST(test_common_functions, GtsamPoseToRos) {
-  gtsam::Pose3 gtsam_pose;
-  geometry_msgs::Pose ros_pose = GtsamToRos(gtsam_pose);
-  EXPECT_EQ(0, ros_pose.position.x);
-  EXPECT_EQ(0, ros_pose.position.y);
-  EXPECT_EQ(0, ros_pose.position.z);
-  EXPECT_EQ(0, ros_pose.orientation.x);
-  EXPECT_EQ(0, ros_pose.orientation.y);
-  EXPECT_EQ(0, ros_pose.orientation.z);
-  EXPECT_EQ(1, ros_pose.orientation.w);
-
-  gtsam_pose = gtsam::Pose3(gtsam::Rot3(0.707, 0, 0.707, 0), gtsam::Point3(1, 0, 100));
-  ros_pose = GtsamToRos(gtsam_pose);
-  EXPECT_EQ(1, ros_pose.position.x);
-  EXPECT_EQ(0, ros_pose.position.y);
-  EXPECT_EQ(100, ros_pose.position.z);
-  EXPECT_NEAR(0, ros_pose.orientation.x, 0.001);
-  EXPECT_NEAR(0.707, ros_pose.orientation.y, 0.001);
-  EXPECT_NEAR(0, ros_pose.orientation.z, 0.001);
-  EXPECT_NEAR(0.707, ros_pose.orientation.w, 0.001);
-}
-
-TEST(test_common_functions, PclPointToGtsam) {
+TEST(TestCommonFunctions, pclPointToGtsam) {
   pcl::PointXYZRGBA point_rgb;
   point_rgb.x = 1.0;
   point_rgb.y = 2.0;
@@ -129,7 +68,7 @@ TEST(test_common_functions, PclPointToGtsam) {
 }
 
 // Combine Meshes
-TEST(test_common_functions, CombineMeshesNoCheck) {
+TEST(TestCommonFunctions, combineMeshesNoCheck) {
   pcl::PolygonMeshPtr sphere_mesh(new pcl::PolygonMesh());
   ReadMeshFromPly(std::string(DATASET_PATH) + "/sphere.ply", sphere_mesh);
 
@@ -156,7 +95,7 @@ TEST(test_common_functions, CombineMeshesNoCheck) {
   EXPECT_EQ(127, cloud.points[843].z);
 }
 
-TEST(test_common_functions, CombineMeshesCheck) {
+TEST(TestCommonFunctions, combineMeshesCheck) {
   pcl::PolygonMeshPtr sphere_mesh(new pcl::PolygonMesh());
   ReadMeshFromPly(std::string(DATASET_PATH) + "/sphere.ply", sphere_mesh);
 
@@ -183,7 +122,7 @@ TEST(test_common_functions, CombineMeshesCheck) {
   EXPECT_EQ(127, cloud.points[421].z);
 }
 
-TEST(test_common_functions, CombineMeshesIndices) {
+TEST(TestCommonFunctions, combineMeshesIndices) {
   pcl::PolygonMeshPtr sphere_mesh(new pcl::PolygonMesh());
   ReadMeshFromPly(std::string(DATASET_PATH) + "/sphere.ply", sphere_mesh);
 
@@ -220,13 +159,13 @@ TEST(test_common_functions, CombineMeshesIndices) {
   EXPECT_EQ(421, new_indices[421]);
 }
 
-TEST(test_common_functions, PolygonEquality) {
+TEST(TestCommonFunctions, polygonEquality) {
   pcl::Vertices poly_1, poly_2, poly_3, poly_4;
 
-  poly_1.vertices = std::vector<uint32_t>{0, 1, 2};
-  poly_2.vertices = std::vector<uint32_t>{2, 0, 1};
-  poly_3.vertices = std::vector<uint32_t>{1, 0, 2};
-  poly_4.vertices = std::vector<uint32_t>{3, 4, 5};
+  poly_1.vertices = {0, 1, 2};
+  poly_2.vertices = {2, 0, 1};
+  poly_3.vertices = {1, 0, 2};
+  poly_4.vertices = {3, 4, 5};
 
   EXPECT_TRUE(PolygonsEqual(poly_1, poly_1));
   EXPECT_TRUE(PolygonsEqual(poly_1, poly_2));
@@ -235,74 +174,14 @@ TEST(test_common_functions, PolygonEquality) {
   EXPECT_TRUE(PolygonsEqual(poly_4, poly_4));
 }
 
-// GTSAM graph to ROS
-TEST(test_common_functions, GtsamGraphToRos) {
-  ros::Time::init();
-
-  static const gtsam::SharedNoiseModel& noise =
-      gtsam::noiseModel::Isotropic::Variance(6, 0.01);
-  gtsam::NonlinearFactorGraph nfg;
-  nfg.add(gtsam::BetweenFactor<gtsam::Pose3>(
-      gtsam::Symbol('a', 0), gtsam::Symbol('a', 1), gtsam::Pose3(), noise));
-  nfg.add(gtsam::BetweenFactor<gtsam::Pose3>(
-      gtsam::Symbol('a', 1),
-      gtsam::Symbol('a', 2),
-      gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(1, 1, 1)),
-      noise));
-
-  gtsam::Values val;
-  std::map<size_t, std::vector<Timestamp> > time_stamps;
-  time_stamps[0] = std::vector<Timestamp>{};
-  val.insert(gtsam::Symbol('a', 0), gtsam::Pose3());
-  time_stamps[0].push_back(stampFromSec(0.01));
-  val.insert(gtsam::Symbol('a', 1), gtsam::Pose3());
-  time_stamps[0].push_back(stampFromSec(0.02));
-  val.insert(gtsam::Symbol('a', 2),
-             gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(1, 1, 1)));
-  time_stamps[0].push_back(stampFromSec(0.03));
-
-  const GraphMsgPtr& pose_graph_ptr = GtsamGraphToRos(nfg, val, time_stamps);
-
-  // Check edges
-  EXPECT_EQ(size_t(2), pose_graph_ptr->edges.size());
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(), RosToGtsam(pose_graph_ptr->edges[0].pose)));
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(1, 1, 1)),
-                          RosToGtsam(pose_graph_ptr->edges[1].pose)));
-
-  EXPECT_EQ(0, pose_graph_ptr->edges[0].robot_from);
-  EXPECT_EQ(0, pose_graph_ptr->edges[0].robot_to);
-  EXPECT_EQ(0, pose_graph_ptr->edges[0].key_from);
-  EXPECT_EQ(1, pose_graph_ptr->edges[0].key_to);
-  EXPECT_EQ(0, pose_graph_ptr->edges[1].robot_from);
-  EXPECT_EQ(0, pose_graph_ptr->edges[1].robot_to);
-  EXPECT_EQ(1, pose_graph_ptr->edges[1].key_from);
-  EXPECT_EQ(2, pose_graph_ptr->edges[1].key_to);
-  EXPECT_EQ("world", pose_graph_ptr->edges[1].header.frame_id);
-
-  // Check nodes
-  EXPECT_EQ(size_t(3), pose_graph_ptr->nodes.size());
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(), RosToGtsam(pose_graph_ptr->nodes[0].pose)));
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(1, 1, 1)),
-                          RosToGtsam(pose_graph_ptr->nodes[2].pose)));
-  EXPECT_EQ(0, pose_graph_ptr->nodes[0].robot_id);
-  EXPECT_EQ(0, pose_graph_ptr->nodes[2].robot_id);
-  EXPECT_EQ(0, pose_graph_ptr->nodes[0].key);
-  EXPECT_EQ(1, pose_graph_ptr->nodes[1].key);
-  EXPECT_EQ(2, pose_graph_ptr->nodes[2].key);
-}
-
-TEST(test_common_functions, MeshSurfaceExist) {
+TEST(TestCommonFunctions, meshSurfaceExist) {
   std::map<size_t, std::vector<size_t> > adj_surfaces;
 
   pcl::Vertices poly_1, poly_2, poly_3, poly_4;
-  poly_1.vertices = std::vector<uint32_t>{0, 1, 2};
-  poly_2.vertices = std::vector<uint32_t>{0, 2, 3};
-  poly_3.vertices = std::vector<uint32_t>{0, 5, 1};
-  poly_4.vertices = std::vector<uint32_t>{1, 4, 2};
+  poly_1.vertices = {0, 1, 2};
+  poly_2.vertices = {0, 2, 3};
+  poly_3.vertices = {0, 5, 1};
+  poly_4.vertices = {1, 4, 2};
   std::vector<pcl::Vertices> surfaces{poly_1, poly_2, poly_3, poly_4};
 
   adj_surfaces[0] = std::vector<size_t>{0, 1};

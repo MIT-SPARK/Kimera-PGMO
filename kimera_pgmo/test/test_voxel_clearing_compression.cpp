@@ -5,79 +5,35 @@
  * @author Nathan Hughes
  */
 
-#include "gtest/gtest.h"
-#include "kimera_pgmo/compression/VoxelClearingCompression.h"
+#include <gtest/gtest.h>
+
+#include "kimera_pgmo/compression/voxel_clearing_compression.h"
+#include "pgmo_fixtures.h"
 
 namespace kimera_pgmo {
 
-using FaceCoordinates = std::array<std::array<float, 3>, 3>;
 using Cloud = pcl::PointCloud<pcl::PointXYZRGBA>;
 
-namespace {
+test::BlockConfig block1_empty{"block1_empty", {0, 0, 0}, {}};
+test::BlockConfig block1_test1{
+    "block1_v1",
+    {0, 0, 0},
+    {{{{0.5, 0.5, 0.5}, {0.5, 0.75, 0.75}, {0.5, 0.75, 0.5}}},
+     {{{0.5, 0.5, 0.5}, {0.5, 0.75, 0.75}, {0.5, 0.75, 0.5}}},
+     {{{0.0, 0.0, 0.0}, {0.0, 0.5, 0.5}, {0.0, 0.0, 0.5}}}}};
 
-inline void addPointToBlock(voxblox_msgs::MeshBlock &block,
-                            const std::array<float, 3> &point) {
-  const float a = std::numeric_limits<uint16_t>::max() / 2.0f;
-  // x = (a * m_x + b_x) * l
-  // m_x = 1 / a * (m_x / l - b_x)
-  // for simplicity, l is 1
-  block.x.push_back(static_cast<uint16_t>(a * (point[0] - block.index[0])));
-  block.y.push_back(static_cast<uint16_t>(a * (point[1] - block.index[1])));
-  block.z.push_back(static_cast<uint16_t>(a * (point[2] - block.index[2])));
-  block.r.push_back(255);
-  block.g.push_back(255);
-  block.b.push_back(255);
-}
-
-struct BlockConfig {
-  std::array<int64_t, 3> index;
-  std::vector<FaceCoordinates> faces;
-
-  voxblox_msgs::MeshBlock instantiate() const {
-    voxblox_msgs::MeshBlock to_return;
-    std::memcpy(to_return.index.data(), index.data(), sizeof(to_return.index));
-
-    for (const auto &face : faces) {
-      addPointToBlock(to_return, face[0]);
-      addPointToBlock(to_return, face[1]);
-      addPointToBlock(to_return, face[2]);
-    }
-
-    return to_return;
-  }
-};
-
-BlockConfig block1_empty{{0, 0, 0}, {}};
-BlockConfig block1_test1{{0, 0, 0},
-                         {{{{0.5, 0.5, 0.5}, {0.5, 0.75, 0.75}, {0.5, 0.75, 0.5}}},
-                          {{{0.5, 0.5, 0.5}, {0.5, 0.75, 0.75}, {0.5, 0.75, 0.5}}},
-                          {{{0.0, 0.0, 0.0}, {0.0, 0.5, 0.5}, {0.0, 0.0, 0.5}}}}};
-
-BlockConfig block2_empty{{-1, 0, 0}, {}};
-BlockConfig block2_test1{{-1, 0, 0},
-                         {{{{-0.5, 0.5, 0.5}, {-0.5, 0.75, 0.75}, {-0.5, 0.75, 0.5}}},
-                          {{{0.0, 0.0, 0.0}, {0.0, 0.5, 0.5}, {0.0, 0.0, 0.5}}}}};
-
-voxblox_msgs::Mesh createMesh(const std::vector<BlockConfig> &configs) {
-  voxblox_msgs::Mesh mesh;
-  mesh.block_edge_length = 1.0;
-  for (const auto &config : configs) {
-    mesh.mesh_blocks.push_back(config.instantiate());
-  }
-  return mesh;
-}
+test::BlockConfig block2_empty{"block2_empty", {-1, 0, 0}, {}};
+test::BlockConfig block2_test1{
+    "block2_v1",
+    {-1, 0, 0},
+    {{{{-0.5, 0.5, 0.5}, {-0.5, 0.75, 0.75}, {-0.5, 0.75, 0.5}}},
+     {{{0.0, 0.0, 0.0}, {0.0, 0.5, 0.5}, {0.0, 0.0, 0.5}}}}};
 
 struct CompressionInputs {
-  CompressionInputs()
-      : vertices(new Cloud()),
-        triangles(new std::vector<pcl::Vertices>()),
-        indices(new std::vector<size_t>()),
-        remappings(new VoxbloxIndexMapping()) {}
-
-  Cloud::Ptr vertices;
-  std::shared_ptr<std::vector<pcl::Vertices>> triangles;
-  std::shared_ptr<std::vector<size_t>> indices;
-  std::shared_ptr<VoxbloxIndexMapping> remappings;
+  MeshCompression::PointCloud vertices;
+  std::vector<pcl::Vertices> triangles;
+  std::vector<size_t> indices;
+  HashedIndexMapping remappings;
 };
 
 struct CompressionOutput {
@@ -121,7 +77,8 @@ bool checkTriangles(const std::vector<std::vector<uint32_t>> &expected,
       continue;
     }
 
-    std::vector<uint32_t> new_triangle = result[i].vertices;
+    std::vector<uint32_t> new_triangle(result[i].vertices.begin(),
+                                       result[i].vertices.end());
     result_filtered.push_back(new_triangle);
   }
 
@@ -144,11 +101,9 @@ bool checkTriangles(const std::vector<std::vector<uint32_t>> &expected,
   return all_valid;
 }
 
-}
-
 const double compression_factor = 1.0e-3;
 
-TEST(test_voxel_clearing_compression, constructor) {
+TEST(TestVoxelClearingCompression, constructor) {
   VoxelClearingCompression compression(1.0);
 
   CompressionOutput output(compression);
@@ -159,15 +114,16 @@ TEST(test_voxel_clearing_compression, constructor) {
   EXPECT_EQ(output.vertices->size(), output.timestamps->size());
 }
 
-TEST(test_voxel_clearing_compression, clearingCorrectBasic) {
+TEST(TestVoxelClearingCompression, clearingCorrectBasic) {
   VoxelClearingCompression compression(compression_factor);
 
-  auto mesh = createMesh({block1_test1});
+  auto mesh = test::createMesh({block1_test1});
+  ASSERT_TRUE(mesh);
 
   {  // limit temporary scopes
     CompressionInputs input;
     compression.compressAndIntegrate(
-        mesh, input.vertices, input.triangles, input.indices, input.remappings, 100.0);
+        *mesh, input.vertices, input.triangles, input.indices, input.remappings, 100.0);
 
     CompressionOutput output(compression);
     EXPECT_EQ(6u, output.vertices->points.size());
@@ -180,12 +136,13 @@ TEST(test_voxel_clearing_compression, clearingCorrectBasic) {
     EXPECT_TRUE(checkTriangles({{0, 1, 2}, {3, 4, 5}}, *output.triangles));
   }
 
-  mesh = createMesh({block1_empty});
+  mesh = test::createMesh({block1_empty});
+  ASSERT_TRUE(mesh);
   {  // limit temporary scopes
     CompressionInputs input;
     // re-integrating an empty block should clear everything
     compression.compressAndIntegrate(
-        mesh, input.vertices, input.triangles, input.indices, input.remappings, 100.0);
+        *mesh, input.vertices, input.triangles, input.indices, input.remappings, 100.0);
 
     CompressionOutput output(compression);
     EXPECT_EQ(6u, output.vertices->points.size());
@@ -196,15 +153,15 @@ TEST(test_voxel_clearing_compression, clearingCorrectBasic) {
   }
 }
 
-TEST(test_voxel_clearing_compression, pruningCorrectBasic) {
+TEST(TestVoxelClearingCompression, pruningCorrectBasic) {
   VoxelClearingCompression compression(compression_factor);
 
-  auto mesh = createMesh({block1_test1});
-
+  auto mesh = test::createMesh({block1_test1});
+  ASSERT_TRUE(mesh);
   {  // limit temporary scopes
     CompressionInputs input;
     compression.compressAndIntegrate(
-        mesh, input.vertices, input.triangles, input.indices, input.remappings, 100.0);
+        *mesh, input.vertices, input.triangles, input.indices, input.remappings, 100.0);
 
     CompressionOutput output(compression);
     EXPECT_EQ(6u, output.vertices->points.size());
@@ -219,12 +176,13 @@ TEST(test_voxel_clearing_compression, pruningCorrectBasic) {
 
   compression.pruneStoredMesh(101.0);
 
-  mesh = createMesh({block1_empty});
+  mesh = test::createMesh({block1_empty});
+  ASSERT_TRUE(mesh);
   {  // limit temporary scopes
     CompressionInputs input;
     // re-integrating an empty block should not add anything
     compression.compressAndIntegrate(
-        mesh, input.vertices, input.triangles, input.indices, input.remappings, 105.0);
+        *mesh, input.vertices, input.triangles, input.indices, input.remappings, 105.0);
 
     CompressionOutput output(compression);
     EXPECT_EQ(6u, output.vertices->points.size());
@@ -235,12 +193,13 @@ TEST(test_voxel_clearing_compression, pruningCorrectBasic) {
     EXPECT_TRUE(checkTriangles({{0, 1, 2}, {3, 4, 5}}, *output.triangles));
   }
 
-  mesh = createMesh({block1_test1});
+  mesh = test::createMesh({block1_test1});
+  ASSERT_TRUE(mesh);
   {  // limit temporary scopes
     CompressionInputs input;
     // re-integrating an empty block should not add anything
     compression.compressAndIntegrate(
-        mesh, input.vertices, input.triangles, input.indices, input.remappings, 105.0);
+        *mesh, input.vertices, input.triangles, input.indices, input.remappings, 105.0);
 
     CompressionOutput output(compression);
     EXPECT_EQ(12u, output.vertices->points.size());
@@ -254,15 +213,16 @@ TEST(test_voxel_clearing_compression, pruningCorrectBasic) {
   }
 }
 
-TEST(test_voxel_clearing_compression, clearingCorrectMultiblock) {
+TEST(TestVoxelClearingCompression, clearingCorrectMultiblock) {
   VoxelClearingCompression compression(compression_factor);
 
-  auto mesh = createMesh({block1_test1, block2_test1});
+  auto mesh = test::createMesh({block1_test1, block2_test1});
+  ASSERT_TRUE(mesh);
 
   {  // limit temporary scopes
     CompressionInputs input;
     compression.compressAndIntegrate(
-        mesh, input.vertices, input.triangles, input.indices, input.remappings, 100.0);
+        *mesh, input.vertices, input.triangles, input.indices, input.remappings, 100.0);
 
     CompressionOutput output(compression);
     EXPECT_EQ(9u, output.vertices->points.size());
@@ -272,12 +232,13 @@ TEST(test_voxel_clearing_compression, clearingCorrectMultiblock) {
     EXPECT_TRUE(checkTriangles({{6, 7, 8}, {3, 4, 5}, {0, 1, 2}}, *output.triangles));
   }
 
-  mesh = createMesh({block1_empty, block2_test1});
+  mesh = test::createMesh({block1_empty, block2_test1});
+  ASSERT_TRUE(mesh);
 
   {  // limit temporary scopes
     CompressionInputs input;
     compression.compressAndIntegrate(
-        mesh, input.vertices, input.triangles, input.indices, input.remappings, 100.0);
+        *mesh, input.vertices, input.triangles, input.indices, input.remappings, 100.0);
 
     // we should drop faces from the first block, but still keep faces that are
     // between both
@@ -289,12 +250,13 @@ TEST(test_voxel_clearing_compression, clearingCorrectMultiblock) {
     EXPECT_TRUE(checkTriangles({{6, 7, 8}, {3, 4, 5}}, *output.triangles));
   }
 
-  mesh = createMesh({block1_test1, block2_test1});
+  mesh = test::createMesh({block1_test1, block2_test1});
+  ASSERT_TRUE(mesh);
 
   {  // limit temporary scopes
     CompressionInputs input;
     compression.compressAndIntegrate(
-        mesh, input.vertices, input.triangles, input.indices, input.remappings, 100.0);
+        *mesh, input.vertices, input.triangles, input.indices, input.remappings, 100.0);
 
     // we should be back at the original state
     CompressionOutput output(compression);
@@ -305,12 +267,13 @@ TEST(test_voxel_clearing_compression, clearingCorrectMultiblock) {
     EXPECT_TRUE(checkTriangles({{6, 7, 8}, {3, 4, 5}, {9, 10, 11}}, *output.triangles));
   }
 
-  mesh = createMesh({block1_test1, block2_empty});
+  mesh = test::createMesh({block1_test1, block2_empty});
+  ASSERT_TRUE(mesh);
 
   {  // limit temporary scopes
     CompressionInputs input;
     compression.compressAndIntegrate(
-        mesh, input.vertices, input.triangles, input.indices, input.remappings, 100.0);
+        *mesh, input.vertices, input.triangles, input.indices, input.remappings, 100.0);
 
     CompressionOutput output(compression);
     EXPECT_EQ(12u, output.vertices->points.size());
@@ -321,15 +284,16 @@ TEST(test_voxel_clearing_compression, clearingCorrectMultiblock) {
   }
 }
 
-TEST(test_voxel_clearing_compression, pruningCorrectMultiblock) {
+TEST(TestVoxelClearingCompression, pruningCorrectMultiblock) {
   VoxelClearingCompression compression(compression_factor);
 
-  auto mesh = createMesh({block1_test1});
+  auto mesh = test::createMesh({block1_test1});
+  ASSERT_TRUE(mesh);
 
   {  // limit temporary scopes
     CompressionInputs input;
     compression.compressAndIntegrate(
-        mesh, input.vertices, input.triangles, input.indices, input.remappings, 100.0);
+        *mesh, input.vertices, input.triangles, input.indices, input.remappings, 100.0);
 
     CompressionOutput output(compression);
     EXPECT_EQ(6u, output.vertices->points.size());
@@ -339,12 +303,13 @@ TEST(test_voxel_clearing_compression, pruningCorrectMultiblock) {
     EXPECT_TRUE(checkTriangles({{0, 1, 2}, {3, 4, 5}}, *output.triangles));
   }
 
-  mesh = createMesh({block2_test1});
+  mesh = test::createMesh({block2_test1});
+  ASSERT_TRUE(mesh);
   {  // limit temporary scopes
     CompressionInputs input;
     // re-integrating an empty block should not add anything
     compression.compressAndIntegrate(
-        mesh, input.vertices, input.triangles, input.indices, input.remappings, 102.0);
+        *mesh, input.vertices, input.triangles, input.indices, input.remappings, 102.0);
 
     CompressionOutput output(compression);
     EXPECT_EQ(9u, output.vertices->points.size());
@@ -356,12 +321,13 @@ TEST(test_voxel_clearing_compression, pruningCorrectMultiblock) {
 
   compression.pruneStoredMesh(101.0);
 
-  mesh = createMesh({block1_empty, block2_empty});
+  mesh = test::createMesh({block1_empty, block2_empty});
+  ASSERT_TRUE(mesh);
   {  // limit temporary scopes
     CompressionInputs input;
     // re-integrating an empty block should not add anything
     compression.compressAndIntegrate(
-        mesh, input.vertices, input.triangles, input.indices, input.remappings, 105.0);
+        *mesh, input.vertices, input.triangles, input.indices, input.remappings, 105.0);
 
     CompressionOutput output(compression);
     EXPECT_EQ(9u, output.vertices->points.size());
@@ -371,12 +337,13 @@ TEST(test_voxel_clearing_compression, pruningCorrectMultiblock) {
     EXPECT_TRUE(checkTriangles({{0, 1, 2}, {3, 4, 5}}, *output.triangles));
   }
 
-  mesh = createMesh({block1_test1});
+  mesh = test::createMesh({block1_test1});
+  ASSERT_TRUE(mesh);
   {  // limit temporary scopes
     CompressionInputs input;
     // re-integrating an empty block should not add anything
     compression.compressAndIntegrate(
-        mesh, input.vertices, input.triangles, input.indices, input.remappings, 105.0);
+        *mesh, input.vertices, input.triangles, input.indices, input.remappings, 105.0);
 
     CompressionOutput output(compression);
     EXPECT_EQ(15u, output.vertices->points.size());

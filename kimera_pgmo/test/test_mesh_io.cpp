@@ -7,12 +7,12 @@
 #include <pcl/conversions.h>
 
 #include "gtest/gtest.h"
-#include "kimera_pgmo/utils/MeshIO.h"
+#include "kimera_pgmo/utils/mesh_io.h"
 #include "test_config.h"
 
 namespace kimera_pgmo {
 
-TEST(test_common_functions, testReadWritePly) {
+TEST(TestMeshIO, readWritePly) {
   pcl::PolygonMeshPtr original_mesh(new pcl::PolygonMesh());
   ReadMeshFromPly(std::string(DATASET_PATH) + "/cube.ply", original_mesh);
   pcl::PointCloud<pcl::PointXYZRGBA> cloud;

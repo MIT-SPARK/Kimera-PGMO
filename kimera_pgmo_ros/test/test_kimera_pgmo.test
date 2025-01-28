@@ -1,0 +1,6 @@
+<launch>
+	<test test-name="test_kimera_pgmo"
+		  pkg="kimera_pgmo_ros"
+		  type="kimera_pgmo_ros-test_kimera_pgmo"
+		  time-limit="300" />
+</launch>

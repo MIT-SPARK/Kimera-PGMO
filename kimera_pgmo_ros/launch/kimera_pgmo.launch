@@ -1,0 +1,48 @@
+<launch>
+  <arg name="dataset" default="uHumans2" />
+  <arg name="robot_id" default="0" />
+  <arg name="run_mode" default="FULL" />
+  <arg name="optimized_path_topic" default="optimized_path" />
+  <arg name="dpgmo_topic" default="optimized_pose_graph" />
+  <arg name="output_path" default="$(find kimera_pgmo_ros)/log" />
+  <arg name="horizon" default="20" />
+  <arg name="output_resolution" default="0.04" />
+  <arg name="d_graph_resolution" default="1.5" />
+  <arg name="track_mesh_graph_mapping" default="true" />
+  <arg name="log" default="true" />
+  <arg name="enable_sparsify" default="false"/>
+
+  <node name="mesh_frontend" pkg="kimera_pgmo_ros" type="mesh_frontend_node" output="screen" >
+    <param name="horizon" value="$(arg horizon)" />
+    <param name="output_mesh_resolution" value="$(arg output_resolution)" />
+    <param name="robot_id" value="$(arg robot_id)" />
+    <param name="d_graph_resolution" value="$(arg d_graph_resolution)" />
+    <param name="graph_compression_method" value="BLOCK" />
+    <param name="full_compression_method" value="VOXEL_CLEARING" />
+    <param name="log_path" value="$(arg output_path)" />
+    <param name="log_output" value="$(arg log)" />
+    <param name="track_mesh_graph_mapping" value="$(arg track_mesh_graph_mapping)" />
+    <remap from="~voxblox_mesh" to="kimera_semantics_node/mesh" />
+  </node>
+
+  <node name="kimera_pgmo" pkg="kimera_pgmo_ros" type="kimera_pgmo_node" output="screen" >
+    <rosparam file="$(find kimera_pgmo)/params/$(arg dataset)/parameters.yaml" />
+    <param name="output_prefix" value="$(arg output_path)" />
+    <param name="robot_id" value="$(arg robot_id)" />
+    <param name="run_mode" value="$(arg run_mode)" />
+    <param name="enable_sparsify" value="$(arg enable_sparsify)" />
+    <param name="log_output" value="$(arg log)" />
+    <remap from="~mesh_graph_incremental" to="mesh_frontend/mesh_graph_incremental" />
+    <remap from="~full_mesh" to="mesh_frontend/full_mesh" />
+    <remap from="~pose_graph_incremental" to="kimera_vio_ros/pose_graph_incremental" />
+    <remap from="~input_path" to="$(arg optimized_path_topic)" />
+    <remap from="~optimized_values" to="$(arg dpgmo_topic)" />
+  </node>
+
+  <include file="$(find pose_graph_tools_ros)/launch/posegraph_view.launch" >
+    <arg name="frame_id"      value="world" />
+    <arg name="graph_topic"   value="pose_graph" />
+    <arg name="ns"            value="kimera_pgmo"/>
+  </include>
+
+</launch>

@@ -2,13 +2,13 @@
 
 #include <numeric>
 
-#include "kimera_pgmo/MeshTraits.h"
-#include "kimera_pgmo/PclMeshTraits.h"
-#include "kimera_pgmo/utils/RangeGenerator.h"
+#include "kimera_pgmo/mesh_traits.h"
+#include "kimera_pgmo/pcl_mesh_traits.h"
+#include "kimera_pgmo/utils/range_generator.h"
 
 namespace kimera_pgmo {
 
-TEST(test_traits, testStampTraitsCorrect) {
+TEST(TestTraits, stampTraitsCorrect) {
   static_assert(!traits::has_get_stamp<pcl::PointCloud<pcl::PointXYZ>>::value,
                 "pcl::PointXYZ get failed");
   static_assert(!traits::has_get_stamp<pcl::PointCloud<pcl::PointXYZRGBA>>::value,
@@ -20,7 +20,7 @@ TEST(test_traits, testStampTraitsCorrect) {
   SUCCEED();
 }
 
-TEST(test_traits, testGenerator) {
+TEST(TestTraits, generator) {
   RangeGenerator generator(10);
   std::vector<int64_t> result(generator.begin(), generator.end());
   std::vector<int64_t> expected(10);
