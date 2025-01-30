@@ -144,23 +144,42 @@ void DeformationGraph::processNodeValence(const gtsam::Key& key,
     const gtsam::Pose3 vertex_pose(gtsam::Rot3(),
                                    vertex_positions_[valence_prefix].at(v));
 
-    addDeformationEdge(key, vertex, node_pose, vertex_pose, variance, temp);
-    addDeformationEdge(vertex, key, vertex_pose, node_pose, variance, temp);
+    addDeformationEdge(
+        key, vertex, node_pose, vertex_pose.translation(), variance, temp);
+    addDeformationEdge(
+        vertex, key, vertex_pose, node_pose.translation(), variance, temp);
   }
+}
+
+void DeformationGraph::processPointMeasurement(const gtsam::Key& from_key,
+                                               const gtsam::Key& to_key,
+                                               const gtsam::Pose3& from_pose,
+                                               const gtsam::Point3& to_point,
+                                               double variance,
+                                               bool temp) {
+  if (!values_.exists(to_key) && !new_values_.exists(to_key) &&
+      !new_temp_values_.exists(to_key)) {
+    if (temp) {
+      new_temp_values_.insert(to_key, gtsam::Pose3(gtsam::Rot3(), to_point));
+    } else {
+      new_values_.insert(to_key, gtsam::Pose3(gtsam::Rot3(), to_point));
+    }
+  }
+
+  addDeformationEdge(from_key, to_key, from_pose, to_point, variance, temp);
 }
 
 void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
                                           const gtsam::Key& to_key,
                                           const gtsam::Pose3& from_pose,
-                                          const gtsam::Pose3& to_pose,
+                                          const gtsam::Point3& to_point,
                                           double variance,
                                           bool temp) {
   // Define noise. Hardcoded for now
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(3, variance);
   // Create deformation edge factor
-  const DeformationEdgeFactor new_edge(
-      from_key, to_key, from_pose, to_pose.translation(), noise);
+  const DeformationEdgeFactor new_edge(from_key, to_key, from_pose, to_point, noise);
   if (temp) {
     new_temp_factors_.add(new_edge);
     return;
@@ -419,9 +438,9 @@ void DeformationGraph::processNewMeshEdgesAndNodes(
       SPARK_LOG(FATAL) << "Error adding new mesh edge.";
     }
     const gtsam::Pose3& pose_from = mesh_nodes.at<gtsam::Pose3>(e.first);
-    const gtsam::Pose3& pose_to = mesh_nodes.at<gtsam::Pose3>(e.second);
+    const gtsam::Point3& point_to = mesh_nodes.at<gtsam::Pose3>(e.second).translation();
 
-    addDeformationEdge(e.first, e.second, pose_from, pose_to, variance);
+    addDeformationEdge(e.first, e.second, pose_from, point_to, variance);
   }
 }
 

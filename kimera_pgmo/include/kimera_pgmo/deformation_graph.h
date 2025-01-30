@@ -241,7 +241,6 @@ class DeformationGraph {
    *  - mesh_nodes: gtsam values encoding key value pairs of new nodes
    *  - added_indices: indices of nodes that was successfully added
    *  - variance: covariance of the deformation graph edges
-   *  - optimize: optimize or just add to pgo
    */
   void processNewMeshEdgesAndNodes(
       const std::vector<std::pair<gtsam::Key, gtsam::Key>>& mesh_edges,
@@ -257,13 +256,27 @@ class DeformationGraph {
    *  - prefix: the prefixes of the key of the nodes corresponding to mesh
    * vertices
    *  - variance: covariance of the deformation graph edges
-   *  - optimize: optimize or just add to pgo
    */
   void processNodeValence(const gtsam::Key& key,
                           const Vertices& valences,
                           const char& valence_prefix,
                           double variance = 1e-4,
                           bool temp = false);
+
+  /*! \brief Add point measurements as a deformation edge factor
+   *  - from_key: key of the pose point measurement is made from
+   *  - to_key: key of the point
+   *  - from_pose: pose where measuremet is made in deformation graph frame
+   *  - to_point: point measurement in deformation graph frame
+   *  - variance: covariance of the deformation graph edges
+   *  - temp: temporary factor
+   */
+  void processPointMeasurement(const gtsam::Key& from_key,
+                               const gtsam::Key& to_key,
+                               const gtsam::Pose3& from_pose,
+                               const gtsam::Point3& to_point,
+                               double variance,
+                               bool temp = false);
 
   /*! \brief Remove sll prior factors of nodes that have given prefix
    *  - prefix: prefix of nodes to remove prior
@@ -595,15 +608,15 @@ class DeformationGraph {
 
   bool checkNewTempBetween(const gtsam::Key& key_from, const gtsam::Key& key_to);
 
-  void addDeformationEdge(const gtsam::Key& key,
-                          const Vertex& vertex,
-                          const gtsam::Pose3& node_pose,
-                          const gtsam::Pose3& vertex_pose,
+  void addDeformationEdge(const gtsam::Key& from_key,
+                          const gtsam::Key& to_key,
+                          const gtsam::Pose3& from_pose,
+                          const gtsam::Point3& to_point,
                           double variance,
                           bool temp = false);
 
-  void addDeformationEdge(const gtsam::Key& key,
-                          const Vertex& vertex,
+  void addDeformationEdge(const gtsam::Key& from_key,
+                          const gtsam::Key& to_key,
                           const gtsam::Point3& measurement,
                           double variance,
                           bool temp = false);
