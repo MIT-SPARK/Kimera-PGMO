@@ -52,11 +52,12 @@ class KimeraPgmoTest : public ::testing::Test {
     nh.setParam("embed_trajectory_delta_t", 3.0);
     nh.setParam("num_interp_pts", 4);
     nh.setParam("interp_horizon", 10.0);
-    nh.setParam("rpgo/odom_trans_threshold", 10.0);
-    nh.setParam("rpgo/odom_rot_threshold", 10.0);
-    nh.setParam("rpgo/pcm_trans_threshold", 10.0);
-    nh.setParam("rpgo/pcm_rot_threshold", 10.0);
-    nh.setParam("rpgo/gnc_alpha", 0);
+    nh.setParam("optimizer/type", "KimeraRpgoOptimizer");
+    nh.setParam("optimizer/odom_trans_threshold", 10.0);
+    nh.setParam("optimizer/odom_rot_threshold", 10.0);
+    nh.setParam("optimizer/pcm_trans_threshold", 10.0);
+    nh.setParam("optimizer/pcm_rot_threshold", 10.0);
+    nh.setParam("optimizer/gnc_alpha", 0);
     nh.setParam("add_initial_prior", true);
     nh.setParam("enable_sparsify", false);
     nh.setParam("covariance/odom", 0.000001);
@@ -64,58 +65,52 @@ class KimeraPgmoTest : public ::testing::Test {
     nh.setParam("covariance/prior", 0.00001);
     nh.setParam("covariance/mesh_mesh", 0.001);
     nh.setParam("covariance/pose_mesh", 0.0001);
+
+    pgmo_.reset(new KimeraPgmo(nh));
   }
 
   ~KimeraPgmoTest() {}
 
-  bool init() {
-    const auto ret = pgmo_.initFromRos(nh);
-    return ret;
-  }
+  void reinit() { pgmo_.reset(new KimeraPgmo(nh)); }
 
   void IncrementalPoseGraphCallback(const pose_graph_tools_msgs::PoseGraph& msg) {
-    pgmo_.incrementalPoseGraphCallback(msg);
+    pgmo_->incrementalPoseGraphCallback(msg);
   }
 
   void FullMeshCallback(const KimeraPgmoMesh& mesh_msg) {
-    pgmo_.fullMeshCallback(mesh_msg);
+    pgmo_->fullMeshCallback(mesh_msg);
   }
 
   void IncrementalMeshGraphCallback(const pose_graph_tools_msgs::PoseGraph& msg) {
-    pgmo_.incrementalMeshGraphCallback(msg);
+    pgmo_->incrementalMeshGraphCallback(msg);
   }
 
   void OptimizedPathCallback(const nav_msgs::Path& path_msg) {
-    pgmo_.optimizedPathCallback(path_msg);
+    pgmo_->optimizedPathCallback(path_msg);
   }
 
-  void ForceOptimize() { pgmo_.forceOptimize(); }
+  std::vector<gtsam::Pose3> getTrajectory() const { return pgmo_->trajectory_; }
 
-  std::vector<gtsam::Pose3> getTrajectory() const { return pgmo_.trajectory_; }
+  std::queue<size_t> getUnconnectedNodes() const { return pgmo_->unconnected_nodes_; }
 
-  std::queue<size_t> getUnconnectedNodes() const { return pgmo_.unconnected_nodes_; }
+  std::vector<Timestamp> getTimestamps() const { return pgmo_->timestamps_; }
 
-  std::vector<Timestamp> getTimestamps() const { return pgmo_.timestamps_; }
-
-  gtsam::Values getValues() const { return pgmo_.getDeformationGraphValues(); }
+  gtsam::Values getValues() const { return pgmo_->getDeformationGraphValues(); }
 
   gtsam::NonlinearFactorGraph getFactors() const {
-    return pgmo_.getDeformationGraphFactors();
+    return pgmo_->getDeformationGraphFactors();
   }
 
-  pcl::PolygonMesh getOptimizedMesh() const { return *(pgmo_.optimized_mesh_); }
+  pcl::PolygonMesh getOptimizedMesh() const { return *(pgmo_->optimized_mesh_); }
 
   ros::NodeHandle nh;
-  KimeraPgmo pgmo_;
+  std::shared_ptr<KimeraPgmo> pgmo_;
 };
 
 TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
-  ASSERT_TRUE(init());
-
   // check callback
   auto inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
-  ForceOptimize();
 
   std::vector<gtsam::Pose3> traj = getTrajectory();
   std::queue<size_t> unconnected_nodes = getUnconnectedNodes();
@@ -123,11 +118,11 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   gtsam::NonlinearFactorGraph factors = getFactors();
   gtsam::Values values = getValues();
 
-  ASSERT_EQ(2u, traj.size());
-  ASSERT_EQ(2u, unconnected_nodes.size());
-  ASSERT_EQ(2u, stamps.size());
-  ASSERT_EQ(2u, factors.size());  // 1 odom + 1 prior
-  ASSERT_EQ(2u, values.size());   // 2 poses
+  EXPECT_EQ(2u, traj.size());
+  EXPECT_EQ(2u, unconnected_nodes.size());
+  EXPECT_EQ(2u, stamps.size());
+  EXPECT_EQ(2u, factors.size());  // 1 odom + 1 prior
+  EXPECT_EQ(2u, values.size());   // 2 poses
 
   // Briefly check values in trajectory, unconnected-nodes, stamps
 
@@ -143,17 +138,16 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
                                   values.at<gtsam::Pose3>(gtsam::Symbol('a', 1))));
 
   // check factors
-  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[0]));
+  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[1]));
 
-  gtsam::BetweenFactor<gtsam::Pose3> factor0 =
-      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[0]);
+  gtsam::BetweenFactor<gtsam::Pose3> factor1 =
+      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[1]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
-                                  factor0.measured()));
+                                  factor1.measured()));
 
   // load second incremental pose graph
   inc_graph = OdomLoopclosureGraph(ros::Time(20.3), 0);
   IncrementalPoseGraphCallback(inc_graph);
-  ForceOptimize();
 
   traj = getTrajectory();
   unconnected_nodes = getUnconnectedNodes();
@@ -161,12 +155,12 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   factors = getFactors();
   values = getValues();
 
-  ASSERT_EQ(3u, traj.size());
-  ASSERT_EQ(3u, unconnected_nodes.size());
-  ASSERT_EQ(3u, stamps.size());
+  EXPECT_EQ(3u, traj.size());
+  EXPECT_EQ(3u, unconnected_nodes.size());
+  EXPECT_EQ(3u, stamps.size());
 
-  ASSERT_EQ(3u, values.size());   // 3 odom poses
-  ASSERT_EQ(4u, factors.size());  // 2 odom + 1 prior + 1 lc
+  EXPECT_EQ(3u, values.size());   // 3 odom poses
+  EXPECT_EQ(4u, factors.size());  // 1 prior + 2 odom + 1 lc
 
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
                                   traj[2]));
@@ -177,16 +171,16 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
                                   values.at<gtsam::Pose3>(gtsam::Symbol('a', 2))));
 
-  // check factors (rpgo orders in: odom, special, then lc, then lndmark)
-  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[1]));
+  // check factors
+  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[2]));
   EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[3]));
 
-  gtsam::BetweenFactor<gtsam::Pose3> factor1 =
-      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[1]);
+  gtsam::BetweenFactor<gtsam::Pose3> factor2 =
+      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[2]);
   gtsam::BetweenFactor<gtsam::Pose3> factor3 =
       *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[3]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 0)),
-                                  factor1.measured()));
+                                  factor2.measured()));
   EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor3.front());
   EXPECT_EQ(gtsam::Symbol('a', 2).key(), factor3.back());
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
@@ -194,8 +188,6 @@ TEST_F(KimeraPgmoTest, incrementalPoseGraphCallback) {
 }
 
 TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
-  ASSERT_TRUE(init());
-
   // Here we should test if the mesh is added to the deformation graph correctly
   OctreeCompressionPtr compression(new OctreeCompression(0.5));
   Graph graph_struct;
@@ -212,10 +204,9 @@ TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
   auto mesh_graph_msg =
       processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
-  ForceOptimize();
 
   // Now should have 7 values (2 nodes + 5 vertices)
-  // And 28 factors (1 odom + 1 prior + 16 edges + 10 connections)
+  // And 28 factors (1 prior + 1 odom + 16 edges + 10 connections)
   gtsam::NonlinearFactorGraph factors = getFactors();
   gtsam::Values values = getValues();
   EXPECT_EQ(28u, factors.size());
@@ -230,43 +221,41 @@ TEST_F(KimeraPgmoTest, incrementalMeshCallback) {
   mesh_graph_msg =
       processMeshToGraph(mesh2, 0, ros::Time(13.0), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
-  ForceOptimize();
 
   // Now should have 13 values (3 nodes + 10 vertices)
-  // And 56 factors (2 odom + 1 prior + 32 edges + 20 connections + 1 lc)
+  // And 56 factors (1 prior + 1 odom + 16 edges + 10 connections + 1 odom + 1 lc + 16
+  // edges + 10 connections)
   factors = getFactors();
   values = getValues();
   EXPECT_EQ(56u, factors.size());
   EXPECT_EQ(13u, values.size());
 
   // And also add the connection of nodes and vertices
-  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[55]));
-  gtsam::BetweenFactor<gtsam::Pose3> factor55 =
-      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[55]);
+  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[29]));
+  gtsam::BetweenFactor<gtsam::Pose3> factor29 =
+      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[29]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
-                                  factor55.measured()));
-  EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor55.front());
-  EXPECT_EQ(gtsam::Symbol('a', 2).key(), factor55.back());
+                                  factor29.measured()));
+  EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor29.front());
+  EXPECT_EQ(gtsam::Symbol('a', 2).key(), factor29.back());
 
   // Check deformation edge factors
-  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[3]));
-  DeformationEdgeFactor factor3 = *cast_factor<DeformationEdgeFactor>(factors[3]);
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(), factor3.fromPose()));
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor3.toPoint()));
-  EXPECT_EQ(gtsam::Symbol('s', 0), factor3.front());
-  EXPECT_EQ(gtsam::Symbol('s', 1), factor3.back());
+  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[2]));
+  DeformationEdgeFactor factor2 = *cast_factor<DeformationEdgeFactor>(factors[2]);
 
-  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[53]));
-  DeformationEdgeFactor factor53 = *cast_factor<DeformationEdgeFactor>(factors[53]);
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
-                                  factor53.fromPose()));
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(2, 0, 1), factor53.toPoint()));
-  EXPECT_EQ(gtsam::Symbol('a', 2), factor53.front());
-  EXPECT_EQ(gtsam::Symbol('s', 9), factor53.back());
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor2.measurement()));
+  EXPECT_EQ(gtsam::Symbol('s', 0), factor2.front());
+  EXPECT_EQ(gtsam::Symbol('s', 1), factor2.back());
+
+  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[54]));
+  DeformationEdgeFactor factor54 = *cast_factor<DeformationEdgeFactor>(factors[54]);
+
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, -1, 1), factor54.measurement()));
+  EXPECT_EQ(gtsam::Symbol('a', 2), factor54.front());
+  EXPECT_EQ(gtsam::Symbol('s', 9), factor54.back());
 }
 
 TEST_F(KimeraPgmoTest, nodeToMeshConnection) {
-  ASSERT_TRUE(init());
   // Here we check the functionality of connecting the nodes to the mesh
   // Case: multiple pose graph msgs recieved before mesh
 
@@ -289,7 +278,6 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnection) {
   auto mesh_graph_msg =
       processMeshToGraph(mesh1, 0, ros::Time(12.2), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
-  ForceOptimize();
 
   // Now should have 8 values (3 nodes + 5 vertices)
   // And 30 factors (2 odom + 16 edges + 1 prior + 1 lc + 10 connections)
@@ -300,7 +288,6 @@ TEST_F(KimeraPgmoTest, nodeToMeshConnection) {
 }
 
 TEST_F(KimeraPgmoTest, fullMeshCallback) {
-  ASSERT_TRUE(init());
   // Simple test with above pose graph. Mesh should not change
   // since no loop closures
   // Here we should test if the mesh is added to the deformation graph correctly
@@ -374,12 +361,9 @@ TEST_F(KimeraPgmoTest, fullMeshCallback) {
 }
 
 TEST_F(KimeraPgmoTest, optimizedPathCallback) {
-  ASSERT_TRUE(init());
-
   // check callback
   auto inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
   IncrementalPoseGraphCallback(inc_graph);
-  ForceOptimize();
 
   // Create a Path
   nav_msgs::Path path_msg;
@@ -494,7 +478,8 @@ TEST_F(KimeraPgmoTest, optimizedPathCallback) {
 
 TEST_F(KimeraPgmoTest, checkRobotIdMeshCallback) {
   nh.setParam("robot_id", 2);
-  ASSERT_TRUE(init());
+
+  reinit();
 
   // Here we should test if the mesh is added to the deformation graph correctly
   OctreeCompressionPtr compression(new OctreeCompression(0.5));
@@ -521,46 +506,43 @@ TEST_F(KimeraPgmoTest, checkRobotIdMeshCallback) {
   mesh_graph_msg =
       processMeshToGraph(mesh2, 2, ros::Time(13.0), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
-  ForceOptimize();
 
   // Now should have 13 values (3 nodes + 10 vertices)
-  // And 56 factors (2 odom + 1 prior + 32 edges + 20 connections + 1 lc)
+  // And 56 factors (1 prior + 1 odom + 16 edges + 10 connections + 1 odom + 1 lc + 16 edges + 10 connections)
   gtsam::NonlinearFactorGraph factors = getFactors();
   gtsam::Values values = getValues();
   EXPECT_EQ(56u, factors.size());
   EXPECT_EQ(13u, values.size());
 
   // And also add the connection of nodes and vertices
-  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[55]));
-  gtsam::BetweenFactor<gtsam::Pose3> factor55 =
-      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[55]);
+  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[29]));
+  gtsam::BetweenFactor<gtsam::Pose3> factor29 =
+      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[29]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
-                                  factor55.measured()));
-  EXPECT_EQ(gtsam::Symbol('c', 0).key(), factor55.front());
-  EXPECT_EQ(gtsam::Symbol('c', 2).key(), factor55.back());
+                                  factor29.measured()));
+  EXPECT_EQ(gtsam::Symbol('c', 0).key(), factor29.front());
+  EXPECT_EQ(gtsam::Symbol('c', 2).key(), factor29.back());
 
   // Check deformation edge factors
-  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[3]));
-  DeformationEdgeFactor factor3 = *cast_factor<DeformationEdgeFactor>(factors[3]);
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(), factor3.fromPose()));
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor3.toPoint()));
-  EXPECT_EQ(gtsam::Symbol('u', 0), factor3.front());
-  EXPECT_EQ(gtsam::Symbol('u', 1), factor3.back());
+  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[2]));
+  DeformationEdgeFactor factor2 = *cast_factor<DeformationEdgeFactor>(factors[2]);
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor2.measurement()));
+  EXPECT_EQ(gtsam::Symbol('u', 0), factor2.front());
+  EXPECT_EQ(gtsam::Symbol('u', 1), factor2.back());
 
-  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[53]));
-  DeformationEdgeFactor factor53 = *cast_factor<DeformationEdgeFactor>(factors[53]);
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
-                                  factor53.fromPose()));
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(2, 0, 1), factor53.toPoint()));
-  EXPECT_EQ(gtsam::Symbol('c', 2), factor53.front());
-  EXPECT_EQ(gtsam::Symbol('u', 9), factor53.back());
+  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[54]));
+  DeformationEdgeFactor factor54 = *cast_factor<DeformationEdgeFactor>(factors[54]);
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, -1, 1), factor54.measurement()));
+  EXPECT_EQ(gtsam::Symbol('c', 2), factor54.front());
+  EXPECT_EQ(gtsam::Symbol('u', 9), factor54.back());
 }
 
 TEST_F(KimeraPgmoTest, sparseKeyFrames) {
   nh.setParam("enable_sparsify", true);
   nh.setParam("trans_node_dist", 1.1);
   nh.setParam("rot_node_dist", 2.0);
-  ASSERT_TRUE(init());
+
+  reinit();
 
   // Here we should test if the mesh is added to the deformation graph correctly
   OctreeCompressionPtr compression(new OctreeCompression(0.5));
@@ -577,7 +559,6 @@ TEST_F(KimeraPgmoTest, sparseKeyFrames) {
   auto mesh_graph_msg =
       processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
-  ForceOptimize();
 
   // Now should have 6 values (1 node + 5 vertices)
   // And 27 factors (1 prior + 16 edges + 10 connections)
@@ -595,33 +576,29 @@ TEST_F(KimeraPgmoTest, sparseKeyFrames) {
   mesh_graph_msg =
       processMeshToGraph(mesh2, 0, ros::Time(13.0), compression, &graph_struct);
   IncrementalMeshGraphCallback(mesh_graph_msg);
-  ForceOptimize();
 
   // Now should have 12 values (2 nodes + 10 vertices)
-  // And 55 factors (1 odom + 1 prior + 32 edges + 20 connections + 1 lc)
+  // And 55 factors (1 prior + 16 edges + 10 connections + 1 odom + 1 lc + 16 edges + 10 connections)
   factors = getFactors();
   values = getValues();
   EXPECT_EQ(55u, factors.size());
   EXPECT_EQ(12u, values.size());
 
   // And also add the connection of nodes and vertices
-  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[1]));
-  gtsam::BetweenFactor<gtsam::Pose3> factor1 =
-      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[1]);
+  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[27]));
+  gtsam::BetweenFactor<gtsam::Pose3> factor27 =
+      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[27]);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
-                                  factor1.measured()));
-  EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor1.front());
-  EXPECT_EQ(gtsam::Symbol('a', 1).key(), factor1.back());
+                                  factor27.measured()));
+  EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor27.front());
+  EXPECT_EQ(gtsam::Symbol('a', 1).key(), factor27.back());
 
   EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[53]));
   DeformationEdgeFactor factor53 = *cast_factor<DeformationEdgeFactor>(factors[53]);
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
-                                  factor53.fromPose()));
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(2, 0, 1), factor53.toPoint()));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, -1, 1), factor53.measurement()));
   EXPECT_EQ(gtsam::Symbol('a', 1), factor53.front());
   EXPECT_EQ(gtsam::Symbol('s', 9), factor53.back());
 }
-
 }  // namespace kimera_pgmo
 
 int main(int argc, char** argv) {

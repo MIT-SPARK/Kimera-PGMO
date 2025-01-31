@@ -12,10 +12,3 @@ target_include_directories(${PROJECT_NAME}-test_kimera_pgmo
                            PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(${PROJECT_NAME}-test_kimera_pgmo ${PROJECT_NAME}
                       config_utilities::config_utilities)
-
-add_rostest_gtest(${PROJECT_NAME}-test_kimera_dpgmo test_kimera_dpgmo.test
-                  test_kimera_dpgmo.cpp)
-target_include_directories(${PROJECT_NAME}-test_kimera_dpgmo
-                           PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(${PROJECT_NAME}-test_kimera_dpgmo ${PROJECT_NAME}
-                      config_utilities::config_utilities)

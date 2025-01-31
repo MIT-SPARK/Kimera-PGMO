@@ -41,7 +41,7 @@ class KimeraPgmo : public KimeraPgmoInterface {
    * the full mesh to perform distortions and publish the optimzed distored mesh
    * and trajectory
    */
-  KimeraPgmo();
+  KimeraPgmo(const ros::NodeHandle& n);
 
   ~KimeraPgmo();
 
@@ -139,11 +139,6 @@ class KimeraPgmo : public KimeraPgmoInterface {
    */
   void optimizedPathCallback(const nav_msgs::Path& msg);
 
-  /*! \brief Subscribes to an optimized values published by dpgmo
-   *  - msg: optimized pose graph published as a pose graph msg
-   */
-  void dpgmoCallback(const pose_graph_tools_msgs::PoseGraph& msg);
-
   /*! \brief Saves mesh as a ply file. Triggers through a rosservice call
    * and saves to file [output_prefix_]/mesh_pgmo.ply
    */
@@ -163,12 +158,6 @@ class KimeraPgmo : public KimeraPgmoInterface {
    */
   bool loadGraphMeshCallback(kimera_pgmo_msgs::LoadGraphMesh::Request& request,
                              kimera_pgmo_msgs::LoadGraphMesh::Response& response);
-
-  /*! \brief Requests the mesh related edges (pose-vertex, vertex-vertex) in the
-   * deformation graph.
-   */
-  bool requestMeshEdgesCallback(kimera_pgmo_msgs::RequestMeshFactors::Request& req,
-                                kimera_pgmo_msgs::RequestMeshFactors::Response& res);
 
   /*! \brief log the run-time stats such as pose graph size, mesh size, and run
    * time
@@ -209,7 +198,6 @@ class KimeraPgmo : public KimeraPgmoInterface {
   ros::Subscriber full_mesh_sub_;
   ros::Subscriber incremental_mesh_graph_sub_;
   ros::Subscriber path_callback_sub_;
-  ros::Subscriber dpgmo_callback_sub_;
 
   // Service
   ros::ServiceServer save_mesh_srv_;

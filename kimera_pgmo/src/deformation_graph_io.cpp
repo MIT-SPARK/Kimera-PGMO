@@ -113,22 +113,22 @@ void DeformationGraph::save(const std::string& filename) const {
   std::ofstream stream;
   stream.open(filename);
   // save values
-  for (const auto& key_value : values_) {
-    const gtsam::Pose3& pose = values_.at<gtsam::Pose3>(key_value.key);
+  for (const auto& key_value : *values_) {
+    const gtsam::Pose3& pose = values_->at<gtsam::Pose3>(key_value.key);
     stream << "NODE ";
     streamValue(key_value.key, pose, stream);
     stream << std::endl;
   }
   // save temp values
-  for (const auto& key_value : temp_values_) {
-    const gtsam::Pose3& pose = temp_values_.at<gtsam::Pose3>(key_value.key);
+  for (const auto& key_value : *temp_values_) {
+    const gtsam::Pose3& pose = temp_values_->at<gtsam::Pose3>(key_value.key);
     stream << "NODE_TEMP ";
     streamValue(key_value.key, pose, stream);
     stream << std::endl;
   }
 
   // save factors
-  for (const auto& factor : nfg_) {
+  for (const auto& factor : *nfg_) {
     auto between = cast_to_ptr<gtsam::BetweenFactor<gtsam::Pose3>>(factor);
     if (between) {
       stream << "BETWEEN ";
@@ -152,7 +152,7 @@ void DeformationGraph::save(const std::string& filename) const {
   }
 
   // save temporary factors
-  for (const auto& factor : temp_nfg_) {
+  for (const auto& factor : *temp_nfg_) {
     auto between = cast_to_ptr<gtsam::BetweenFactor<gtsam::Pose3>>(factor);
     if (between) {
       stream << "BETWEEN_TEMP ";
@@ -195,11 +195,7 @@ void DeformationGraph::load(const std::string& filename,
                             bool include_temp,
                             bool set_robot_id,
                             size_t new_robot_id,
-                            bool include_priors,
-                            bool optimize_on_load) {
-  gtsam::Values new_vals, new_temp_vals;
-  gtsam::NonlinearFactorGraph new_factors, new_temp_factors;
-
+                            bool include_priors) {
   std::ifstream infile(filename);
   std::string line;
   while (std::getline(infile, line)) {
@@ -216,7 +212,7 @@ void DeformationGraph::load(const std::string& filename,
       }
       gtsam::Pose3 pose(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
       if (tag == "NODE") {
-        new_vals.insert(gtsam_key, pose);
+        values_->insert(gtsam_key, pose);
         // TODO this is different from the initial pose before save
         char node_prefix = gtsam_key.chr();
         if (pg_initial_poses_.count(node_prefix) == 0) {
@@ -225,7 +221,7 @@ void DeformationGraph::load(const std::string& filename,
         // Implicit assumption that node is in order
         pg_initial_poses_[node_prefix].push_back(pose);
       } else if (include_temp) {
-        new_temp_vals.insert(gtsam_key, pose);
+        temp_values_->insert(gtsam_key, pose);
         temp_pg_initial_poses_[gtsam_key] = pose;
       }
     } else if (tag == "BETWEEN" || tag == "BETWEEN_TEMP") {
@@ -250,10 +246,10 @@ void DeformationGraph::load(const std::string& filename,
       gtsam::Pose3 meas(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
       gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
       if (tag == "BETWEEN") {
-        new_factors.add(
+        nfg_->add(
             gtsam::BetweenFactor<gtsam::Pose3>(gtsam_key1, gtsam_key2, meas, noise));
       } else if (include_temp) {
-        new_temp_factors.add(
+        temp_nfg_->add(
             gtsam::BetweenFactor<gtsam::Pose3>(gtsam_key1, gtsam_key2, meas, noise));
       }
     } else if (tag == "DEDGE" || tag == "DEDGE_TEMP") {
@@ -278,12 +274,9 @@ void DeformationGraph::load(const std::string& filename,
       gtsam::Point3 measurement(x, y, z);
       gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
       if (tag == "DEDGE") {
-        new_factors.add(
-            DeformationEdgeFactor(gtsam_key1, gtsam_key2, measurement, noise));
-        consistency_factors_.add(
-            DeformationEdgeFactor(gtsam_key1, gtsam_key2, measurement, noise));
+        nfg_->add(DeformationEdgeFactor(gtsam_key1, gtsam_key2, measurement, noise));
       } else if (include_temp) {
-        new_temp_factors.add(
+        temp_nfg_->add(
             DeformationEdgeFactor(gtsam_key1, gtsam_key2, measurement, noise));
       }
     } else if (tag == "PRIOR") {
@@ -308,7 +301,7 @@ void DeformationGraph::load(const std::string& filename,
 
         gtsam::Pose3 meas(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
         gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
-        new_factors.add(gtsam::PriorFactor<gtsam::Pose3>(gtsam_key, meas, noise));
+        nfg_->add(gtsam::PriorFactor<gtsam::Pose3>(gtsam_key, meas, noise));
       }
     } else if (tag == "VERTEX") {
       size_t key;
@@ -331,20 +324,6 @@ void DeformationGraph::load(const std::string& filename,
     } else {
       std::invalid_argument("DeformationGraph load: unknown tag. ");
     }
-  }
-
-  if (optimize_on_load) {
-    pgo_->updateTempFactorsValues(new_temp_factors, new_temp_vals);
-    pgo_->update(new_factors, new_vals);
-    values_ = pgo_->calculateEstimate();
-    nfg_ = pgo_->getFactorsUnsafe();
-    temp_nfg_ = pgo_->getTempFactorsUnsafe();
-    temp_values_ = pgo_->getTempValues();
-  } else {
-    values_ = new_vals;
-    nfg_ = new_factors;
-    temp_nfg_ = new_temp_factors;
-    temp_values_ = new_temp_vals;
   }
 }
 

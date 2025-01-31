@@ -6,6 +6,7 @@
 #include "kimera_pgmo/kimera_pgmo_interface.h"
 
 #include <config_utilities/config.h>
+#include <config_utilities/printing.h>
 #include <config_utilities/types/enum.h>
 #include <config_utilities/validation.h>
 
@@ -21,40 +22,11 @@ namespace kimera_pgmo {
 using pose_graph_tools::PoseGraph;
 using pose_graph_tools::PoseGraphEdge;
 
-KimeraRPGO::RobustSolverParams KimeraPgmoConfig::getRobustSolverParams() const {
-  KimeraRPGO::RobustSolverParams params;
-  params.setPcmSimple3DParams(odom_trans_threshold,
-                              odom_rot_threshold,
-                              pcm_trans_threshold,
-                              pcm_rot_threshold,
-                              KimeraRPGO::Verbosity::UPDATE);
-  params.setLmDiagonalDamping(lm_diagonal_damping);
-
-  // Use GNC (confidence value)
-  if (gnc_alpha > 0 && gnc_alpha < 1) {
-    params.setGncInlierCostThresholdsAtProbability(gnc_alpha,
-                                                   static_cast<size_t>(gnc_max_it),
-                                                   gnc_mu_step,
-                                                   gnc_cost_tol,
-                                                   gnc_weight_tol,
-                                                   gnc_fix_prev_inliers);
-  }
-
-  // Log output
-  if (!log_path.empty()) {
-    params.logOutput(log_path);
-  }
-
-  return params;
-}
-
 void declare_config(KimeraPgmoConfig& config) {
   using namespace config;
   name("KimeraPgmoConfig");
   enum_field(
-      config.mode,
-      "run_mode",
-      {{RunMode::FULL, "FULL"}, {RunMode::MESH, "MESH"}, {RunMode::DPGMO, "DPGMO"}});
+      config.mode, "run_mode", {{RunMode::FULL, "FULL"}, {RunMode::MESH, "MESH"}});
   field(config.embed_delta_t, "embed_trajectory_delta_t");
   field(config.num_interp_pts, "num_interp_pts");
   field(config.interp_horizon, "interp_horizon");
@@ -73,34 +45,19 @@ void declare_config(KimeraPgmoConfig& config) {
     field(config.pose_mesh_variance, "pose_mesh");
   }
 
-  {  // config namespace rpgo
-    NameSpace ns("rpgo");
-    field(config.odom_trans_threshold, "odom_trans_threshold");
-    field(config.odom_rot_threshold, "odom_rot_threshold");
-    field(config.pcm_trans_threshold, "pcm_trans_threshold");
-    field(config.pcm_rot_threshold, "pcm_rot_threshold");
-    field(config.gnc_alpha, "gnc_alpha");
-    field(config.gnc_max_it, "gnc_max_iterations");
-    field(config.gnc_mu_step, "gnc_mu_step");
-    field(config.gnc_cost_tol, "gnc_cost_tolerance");
-    field(config.gnc_weight_tol, "gnc_weight_tolerance");
-    field(config.gnc_fix_prev_inliers, "gnc_fix_prev_inliers");
-    field(config.lm_diagonal_damping, "lm_diagonal_damping");
-  }
+  field(config.optimizer, "optimizer");
 
   check(config.num_interp_pts, GT, 1, "num_interp_pts");
 }
 
 // Constructor
-KimeraPgmoInterface::KimeraPgmoInterface()
-    : full_mesh_updated_(false),
+KimeraPgmoInterface::KimeraPgmoInterface(const KimeraPgmoConfig& config)
+    : config_(config::checkValid(config)),
+      pgo_(config.optimizer.create()),
+      full_mesh_updated_(false),
       deformation_graph_(new DeformationGraph),
-      num_loop_closures_(0) {}
-
-// Load deformation parameters
-bool KimeraPgmoInterface::initialize(const KimeraPgmoConfig& config) {
-  config_ = config;
-  return initializeFromConfig();
+      num_loop_closures_(0) {
+  pgo_->setLogPath(config.log_path);
 }
 
 bool KimeraPgmoInterface::loadGraphAndMesh(size_t robot_id,
@@ -128,20 +85,7 @@ bool KimeraPgmoInterface::loadGraphAndMesh(size_t robot_id,
 Path KimeraPgmoInterface::getOptimizedTrajectory(size_t robot_id) const {
   // return the optimized trajectory (pose graph)
   const char& robot_prefix = robot_id_to_prefix.at(robot_id);
-  Path optimized_traj;
-  if (config_.mode == RunMode::DPGMO) {
-    size_t n = deformation_graph_->getQueuedTrajectory(robot_prefix).size();
-    for (size_t i = 0; i < n; i++) {
-      gtsam::Symbol node(robot_prefix, i);
-      if (dpgmo_values_.exists(node)) {
-        optimized_traj.push_back(dpgmo_values_.at<gtsam::Pose3>(node));
-      } else {
-        break;
-      }
-    }
-  } else {
-    optimized_traj = deformation_graph_->getOptimizedTrajectory(robot_prefix);
-  }
+  auto optimized_traj = deformation_graph_->getTrajectory(robot_prefix);
 
   if (!config_.b_enable_sparsify) {
     // The optimized trajectory in deformation graph is already the full trajectory
@@ -164,7 +108,7 @@ std::vector<Timestamp> KimeraPgmoInterface::getRobotTimestamps(size_t robot_id) 
   std::vector<Timestamp> stamps;
   const char& robot_prefix = robot_id_to_prefix.at(robot_id);
   // TODO(yun) remove call to get optimized trajectory
-  Path optimized_traj = deformation_graph_->getOptimizedTrajectory(robot_prefix);
+  Path optimized_traj = deformation_graph_->getTrajectory(robot_prefix);
   for (size_t i = 0; i < optimized_traj.size(); i++) {
     gtsam::Key sparse_key = gtsam::Symbol(robot_prefix, i);
     for (const auto& keyed_pose : sparse_frames_.at(sparse_key).keyed_transforms) {
@@ -175,12 +119,13 @@ std::vector<Timestamp> KimeraPgmoInterface::getRobotTimestamps(size_t robot_id) 
   return stamps;
 }
 
-gtsam::NonlinearFactorGraph KimeraPgmoInterface::getDeformationGraphFactors() const {
-  return deformation_graph_->getGtsamFactors();
+const gtsam::NonlinearFactorGraph& KimeraPgmoInterface::getDeformationGraphFactors()
+    const {
+  return *deformation_graph_->getFactors();
 }
 
-gtsam::Values KimeraPgmoInterface::getDeformationGraphValues() const {
-  return deformation_graph_->getGtsamValues();
+const gtsam::Values& KimeraPgmoInterface::getDeformationGraphValues() const {
+  return *deformation_graph_->getValues();
 }
 
 DeformationGraphPtr KimeraPgmoInterface::getDeformationGraphPtr() const {
@@ -195,12 +140,8 @@ bool KimeraPgmoInterface::wasFullMeshUpdated(bool clear_flag) {
   return to_return;
 }
 
-void KimeraPgmoInterface::forceOptimize() { return deformation_graph_->optimize(); }
-
 void KimeraPgmoInterface::resetDeformationGraph() {
-  KimeraRPGO::RobustSolverParams pgo_params = deformation_graph_->getParams();
   deformation_graph_.reset(new DeformationGraph);
-  deformation_graph_->initialize(pgo_params);
 }
 
 void KimeraPgmoInterface::loadDeformationGraphFromFile(const std::string& input) {
@@ -213,23 +154,6 @@ void KimeraPgmoInterface::loadDeformationGraphFromFile(const std::string& input,
                                                        bool include_priors) {
   deformation_graph_->load(input, true, true, robot_id, include_priors);
   num_loop_closures_ = deformation_graph_->getNumLoopclosures();
-}
-
-bool KimeraPgmoInterface::initializeFromConfig() {
-  if (!config::isValid(config_)) {
-    return false;
-  }
-
-  const auto params = config_.getRobustSolverParams();
-  if (!deformation_graph_->initialize(params)) {
-    SPARK_LOG(ERROR) << "KimeraPgmo: Failed to initialize deformation graph.";
-    return false;
-  }
-
-  // If inliers are not fixed, need to perform interpolation on whole mesh
-  // everytime we optimize
-  deformation_graph_->setForceRecalculate(!config_.gnc_fix_prev_inliers);
-  return true;
 }
 
 ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
@@ -378,9 +302,9 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
         // Loop closure edge (only add if we are in full
         // optimization mode ) Add to deformation graph
         deformation_graph_->processNewBetween(from_sparse_key,
-                                          to_sparse_key,
-                                          from_sparse_T_to_sparse,
-                                          config_.lc_variance);
+                                              to_sparse_key,
+                                              from_sparse_T_to_sparse,
+                                              config_.lc_variance);
         if (!loop_closures_.count(from_sparse_key)) {
           loop_closures_[from_sparse_key] = std::set<gtsam::Key>();
         }
@@ -532,6 +456,21 @@ void KimeraPgmoInterface::processOptimizedPath(const Path& path, size_t robot_id
   deformation_graph_->processNodeMeasurements(node_estimates, config_.prior_variance);
 }
 
+void KimeraPgmoInterface::optimize() {
+  pgo_->update(*deformation_graph_->getFactors(),
+               *deformation_graph_->getValues(),
+               deformation_graph_->getTempFactors(),
+               deformation_graph_->getTempValues());
+  auto estimates = pgo_->getEstimates();
+  auto temp_estimates = pgo_->getTempEstimates();
+  auto inlier_weights = pgo_->getInlierWeights();
+  auto temp_inlier_weights = pgo_->getTempInlierWeights();
+  deformation_graph_->updateValues(estimates);
+  deformation_graph_->updateTempValues(temp_estimates);
+  deformation_graph_->updateInlierWeights(inlier_weights);
+  deformation_graph_->updateTempInlierWeights(temp_inlier_weights);
+}
+
 bool KimeraPgmoInterface::optimizeFullMesh(
     size_t robot_id,
     const pcl::PolygonMesh& input_mesh,
@@ -546,27 +485,16 @@ bool KimeraPgmoInterface::optimizeFullMesh(
 
   // Optimize mesh
   try {
-    if (config_.mode == RunMode::DPGMO) {
-      // Here we are getting the optimized values from the dpgo solver
-      optimized_mesh = deformation_graph_->deformMesh(input_mesh,
-                                                      mesh_vertex_stamps,
-                                                      mesh_vertex_graph_inds,
-                                                      GetVertexPrefix(robot_id),
-                                                      dpgmo_values_,
-                                                      config_.num_interp_pts,
-                                                      config_.interp_horizon);
-    } else {
-      if (do_optimize) {
-        deformation_graph_->optimize();
-      }
-
-      optimized_mesh = deformation_graph_->deformMesh(input_mesh,
-                                                      mesh_vertex_stamps,
-                                                      mesh_vertex_graph_inds,
-                                                      GetVertexPrefix(robot_id),
-                                                      config_.num_interp_pts,
-                                                      config_.interp_horizon);
+    if (do_optimize) {
+      optimize();
     }
+
+    optimized_mesh = deformation_graph_->deformMesh(input_mesh,
+                                                    mesh_vertex_stamps,
+                                                    mesh_vertex_graph_inds,
+                                                    GetVertexPrefix(robot_id),
+                                                    config_.num_interp_pts,
+                                                    config_.interp_horizon);
   } catch (const std::out_of_range& e) {
     SPARK_LOG(ERROR) << "Failed to deform mesh. Out of range error.";
     return false;
@@ -680,138 +608,6 @@ bool KimeraPgmoInterface::loadPoseGraphSparseMapping(const std::string& input_pa
   infile.close();
   return true;
 }
-
-bool KimeraPgmoInterface::getConsistencyFactors(size_t robot_id,
-                                                PoseGraph& pg_mesh_msg,
-                                                size_t vertex_index_offset) const {
-  pg_mesh_msg.edges.clear();
-  pg_mesh_msg.nodes.clear();
-
-  // Make sure that robot id is valid
-  if (robot_id_to_prefix.find(robot_id) == robot_id_to_prefix.end()) {
-    SPARK_LOG(ERROR) << "Unexpected robot id.";
-    return false;
-  }
-
-  // Get the edges from the deformation graph
-  auto edge_factors = deformation_graph_->getConsistencyFactors();
-
-  // Get the prefixes
-  char v_prefix = robot_id_to_vertex_prefix.at(robot_id);
-  char r_prefix = robot_id_to_prefix.at(robot_id);
-
-  // Iterate and convert the edges to PoseGraphEdge type
-  for (const auto& factor : edge_factors) {
-    gtsam::Symbol from(factor->front());
-    gtsam::Symbol to(factor->back());
-
-    std::optional<PoseGraphEdge::Type> edge_type;
-    if (from.chr() == v_prefix) {
-      if (to.chr() == v_prefix) {
-        edge_type = PoseGraphEdge::MESH;
-      } else if (to.chr() == r_prefix) {
-        edge_type = PoseGraphEdge::MESH_POSE;
-      }
-    } else if (from.chr() == r_prefix) {
-      if (to.chr() == v_prefix) {
-        edge_type = PoseGraphEdge::POSE_MESH;
-      } else if (to.chr() == r_prefix) {
-        SPARK_LOG(ERROR)
-            << "Getting a pose-to-pose edge in deformation graph consistency "
-               "factors. Check for bug.";
-        continue;
-      }
-    }
-
-    if (!edge_type) {
-      SPARK_LOG(WARNING) << "Unexpected edge type.";
-      continue;
-    }
-
-    auto& pg_edge = pg_mesh_msg.edges.emplace_back();
-    pg_edge.key_from = from.index();
-    pg_edge.key_to = to.index();
-    pg_edge.robot_from = robot_id;
-    pg_edge.robot_to = robot_id;
-    pg_edge.type = edge_type.value();
-    // Covariance is infinite for rotation part
-    pg_edge.covariance(3, 3) = 1.0 / 0.0;
-    pg_edge.covariance(4, 4) = 1.0 / 0.0;
-    pg_edge.covariance(5, 5) = 1.0 / 0.0;
-
-    // Pose should be [I , R_1^{-1} (t2 - t1)] *** these are all initial
-    // poses/positions
-    switch (pg_edge.type) {
-      case PoseGraphEdge::MESH: {
-        const auto& p_from =
-            deformation_graph_->getInitialPositionVertex(v_prefix, pg_edge.key_from);
-        const auto& p_to =
-            deformation_graph_->getInitialPositionVertex(v_prefix, pg_edge.key_to);
-        pg_edge.pose = Eigen::Translation<double, 3>(p_to - p_from);
-        // Update key with offset
-        pg_edge.key_from = pg_edge.key_from + vertex_index_offset;
-        pg_edge.key_to = pg_edge.key_to + vertex_index_offset;
-        break;
-      }
-      case PoseGraphEdge::POSE_MESH: {
-        const auto& pose_from =
-            deformation_graph_->getInitialPose(r_prefix, pg_edge.key_from);
-        const auto& p_to =
-            deformation_graph_->getInitialPositionVertex(v_prefix, pg_edge.key_to);
-        const Eigen::Vector3d p_diff =
-            pose_from.rotation().inverse().rotate(p_to - pose_from.translation());
-        pg_edge.pose = Eigen::Translation<double, 3>(p_diff);
-
-        // Update key with offset
-        pg_edge.key_to = pg_edge.key_to + vertex_index_offset;
-        break;
-      }
-      case PoseGraphEdge::MESH_POSE: {
-        const auto& p_from =
-            deformation_graph_->getInitialPositionVertex(v_prefix, pg_edge.key_from);
-        const auto& pose_to =
-            deformation_graph_->getInitialPose(r_prefix, pg_edge.key_to);
-        pg_edge.pose = Eigen::Translation<double, 3>(pose_to.translation() - p_from);
-
-        // Update key with offset
-        pg_edge.key_from = pg_edge.key_from + vertex_index_offset;
-        break;
-      }
-      default:
-        SPARK_LOG(ERROR) << "Uknown edge type!";
-        break;
-    }
-  }
-
-  if (pg_mesh_msg.edges.size() == 0) {
-    return false;
-  }
-
-  // Get the nodes from the deformation graph
-  const auto& p_initial = deformation_graph_->getInitialPositionsVertices(v_prefix);
-  for (size_t i = 0; i < p_initial.size(); i++) {
-    auto& pg_node = pg_mesh_msg.nodes.emplace_back();
-    pg_node.robot_id = robot_id;
-    pg_node.key = i + vertex_index_offset;
-    pg_node.pose = Eigen::Translation<double, 3>(p_initial[i]);
-  }
-
-  return true;
-}
-
-void KimeraPgmoInterface::insertDpgmoValues(const gtsam::Key& key,
-                                            const gtsam::Pose3& pose) {
-  if (dpgmo_values_.exists(key)) {
-    SPARK_LOG(ERROR) << "Attempting to insert existing key to dpgmo values.";
-    return;
-  }
-
-  dpgmo_values_.insert(key, pose);
-}
-
-/*! \brief Get the DPGMO optimized values
- */
-gtsam::Values KimeraPgmoInterface::getDpgmoValues() const { return dpgmo_values_; }
 
 void KimeraPgmoInterface::setVerboseFlag(bool verbose) {
   verbose_ = verbose;

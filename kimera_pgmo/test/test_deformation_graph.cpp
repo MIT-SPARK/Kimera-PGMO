@@ -4,6 +4,7 @@
  * @author Yun Chang
  */
 
+#include <KimeraRPGO/RobustSolver.h>
 #include <gtest/gtest.h>
 #include <pcl/conversions.h>
 
@@ -99,21 +100,11 @@ void MeshToEdgesAndNodes(const pcl::PolygonMesh& mesh,
 void SetUpDeformationGraph(DeformationGraph* graph,
                            bool add_mesh = true,
                            bool quiet = true) {
-  KimeraRPGO::RobustSolverParams pgo_params;
-  pgo_params.setPcmSimple3DParams(
-      100,
-      100,
-      100,
-      100,
-      quiet ? KimeraRPGO::Verbosity::QUIET : KimeraRPGO::Verbosity::UPDATE);
-  graph->initialize(pgo_params);
-
   if (!add_mesh) {
     return;
   }
 
   pcl::PolygonMesh simple_mesh = createMeshTriangle();
-
   gtsam::Values mesh_nodes;
   std::vector<std::pair<gtsam::Key, gtsam::Key>> mesh_edges;
   std::unordered_map<gtsam::Key, Timestamp> mesh_node_stamps;
@@ -128,11 +119,11 @@ void SetUpDeformationGraph(DeformationGraph* graph,
                                      &added_node_stamps);
 }
 
-void SetUpOriginalMesh(pcl::PolygonMesh* mesh,
+void SetUpOriginalMesh(pcl::PolygonMesh& mesh,
                        std::vector<Timestamp>* stamps,
                        std::vector<int>* indices) {
-  *mesh = test::createSimpleMesh();
-  size_t num_vertices = mesh->cloud.width * mesh->cloud.height;
+  mesh = test::createSimpleMesh();
+  size_t num_vertices = mesh.cloud.width * mesh.cloud.height;
   for (size_t i = 0; i < num_vertices; i++) {
     stamps->push_back(0);
     if (i % 2 == 0) {
@@ -141,6 +132,25 @@ void SetUpOriginalMesh(pcl::PolygonMesh* mesh,
       indices->push_back(0);
     }
   }
+}
+
+void OptimizeOnce(DeformationGraph& deformation_graph) {
+  KimeraRPGO::RobustSolverParams pgo_params;
+  pgo_params.setPcmSimple3DParams(100, 100, 100, 100, KimeraRPGO::Verbosity::UPDATE);
+  KimeraRPGO::RobustSolver pgo(pgo_params);
+  auto factors = deformation_graph.getFactors();
+  auto temp_factors = deformation_graph.getTempFactors();
+  auto values = *deformation_graph.getValues();
+  auto temp_values = *deformation_graph.getTempValues();
+  pgo.updateTempFactorsValues(*temp_factors, temp_values);
+  pgo.forceUpdate(*factors, values);
+  auto results = pgo.calculateEstimate();
+  auto temp_results = pgo.getTempValues();
+  deformation_graph.updateValues(results);
+  deformation_graph.updateTempValues(temp_results);
+
+  // For testing purposes always recalculate vertices
+  deformation_graph.setRecalculateVertices();
 }
 
 TEST(TestDeformationGraph, processNewMeshEdgesAndNodes) {
@@ -153,11 +163,11 @@ TEST(TestDeformationGraph, processNewMeshEdgesAndNodes) {
   EXPECT_EQ(1, graph.getInitialPositionVertex('v', 2).y());
 
   // Check that the factors are added
-  gtsam::Values values = graph.getGtsamNewValues();
-  gtsam::NonlinearFactorGraph factors = graph.getGtsamNewFactors();
+  auto values = graph.getValues();
+  auto factors = graph.getFactors();
 
-  EXPECT_EQ(size_t(6), factors.size());
-  EXPECT_EQ(size_t(3), values.size());
+  EXPECT_EQ(size_t(6), factors->size());
+  EXPECT_EQ(size_t(3), values->size());
 }
 
 TEST(TestDeformationGraph, reconstructMesh) {
@@ -166,7 +176,7 @@ TEST(TestDeformationGraph, reconstructMesh) {
   pcl::PolygonMesh original_mesh;
   std::vector<Timestamp> original_mesh_stamps;
   std::vector<int> original_mesh_inds;
-  SetUpOriginalMesh(&original_mesh, &original_mesh_stamps, &original_mesh_inds);
+  SetUpOriginalMesh(original_mesh, &original_mesh_stamps, &original_mesh_inds);
 
   // First try deform with k = 1, should not change
   pcl::PolygonMesh new_mesh =
@@ -207,7 +217,7 @@ TEST(TestDeformationGraph, deformMeshTranslation) {
   pcl::PolygonMesh original;
   std::vector<Timestamp> original_stamps;
   std::vector<int> original_inds;
-  SetUpOriginalMesh(&original, &original_stamps, &original_inds);
+  SetUpOriginalMesh(original, &original_stamps, &original_inds);
 
   // deform mesh
   gtsam::Pose3 distortion(gtsam::Rot3(), gtsam::Point3(1.5, 0.0, 0.0));
@@ -230,7 +240,7 @@ TEST(TestDeformationGraph, deformMeshTranslation) {
   }
 
   // First try deform with k = 1, should not change
-  graph.optimize();
+  OptimizeOnce(graph);
   auto new_mesh = graph.deformMesh(original, original_stamps, original_inds, 'v', 1);
 
   pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
@@ -281,7 +291,9 @@ TEST(TestDeformationGraph, deformMesh) {
   std::vector<std::pair<gtsam::Key, gtsam::Pose3>> node_distortions;
   node_distortions.push_back({gtsam::Symbol('v', 0), distortion});
   graph.processNodeMeasurements(node_distortions, 1e-10);
-  graph.optimize();
+
+  // optimize
+  OptimizeOnce(graph);
 
   // Try with k = 3
   auto new_mesh =
@@ -297,7 +309,9 @@ TEST(TestDeformationGraph, deformMesh) {
   node_distortions.clear();
   node_distortions.push_back({gtsam::Symbol('v', 1), distortion2});
   graph.processNodeMeasurements(node_distortions, 1e-10);
-  graph.optimize();
+
+  // optimize
+  OptimizeOnce(graph);
 
   // Try with k = 3
   new_mesh = graph.deformMesh(*cube_mesh, cube_mesh_stamps, cube_mesh_inds, 'v', 2);
@@ -317,13 +331,13 @@ TEST(TestDeformationGraph, updateMesh) {
   EXPECT_EQ(1, graph.getInitialPositionVertex('v', 2).y());
 
   // Check that the factors are added
-  gtsam::Values values = graph.getGtsamNewValues();
-  gtsam::NonlinearFactorGraph factors = graph.getGtsamNewFactors();
+  auto values = graph.getValues();
+  auto factors = graph.getFactors();
 
-  EXPECT_EQ(size_t(6), factors.size());
-  EXPECT_EQ(size_t(3), values.size());
-  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[0]));
-  DeformationEdgeFactor factor = *cast_factor<DeformationEdgeFactor>(factors[0]);
+  EXPECT_EQ(size_t(6), factors->size());
+  EXPECT_EQ(size_t(3), values->size());
+  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors->at(0)));
+  DeformationEdgeFactor factor = *cast_factor<DeformationEdgeFactor>(factors->at(0));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor.measurement()));
 
   Vertices new_node_valences{0, 2};
@@ -333,13 +347,13 @@ TEST(TestDeformationGraph, updateMesh) {
   graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
 
   // Check that the factors are added correctly
-  values = graph.getGtsamNewValues();
-  factors = graph.getGtsamNewFactors();
+  values = graph.getValues();
+  factors = graph.getFactors();
 
-  EXPECT_EQ(size_t(10), factors.size());
-  EXPECT_EQ(size_t(4), values.size());
-  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[9]));
-  DeformationEdgeFactor factor6 = *cast_factor<DeformationEdgeFactor>(factors[6]);
+  EXPECT_EQ(size_t(10), factors->size());
+  EXPECT_EQ(size_t(4), values->size());
+  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors->at(9)));
+  DeformationEdgeFactor factor6 = *cast_factor<DeformationEdgeFactor>(factors->at(6));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(-2, -2, -2), factor6.measurement()));
   EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor6.front());
   EXPECT_EQ(gtsam::Symbol('v', 0).key(), factor6.back());
@@ -352,13 +366,13 @@ TEST(TestDeformationGraph, updateMesh) {
   graph.processNodeValence(gtsam::Symbol('a', 1), new_node_valences_2, 'v');
 
   // Check that the factors are added
-  values = graph.getGtsamNewValues();
-  factors = graph.getGtsamNewFactors();
+  values = graph.getValues();
+  factors = graph.getFactors();
 
-  EXPECT_EQ(size_t(13), factors.size());
-  EXPECT_EQ(size_t(5), values.size());
-  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[12]));
-  DeformationEdgeFactor factor12 = *cast_factor<DeformationEdgeFactor>(factors[12]);
+  EXPECT_EQ(size_t(13), factors->size());
+  EXPECT_EQ(size_t(5), values->size());
+  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors->at(12)));
+  DeformationEdgeFactor factor12 = *cast_factor<DeformationEdgeFactor>(factors->at(12));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(2, 2, 4), factor12.measurement()));
   EXPECT_EQ(gtsam::Symbol('v', 2).key(), factor12.front());
   EXPECT_EQ(gtsam::Symbol('a', 1).key(), factor12.back());
@@ -386,8 +400,8 @@ TEST(TestDeformationGraph, addNodeMeasurements) {
   graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
 
   // Check factors added
-  gtsam::Values values = graph.getGtsamNewValues();
-  gtsam::NonlinearFactorGraph factors = graph.getGtsamNewFactors();
+  auto values = graph.getValues();
+  auto factors = graph.getFactors();
 
   // Add node measurement
   std::vector<std::pair<gtsam::Key, gtsam::Pose3>> measurements;
@@ -399,13 +413,14 @@ TEST(TestDeformationGraph, addNodeMeasurements) {
 
   graph.processNodeMeasurements(measurements);
 
-  factors = graph.getGtsamNewFactors();
+  factors = graph.getFactors();
 
-  EXPECT_EQ(size_t(12), factors.size());
-  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors[10]));
-  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors[11]));
+  EXPECT_EQ(size_t(12), factors->size());
+  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors->at(10)));
+  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors->at(11)));
 
-  graph.optimize();
+  OptimizeOnce(graph);
+
   pcl::PolygonMesh new_mesh =
       graph.deformMesh(simple_mesh, simple_mesh_stamps, simple_mesh_inds, 'v', 1);
   pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
@@ -451,13 +466,14 @@ TEST(TestDeformationGraph, removePriorsWithPrefix) {
 
   graph.processNodeMeasurements(measurements);
 
-  gtsam::NonlinearFactorGraph factors = graph.getGtsamNewFactors();
+  auto factors = graph.getFactors();
 
-  EXPECT_EQ(size_t(12), factors.size());
-  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors[10]));
-  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors[11]));
+  EXPECT_EQ(size_t(12), factors->size());
+  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors->at(10)));
+  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors->at(11)));
 
-  graph.optimize();
+  OptimizeOnce(graph);
+
   pcl::PolygonMesh new_mesh =
       graph.deformMesh(simple_mesh, simple_mesh_stamps, simple_mesh_inds, 'v', 1);
   pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
@@ -475,8 +491,8 @@ TEST(TestDeformationGraph, removePriorsWithPrefix) {
   // Remove priors
   graph.removePriorsWithPrefix('a');
 
-  factors = graph.getGtsamFactors();
-  EXPECT_EQ(size_t(10), factors.size());
+  factors = graph.getFactors();
+  EXPECT_EQ(size_t(10), factors->size());
 
   // Add another prior to see if mesh reset
   std::vector<std::pair<gtsam::Key, gtsam::Pose3>> priors;
@@ -484,7 +500,8 @@ TEST(TestDeformationGraph, removePriorsWithPrefix) {
                     gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2))});
   graph.processNodeMeasurements(priors);
 
-  graph.optimize();
+  OptimizeOnce(graph);
+
   new_mesh =
       graph.deformMesh(simple_mesh, simple_mesh_stamps, simple_mesh_inds, 'v', 1);
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
@@ -504,59 +521,41 @@ TEST(TestDeformationGraph, processNewBetween) {
   pcl::PolygonMesh original_mesh;
   std::vector<Timestamp> original_mesh_stamps;
   std::vector<int> original_mesh_inds;
-  SetUpOriginalMesh(&original_mesh, &original_mesh_stamps, &original_mesh_inds);
+  SetUpOriginalMesh(original_mesh, &original_mesh_stamps, &original_mesh_inds);
 
   Vertices new_node_valences{0, 2};
   graph.processNewNode(
       gtsam::Symbol('a', 0), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), true);
-  graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
   graph.processNewBetween(gtsam::Symbol('a', 0),
                           gtsam::Symbol('a', 1),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)));
+  graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
 
-  // Check added factors
-  graph.optimize();
-  gtsam::Values values = graph.getGtsamValues();
-  gtsam::NonlinearFactorGraph factors = graph.getGtsamFactors();
+  OptimizeOnce(graph);
 
-  EXPECT_EQ(size_t(12), factors.size());
-  EXPECT_EQ(size_t(5), values.size());
-
-  // Check the between factor
-  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors[0]));
-  gtsam::BetweenFactor<gtsam::Pose3> factor0 =
-      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors[0]);
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)),
-                                  factor0.measured()));
-  EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor0.front());
-  EXPECT_EQ(gtsam::Symbol('a', 1).key(), factor0.back());
+  auto factors = graph.getFactors();
+  auto values = graph.getValues();
+  EXPECT_EQ(size_t(12), factors->size());
+  EXPECT_EQ(size_t(5), values->size());
 
   // Check the prior factor
-  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors[7]));
-  gtsam::PriorFactor<gtsam::Pose3> factor7 =
-      *cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors[7]);
+  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors->at(6)));
+  gtsam::PriorFactor<gtsam::Pose3> prior_factor =
+      *cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors->at(6));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
-                                  factor7.prior()));
-  EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor7.key());
+                                  prior_factor.prior()));
+  EXPECT_EQ(gtsam::Symbol('a', 0).key(), prior_factor.key());
 
-  // Check deformation edge factor
-  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[1]));
-  DeformationEdgeFactor factor1 = *cast_factor<DeformationEdgeFactor>(factors[1]);
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor1.measurement()));
-  EXPECT_EQ(gtsam::Symbol('v', 0).key(), factor1.front());
-  EXPECT_EQ(gtsam::Symbol('v', 1).key(), factor1.back());
+  // Check the between factor
+  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors->at(7)));
+  gtsam::BetweenFactor<gtsam::Pose3> odom_factor =
+      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors->at(7));
+  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)),
+                                  odom_factor.measured()));
+  EXPECT_EQ(gtsam::Symbol('a', 0).key(), odom_factor.front());
+  EXPECT_EQ(gtsam::Symbol('a', 1).key(), odom_factor.back());
 
-  // Expect no change
-  pcl::PolygonMesh new_mesh =
-      graph.deformMesh(original_mesh, original_mesh_stamps, original_mesh_inds, 'v', 1);
-  pcl::PointCloud<pcl::PointXYZ> actual_vertices;
-  pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
-
-  EXPECT_EQ(0.0, actual_vertices.points[0].x);
-  EXPECT_EQ(1.0, actual_vertices.points[3].y);
-  EXPECT_EQ(1.0, actual_vertices.points[4].z);
-
-  std::vector<gtsam::Pose3> traj = graph.getOptimizedTrajectory('a');
+  std::vector<gtsam::Pose3> traj = graph.getTrajectory('a');
   EXPECT_EQ(2, traj.size());
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
                                   traj[0]));
@@ -573,41 +572,30 @@ TEST(TestDeformationGraph, processNewBetween) {
   Vertices new_node_valences_2{2};
   graph.processNodeValence(gtsam::Symbol('a', 2), new_node_valences_2, 'v');
 
-  // Check added factors
-  graph.optimize();
-  values = graph.getGtsamValues();
-  factors = graph.getGtsamFactors();
+  OptimizeOnce(graph);
 
-  EXPECT_EQ(size_t(16), factors.size());
-  EXPECT_EQ(size_t(6), values.size());
+  EXPECT_EQ(size_t(16), factors->size());
+  EXPECT_EQ(size_t(6), values->size());
 
   // Check the between factor
-  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors[1]));
+  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors->at(12)));
   gtsam::BetweenFactor<gtsam::Pose3> new1 =
-      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors[1]);
+      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors->at(12));
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)), new1.measured()));
   EXPECT_EQ(gtsam::Symbol('a', 1).key(), new1.front());
   EXPECT_EQ(gtsam::Symbol('a', 2).key(), new1.back());
 
   // Check the between factor
-  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors[15]));
+  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors->at(13)));
   gtsam::BetweenFactor<gtsam::Pose3> new2 =
-      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors[15]);
+      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors->at(13));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
                                   new2.measured()));
   EXPECT_EQ(gtsam::Symbol('a', 0).key(), new2.front());
   EXPECT_EQ(gtsam::Symbol('a', 2).key(), new2.back());
 
-  // Check deformation edge factor
-  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[13]));
-  DeformationEdgeFactor factor13 = *cast_factor<DeformationEdgeFactor>(factors[13]);
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Point3(-3, -1.1, -2.1), factor13.measurement()));
-  EXPECT_EQ(gtsam::Symbol('a', 2).key(), factor13.front());
-  EXPECT_EQ(gtsam::Symbol('v', 2).key(), factor13.back());
-
-  traj = graph.getOptimizedTrajectory('a');
+  traj = graph.getTrajectory('a');
   EXPECT_EQ(3, traj.size());
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.05, 2.05)), traj[2], 0.05));
@@ -633,14 +621,17 @@ TEST(TestDeformationGraph, addTemporary) {
   graph.processNodeValence(gtsam::Symbol('a', 2), new_node_valences_2, 'v');
 
   // Check added factors
-  gtsam::Values values = graph.getGtsamNewValues();
-  gtsam::NonlinearFactorGraph factors = graph.getGtsamNewFactors();
+  auto factors = graph.getFactors();
+  auto values = graph.getValues();
+  auto temp_factors = graph.getTempFactors();
+  auto temp_values = graph.getTempValues();
 
-  EXPECT_EQ(size_t(15), factors.size());
-  EXPECT_EQ(size_t(6), values.size());
+  EXPECT_EQ(size_t(15), factors->size());
+  EXPECT_EQ(size_t(6), values->size());
 
-  graph.optimize();
-  std::vector<gtsam::Pose3> traj = graph.getOptimizedTrajectory('a');
+  OptimizeOnce(graph);
+
+  std::vector<gtsam::Pose3> traj = graph.getTrajectory('a');
   EXPECT_EQ(3, traj.size());
 
   // Add temporary nodes and edges
@@ -654,44 +645,36 @@ TEST(TestDeformationGraph, addTemporary) {
   Vertices temp_node_valences{1, 2};
   graph.processNodeValence(gtsam::Symbol('p', 0), temp_node_valences, 'v', 1e-4, true);
 
-  graph.optimize();
+  // Check added factors
+  OptimizeOnce(graph);
 
   // Check added factors
-  values = graph.getGtsamValues();
-  factors = graph.getGtsamFactors();
-  gtsam::Values temp_values = graph.getGtsamTempValues();
-  gtsam::NonlinearFactorGraph temp_factors = graph.getGtsamTempFactors();
+  EXPECT_EQ(size_t(15), factors->size());
+  EXPECT_EQ(size_t(6), values->size());
 
-  EXPECT_EQ(size_t(15), factors.size());
-  EXPECT_EQ(size_t(6), values.size());
+  EXPECT_EQ(size_t(5), temp_factors->size());
+  EXPECT_EQ(size_t(2), temp_values->size());
 
-  EXPECT_EQ(size_t(5), temp_factors.size());
-  EXPECT_EQ(size_t(2), temp_values.size());
-
-  traj = graph.getOptimizedTrajectory('a');
+  traj = graph.getTrajectory('a');
   EXPECT_EQ(3, traj.size());
 
   graph.clearTemporaryStructures();
-  graph.optimize();
-  temp_values = graph.getGtsamTempValues();
-  temp_factors = graph.getGtsamTempFactors();
 
-  EXPECT_EQ(size_t(0), temp_factors.size());
-  EXPECT_EQ(size_t(0), temp_values.size());
+  OptimizeOnce(graph);
+
+  EXPECT_EQ(size_t(0), temp_factors->size());
+  EXPECT_EQ(size_t(0), temp_values->size());
 
   // Re-ad temporary nodes and edges
   graph.processNewTempNode(gtsam::Symbol('p', 0), gtsam::Pose3(), false);
   Vertices temp_node_valences_2{0, 1, 2};
   graph.processNodeValence(
       gtsam::Symbol('p', 0), temp_node_valences_2, 'v', 1e-4, true);
-  graph.optimize();
 
-  // Check added factors
-  temp_values = graph.getGtsamTempValues();
-  temp_factors = graph.getGtsamTempFactors();
+  OptimizeOnce(graph);
 
-  EXPECT_EQ(size_t(6), temp_factors.size());
-  EXPECT_EQ(size_t(1), temp_values.size());
+  EXPECT_EQ(size_t(6), temp_factors->size());
+  EXPECT_EQ(size_t(1), temp_values->size());
 }
 
 TEST(TestDeformationGraph, processNewTempNodesValences) {
@@ -706,32 +689,24 @@ TEST(TestDeformationGraph, processNewTempNodesValences) {
 
   graph.processNewTempNodesValences(info, false);
 
-  // Check added factors
-  graph.optimize();
-  gtsam::Values values = graph.getGtsamValues();
-  gtsam::NonlinearFactorGraph factors = graph.getGtsamFactors();
+  OptimizeOnce(graph);
+  auto factors = graph.getFactors();
+  auto values = graph.getValues();
+  auto temp_factors = graph.getTempFactors();
+  auto temp_values = graph.getTempValues();
 
-  EXPECT_EQ(size_t(6), factors.size());
-  EXPECT_EQ(size_t(3), values.size());
-
-  // Check added factors
-  values = graph.getGtsamValues();
-  factors = graph.getGtsamFactors();
-  gtsam::Values temp_values = graph.getGtsamTempValues();
-  gtsam::NonlinearFactorGraph temp_factors = graph.getGtsamTempFactors();
-
-  EXPECT_EQ(size_t(6), factors.size());
-  EXPECT_EQ(size_t(3), values.size());
+  EXPECT_EQ(size_t(6), factors->size());
+  EXPECT_EQ(size_t(3), values->size());
 
   for (size_t i = 0; i < 3; i++) {
     gtsam::Pose3 node_pose(gtsam::Rot3(), gtsam::Point3(static_cast<double>(i), 0, 0));
-    gtsam::Pose3 vertex_pose = values.at<gtsam::Pose3>(gtsam::Symbol('v', i));
+    gtsam::Pose3 vertex_pose = values->at<gtsam::Pose3>(gtsam::Symbol('v', i));
     EXPECT_TRUE(gtsam::assert_equal(
-        node_pose, temp_values.at<gtsam::Pose3>(gtsam::Symbol('p', i))));
+        node_pose, temp_values->at<gtsam::Pose3>(gtsam::Symbol('p', i))));
     DeformationEdgeFactor factor1 =
-        *cast_factor<DeformationEdgeFactor>(temp_factors[2 * i]);
+        *cast_factor<DeformationEdgeFactor>(temp_factors->at(2 * i));
     DeformationEdgeFactor factor2 =
-        *cast_factor<DeformationEdgeFactor>(temp_factors[2 * i + 1]);
+        *cast_factor<DeformationEdgeFactor>(temp_factors->at(2 * i + 1));
     EXPECT_TRUE(gtsam::assert_equal(
         node_pose.rotation().inverse().rotate(vertex_pose.translation() -
                                               node_pose.translation()),
@@ -747,12 +722,10 @@ TEST(TestDeformationGraph, processNewTempNodesValences) {
   }
 
   graph.clearTemporaryStructures();
-  graph.optimize();
-  temp_values = graph.getGtsamTempValues();
-  temp_factors = graph.getGtsamTempFactors();
+  OptimizeOnce(graph);
 
-  EXPECT_EQ(size_t(0), temp_factors.size());
-  EXPECT_EQ(size_t(0), temp_values.size());
+  EXPECT_EQ(size_t(0), temp_factors->size());
+  EXPECT_EQ(size_t(0), temp_values->size());
 }
 
 TEST(TestDeformationGraph, processNewTempEdges) {
@@ -777,17 +750,16 @@ TEST(TestDeformationGraph, processNewTempEdges) {
 
   graph.processNewTempEdges(temp_edges);
 
-  // Check added factors
-  graph.optimize();
-  gtsam::Values values = graph.getGtsamValues();
-  gtsam::NonlinearFactorGraph factors = graph.getGtsamFactors();
-  gtsam::Values temp_values = graph.getGtsamTempValues();
-  gtsam::NonlinearFactorGraph temp_factors = graph.getGtsamTempFactors();
+  OptimizeOnce(graph);
+  auto factors = graph.getFactors();
+  auto values = graph.getValues();
+  auto temp_factors = graph.getTempFactors();
+  auto temp_values = graph.getTempValues();
 
-  EXPECT_EQ(size_t(3), values.size());
-  EXPECT_EQ(size_t(6), factors.size());
-  EXPECT_EQ(size_t(4), temp_values.size());
-  EXPECT_EQ(size_t(3), temp_factors.size());
+  EXPECT_EQ(size_t(3), values->size());
+  EXPECT_EQ(size_t(6), factors->size());
+  EXPECT_EQ(size_t(4), temp_values->size());
+  EXPECT_EQ(size_t(3), temp_factors->size());
 }
 
 TEST(TestDeformationGraph, saveAndLoad) {
@@ -820,34 +792,30 @@ TEST(TestDeformationGraph, saveAndLoad) {
   Vertices temp_node_valences{1, 2};
   graph.processNodeValence(gtsam::Symbol('p', 0), temp_node_valences, 'v', 1e-4, true);
 
-  graph.optimize();
+  auto values = graph.getValues();
+  auto factors = graph.getFactors();
+  auto temp_values = graph.getTempValues();
+  auto temp_factors = graph.getTempFactors();
 
-  // Check added factors
-  gtsam::Values values = graph.getGtsamValues();
-  gtsam::NonlinearFactorGraph factors = graph.getGtsamFactors();
-  gtsam::Values temp_values = graph.getGtsamTempValues();
-  gtsam::NonlinearFactorGraph temp_factors = graph.getGtsamTempFactors();
+  EXPECT_EQ(size_t(15), factors->size());
+  EXPECT_EQ(size_t(6), values->size());
 
-  EXPECT_EQ(size_t(15), factors.size());
-  EXPECT_EQ(size_t(6), values.size());
-
-  EXPECT_EQ(size_t(5), temp_factors.size());
-  EXPECT_EQ(size_t(2), temp_values.size());
+  EXPECT_EQ(size_t(5), temp_factors->size());
+  EXPECT_EQ(size_t(2), temp_values->size());
   graph.save(std::string(DATASET_PATH) + "/graph.dgrf");
   DeformationGraph new_graph;
-  new_graph.initialize(graph.getParams());
   new_graph.load(std::string(DATASET_PATH) + "/graph.dgrf");
 
-  values = new_graph.getGtsamValues();
-  factors = new_graph.getGtsamFactors();
-  temp_values = new_graph.getGtsamTempValues();
-  temp_factors = new_graph.getGtsamTempFactors();
+  values = new_graph.getValues();
+  factors = new_graph.getFactors();
+  temp_values = new_graph.getTempValues();
+  temp_factors = new_graph.getTempFactors();
 
-  EXPECT_EQ(size_t(15), factors.size());
-  EXPECT_EQ(size_t(6), values.size());
+  EXPECT_EQ(size_t(15), factors->size());
+  EXPECT_EQ(size_t(6), values->size());
 
-  EXPECT_EQ(size_t(5), temp_factors.size());
-  EXPECT_EQ(size_t(2), temp_values.size());
+  EXPECT_EQ(size_t(5), temp_factors->size());
+  EXPECT_EQ(size_t(2), temp_values->size());
   EXPECT_EQ(3, new_graph.getNumVertices());
   EXPECT_EQ(0, new_graph.getInitialPositionVertex('v', 0).x());
   EXPECT_EQ(1, new_graph.getInitialPositionVertex('v', 2).y());
@@ -862,6 +830,7 @@ TEST(TestDeformationGraph, processPoseGraph) {
   size_t num_poses = 5;
   for (size_t i = 0; i < num_poses; i++) {
     pose_graph_tools::PoseGraphNode pg_node;
+    pg_node.robot_id = 0;
     pg_node.key = i;
     pg_node.pose = gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(i, 0, 0)).matrix();
     pose_graph.nodes.push_back(pg_node);
@@ -871,9 +840,12 @@ TEST(TestDeformationGraph, processPoseGraph) {
     }
 
     pose_graph_tools::PoseGraphEdge pg_edge;
+    pg_edge.robot_from = 0;
+    pg_edge.robot_to = 0;
     pg_edge.key_from = i - 1;
     pg_edge.key_to = i;
     pg_edge.pose = gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)).matrix();
+    pg_edge.type = pose_graph_tools::PoseGraphEdge::Type::ODOM;
     pose_graph.edges.push_back(pg_edge);
   }
 
@@ -881,21 +853,20 @@ TEST(TestDeformationGraph, processPoseGraph) {
   std::map<pose_graph_tools::PoseGraphEdge::Type, double> variance_map;
   variance_map[pose_graph_tools::PoseGraphEdge::Type::ODOM] = 0.01;
   variance_map[pose_graph_tools::PoseGraphEdge::Type::LOOPCLOSE] = 0.01;
+  variance_map[pose_graph_tools::PoseGraphEdge::Type::PRIOR] = 0.01;
 
   // Process pose graph
   graph.processPoseGraph(pose_graph, variance_map);
 
-  graph.optimize();
-  auto values = graph.getGtsamValues();
-  auto factors = graph.getGtsamFactors();
-  EXPECT_EQ(num_poses - 1, factors.size());
-  EXPECT_EQ(num_poses, values.size());
+  auto values = graph.getValues();
+  auto factors = graph.getFactors();
+  EXPECT_EQ(num_poses - 1, factors->size());
+  EXPECT_EQ(num_poses, values->size());
 }
 
 TEST(TestDeformationGraph, processMeshGraph) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
-  graph.optimize();
 
   // Construct mesh graph
   std::map<size_t, std::vector<Timestamp>> timestamps;
@@ -912,26 +883,24 @@ TEST(TestDeformationGraph, processMeshGraph) {
   SetUpDeformationGraph(&new_graph, false);
   new_graph.processMeshGraph(*mesh_graph, variance_map);
 
-  new_graph.optimize();
-  auto values = graph.getGtsamValues();
-  auto factors = graph.getGtsamFactors();
-  auto new_values = new_graph.getGtsamValues();
-  auto new_factors = new_graph.getGtsamFactors();
-  EXPECT_EQ(new_values.size(), values.size());
-  EXPECT_EQ(new_factors.size(), factors.size());
-  for (const auto& key_value : values) {
-    EXPECT_EQ(values.at<gtsam::Pose3>(key_value.key).matrix(),
-              new_values.at<gtsam::Pose3>(key_value.key).matrix());
+  auto values = graph.getValues();
+  auto factors = graph.getFactors();
+  auto new_values = new_graph.getValues();
+  auto new_factors = new_graph.getFactors();
+  EXPECT_EQ(new_values->size(), values->size());
+  EXPECT_EQ(new_factors->size(), factors->size());
+  for (const auto& key_value : *values) {
+    EXPECT_EQ(values->at<gtsam::Pose3>(key_value.key).matrix(),
+              new_values->at<gtsam::Pose3>(key_value.key).matrix());
   }
 }
 TEST(TestDeformationGraph, processPoseMeshGraph) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
-  graph.optimize();
   pcl::PolygonMesh original_mesh;
   std::vector<Timestamp> original_mesh_stamps;
   std::vector<int> original_mesh_inds;
-  SetUpOriginalMesh(&original_mesh, &original_mesh_stamps, &original_mesh_inds);
+  SetUpOriginalMesh(original_mesh, &original_mesh_stamps, &original_mesh_inds);
 
   Vertices new_node_valences{0, 2};
   graph.processNewNode(
@@ -940,9 +909,6 @@ TEST(TestDeformationGraph, processPoseMeshGraph) {
   graph.processNewBetween(gtsam::Symbol('a', 0),
                           gtsam::Symbol('a', 1),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)));
-
-  // Check added factors
-  graph.optimize();
 
   // Construct mesh graph
   std::map<size_t, std::vector<Timestamp>> timestamps;
@@ -966,16 +932,15 @@ TEST(TestDeformationGraph, processPoseMeshGraph) {
   new_graph.processPoseGraph(*pose_graph, variance_map);
   new_graph.processMeshGraph(*mesh_graph, variance_map);
 
-  new_graph.optimize();
-  auto values = graph.getGtsamValues();
-  auto factors = graph.getGtsamFactors();
-  auto new_values = new_graph.getGtsamValues();
-  auto new_factors = new_graph.getGtsamFactors();
-  EXPECT_EQ(new_values.size(), values.size());
-  EXPECT_EQ(new_factors.size(), factors.size());
-  for (const auto& key_value : values) {
-    EXPECT_EQ(values.at<gtsam::Pose3>(key_value.key).matrix(),
-              new_values.at<gtsam::Pose3>(key_value.key).matrix());
+  auto values = graph.getValues();
+  auto factors = graph.getFactors();
+  auto new_values = new_graph.getValues();
+  auto new_factors = new_graph.getFactors();
+  EXPECT_EQ(new_values->size(), values->size());
+  EXPECT_EQ(new_factors->size(), factors->size());
+  for (const auto& key_value : *values) {
+    EXPECT_EQ(values->at<gtsam::Pose3>(key_value.key).matrix(),
+              new_values->at<gtsam::Pose3>(key_value.key).matrix());
   }
 }
 }  // namespace kimera_pgmo

@@ -15,11 +15,7 @@ int main(int argc, char* argv[]) {
 
   logging::Logger::addSink("ros", std::make_shared<kimera_pgmo::RosLogSink>());
 
-  kimera_pgmo::KimeraPgmo kimera_pgmo;
-  if (!kimera_pgmo.initFromRos(n)) {
-    ROS_ERROR("Failed to initialize Kimera Pgmo.");
-    return EXIT_FAILURE;
-  }
+  kimera_pgmo::KimeraPgmo kimera_pgmo(n);
 
   ros::spin();
 

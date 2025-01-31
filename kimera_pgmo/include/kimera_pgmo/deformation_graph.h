@@ -5,7 +5,6 @@
  */
 #pragma once
 
-#include <KimeraRPGO/RobustSolver.h>
 #include <gtsam/geometry/Point3.h>
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/nonlinear/NonlinearFactor.h>
@@ -131,18 +130,6 @@ class DeformationGraph {
   ~DeformationGraph();
 
   inline void setVerboseFlag(bool verbose) { verbose_ = verbose; }
-
-  /*! \brief Initialize deformation graph along with robust solver backend.
-   *  - odom_trans_threshold: translation threshold (meters of error per node)
-   * for odometry check outlier rejection
-   *  - odom_rot_threshold: rotation threshold (radians of error per node) for
-   * odometry check outlier rejection
-   *  - pcm_trans_threshold: translation threshold (meters of error per node)
-   * for backend PCM outlier rejection
-   *  - pcm_rot_threshold: rotation threshold (radians of error per node) for
-   * backend PCM outlier rejection
-   */
-  bool initialize(const KimeraRPGO::RobustSolverParams& params);
 
   /*! \brief Directly add a full pose graph to the deformation graph
    *  - pose_graph: full pose graph
@@ -286,13 +273,7 @@ class DeformationGraph {
   /*! \brief Get the optimized estimates for nodes with certain prefix
    *  - prefix: prefix of the nodes to query best estimate
    */
-  std::vector<gtsam::Pose3> getOptimizedTrajectory(char prefix) const;
-
-  /*! \brief Get the current (including unoptimized) estimates for nodes with certain
-   * prefix
-   *  - prefix: prefix of the nodes to query estimate
-   */
-  std::vector<gtsam::Pose3> getQueuedTrajectory(char prefix) const;
+  std::vector<gtsam::Pose3> getTrajectory(char prefix) const;
 
   /*! \brief Deform a mesh based on the deformation graph
    * - original_mesh: mesh to deform
@@ -374,17 +355,7 @@ class DeformationGraph {
 
   /*! \brief Get the number of loop closures processed by pgo
    */
-  inline size_t getNumLoopclosures() const { return pgo_->getNumLC(); }
-
-  /*! \brief Get the GNC weights from optimization
-   */
-  inline gtsam::Vector getGncWeights() const { return pgo_->getGncWeights(); }
-
-  inline gtsam::Vector getTempFactorGncWeights() const {
-    return pgo_->getGncTempWeights();
-  }
-
-  inline gtsam::Vector getAllGncWeights() const { return pgo_->getGncWeights(); }
+  inline size_t getNumLoopclosures() const { return num_loopclosures_; }
 
   /*! \brief Get the number of mesh vertices nodes in the deformation graph
    * - outputs the number of mesh vertices nodes
@@ -400,22 +371,35 @@ class DeformationGraph {
   /*! \brief Gets the estimated values since last optimization
    *  - outputs last estimated values as GTSAM Values
    */
-  inline const gtsam::Values& getGtsamValues() const { return values_; }
+  const gtsam::Values* getValues() const { return values_.get(); }
 
   /*! \brief Gets the factors added to the backend, minus the detected outliers
    *  - outputs the factors as a GTSAM NonlinearFactorGraph
    */
-  inline gtsam::NonlinearFactorGraph getGtsamFactors() const { return nfg_; }
+  const gtsam::NonlinearFactorGraph* getFactors() const { return nfg_.get(); }
 
-  /*! \brief Gets the new estimated values
-   *  - outputs new estimated values as GTSAM Values
+  /*! \brief Gets the temp values since last optimization
+   *  - outputs last temp values as GTSAM Values
    */
-  inline gtsam::Values getGtsamNewValues() const { return new_values_; }
+  const gtsam::Values* getTempValues() const { return temp_values_.get(); }
 
-  /*! \brief Gets the new factors added
-   *  - outputs the new factors as a GTSAM NonlinearFactorGraph
+  /*! \brief Gets the temp factors added to the backend, minus the detected
+   * outliers
+   *  - outputs the factors as a GTSAM NonlinearFactorGraph
    */
-  inline gtsam::NonlinearFactorGraph getGtsamNewFactors() const { return new_factors_; }
+  const gtsam::NonlinearFactorGraph* getTempFactors() const { return temp_nfg_.get(); }
+
+  /*! \brief Gets the inlier weights since last optimization
+   *  - outputs inlier weights as GTSAM vector
+   */
+  const gtsam::Vector* getInlierWeights() const { return inlier_weights_.get(); }
+
+  /*! \brief Gets the temp inlier weights since last optimization
+   *  - outputs temp inlier weights as GTSAM vector
+   */
+  const gtsam::Vector* getTempInlierWeights() const {
+    return temp_inlier_weights_.get();
+  }
 
   /*! \brief Gets the pose graph from the backend
    *   - timestamps: map of robot id to sequential timestamps in order to stamp
@@ -427,12 +411,6 @@ class DeformationGraph {
       bool include_deformation_edges = false,
       bool include_between_edges = true,
       bool optimized = true) const;
-
-  /*! \brief Get the consistency factors (ie. the deformation edge factors)
-   */
-  inline gtsam::NonlinearFactorGraph getConsistencyFactors() const {
-    return consistency_factors_;
-  }
 
   /*! \brief Get the intial pose of a keyframe node
    */
@@ -476,12 +454,6 @@ class DeformationGraph {
     return vertex_stamps_.at(prefix);
   }
 
-  /*! \brief Set whether or not to force vertex recalculation
-   */
-  inline void setForceRecalculate(bool force_recalculate) {
-    force_recalculate_ = force_recalculate;
-  }
-
   /*! \brief Recalculate vertices getter
    */
   inline bool getRecalculateVertices() { return recalculate_vertices_; }
@@ -490,39 +462,13 @@ class DeformationGraph {
    */
   inline void setRecalculateVertices() { recalculate_vertices_ = true; }
 
-  /*! \brief Gets the temp values since last optimization
-   *  - outputs last temp values as GTSAM Values
-   */
-  inline const gtsam::Values& getGtsamTempValues() const { return temp_values_; }
-
-  /*! \brief Gets the temp factors added to the backend, minus the detected
-   * outliers
-   *  - outputs the factors as a GTSAM NonlinearFactorGraph
-   */
-  inline gtsam::NonlinearFactorGraph getGtsamTempFactors() const { return temp_nfg_; }
-
   /*! \brief Clear all temporary values, factors, and related structures
    */
   inline void clearTemporaryStructures() {
-    new_temp_values_ = gtsam::Values();
-    new_temp_factors_ = gtsam::NonlinearFactorGraph();
-    temp_values_ = gtsam::Values();
-    temp_nfg_ = gtsam::NonlinearFactorGraph();
-    pgo_->clearTempFactorsValues();
+    temp_values_->clear();
+    temp_nfg_->resize(0);
     temp_pg_initial_poses_.clear();
   }
-
-  inline const KimeraRPGO::RobustSolverParams& getParams() const { return pgo_params_; }
-
-  /*! \brief Force an optimization of the deformation graph without adding new
-   * factors
-   */
-  void optimize();
-
-  /*! \brief Add and update the new factors and values. Let RPGO naturally decide to
-   * optimize or not
-   */
-  void update();
 
   /*! \brief Update the values. Use to update initial estimate. Use with caution since
    * initial estimate and result shares same variable. (only depends on if you call
@@ -530,28 +476,19 @@ class DeformationGraph {
    */
   void updateValues(const gtsam::Values& updates);
 
-  /*! \brief Set RPGO parameters
+  /*! \brief Update the temp values. Use to update initial estimate. Use with caution
+   * since initial estimate and result shares same variable. (only depends on if you
+   * call before or after optimize)
    */
-  void setParams(const KimeraRPGO::RobustSolverParams& params);
+  void updateTempValues(const gtsam::Values& updates);
 
-  /*! \brief Gets the temp values since last optimization
-   *  - min: get values with key above this value
-   *  - max: get values with key less than this value
-   *  - outputs last temp values as GTSAM Values
+  /*! \brief Update the inlier weights (e.g. GNC results).
    */
-  void getGtsamTempValuesFiltered(gtsam::Values* values,
-                                  const gtsam::Key& min,
-                                  const gtsam::Key& max) const;
+  void updateInlierWeights(const gtsam::Vector& weights);
 
-  /*! \brief Gets the temp factors added to the backend, minus the detected
-   * outliers
-   *  - min: get factors with at least one key above this value
-   *  - max: get factors with both keys below this value
-   *  - outputs the factors as a GTSAM NonlinearFactorGraph
+  /*! \brief Update the temp inlier weights (e.g. GNC results).
    */
-  void getGtsamTempFactorsFiltered(gtsam::NonlinearFactorGraph* nfg,
-                                   const gtsam::Key& min,
-                                   const gtsam::Key& max) const;
+  void updateTempInlierWeights(const gtsam::Vector& weights);
 
   /*! \brief Save deformation graph to file
    * - filename: output file name
@@ -565,8 +502,7 @@ class DeformationGraph {
             bool include_temp = true,
             bool set_robot_id = false,
             size_t new_robot_id = 0,
-            bool include_priors = true,
-            bool optimize_on_load = true);
+            bool include_priors = true);
 
   inline bool hasPrefixPoses(char prefix) const {
     return pg_initial_poses_.count(prefix);
@@ -643,13 +579,13 @@ class DeformationGraph {
   bool tryConvertFactorToPriorEdge(
       gtsam::NonlinearFactor* factor,
       const std::map<size_t, std::vector<Timestamp>>& timestamps,
-      int gnc_idx,
+      int factor_idx,
       pose_graph_tools::PoseGraphEdge& edge) const;
 
   bool tryConvertFactorToBetweenEdge(
       gtsam::NonlinearFactor* factor,
       const std::map<size_t, std::vector<Timestamp>>& timestamps,
-      int gnc_idx,
+      int factor_idx,
       pose_graph_tools::PoseGraphEdge& edge) const;
 
   bool tryConvertFactorToDeformationEdge(gtsam::NonlinearFactor* factor,
@@ -678,32 +614,20 @@ class DeformationGraph {
   std::map<char, std::vector<gtsam::Point3>> vertex_positions_;
   std::map<char, std::vector<Timestamp>> vertex_stamps_;
 
-  KimeraRPGO::RobustSolverParams pgo_params_;
-  std::unique_ptr<KimeraRPGO::RobustSolver> pgo_;
-
   // factors
-  gtsam::NonlinearFactorGraph nfg_;
+  std::shared_ptr<gtsam::NonlinearFactorGraph> nfg_;
   // current estimate
-  gtsam::Values values_;
+  std::shared_ptr<gtsam::Values> values_;
   // temp factors
-  gtsam::NonlinearFactorGraph temp_nfg_;
+  std::shared_ptr<gtsam::NonlinearFactorGraph> temp_nfg_;
   // current temp estimate
-  gtsam::Values temp_values_;
-  // gnc weights
-  gtsam::Vector gnc_weights_;
+  std::shared_ptr<gtsam::Values> temp_values_;
+  // gnc weights (from last update)
+  std::shared_ptr<gtsam::Vector> inlier_weights_;
+  // gnc weights for temp factors (from last update)
+  std::shared_ptr<gtsam::Vector> temp_inlier_weights_;
 
-  // new factors and values
-  gtsam::NonlinearFactorGraph new_factors_;
-  gtsam::Values new_values_;
-  gtsam::NonlinearFactorGraph new_temp_factors_;
-  gtsam::Values new_temp_values_;
-
-  //// Below separated factor types for debugging
-  // factor graph encoding the mesh structure
-  gtsam::NonlinearFactorGraph consistency_factors_;
-
-  // Force deformation of vertices every optimization
-  bool force_recalculate_;
+  size_t num_loopclosures_ = 0;
 
   // Recalculate only if new measurements added
   bool recalculate_vertices_;

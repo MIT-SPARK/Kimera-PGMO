@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include <config_utilities/virtual_config.h>
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/inference/Symbol.h>
 #include <pcl/PolygonMesh.h>
@@ -15,9 +16,10 @@
 #include <string>
 
 #include "kimera_pgmo/deformation_graph.h"
+#include "kimera_pgmo/optimizer/kimera_rpgo_optimizer.h"
+#include "kimera_pgmo/optimizer/optimizer_interface.h"
 #include "kimera_pgmo/sparse_keyframe.h"
 #include "kimera_pgmo/utils/common_functions.h"
-
 namespace kimera_pgmo {
 
 using Path = std::vector<gtsam::Pose3>;
@@ -26,13 +28,10 @@ using PathPtr = std::shared_ptr<Path>;
 enum class RunMode {
   FULL = 0u,  // Optimize mesh and pose graph
   MESH = 1u,  // Optimize mesh based on given optimized trajectory
-  DPGMO = 2u  // DPGO does the optimization
 };
 
 struct KimeraPgmoConfig {
   KimeraPgmoConfig() = default;
-
-  KimeraRPGO::RobustSolverParams getRobustSolverParams() const;
 
   // pgmo behavior
   RunMode mode;
@@ -46,25 +45,15 @@ struct KimeraPgmoConfig {
   double prior_variance;
   double mesh_edge_variance;
   double pose_mesh_variance;
-  // pcm thresholds
-  double odom_trans_threshold;
-  double odom_rot_threshold;
-  double pcm_trans_threshold;
-  double pcm_rot_threshold;
-  // gnc configuration
-  double gnc_alpha;
-  int gnc_max_it = 100;
-  double gnc_mu_step = 1.4;
-  double gnc_cost_tol = 1.0e-5;
-  double gnc_weight_tol = 1.0e-4;
-  bool lm_diagonal_damping = true;
-  bool gnc_fix_prev_inliers = false;
   // sparsification
   bool b_enable_sparsify = false;
   double trans_sparse_dist = 1.0;
   double rot_sparse_dist = 1.2;
   // logging
   std::string log_path = "";
+
+  // optimizer
+  config::VirtualConfig<Optimizer> optimizer{KimeraRpgoOptimizer::Config()};
 };
 
 void declare_config(KimeraPgmoConfig& config);
@@ -78,13 +67,9 @@ class KimeraPgmoInterface {
    * the full mesh to perform distortions and publish the optimzed distored mesh
    * and trajectory
    */
-  KimeraPgmoInterface();
+  KimeraPgmoInterface(const KimeraPgmoConfig& config);
 
   ~KimeraPgmoInterface() = default;
-
-  /*! \brief Sets the config and intializes information if config valid
-   */
-  virtual bool initialize(const KimeraPgmoConfig& config);
 
   /*! \brief Load deformation graph and mesh from file
    * - robot_id: robot id
@@ -113,11 +98,11 @@ class KimeraPgmoInterface {
 
   /*! \brief Get the factors of the underlying deformation graph
    */
-  gtsam::NonlinearFactorGraph getDeformationGraphFactors() const;
+  const gtsam::NonlinearFactorGraph& getDeformationGraphFactors() const;
 
   /*! \brief Get the estimates of the underlying deformation graph
    */
-  gtsam::Values getDeformationGraphValues() const;
+  const gtsam::Values& getDeformationGraphValues() const;
 
   /*! \brief Ptr to deformation graph
    */
@@ -126,10 +111,6 @@ class KimeraPgmoInterface {
   /*! \brief get whether the mesh has been updated
    */
   bool wasFullMeshUpdated(bool clear_flag = true);
-
-  /*! \brief force deformation graph to optimize
-   */
-  void forceOptimize();
 
   /*! \brief Reset deformation graph
    */
@@ -149,8 +130,6 @@ class KimeraPgmoInterface {
                                     bool include_priors = true);
 
  protected:
-  bool initializeFromConfig();
-
   /*! \brief Recieves latest edges in the pose graph and add to deformation
    * graph. Also updates the initial trajectory, the node connection queue, and
    * the node timestamps
@@ -187,6 +166,10 @@ class KimeraPgmoInterface {
    * - robot_id: id of the robot this path corresponds to
    */
   void processOptimizedPath(const Path& path, size_t robot_id = 0);
+
+  /*! \brief Optimize the deformation graph
+   */
+  void optimize();
 
   /*! \brief Optimize the full mesh (and pose graph) using the deformation graph
    * then publish the deformed mesh
@@ -231,26 +214,12 @@ class KimeraPgmoInterface {
    */
   bool loadPoseGraphSparseMapping(const std::string& input_path);
 
-  /*! \brief Get the consistency factors as pose graph edges
-   * - robot_id: the id of the robot in question
-   * - pg_mesh_msg: pointer to the factors and initial values
-   * - vertex_index_offset start index for vertices from this index (default 0)
-   */
-  bool getConsistencyFactors(size_t robot_id,
-                             pose_graph_tools::PoseGraph& pg_mesh_msg,
-                             size_t vertex_index_offset = 0) const;
-
-  void insertDpgmoValues(const gtsam::Key& key, const gtsam::Pose3& pose);
-
-  /*! \brief Get the DPGMO optimized values
-   */
-  gtsam::Values getDpgmoValues() const;
-
   void setVerboseFlag(bool verbose);
 
  protected:
   bool verbose_;  // whether or not to print messages
   KimeraPgmoConfig config_;
+  Optimizer::Ptr pgo_;
 
   bool full_mesh_updated_;
 
@@ -260,9 +229,6 @@ class KimeraPgmoInterface {
 
   // Track number of loop closures
   size_t num_loop_closures_;
-
-  // DPGMO optimized values
-  gtsam::Values dpgmo_values_;
 
   // Sparse key frame mapping
   std::unordered_map<gtsam::Key, gtsam::Key> full_sparse_frame_map_;

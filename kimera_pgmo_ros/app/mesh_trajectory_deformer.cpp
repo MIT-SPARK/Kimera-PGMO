@@ -41,17 +41,9 @@ void declare_config(InputConfig& config) {
 
 class MeshTrajectoryDeformer : public KimeraPgmoInterface {
  public:
-  explicit MeshTrajectoryDeformer(const InputConfig& config) : inputs(config) {}
-
-  ~MeshTrajectoryDeformer() {}
-
-  const InputConfig inputs;
-
-  bool initialize(const KimeraPgmoConfig& config) override {
-    if (!KimeraPgmoInterface::initialize(config)) {
-      SPARK_LOG(ERROR) << "KimeraPgmo: Failed to initialize";
-    }
-
+  explicit MeshTrajectoryDeformer(const KimeraPgmoConfig& config,
+                                  const InputConfig& input_config)
+      : KimeraPgmoInterface(config), inputs(config::checkValid(input_config)) {
     SPARK_LOG(INFO) << "Loading DGRF file: " << inputs.dgrf_path
                     << " and ply file: " << inputs.ply_path;
     SPARK_LOG(INFO) << "Deforming based on trajectory: " << inputs.optimized_traj_path;
@@ -66,8 +58,12 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
     SPARK_LOG(INFO) << "Load mesh and graph success";
 
     loadOriginalPath(inputs.orig_traj_path);
-    return loadOptimizedPath(inputs.optimized_traj_path, inputs.max_diff_ns);
+    loadOptimizedPath(inputs.optimized_traj_path, inputs.max_diff_ns);
   }
+
+  ~MeshTrajectoryDeformer() {}
+
+  const InputConfig inputs;
 
   bool save() {
     saveDeformationGraph(config_.log_path + "/optimized.dgrf");
@@ -220,12 +216,8 @@ auto main(int argc, char* argv[]) -> int {
   logging::Logger::addSink("ros", std::make_shared<kimera_pgmo::RosLogSink>());
 
   const auto inputs = config::fromRos<kimera_pgmo::InputConfig>(n);
-  kimera_pgmo::MeshTrajectoryDeformer deformer(inputs);
-
   const auto config = config::fromRos<kimera_pgmo::KimeraPgmoConfig>(n);
-  if (!deformer.initialize(config)) {
-    return EXIT_FAILURE;
-  }
+  kimera_pgmo::MeshTrajectoryDeformer deformer(config, inputs);
 
   deformer.save();
   return EXIT_SUCCESS;
