@@ -154,12 +154,11 @@ void DeformationGraph::processPointMeasurement(const gtsam::Key& from_key,
                                                const gtsam::Point3& to_point,
                                                double variance,
                                                bool temp) {
-  if (!values_.exists(to_key) && !new_values_.exists(to_key) &&
-      !new_temp_values_.exists(to_key)) {
+  if (!values_->exists(to_key) && !temp_values_->exists(to_key)) {
     if (temp) {
-      new_temp_values_.insert(to_key, gtsam::Pose3(gtsam::Rot3(), to_point));
+      temp_values_->insert(to_key, gtsam::Pose3(gtsam::Rot3(), to_point));
     } else {
-      new_values_.insert(to_key, gtsam::Pose3(gtsam::Rot3(), to_point));
+      values_->insert(to_key, gtsam::Pose3(gtsam::Rot3(), to_point));
     }
   }
 
