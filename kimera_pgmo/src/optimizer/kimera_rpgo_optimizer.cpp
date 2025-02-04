@@ -1,84 +1,140 @@
 #include "kimera_pgmo/optimizer/kimera_rpgo_optimizer.h"
 
 #include <config_utilities/config.h>
+#include <config_utilities/types/enum.h>
 #include <config_utilities/validation.h>
 namespace kimera_pgmo {
+
+using namespace kimera_rpgo;
 
 void declare_config(KimeraRpgoOptimizer::Config& config) {
   using namespace config;
   name("KimeraRpgoOptimizer");
-  field(config.odom_trans_threshold, "odom_trans_threshold");
-  field(config.odom_rot_threshold, "odom_rot_threshold");
-  field(config.pcm_trans_threshold, "pcm_trans_threshold");
-  field(config.pcm_rot_threshold, "pcm_rot_threshold");
-  field(config.gnc_alpha, "gnc_alpha");
-  field(config.gnc_max_it, "gnc_max_iterations");
-  field(config.gnc_mu_step, "gnc_mu_step");
-  field(config.gnc_cost_tol, "gnc_cost_tolerance");
-  field(config.gnc_weight_tol, "gnc_weight_tolerance");
-  field(config.gnc_fix_prev_inliers, "gnc_fix_prev_inliers");
-  field(config.lm_diagonal_damping, "lm_diagonal_damping");
+  enum_field(config.solver,
+             "solver",
+             {{SolverConfig::LeastSquaresOption::LM, "LM"},
+              {SolverConfig::LeastSquaresOption::GN, "GN"},
+              {SolverConfig::LeastSquaresOption::DOGLEG, "DOGLEG"}});
+  field(config.verbosity, "verbosity");
+  field(config.use_gnc, "use_gnc");
+  {
+    NameSpace ns("gnc");
+    field(config.gnc.barc_sq, "barc_sq");
+    field(config.gnc.inlier_probability, "inlier_probability");
+    field(config.gnc.mu_step, "mu_step");
+    field(config.gnc.max_iterations, "max_iterations");
+    field(config.gnc.fix_odom, "fix_odom");
+    enum_field(config.gnc.robust_cost,
+               "robust_cost",
+               {{LossType::TLS, "TLS"}, {LossType::GM, "GM"}});
+  }
+  field(config.use_pcm, "use_pcm");
+  {
+    NameSpace ns("pcm");
+    field(config.pcm.trans_threshold, "trans_threshold");
+    field(config.pcm.rot_threshold, "rot_threshold");
+    field(config.pcm.mahalanobis_threshold, "mahalanobis_threshold");
+    field(config.pcm.odom_check, "odom_check");
+    field(config.pcm.odom_trans_threshold, "odom_trans_threshold");
+    field(config.pcm.odom_rot_threshold, "odom_rot_threshold");
+    field(config.pcm.odom_mahalanobis_threshold, "odom_mahalanobis_threshold");
+    enum_field(config.pcm.max_clique_mode,
+               "max_clique_mode",
+               {{PcmConfig::MaxCliqueMode::EXACT, "EXACT"},
+                {PcmConfig::MaxCliqueMode::HEURISTIC, "HEURISTIC"},
+                {PcmConfig::MaxCliqueMode::INCREMENTAL, "INCREMENTAL"}});
+    enum_field(config.pcm.metric_type,
+               "metric_type",
+               {{PcmConfig::MetricType::NODE, "NODE"},
+                {PcmConfig::MetricType::COVARIANCE, "COVARIANCE"}});
+  }
 }
 
 KimeraRpgoOptimizer::KimeraRpgoOptimizer(const Config& config)
     : config(config::checkValid(config)) {
   // Initialize RPGO
-  pgo_params_.setPcmSimple3DParams(config.odom_trans_threshold,
-                                   config.odom_rot_threshold,
-                                   config.pcm_trans_threshold,
-                                   config.pcm_rot_threshold,
-                                   KimeraRPGO::Verbosity::UPDATE);
-  pgo_params_.setLmDiagonalDamping(config.lm_diagonal_damping);
+  rpgo_config_.solver_config.least_squares_option = config.solver;
+  rpgo_config_.solver_config.verbosity = config.verbosity;
+  rpgo_config_.solver_config.setLeastSquaresParamsDefault();
 
-  // Use GNC (confidence value)
-  if (config.gnc_alpha > 0 && config.gnc_alpha < 1) {
-    pgo_params_.setGncInlierCostThresholdsAtProbability(
-        config.gnc_alpha,
-        static_cast<size_t>(config.gnc_max_it),
-        config.gnc_mu_step,
-        config.gnc_cost_tol,
-        config.gnc_weight_tol,
-        config.gnc_fix_prev_inliers);
+  if (config.use_gnc) {
+    rpgo_config_.solver_config.setGncParams(config.gnc);
   }
-  pgo_ = std::unique_ptr<KimeraRPGO::RobustSolver>(
-      new KimeraRPGO::RobustSolver(pgo_params_));
+
+  if (config.use_pcm) {
+    rpgo_config_.use_pcm = true;
+    rpgo_config_.pcm_config = config.pcm;
+  }
+
+  rpgo_.reset(new Rpgo(rpgo_config_));
 }
 
 KimeraRpgoOptimizer::~KimeraRpgoOptimizer() {}
 
 void KimeraRpgoOptimizer::update(const Factors& factors,
-                                 const Values& initial,
-                                 const Factors* temp_factors,
-                                 const Values* temp_initial) {
-  pgo_.reset(new KimeraRPGO::RobustSolver(pgo_params_));
-  if (temp_factors && temp_initial) {
-    pgo_->updateTempFactorsValues(*temp_factors, *temp_initial);
+                                const Values& initial,
+                                const Factors* temp_factors,
+                                const Values* temp_initial) {
+  rpgo_->clear();
+
+  rpgo_->addFactors(factors);
+  rpgo_->addValues(initial);
+  result_ = gtsam::Values(initial);
+
+  if (temp_factors) {
+    rpgo_->addFactors(*temp_factors);
   }
-  pgo_->update(factors, initial);
-  // NOTE(Yun): This might not give the correct behavior if using PCM
-  inlier_weights_ = pgo_->getGncWeights();
-  temp_inlier_weights_ = pgo_->getGncTempWeights();
-  result_ = pgo_->calculateEstimate();
-  temp_result_ = pgo_->getTempValues();
+
+  if (temp_initial) {
+    rpgo_->addValues(*temp_initial);
+    temp_result_ = gtsam::Values(*temp_initial);
+  }
+
+  // Run optimizer
+  rpgo_->run();
+
+  // Get estimates
+  auto rpgo_result = rpgo_->getResult();
+  for (const auto& key_val : rpgo_result) {
+    if (result_.exists(key_val.key)) {
+      result_.update(key_val.key, key_val.value);
+    }
+    if (temp_result_.exists(key_val.key)) {
+      temp_result_.update(key_val.key, key_val.value);
+    }
+  }
+
+  // Get inlier weights
+  auto inlier_weights = rpgo_->getInlierWeights();
+  inlier_weights_ = std::vector<double>(inlier_weights.begin(),
+                                        inlier_weights.begin() + factors.size());
+  if (temp_factors) {
+    temp_inlier_weights_ = std::vector<double>(
+        inlier_weights.end() - temp_factors->size(), inlier_weights.end());
+  }
+
+  if (!log_path_.empty()) {
+    rpgo_->writeLog(log_path_ + "/rpgo_log.json");
+  }
 }
 
-KimeraRpgoOptimizer::Values KimeraRpgoOptimizer::getEstimates() { return result_; }
+const KimeraRpgoOptimizer::Values& KimeraRpgoOptimizer::getEstimates() const {
+  return result_;
+}
 
-KimeraRpgoOptimizer::Values KimeraRpgoOptimizer::getTempEstimates() {
+const KimeraRpgoOptimizer::Values& KimeraRpgoOptimizer::getTempEstimates() const {
   return temp_result_;
 }
 
-KimeraRpgoOptimizer::Vector KimeraRpgoOptimizer::getInlierWeights() {
+const std::vector<double>& KimeraRpgoOptimizer::getInlierWeights() const {
   return inlier_weights_;
 }
 
-KimeraRpgoOptimizer::Vector KimeraRpgoOptimizer::getTempInlierWeights() {
+const std::vector<double>& KimeraRpgoOptimizer::getTempInlierWeights() const {
   return temp_inlier_weights_;
 }
 
 void KimeraRpgoOptimizer::setLogPath(const std::string& log_path) {
   Optimizer::setLogPath(log_path);
-  pgo_params_.logOutput(log_path);
-  pgo_.reset(new KimeraRPGO::RobustSolver(pgo_params_));
 }
 }  // namespace kimera_pgmo

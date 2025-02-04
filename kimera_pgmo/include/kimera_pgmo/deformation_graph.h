@@ -392,12 +392,12 @@ class DeformationGraph {
   /*! \brief Gets the inlier weights since last optimization
    *  - outputs inlier weights as GTSAM vector
    */
-  const gtsam::Vector* getInlierWeights() const { return inlier_weights_.get(); }
+  const std::vector<double>* getInlierWeights() const { return inlier_weights_.get(); }
 
   /*! \brief Gets the temp inlier weights since last optimization
    *  - outputs temp inlier weights as GTSAM vector
    */
-  const gtsam::Vector* getTempInlierWeights() const {
+  const std::vector<double>* getTempInlierWeights() const {
     return temp_inlier_weights_.get();
   }
 
@@ -484,11 +484,11 @@ class DeformationGraph {
 
   /*! \brief Update the inlier weights (e.g. GNC results).
    */
-  void updateInlierWeights(const gtsam::Vector& weights);
+  void updateInlierWeights(const std::vector<double>& weights);
 
   /*! \brief Update the temp inlier weights (e.g. GNC results).
    */
-  void updateTempInlierWeights(const gtsam::Vector& weights);
+  void updateTempInlierWeights(const std::vector<double>& weights);
 
   /*! \brief Save deformation graph to file
    * - filename: output file name
@@ -623,9 +623,9 @@ class DeformationGraph {
   // current temp estimate
   std::shared_ptr<gtsam::Values> temp_values_;
   // gnc weights (from last update)
-  std::shared_ptr<gtsam::Vector> inlier_weights_;
+  std::shared_ptr<std::vector<double>> inlier_weights_;
   // gnc weights for temp factors (from last update)
-  std::shared_ptr<gtsam::Vector> temp_inlier_weights_;
+  std::shared_ptr<std::vector<double>> temp_inlier_weights_;
 
   size_t num_loopclosures_ = 0;
 

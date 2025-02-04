@@ -53,11 +53,9 @@ class KimeraPgmoTest : public ::testing::Test {
     nh.setParam("num_interp_pts", 4);
     nh.setParam("interp_horizon", 10.0);
     nh.setParam("optimizer/type", "KimeraRpgoOptimizer");
-    nh.setParam("optimizer/odom_trans_threshold", 10.0);
-    nh.setParam("optimizer/odom_rot_threshold", 10.0);
-    nh.setParam("optimizer/pcm_trans_threshold", 10.0);
-    nh.setParam("optimizer/pcm_rot_threshold", 10.0);
-    nh.setParam("optimizer/gnc_alpha", 0);
+    nh.setParam("optimizer/solver", "LM");
+    nh.setParam("optimizer/verbosity", "2");
+    nh.setParam("optimizer/use_gnc", "False");
     nh.setParam("add_initial_prior", true);
     nh.setParam("enable_sparsify", false);
     nh.setParam("covariance/odom", 0.000001);

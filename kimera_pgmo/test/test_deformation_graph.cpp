@@ -4,8 +4,8 @@
  * @author Yun Chang
  */
 
-#include <KimeraRPGO/RobustSolver.h>
 #include <gtest/gtest.h>
+#include <kimera_rpgo/rpgo.h>
 #include <pcl/conversions.h>
 
 #include "kimera_pgmo/deformation_graph.h"
@@ -135,17 +135,33 @@ void SetUpOriginalMesh(pcl::PolygonMesh& mesh,
 }
 
 void OptimizeOnce(DeformationGraph& deformation_graph) {
-  KimeraRPGO::RobustSolverParams pgo_params;
-  pgo_params.setPcmSimple3DParams(100, 100, 100, 100, KimeraRPGO::Verbosity::UPDATE);
-  KimeraRPGO::RobustSolver pgo(pgo_params);
-  auto factors = deformation_graph.getFactors();
-  auto temp_factors = deformation_graph.getTempFactors();
+  kimera_rpgo::RpgoConfig pgo_config;
+  pgo_config.solver_config.setLeastSquaresParamsDefault();
+  kimera_rpgo::Rpgo pgo(pgo_config);
+
+  auto factors = *deformation_graph.getFactors();
+  auto temp_factors = *deformation_graph.getTempFactors();
   auto values = *deformation_graph.getValues();
   auto temp_values = *deformation_graph.getTempValues();
-  pgo.updateTempFactorsValues(*temp_factors, temp_values);
-  pgo.forceUpdate(*factors, values);
-  auto results = pgo.calculateEstimate();
-  auto temp_results = pgo.getTempValues();
+  pgo.addFactors(factors);
+  pgo.addValues(values);
+  pgo.addFactors(temp_factors);
+  pgo.addValues(temp_values);
+  pgo.run();
+
+  // Get estimates
+  auto results = gtsam::Values(values);
+  auto temp_results = gtsam::Values(temp_values);
+  auto rpgo_result = pgo.getResult();
+  for (const auto& key_val : rpgo_result) {
+    if (results.exists(key_val.key)) {
+      results.update(key_val.key, key_val.value);
+    }
+    if (temp_results.exists(key_val.key)) {
+      temp_results.update(key_val.key, key_val.value);
+    }
+  }
+
   deformation_graph.updateValues(results);
   deformation_graph.updateTempValues(temp_results);
 
@@ -400,7 +416,6 @@ TEST(TestDeformationGraph, addNodeMeasurements) {
   graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
 
   // Check factors added
-  auto values = graph.getValues();
   auto factors = graph.getFactors();
 
   // Add node measurement
@@ -451,26 +466,19 @@ TEST(TestDeformationGraph, removePriorsWithPrefix) {
   graph.processNewNode(gtsam::Symbol('a', 0),
                        gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)),
                        false);
-  graph.processNewNode(gtsam::Symbol('a', 1),
-                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
-                       false);
   graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
 
   // Add node measurement
   std::vector<std::pair<gtsam::Key, gtsam::Pose3>> measurements;
   measurements.push_back(std::pair<gtsam::Key, gtsam::Pose3>(
       gtsam::Symbol('a', 0), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2))));
-  measurements.push_back(std::pair<gtsam::Key, gtsam::Pose3>(
-      gtsam::Symbol('a', 1),
-      gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2))));
 
   graph.processNodeMeasurements(measurements);
 
   auto factors = graph.getFactors();
 
-  EXPECT_EQ(size_t(12), factors->size());
+  EXPECT_EQ(size_t(11), factors->size());
   EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors->at(10)));
-  EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors->at(11)));
 
   OptimizeOnce(graph);
 

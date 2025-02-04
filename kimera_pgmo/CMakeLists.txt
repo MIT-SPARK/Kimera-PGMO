@@ -13,7 +13,7 @@ option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 find_package(config_utilities REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(GTSAM REQUIRED)
-find_package(KimeraRPGO REQUIRED)
+find_package(kimera_rpgo REQUIRED)
 find_package(PCL REQUIRED COMPONENTS common geometry kdtree octree)
 find_package(pose_graph_tools REQUIRED)
 find_package(spatial_hash REQUIRED)
@@ -50,7 +50,7 @@ target_include_directories(
          ${PCL_INCLUDE_DIRS})
 target_link_libraries(
   ${PROJECT_NAME}
-  PUBLIC ${PCL_LIBRARIES} Eigen3::Eigen KimeraRPGO gtsam
+  PUBLIC ${PCL_LIBRARIES} Eigen3::Eigen kimera_rpgo::kimera_rpgo gtsam
          pose_graph_tools::pose_graph_tools spatial_hash::spatial_hash
   PRIVATE "$<BUILD_INTERFACE:config_utilities::config_utilities>")
 set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)

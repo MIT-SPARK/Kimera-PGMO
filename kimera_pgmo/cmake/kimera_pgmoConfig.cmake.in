@@ -5,7 +5,7 @@ get_filename_component(kimera_pgmo_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 
 find_dependency(Eigen3 REQUIRED)
 find_dependency(GTSAM REQUIRED)
-find_dependency(KimeraRPGO REQUIRED)
+find_dependency(kimera_rpgo REQUIRED)
 find_dependency(pose_graph_tools REQUIRED)
 find_dependency(spatial_hash REQUIRED)
 find_dependency(PCL REQUIRED COMPATIBILITY common geometry kdtree octree)

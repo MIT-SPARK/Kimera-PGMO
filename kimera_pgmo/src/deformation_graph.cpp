@@ -39,8 +39,8 @@ DeformationGraph::DeformationGraph()
       values_(new gtsam::Values),
       temp_nfg_(new gtsam::NonlinearFactorGraph),
       temp_values_(new gtsam::Values),
-      inlier_weights_(new gtsam::Vector),
-      temp_inlier_weights_(new gtsam::Vector),
+      inlier_weights_(new std::vector<double>),
+      temp_inlier_weights_(new std::vector<double>),
       recalculate_vertices_(false) {}
 
 DeformationGraph::~DeformationGraph() {}
@@ -647,7 +647,7 @@ bool DeformationGraph::tryConvertFactorToPriorEdge(gtsam::NonlinearFactor* facto
     edge.type = EdgeType::PRIOR;
   } else {
     if (factor_idx >= 0 && inlier_weights_->size() > factor_idx &&
-        (*inlier_weights_)(factor_idx) < 0.5) {
+        inlier_weights_->at(factor_idx) < 0.5) {
       edge.type = EdgeType::REJECTED_PRIOR;
     } else {
       edge.type = EdgeType::PRIOR;
@@ -693,7 +693,7 @@ bool DeformationGraph::tryConvertFactorToBetweenEdge(
       edge.type = EdgeType::LOOPCLOSE;
     } else {
       if (factor_idx >= 0 && inlier_weights_->size() > factor_idx &&
-          (*inlier_weights_)(factor_idx) < 0.5) {
+          inlier_weights_->at(factor_idx) < 0.5) {
         edge.type = EdgeType::REJECTED_LOOPCLOSE;
       } else {
         edge.type = EdgeType::LOOPCLOSE;
@@ -857,7 +857,7 @@ void DeformationGraph::updateTempValues(const gtsam::Values& updates) {
   temp_values_->update(updates);
 }
 
-void DeformationGraph::updateInlierWeights(const gtsam::Vector& weights) {
+void DeformationGraph::updateInlierWeights(const std::vector<double>& weights) {
   if (weights.size() != nfg_->size()) {
     SPARK_LOG(FATAL)
         << "Inlier weights dimension should equal the number of non-temp factors.";
@@ -865,7 +865,7 @@ void DeformationGraph::updateInlierWeights(const gtsam::Vector& weights) {
   *inlier_weights_ = weights;
 }
 
-void DeformationGraph::updateTempInlierWeights(const gtsam::Vector& weights) {
+void DeformationGraph::updateTempInlierWeights(const std::vector<double>& weights) {
   if (weights.size() != temp_nfg_->size()) {
     SPARK_LOG(FATAL)
         << "Temp inlier weights dimension should equal the number of temp factors.";

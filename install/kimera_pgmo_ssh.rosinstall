@@ -13,7 +13,7 @@
 - git:
     local-name: Kimera-RPGO
     uri: git@github.com:MIT-SPARK/Kimera-RPGO.git
-    version: master
+    version: develop
 - git:
     local-name: spatial_hash
     uri: git@github.com:MIT-SPARK/Spatial-Hash.git  
