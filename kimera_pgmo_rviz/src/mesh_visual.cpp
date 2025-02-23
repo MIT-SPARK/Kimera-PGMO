@@ -5,24 +5,27 @@
  */
 #include "kimera_pgmo_rviz/mesh_visual.h"
 
-#include <OGRE/OgreManualObject.h>
-#include <OGRE/OgreMaterialManager.h>
-#include <OGRE/OgreSceneManager.h>
-#include <OGRE/OgreSceneNode.h>
-#include <ros/assert.h>
+#include <OgreManualObject.h>
+#include <OgreMaterialManager.h>
+#include <OgreSceneManager.h>
+#include <OgreSceneNode.h>
+
+#include <stdexcept>
+
+#include <rviz_common/logging.hpp>
 
 #include <Eigen/Dense>
-#include <stdexcept>
 
 namespace kimera_pgmo {
 
 using Matrix4Xf = Eigen::Matrix<float, 4, Eigen::Dynamic>;
+using kimera_pgmo_msgs::msg::Mesh;
 
 std::atomic<uint32_t> MeshVisual::visual_id_ = 0;
 
 namespace {
 
-inline void fillVec(const geometry_msgs::Point& p, Eigen::Vector3f& v) {
+inline void fillVec(const geometry_msgs::msg::Point& p, Eigen::Vector3f& v) {
   v << p.x, p.y, p.z;
 }
 
@@ -44,9 +47,6 @@ MeshVisual::MeshVisual(Ogre::SceneManager* manager,
       manager_(manager),
       node_(nullptr),
       mesh_(nullptr) {
-  ROS_ASSERT_MSG(manager_ != nullptr, "invalid scene manager!");
-  ROS_ASSERT_MSG(parent != nullptr, "invalid parent scene node!");
-
   node_ = parent->createChildSceneNode();
   node_->setVisible(false);
   const uint32_t my_id = visual_id_.fetch_add(1);
@@ -80,17 +80,19 @@ void MeshVisual::reset() {
 
 void MeshVisual::setPose(const Ogre::Vector3& parent_t_mesh,
                          const Ogre::Quaternion& parent_R_mesh) {
-  ROS_DEBUG_STREAM("Setting pose for mesh '" << visual_ns_
-                                             << "' to pos: " << parent_t_mesh
-                                             << " rot: " << parent_R_mesh);
+  RVIZ_COMMON_LOG_DEBUG_STREAM("Setting pose for mesh '"
+                               << visual_ns_ << "' to pos: " << parent_t_mesh
+                               << " rot: " << parent_R_mesh);
   node_->setPosition(parent_t_mesh);
   node_->setOrientation(parent_R_mesh);
 }
 
-void MeshVisual::setMessage(const kimera_pgmo_msgs::KimeraPgmoMesh& mesh) {
-  ROS_DEBUG_STREAM("Setting mesh with " << mesh.vertices.size() << " vertices and "
-                                        << mesh.triangles.size() << " faces");
-  ROS_DEBUG_STREAM("Names: mesh=" << mesh_name_ << ", material=" << material_name_);
+void MeshVisual::setMessage(const Mesh& mesh) {
+  RVIZ_COMMON_LOG_DEBUG_STREAM("Setting mesh with "
+                               << mesh.vertices.size() << " vertices and "
+                               << mesh.triangles.size() << " faces");
+  RVIZ_COMMON_LOG_DEBUG_STREAM("Names: mesh=" << mesh_name_
+                                              << ", material=" << material_name_);
 
   reset();
 
@@ -166,21 +168,21 @@ void MeshVisual::setVisible(bool visible) {
 Ogre::Material& MeshVisual::getMaterial() const {
   auto& material_manager = Ogre::MaterialManager::getSingleton();
   auto material = material_manager.getByName(material_name_);
-  ROS_ASSERT_MSG(!material.isNull(), "invalid material @ '%s'", material_name_.c_str());
   return *material;
 }
 
 void MeshVisual::setCullMode() {
   auto& material = getMaterial();
-  ROS_DEBUG_STREAM("Setting culling for " << material_name_ << ": " << std::boolalpha
-                                          << cull_faces_);
+  RVIZ_COMMON_LOG_DEBUG_STREAM("Setting culling for " << material_name_ << ": "
+                                                      << std::boolalpha << cull_faces_);
   material.setCullingMode(cull_faces_ ? Ogre::CULL_CLOCKWISE : Ogre::CULL_NONE);
 }
 
 void MeshVisual::setLightingMode() {
   auto& material = getMaterial();
-  ROS_DEBUG_STREAM("Setting lighting for " << material_name_ << ": " << std::boolalpha
-                                           << lighting_enabled_);
+  RVIZ_COMMON_LOG_DEBUG_STREAM("Setting lighting for " << material_name_ << ": "
+                                                       << std::boolalpha
+                                                       << lighting_enabled_);
 
   if (lighting_enabled_) {
     material.getTechnique(0)->setLightingEnabled(true);

@@ -1,13 +1,15 @@
 #include "kimera_pgmo_ros/visualization_functions.h"
 
-#include <tf2_eigen/tf2_eigen.h>
+#include <tf2_eigen/tf2_eigen.hpp>
 
 namespace kimera_pgmo {
 
+using visualization_msgs::msg::Marker;
+
 void fillDeformationGraphMarkers(const DeformationGraph& graph,
-                                 const ros::Time& stamp,
-                                 visualization_msgs::Marker& mesh_mesh_viz,
-                                 visualization_msgs::Marker& pose_mesh_viz,
+                                 const rclcpp::Time& stamp,
+                                 Marker& mesh_mesh_viz,
+                                 Marker& pose_mesh_viz,
                                  const std::string& frame_id) {
   // First get the latest estimates and factors
   auto graph_values = graph.getValues();
@@ -17,16 +19,16 @@ void fillDeformationGraphMarkers(const DeformationGraph& graph,
   mesh_mesh_viz.header.frame_id = frame_id;
   mesh_mesh_viz.header.stamp = stamp;
   mesh_mesh_viz.id = 0;
-  mesh_mesh_viz.action = visualization_msgs::Marker::ADD;
-  mesh_mesh_viz.type = visualization_msgs::Marker::LINE_LIST;
+  mesh_mesh_viz.action = Marker::ADD;
+  mesh_mesh_viz.type = Marker::LINE_LIST;
   mesh_mesh_viz.scale.x = 0.02;
 
   // header for the pose to mesh edges
   pose_mesh_viz.header.frame_id = frame_id;
   pose_mesh_viz.header.stamp = stamp;
   pose_mesh_viz.id = 0;
-  pose_mesh_viz.action = visualization_msgs::Marker::ADD;
-  pose_mesh_viz.type = visualization_msgs::Marker::LINE_LIST;
+  pose_mesh_viz.action = Marker::ADD;
+  pose_mesh_viz.type = Marker::LINE_LIST;
   pose_mesh_viz.scale.x = 0.02;
 
   for (auto factor : *graph_factors) {
@@ -45,7 +47,7 @@ void fillDeformationGraphMarkers(const DeformationGraph& graph,
 
     // Three types: pose-to-pose, pose-to-mesh, mesh-to-mesh
     // color accordingly
-    std_msgs::ColorRGBA color;
+    std_msgs::msg::ColorRGBA color;
     if (front_is_pose_vertex && back_is_pose_vertex) {
       // pose-to-pose
       continue;

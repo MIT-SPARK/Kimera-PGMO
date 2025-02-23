@@ -1,51 +1,49 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.22.1)
 project(kimera_pgmo_ros)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_compile_options(-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter)
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra)
+endif()
 
+option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+
+find_package(ament_cmake REQUIRED)
 find_package(kimera_pgmo REQUIRED)
-find_package(
-  catkin REQUIRED
-  COMPONENTS kimera_pgmo_msgs
-             nav_msgs
-             pose_graph_tools_msgs
-             pose_graph_tools_ros
-             roscpp
-             tf2_ros
-             visualization_msgs)
+find_package(kimera_pgmo_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(pose_graph_tools_ros REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(std_srvs REQUIRED)
+find_package(tf2_eigen REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(visualization_msgs REQUIRED)
 
-catkin_package(
-  CATKIN_DEPENDS
+add_library(
+  ${PROJECT_NAME}
+  src/conversion/gtsam.cpp src/kimera_pgmo.cpp src/conversion/mesh.cpp
+  src/conversion/mesh_delta.cpp src/mesh_frontend.cpp
+  src/visualization_functions.cpp)
+target_include_directories(
+  ${PROJECT_NAME}
+  PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+         "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>")
+target_link_libraries(${PROJECT_NAME} PRIVATE config_utilities::config_utilities
+                                              tf2_eigen::tf2_eigen)
+ament_target_dependencies(
+  ${PROJECT_NAME}
+  PUBLIC
+  kimera_pgmo
   kimera_pgmo_msgs
   nav_msgs
-  pose_graph_tools_msgs
   pose_graph_tools_ros
-  roscpp
+  rclcpp
+  std_srvs
   tf2_ros
-  visualization_msgs
-  DEPENDS
-  kimera_pgmo
-  INCLUDE_DIRS
-  include
-  LIBRARIES
-  ${PROJECT_NAME})
-
-add_library(${PROJECT_NAME}
-  src/conversion/gtsam_conversions.cpp
-  src/kimera_pgmo.cpp
-  src/conversion/mesh_conversion.cpp
-  src/conversion/mesh_delta_conversion.cpp
-  src/mesh_frontend.cpp
-  src/visualization_functions.cpp
-)
-target_include_directories(${PROJECT_NAME} PUBLIC include ${catkin_INCLUDE_DIRS})
-target_link_libraries(
-  ${PROJECT_NAME}
-  PUBLIC ${catkin_LIBRARIES} kimera_pgmo::kimera_pgmo)
+  visualization_msgs)
 
 add_executable(kimera_pgmo_node app/kimera_pgmo_node.cpp)
 target_link_libraries(kimera_pgmo_node ${PROJECT_NAME})
@@ -56,35 +54,30 @@ target_link_libraries(mesh_frontend_node ${PROJECT_NAME})
 add_executable(mesh_publisher_node app/mesh_publisher_node.cpp)
 target_link_libraries(mesh_publisher_node ${PROJECT_NAME})
 
-add_executable(mesh_trajectory_deformer app/mesh_trajectory_deformer.cpp)
-target_link_libraries(mesh_trajectory_deformer ${PROJECT_NAME})
-
-# Optionally build the voxblox frontend if voxblox_msgs is present.
-find_package(voxblox_msgs QUIET)
-if(voxblox_msgs_FOUND)
-  message(STATUS "Building with voxblox_msgs support")
-  add_executable(voxblox_mesh_frontend_node
-    app/voxblox_mesh_frontend_node.cpp
-    src/conversion/voxblox_msg_conversion.cpp
-    src/voxblox_mesh_frontend.cpp
-    src/voxblox_msg_interface.cpp
-  )
-  target_link_libraries(voxblox_mesh_frontend_node
-    PUBLIC ${PROJECT_NAME}
-    PRIVATE ${voxblox_msgs_LIBRARIES})
-endif()
-
-if(CATKIN_ENABLE_TESTING)
+if(BUILD_TESTING)
   add_subdirectory(test)
 endif()
 
 install(
-  TARGETS ${PROJECT_NAME} kimera_pgmo_node mesh_frontend_node
-  ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION})
+  TARGETS ${PROJECT_NAME}
+  EXPORT ${PROJECT_NAME}-targets
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION lib/${PROJECT_NAME})
+# NOTE(nathan) this avoids executable targets being exported and found during
+# find_package(kimera_pgmo_ros ...)
+install(TARGETS kimera_pgmo_node mesh_frontend_node mesh_publisher_node
+        RUNTIME DESTINATION lib/${PROJECT_NAME})
+install(DIRECTORY include/ DESTINATION include/${PROJECT_NAME})
+install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 
-install(DIRECTORY include/ DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION})
-
-install(DIRECTORY launch/
-        DESTINATION ${CATKIN_PACKAGE_SHARE_DESTINATION}/launch)
+ament_export_targets(${PROJECT_NAME}-targets)
+ament_export_dependencies(
+  kimera_pgmo
+  kimera_pgmo_msgs
+  nav_msgs
+  pose_graph_tools_ros
+  rclcpp
+  std_srvs
+  tf2_ros
+  visualization_msgs)
+ament_package()

@@ -5,22 +5,22 @@
  */
 
 #include <config_utilities/config_utilities.h>
-#include <config_utilities/parsing/ros.h>
+#include <config_utilities/parsing/commandline.h>
 #include <config_utilities/types/path.h>
 #include <kimera_pgmo/utils/mesh_io.h>
-#include <ros/assert.h>
-#include <ros/ros.h>
-#include <std_srvs/Empty.h>
 
 #include <filesystem>
 
-#include "kimera_pgmo_ros/conversion/mesh_conversion.h"
+#include <rclcpp/rclcpp.hpp>
+#include <std_srvs/srv/empty.hpp>
+
+#include "kimera_pgmo_ros/conversion/mesh.h"
 
 namespace kimera_pgmo {
 
-using kimera_pgmo_msgs::KimeraPgmoMesh;
+using kimera_pgmo_msgs::msg::Mesh;
 
-class MeshPublisherNode {
+class MeshPublisherNode : public rclcpp::Node {
  public:
   struct Config {
     size_t robot_id = 0;
@@ -28,16 +28,16 @@ class MeshPublisherNode {
     std::filesystem::path mesh_filepath;
   } const config;
 
-  explicit MeshPublisherNode(const ros::NodeHandle& nh);
+  explicit MeshPublisherNode(const Config& config);
   ~MeshPublisherNode() = default;
 
  private:
-  bool reload(std_srvs::Empty::Request&, std_srvs::Empty::Response&);
+  void reload(const std_srvs::srv::Empty::Request::SharedPtr&,
+              std_srvs::srv::Empty::Response::SharedPtr);
   void publishMesh();
 
-  ros::NodeHandle nh_;
-  ros::Publisher pub_;
-  ros::ServiceServer reload_service_;
+  rclcpp::Publisher<Mesh>::SharedPtr pub_;
+  rclcpp::Service<std_srvs::srv::Empty>::SharedPtr reload_service_;
 };
 
 void declare_config(MeshPublisherNode::Config& config) {
@@ -50,43 +50,53 @@ void declare_config(MeshPublisherNode::Config& config) {
   check<Path::Exists>(config.mesh_filepath, "mesh_filepath");
 }
 
-MeshPublisherNode::MeshPublisherNode(const ros::NodeHandle& nh)
-    : config(config::checkValid(config::fromRos<Config>(nh))), nh_(nh) {
-  ROS_INFO_STREAM("Starting publisher node with\n" << config::toString(config));
-  pub_ = nh_.advertise<KimeraPgmoMesh>("mesh", 1, true);
+MeshPublisherNode::MeshPublisherNode(const Config& _config)
+    : rclcpp::Node("mesh_publisher_node"), config(config::checkValid(_config)) {
+  using namespace std::placeholders;
+  RCLCPP_INFO_STREAM(get_logger(),
+                     "Starting publisher node with\n"
+                         << config::toString(config));
+  pub_ = create_publisher<Mesh>("mesh", rclcpp::QoS(1).transient_local());
   publishMesh();
 
-  reload_service_ = nh_.advertiseService("reload", &MeshPublisherNode::reload, this);
+  reload_service_ = create_service<std_srvs::srv::Empty>(
+      "reload", std::bind(&MeshPublisherNode::reload, this, _1, _2));
 }
 
-bool MeshPublisherNode::reload(std_srvs::Empty::Request&, std_srvs::Empty::Response&) {
+void MeshPublisherNode::reload(const std_srvs::srv::Empty::Request::SharedPtr&,
+                               std_srvs::srv::Empty::Response::SharedPtr) {
   publishMesh();
-  return true;
 }
 
 void MeshPublisherNode::publishMesh() {
-  ROS_INFO_STREAM("Loading mesh from: " << config.mesh_filepath);
+  RCLCPP_INFO_STREAM(get_logger(), "Loading mesh from: " << config.mesh_filepath);
   pcl::PolygonMesh mesh;
   std::vector<Timestamp> stamps;
   ReadMeshWithStampsFromPly(config.mesh_filepath, mesh, &stamps);
   const auto num_vertices = mesh.cloud.height * mesh.cloud.width;
-  ROS_INFO_STREAM("Loaded mesh with " << num_vertices << " vertices, "
-                                      << mesh.polygons.size() << " faces, and "
-                                      << stamps.size() << " timestamps");
+  RCLCPP_INFO_STREAM(get_logger(),
+                     "Loaded mesh with " << num_vertices << " vertices, "
+                                         << mesh.polygons.size() << " faces, and "
+                                         << stamps.size() << " timestamps");
 
   auto msg = conversions::toMsg(config.robot_id, mesh, stamps, config.mesh_frame);
-  ROS_ASSERT_MSG(msg != nullptr, "valid mesh required");
-  msg->header.stamp = ros::Time::now();
-  pub_.publish(msg);
+  if (!msg) {
+    RCLCPP_ERROR(get_logger(), "Unable to convert mesh!");
+    return;
+  }
+
+  msg->header.stamp = get_clock()->now();
+  pub_->publish(std::move(msg));
 }
 
 }  // namespace kimera_pgmo
 
 int main(int argc, char* argv[]) {
-  ros::init(argc, argv, "mesh_publisher_node");
-  ros::NodeHandle nh("~");
+  const auto config =
+      config::fromCLI<kimera_pgmo::MeshPublisherNode::Config>(argc, argv);
 
-  kimera_pgmo::MeshPublisherNode node(nh);
-  ros::spin();
+  rclcpp::init(argc, argv);
+  rclcpp::spin(std::make_shared<kimera_pgmo::MeshPublisherNode>(config));
+  rclcpp::shutdown();
   return EXIT_SUCCESS;
 }

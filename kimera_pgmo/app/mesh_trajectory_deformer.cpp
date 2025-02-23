@@ -1,18 +1,12 @@
-/**
- * @file   kimera_pgmo.cpp
- * @brief  KimeraPgmo class: Main class and ROS interface
- * @author Yun Chang
- */
 #include <config_utilities/config.h>
-#include <config_utilities/parsing/ros.h>
+#include <config_utilities/parsing/commandline.h>
+#include <config_utilities/validation.h>
 #include <kimera_pgmo/kimera_pgmo_interface.h>
 #include <kimera_pgmo/utils/logging.h>
 #include <kimera_pgmo/utils/mesh_io.h>
 
 #include <chrono>
 #include <cmath>
-
-#include "kimera_pgmo_ros/ros_log_sink.h"
 
 namespace kimera_pgmo {
 
@@ -76,8 +70,6 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
     }
 
     size_t idx = 0;
-    uint64_t timestamp;
-
     std::string line;
     std::string token;
     // Skip first line (headers)
@@ -88,7 +80,7 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
       std::istringstream ss(line);
 
       std::getline(ss, token, ',');
-      timestamp = std::stoull(token);
+      const auto timestamp = std::stoull(token);
       keyed_stamps_.insert({timestamp, idx});
       idx++;
     }
@@ -103,7 +95,6 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
     }
 
     // Scalars that will be filled
-    uint64_t timestamp;
     double qx, qy, qz, qw;
     double tx, ty, tz;
 
@@ -120,7 +111,7 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
       std::istringstream ss(line);
 
       std::getline(ss, token, ',');
-      timestamp = std::stoull(token);
+      const auto timestamp = std::stoull(token);
 
       // Look for closest timestamp
       uint64_t closest_stamp = 0;
@@ -152,7 +143,7 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
 
       // Make this more general?
       std::getline(ss, token, ',');
-      std::stoi(token);
+      // NOTE(nathan) missing parsing of token?
       std::getline(ss, token, ',');
       qx = std::stod(token);
       std::getline(ss, token, ',');
@@ -209,13 +200,9 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
 }  // namespace kimera_pgmo
 
 auto main(int argc, char* argv[]) -> int {
-  ros::NodeHandle n("~");
-  logging::Logger::addSink("ros", std::make_shared<kimera_pgmo::RosLogSink>());
-
-  const auto inputs = config::fromRos<kimera_pgmo::InputConfig>(n);
-  const auto config = config::fromRos<kimera_pgmo::KimeraPgmoConfig>(n);
+  const auto inputs = config::fromCLI<kimera_pgmo::InputConfig>(argc, argv);
+  const auto config = config::fromCLI<kimera_pgmo::KimeraPgmoConfig>(argc, argv);
   kimera_pgmo::MeshTrajectoryDeformer deformer(config, inputs);
-
   deformer.save();
   return EXIT_SUCCESS;
 }

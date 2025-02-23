@@ -1,26 +1,20 @@
 <?xml version="1.0"?>
-<package format="2">
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
   <name>kimera_pgmo_rviz</name>
   <version>0.0.1</version>
   <description>Kimera PGMO RViz tools</description>
-
   <maintainer email="yunchang@mit.edu">Yun Chang</maintainer>
   <author email="na26933@mit.edu">Nathan Hughes</author>
-
   <license>BSD</license>
 
-  <buildtool_depend>catkin</buildtool_depend>
-
+  <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>kimera_pgmo_msgs</depend>
-  <depend>roscpp</depend>
-  <depend>rviz</depend>
-
-  <build_depend>qtbase5-dev</build_depend>
-  <exec_depend>libqt5-core</exec_depend>
-  <exec_depend>libqt5-gui</exec_depend>
-  <exec_depend>libqt5-widgets</exec_depend>
+  <depend>pluginlib</depend>
+  <depend>rclcpp</depend>
+  <depend>rviz_common</depend>
 
   <export>
-    <rviz plugin="${prefix}/plugins.xml"/>
+      <build_type>ament_cmake</build_type>
   </export>
 </package>

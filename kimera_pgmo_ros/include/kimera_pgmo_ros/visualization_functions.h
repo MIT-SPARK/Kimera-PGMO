@@ -6,7 +6,11 @@
  */
 #pragma once
 #include <kimera_pgmo/deformation_graph.h>
-#include <visualization_msgs/Marker.h>
+
+#include <string>
+
+#include <rclcpp/time.hpp>
+#include <visualization_msgs/msg/marker.hpp>
 
 namespace kimera_pgmo {
 
@@ -17,9 +21,9 @@ namespace kimera_pgmo {
  * - pose_mesh_viz: marker for pose-mesh edges
  */
 void fillDeformationGraphMarkers(const DeformationGraph& graph,
-                                 const ros::Time& stamp,
-                                 visualization_msgs::Marker& mesh_mesh_viz,
-                                 visualization_msgs::Marker& pose_mesh_viz,
+                                 const rclcpp::Time& stamp,
+                                 visualization_msgs::msg::Marker& mesh_mesh_viz,
+                                 visualization_msgs::msg::Marker& pose_mesh_viz,
                                  const std::string& frame_id = "world");
 
 }  // namespace kimera_pgmo

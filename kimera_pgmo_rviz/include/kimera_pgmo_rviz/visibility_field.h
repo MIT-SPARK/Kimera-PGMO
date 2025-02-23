@@ -1,6 +1,10 @@
 #pragma once
 
-#include <rviz/properties/bool_property.h>
+#include <memory>
+#include <string>
+#include <unordered_map>
+
+#include <rviz_common/properties/bool_property.hpp>
 
 namespace kimera_pgmo {
 
@@ -10,11 +14,11 @@ class MeshDisplay;
  * @brief Property for managing visibility of individual meshes in the mesh display. The
  * visibility fields are managed hierarchically by namespace.
  */
-class VisibilityField : public rviz::BoolProperty {
+class VisibilityField : public rviz_common::properties::BoolProperty {
   Q_OBJECT
  public:
   VisibilityField(const std::string& name,
-                  rviz::BoolProperty* parent,
+                  rviz_common::properties::BoolProperty* parent,
                   MeshDisplay* master);
   ~VisibilityField() override;
 

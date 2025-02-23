@@ -64,13 +64,16 @@ add_library(kimera_pgmo::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 add_executable(offline_deformation app/offline_deformation.cpp)
 target_link_libraries(offline_deformation ${PROJECT_NAME})
 
+add_executable(mesh_trajectory_deformer app/mesh_trajectory_deformer.cpp)
+target_link_libraries(mesh_trajectory_deformer ${PROJECT_NAME})
+
 if(KIMERA_PGMO_ENABLE_TESTS)
   enable_testing()
   add_subdirectory(test)
 endif()
 
 install(
-  TARGETS ${PROJECT_NAME}
+  TARGETS ${PROJECT_NAME} mesh_trajectory_deformer
   EXPORT kimera_pgmo-targets
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}

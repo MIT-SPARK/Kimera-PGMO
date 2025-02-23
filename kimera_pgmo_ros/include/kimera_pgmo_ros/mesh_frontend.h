@@ -5,14 +5,18 @@
  */
 #pragma once
 
-#include <kimera_pgmo_msgs/KimeraPgmoMesh.h>
-#include <ros/ros.h>
+#include <pose_graph_tools_ros/conversions.h>
+
+#include <string>
+
+#include <kimera_pgmo_msgs/msg/mesh.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 #include "kimera_pgmo/mesh_frontend_interface.h"
 
 namespace kimera_pgmo {
 
-class MeshFrontend : public MeshFrontendInterface {
+class MeshFrontend : public MeshFrontendInterface, public rclcpp::Node {
   friend class MeshFrontendTest;
 
  public:
@@ -25,23 +29,23 @@ class MeshFrontend : public MeshFrontendInterface {
    * converting from mesh msg type to our mesh type while storing and
    * compressing the full unoptimized mesh
    */
-  explicit MeshFrontend(const Config& config, const ros::NodeHandle& nh);
+  explicit MeshFrontend(const rclcpp::NodeOptions& options);
 
   virtual ~MeshFrontend() = default;
 
  protected:
-  void handleMesh(const kimera_pgmo_msgs::KimeraPgmoMesh::ConstPtr& mesh);
+  void handleMesh(const kimera_pgmo_msgs::msg::Mesh::ConstSharedPtr& mesh);
 
   void publishFullMesh() const;
 
   void publishSimplifiedMesh() const;
 
-  ros::NodeHandle nh_;
-  ros::Subscriber sub_;
-  ros::Publisher full_pub_;
-  ros::Publisher simplified_pub_;
   //! publish the factors corresponding to the edges of the simplified mesh
-  ros::Publisher mesh_graph_pub_;
+  pose_graph_tools::PoseGraphPublisher mesh_graph_pub_;
+  rclcpp::Publisher<kimera_pgmo_msgs::msg::Mesh>::SharedPtr full_pub_;
+  rclcpp::Publisher<kimera_pgmo_msgs::msg::Mesh>::SharedPtr simplified_pub_;
+
+  rclcpp::Subscription<kimera_pgmo_msgs::msg::Mesh>::SharedPtr sub_;
 };
 
 void declare_config(MeshFrontend::Config& config);

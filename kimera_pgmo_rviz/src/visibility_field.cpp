@@ -5,9 +5,9 @@
 namespace kimera_pgmo {
 
 VisibilityField::VisibilityField(const std::string& name,
-                                 rviz::BoolProperty* parent,
+                                 rviz_common::properties::BoolProperty* parent,
                                  MeshDisplay* master)
-    : rviz::BoolProperty(
+    : rviz_common::properties::BoolProperty(
           name.c_str(),
           true,
           "Show or hide the mesh. If the mesh is hidden but not disabled, it "

@@ -1,20 +1,31 @@
-cmake_minimum_required(VERSION 3.5)
+cmake_minimum_required(VERSION 3.16)
 project(kimera_pgmo_msgs)
 
-find_package(catkin REQUIRED COMPONENTS message_generation std_msgs
-                                        geometry_msgs pose_graph_tools_msgs)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_message_files(FILES AbsolutePoseStamped.msg KimeraPgmoMesh.msg
-                  KimeraPgmoMeshDelta.msg TriangleIndices.msg)
-add_service_files(FILES LoadGraphMesh.srv RequestMeshFactors.srv)
-generate_messages(DEPENDENCIES std_msgs geometry_msgs pose_graph_tools_msgs)
+find_package(ament_cmake REQUIRED)
+find_package(builtin_interfaces REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(pose_graph_tools_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
 
-catkin_package(
-  CATKIN_DEPENDS
-  message_runtime
-  std_msgs
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra)
+endif()
+
+rosidl_generate_interfaces(
+  ${PROJECT_NAME}
+  msg/AbsolutePoseStamped.msg
+  msg/Mesh.msg
+  msg/MeshDelta.msg
+  msg/TriangleIndices.msg
+  srv/LoadGraphMesh.srv
+  DEPENDENCIES
+  builtin_interfaces
   geometry_msgs
   pose_graph_tools_msgs
-  DEPENDS
-  INCLUDE_DIRS
-  LIBRARIES)
+  std_msgs)
+
+ament_package()

@@ -9,22 +9,23 @@
 #include <gtsam/slam/BetweenFactor.h>
 #include <kimera_pgmo/utils/common_structs.h>
 
-#include "kimera_pgmo_ros/conversion/gtsam_conversions.h"
+#include "kimera_pgmo_ros/conversion/gtsam.h"
 
 namespace kimera_pgmo {
 
 using namespace conversions;
 
 TEST(TestGtsamConversions, RosPoseToGtsam) {
-  geometry_msgs::Pose ros_pose;
-  gtsam::Pose3 gtsam_pose = RosToGtsam(ros_pose);
+  gtsam::Pose3 gtsam_pose;
+  geometry_msgs::msg::Pose ros_pose;
+  PoseTypeAdapter::convert_to_custom(ros_pose, gtsam_pose);
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(), gtsam_pose));
 
   ros_pose.position.x = 1;
   ros_pose.position.z = 100;
   ros_pose.orientation.y = 0.707;
   ros_pose.orientation.w = 0.707;
-  gtsam_pose = RosToGtsam(ros_pose);
+  PoseTypeAdapter::convert_to_custom(ros_pose, gtsam_pose);
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(0.707, 0, 0.707, 0), gtsam::Point3(1, 0, 100)),
       gtsam_pose));
@@ -32,7 +33,8 @@ TEST(TestGtsamConversions, RosPoseToGtsam) {
 
 TEST(TestGtsamConversions, GtsamPoseToRos) {
   gtsam::Pose3 gtsam_pose;
-  geometry_msgs::Pose ros_pose = GtsamToRos(gtsam_pose);
+  geometry_msgs::msg::Pose ros_pose;
+  PoseTypeAdapter::convert_to_ros_message(gtsam_pose, ros_pose);
   EXPECT_EQ(0, ros_pose.position.x);
   EXPECT_EQ(0, ros_pose.position.y);
   EXPECT_EQ(0, ros_pose.position.z);
@@ -42,7 +44,7 @@ TEST(TestGtsamConversions, GtsamPoseToRos) {
   EXPECT_EQ(1, ros_pose.orientation.w);
 
   gtsam_pose = gtsam::Pose3(gtsam::Rot3(0.707, 0, 0.707, 0), gtsam::Point3(1, 0, 100));
-  ros_pose = GtsamToRos(gtsam_pose);
+  PoseTypeAdapter::convert_to_ros_message(gtsam_pose, ros_pose);
   EXPECT_EQ(1, ros_pose.position.x);
   EXPECT_EQ(0, ros_pose.position.y);
   EXPECT_EQ(100, ros_pose.position.z);
@@ -54,8 +56,6 @@ TEST(TestGtsamConversions, GtsamPoseToRos) {
 
 // GTSAM graph to ROS
 TEST(TestGtsamConversions, GtsamGraphToRos) {
-  ros::Time::init();
-
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(6, 0.01);
   gtsam::NonlinearFactorGraph nfg;
@@ -80,13 +80,18 @@ TEST(TestGtsamConversions, GtsamGraphToRos) {
 
   const GraphMsgPtr& pose_graph_ptr = GtsamGraphToRos(nfg, val, time_stamps);
 
+  geometry_msgs::msg::Pose expected1;
+  geometry_msgs::msg::Pose expected2;
+  expected2.orientation.w = 0.0;
+  expected2.orientation.y = 1.0;
+  expected2.position.x = 1.0;
+  expected2.position.y = 1.0;
+  expected2.position.z = 1.0;
+
   // Check edges
-  EXPECT_EQ(size_t(2), pose_graph_ptr->edges.size());
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(), RosToGtsam(pose_graph_ptr->edges[0].pose)));
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(1, 1, 1)),
-                          RosToGtsam(pose_graph_ptr->edges[1].pose)));
+  EXPECT_EQ(2u, pose_graph_ptr->edges.size());
+  EXPECT_EQ(expected1, pose_graph_ptr->edges[0].pose);
+  EXPECT_EQ(expected2, pose_graph_ptr->edges[1].pose);
 
   EXPECT_EQ(0, pose_graph_ptr->edges[0].robot_from);
   EXPECT_EQ(0, pose_graph_ptr->edges[0].robot_to);
@@ -99,12 +104,9 @@ TEST(TestGtsamConversions, GtsamGraphToRos) {
   EXPECT_EQ("world", pose_graph_ptr->edges[1].header.frame_id);
 
   // Check nodes
-  EXPECT_EQ(size_t(3), pose_graph_ptr->nodes.size());
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(), RosToGtsam(pose_graph_ptr->nodes[0].pose)));
-  EXPECT_TRUE(
-      gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(1, 1, 1)),
-                          RosToGtsam(pose_graph_ptr->nodes[2].pose)));
+  EXPECT_EQ(3u, pose_graph_ptr->nodes.size());
+  EXPECT_EQ(expected1, pose_graph_ptr->nodes[0].pose);
+  EXPECT_EQ(expected2, pose_graph_ptr->nodes[2].pose);
   EXPECT_EQ(0, pose_graph_ptr->nodes[0].robot_id);
   EXPECT_EQ(0, pose_graph_ptr->nodes[2].robot_id);
   EXPECT_EQ(0, pose_graph_ptr->nodes[0].key);

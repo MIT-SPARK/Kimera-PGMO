@@ -1,19 +1,18 @@
 #include "kimera_pgmo_rviz/tf_event_buffer.h"
 
-#include <ros/assert.h>
-#include <rviz/frame_manager.h>
-
 #include <functional>
 #include <memory>
 #include <unordered_map>
 
+#include <rviz_common/frame_manager_iface.hpp>
+
 namespace kimera_pgmo {
 
-TfEventBuffer::TfEventBuffer(rviz::FrameManager* frame_manager, const Config& config)
-    : config(config), frame_manager_(frame_manager) {
-  ROS_ASSERT_MSG(frame_manager_ != nullptr, "invalid frame manager!");
-  last_update_time_ = std::chrono::high_resolution_clock::now();
-}
+TfEventBuffer::TfEventBuffer(rviz_common::FrameManagerIface* frame_manager,
+                             const Config& config)
+    : config(config),
+      frame_manager_(frame_manager),
+      last_update_time_(std::chrono::high_resolution_clock::now()) {}
 
 void TfEventBuffer::addTransformQuery(const std::string& ns,
                                       const std::string& target_frame) {
@@ -56,6 +55,7 @@ std::optional<TfEventBuffer::Update> TfEventBuffer::getTransform(const std::stri
   if (it == queries_.end()) {
     return std::nullopt;
   }
+
   auto& query = it->second;
   Update result;
   if (!update) {
@@ -67,10 +67,12 @@ std::optional<TfEventBuffer::Update> TfEventBuffer::getTransform(const std::stri
     result.orientation = query.orientation;
     return result;
   }
+
   if (!frame_manager_->getTransform(
-          query.target_frame, ros::Time(), result.position, result.orientation)) {
+          query.target_frame, result.position, result.orientation)) {
     return std::nullopt;
   }
+
   query.position = result.position;
   query.orientation = result.orientation;
   query.valid = true;

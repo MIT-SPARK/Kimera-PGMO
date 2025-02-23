@@ -5,8 +5,7 @@
  */
 #include "kimera_pgmo_rviz/mesh_display.h"
 
-#include <pluginlib/class_list_macros.h>
-#include <rviz/properties/bool_property.h>
+#include <rviz_common/properties/bool_property.hpp>
 
 #include "kimera_pgmo_rviz/mesh_visual.h"
 #include "kimera_pgmo_rviz/tf_event_buffer.h"
@@ -14,28 +13,30 @@
 
 namespace kimera_pgmo {
 
-using kimera_pgmo_msgs::KimeraPgmoMesh;
+using kimera_pgmo_msgs::msg::Mesh;
+using rviz_common::properties::BoolProperty;
 
 MeshDisplay::MeshDisplay() {
-  // Setup rviz properties.
-  cull_ = std::make_unique<rviz::BoolProperty>("Cull Backfaces",
-                                               true,
-                                               "Toggle culling backfaces",
-                                               this,
-                                               SLOT(updateGlobalSettingsSlot()));
-  lighting_ = std::make_unique<rviz::BoolProperty>("Enable Lighting",
-                                                   false,
-                                                   "Toggle enabling lighting",
-                                                   this,
-                                                   SLOT(updateGlobalSettingsSlot()));
-
   visibility_fields_ = std::make_unique<VisibilityField>("Visible", this, this);
-  toggle_visibility_all_property_ =
-      std::make_unique<rviz::BoolProperty>("Toggle Visibility All",
-                                           true,
-                                           "Toggle visibility for all meshes",
-                                           this,
-                                           SLOT(toggleVisibilityAllSloT()));
+
+  // Setup rviz properties.
+  cull_ = std::make_unique<BoolProperty>("Cull Backfaces",
+                                         true,
+                                         "Toggle culling backfaces",
+                                         this,
+                                         SLOT(updateGlobalSettingsSlot()));
+  lighting_ = std::make_unique<BoolProperty>("Enable Lighting",
+                                             false,
+                                             "Toggle enabling lighting",
+                                             this,
+                                             SLOT(updateGlobalSettingsSlot()));
+
+  toggle_visibility_all_ =
+      std::make_unique<BoolProperty>("Toggle Visibility All",
+                                     true,
+                                     "Toggle visibility for all meshes",
+                                     this,
+                                     SLOT(toggleVisibilityAllSloT()));
 }
 
 MeshDisplay::~MeshDisplay() {}
@@ -87,12 +88,12 @@ void MeshDisplay::updateVisible() {
 void MeshDisplay::toggleVisibilityAllSloT() {
   // Toggle all visibility fields except for the root.
   const bool root_visible = visibility_fields_->getBool();
-  visibility_fields_->setEnabledForAll(toggle_visibility_all_property_->getBool());
+  visibility_fields_->setEnabledForAll(toggle_visibility_all_->getBool());
   visibility_fields_->setBool(root_visible);
   updateVisible();
 }
 
-void MeshDisplay::processMessage(const KimeraPgmoMesh::ConstPtr& msg) {
+void MeshDisplay::processMessage(const Mesh::ConstSharedPtr msg) {
   if (!msg) {
     return;
   }
@@ -136,4 +137,5 @@ void MeshDisplay::deleteVisual(const std::string& ns) {
 
 }  // namespace kimera_pgmo
 
-PLUGINLIB_EXPORT_CLASS(kimera_pgmo::MeshDisplay, rviz::Display)
+#include <pluginlib/class_list_macros.hpp>
+PLUGINLIB_EXPORT_CLASS(kimera_pgmo::MeshDisplay, rviz_common::Display)

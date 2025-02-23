@@ -1,6 +1,6 @@
 /**
  * @file   mesh_conversion.h
- * @brief  Conversions to and from KimeraPgmoMesh message type
+ * @brief  Conversions to and from Mesh message type
  * @author Yun Chang
  */
 
@@ -8,10 +8,18 @@
 
 #include <kimera_pgmo/mesh_traits.h>
 #include <kimera_pgmo/utils/logging.h>
-#include <kimera_pgmo_msgs/KimeraPgmoMesh.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
+
+#include <limits>
+#include <memory>
+#include <optional>
+#include <string>
+#include <vector>
+
+#include <kimera_pgmo_msgs/msg/mesh.hpp>
+#include <rclcpp/time.hpp>
 
 namespace kimera_pgmo::conversions {
 
@@ -31,37 +39,37 @@ template <typename Vertices, typename Faces>
 void fillMsg(size_t robot_id,
              const Vertices& vertices,
              const Faces& faces,
-             kimera_pgmo_msgs::KimeraPgmoMesh& msg,
+             kimera_pgmo_msgs::msg::Mesh& msg,
              const IndexMapping* index_mapping = nullptr,
-             const std::optional<std_msgs::Header>& header = std::nullopt);
+             const std::optional<std_msgs::msg::Header>& header = std::nullopt);
 
 template <typename Mesh>
 void fillMsg(size_t robot_id,
              const Mesh& mesh,
-             kimera_pgmo_msgs::KimeraPgmoMesh& msg,
+             kimera_pgmo_msgs::msg::Mesh& msg,
              const IndexMapping* index_mapping = nullptr,
-             const std::optional<std_msgs::Header>& header = std::nullopt) {
+             const std::optional<std_msgs::msg::Header>& header = std::nullopt) {
   fillMsg(robot_id, mesh, mesh, msg, index_mapping, header);
 }
 
 template <typename Vertices, typename Faces>
-kimera_pgmo_msgs::KimeraPgmoMesh::Ptr toMsg(
+kimera_pgmo_msgs::msg::Mesh::UniquePtr toMsg(
     size_t robot_id,
     const Vertices& vertices,
     const Faces& faces,
     const IndexMapping* index_mapping = nullptr,
-    const std::optional<std_msgs::Header>& header = std::nullopt) {
-  kimera_pgmo_msgs::KimeraPgmoMesh::Ptr msg(new kimera_pgmo_msgs::KimeraPgmoMesh());
+    const std::optional<std_msgs::msg::Header>& header = std::nullopt) {
+  auto msg = std::make_unique<kimera_pgmo_msgs::msg::Mesh>();
   fillMsg(robot_id, vertices, faces, *msg, index_mapping, header);
   return msg;
 }
 
 template <typename Mesh>
-kimera_pgmo_msgs::KimeraPgmoMesh::Ptr toMsg(
+kimera_pgmo_msgs::msg::Mesh::UniquePtr toMsg(
     size_t robot_id,
     const Mesh& mesh,
     const IndexMapping* index_mapping = nullptr,
-    const std::optional<std_msgs::Header>& header = std::nullopt) {
+    const std::optional<std_msgs::msg::Header>& header = std::nullopt) {
   return toMsg(robot_id, mesh, mesh, index_mapping, header);
 }
 
@@ -69,11 +77,11 @@ template <typename Vertices, typename Faces>
 void fillMsg(size_t robot_id,
              const Vertices& vertices,
              const Faces& faces,
-             kimera_pgmo_msgs::KimeraPgmoMesh& msg,
+             kimera_pgmo_msgs::msg::Mesh& msg,
              const IndexMapping* index_mapping,
-             const std::optional<std_msgs::Header>& header) {
+             const std::optional<std_msgs::msg::Header>& header) {
   // a little inefficient, but easier than manually clearing everything
-  msg = kimera_pgmo_msgs::KimeraPgmoMesh();
+  msg = kimera_pgmo_msgs::msg::Mesh();
   msg.ns = std::to_string(robot_id);
   if (header) {
     msg.header = *header;
@@ -111,7 +119,7 @@ void fillMsg(size_t robot_id,
 
     if (traits.stamp) {
       auto& timestamp = msg.vertex_stamps.emplace_back();
-      timestamp.fromNSec(*traits.stamp);
+      timestamp = rclcpp::Time(*traits.stamp);
     }
 
     if (index_mapping) {
@@ -134,20 +142,20 @@ void fillMsg(size_t robot_id,
 }
 
 template <typename Vertices, typename Faces>
-void fillFromMsg(const kimera_pgmo_msgs::KimeraPgmoMesh& msg,
+void fillFromMsg(const kimera_pgmo_msgs::msg::Mesh& msg,
                  Vertices& vertices,
                  Faces& faces,
                  std::vector<int>* graph_indices = nullptr);
 
 template <typename Mesh>
-void fillFromMsg(const kimera_pgmo_msgs::KimeraPgmoMesh& msg,
+void fillFromMsg(const kimera_pgmo_msgs::msg::Mesh& msg,
                  Mesh& mesh,
                  std::vector<int>* graph_indices = nullptr) {
   fillFromMsg(msg, mesh, mesh, graph_indices);
 }
 
 template <typename Vertices, typename Faces>
-void fillFromMsg(const kimera_pgmo_msgs::KimeraPgmoMesh& msg,
+void fillFromMsg(const kimera_pgmo_msgs::msg::Mesh& msg,
                  Vertices& vertices,
                  Faces& faces,
                  std::vector<int>* graph_indices) {
@@ -161,6 +169,7 @@ void fillFromMsg(const kimera_pgmo_msgs::KimeraPgmoMesh& msg,
   const bool has_indices = num_vertices == msg.vertex_indices.size();
   if (graph_indices) {
     graph_indices->clear();
+    graph_indices->reserve(num_vertices);
   }
 
   traits::resize_vertices(vertices, num_vertices);
@@ -171,7 +180,7 @@ void fillFromMsg(const kimera_pgmo_msgs::KimeraPgmoMesh& msg,
 
     traits::VertexTraits traits;
     if (has_colors) {
-      const std_msgs::ColorRGBA& c = msg.vertex_colors[i];
+      const std_msgs::msg::ColorRGBA& c = msg.vertex_colors[i];
       traits.color = traits::Color{{static_cast<uint8_t>(color_conv_factor * c.r),
                                     static_cast<uint8_t>(color_conv_factor * c.g),
                                     static_cast<uint8_t>(color_conv_factor * c.b),
@@ -179,7 +188,7 @@ void fillFromMsg(const kimera_pgmo_msgs::KimeraPgmoMesh& msg,
     }
 
     if (has_stamps) {
-      traits.stamp = msg.vertex_stamps[i].toNSec();
+      traits.stamp = rclcpp::Time(msg.vertex_stamps[i]).nanoseconds();
     }
 
     if (has_indices && graph_indices) {
@@ -206,7 +215,7 @@ void fillFromMsg(const kimera_pgmo_msgs::KimeraPgmoMesh& msg,
  *  - index_mapping: optional mapping to vertices in the deformation graph
  *  - header: optional header to use
  */
-kimera_pgmo_msgs::KimeraPgmoMesh::Ptr toMsg(
+kimera_pgmo_msgs::msg::Mesh::UniquePtr toMsg(
     size_t robot_id,
     const pcl::PolygonMesh& mesh,
     const std::vector<Timestamp>& stamps,
@@ -221,7 +230,7 @@ kimera_pgmo_msgs::KimeraPgmoMesh::Ptr toMsg(
  *  - index_mapping: optional mapping to vertices in the deformation graph
  *  - header: optional header to use
  */
-kimera_pgmo_msgs::KimeraPgmoMesh::Ptr toMsg(
+kimera_pgmo_msgs::msg::Mesh::UniquePtr toMsg(
     size_t robot_id,
     const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
     const std::vector<pcl::Vertices>& faces,
@@ -229,7 +238,7 @@ kimera_pgmo_msgs::KimeraPgmoMesh::Ptr toMsg(
     const std::string& frame_id,
     const IndexMapping* index_mapping = nullptr);
 
-pcl::PolygonMesh fromMsg(const kimera_pgmo_msgs::KimeraPgmoMesh& mesh_msg,
+pcl::PolygonMesh fromMsg(const kimera_pgmo_msgs::msg::Mesh& mesh_msg,
                          std::vector<Timestamp>* vertex_stamps = nullptr,
                          std::vector<int>* vertex_graph_indices = nullptr);
 

@@ -6,29 +6,47 @@
 
 #pragma once
 
-#include <geometry_msgs/Pose.h>
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
 #include <kimera_pgmo/mesh_types.h>
-#include <pose_graph_tools_msgs/PoseGraph.h>
+
+#include <map>
+#include <string>
+#include <vector>
+
+#include <geometry_msgs/msg/pose.hpp>
+#include <pose_graph_tools_msgs/msg/pose_graph.hpp>
+#include <rclcpp/type_adapter.hpp>
+
+namespace rclcpp {
+
+template <>
+struct TypeAdapter<gtsam::Pose3, geometry_msgs::msg::Pose> {
+  using is_specialized = std::true_type;
+  using custom_type = gtsam::Pose3;
+  using ros_message_type = geometry_msgs::msg::Pose;
+
+  /*! \brief Converts a gtsam pose type to ros geometry message
+   *  - pose: gtsam pose3
+   *  - outputs pose as geometry_msg/pose
+   */
+  static void convert_to_ros_message(const custom_type& src, ros_message_type& dest);
+
+  /*! \brief Converts a ros pose type to gtsam Pose3
+   *  - transform: ros geometry_msgs pose type
+   *  - outputs pose as gtsam Pose3
+   */
+  static void convert_to_custom(const ros_message_type& src, custom_type& dest);
+};
+
+}  // namespace rclcpp
 
 namespace kimera_pgmo::conversions {
 
-using GraphMsgPtr = pose_graph_tools_msgs::PoseGraph::ConstPtr;
+using PoseTypeAdapter = rclcpp::adapt_type<gtsam::Pose3>::as<geometry_msgs::msg::Pose>;
+using GraphMsgPtr = pose_graph_tools_msgs::msg::PoseGraph::ConstSharedPtr;
 using kimera_pgmo::traits::Timestamp;
-
-/*! \brief Converts a ros pose type to gtsam Pose3
- *  - transform: ros geometry_msgs pose type
- *  - outputs pose as gtsam Pose3
- */
-gtsam::Pose3 RosToGtsam(const geometry_msgs::Pose& transform);
-
-/*! \brief Converts a gtsam pose type to ros geometry message
- *  - pose: gtsam pose3
- *  - outputs pose as geometry_msg/pose
- */
-geometry_msgs::Pose GtsamToRos(const gtsam::Pose3& pose);
 
 /*! \brief Convert gtsam factor graph and estimated values to ros graph msg for
  * publication

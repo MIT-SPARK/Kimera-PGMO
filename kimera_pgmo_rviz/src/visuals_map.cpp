@@ -1,8 +1,5 @@
 #include "kimera_pgmo_rviz/visuals_map.h"
 
-#include <memory>
-#include <unordered_map>
-
 #include "kimera_pgmo_rviz/mesh_visual.h"
 
 namespace kimera_pgmo {
@@ -12,6 +9,7 @@ MeshVisual* VisualsMap::get(const std::string& ns) {
   if (it == visuals_.end()) {
     return nullptr;
   }
+
   return it->second.get();
 }
 

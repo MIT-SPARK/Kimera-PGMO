@@ -3,21 +3,20 @@
  * @brief  Main load for kimera pgmo
  * @author Yun Chang
  */
-#include <ros/ros.h>
+#include <config_utilities/parsing/context.h>
+
+#include <rclcpp/rclcpp.hpp>
 
 #include "kimera_pgmo_ros/kimera_pgmo.h"
-#include "kimera_pgmo_ros/ros_log_sink.h"
 
 int main(int argc, char* argv[]) {
-  // Initialize ROS node.
-  ros::init(argc, argv, "kimera_pgmo");
-  ros::NodeHandle n("~");
+  config::initContext(argc, argv);
+  rclcpp::init(argc, argv);
 
-  logging::Logger::addSink("ros", std::make_shared<kimera_pgmo::RosLogSink>());
+  const rclcpp::NodeOptions options;
+  auto node = std::make_shared<kimera_pgmo::KimeraPgmo>(options);
+  rclcpp::spin(node);
 
-  kimera_pgmo::KimeraPgmo kimera_pgmo(n);
-
-  ros::spin();
-
+  rclcpp::shutdown();
   return EXIT_SUCCESS;
 }

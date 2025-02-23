@@ -1,0 +1,6 @@
+<library path="kimera_pgmo_rviz">
+  <class name="kimera_pgmo_rviz/MeshDisplay" type="kimera_pgmo::MeshDisplay" base_class_type="rviz_common::Display">
+      <description>Displays mesh messages from kimera_pgmo_msgs/Mesh</description>
+      <message_type>kimera_pgmo_msgs/msg/Mesh</message_type>
+  </class>
+</library>

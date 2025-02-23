@@ -118,6 +118,7 @@ class MeshDelta {
                 std::vector<pcl::Vertices>& faces,
                 std::vector<uint32_t>* semantics = nullptr) const;
 
+  Timestamp timestamp_ns = 0;
   size_t vertex_start = 0;
   size_t face_start = 0;
 
@@ -251,13 +252,14 @@ inline traits::Pos pgmoGetVertex(const MeshDelta& delta,
   }
 
   traits->color = {point.r, point.g, point.b, point.a};
-  if (i <= delta.stamp_updates.size()) {
+  if (i < delta.stamp_updates.size()) {
     traits->stamp = delta.stamp_updates[i];
   }
 
-  if (i <= delta.semantic_updates.size()) {
+  if (i < delta.semantic_updates.size()) {
     traits->label = delta.semantic_updates[i];
   }
+
   return pos;
 }
 
