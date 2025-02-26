@@ -52,7 +52,9 @@ void DeformationGraph::processPoseGraph(const pose_graph_tools::PoseGraph& pose_
     auto node_robot_id = getRemappedId(robot_id_remap, node.robot_id);
     auto node_key = gtsam::Symbol(robot_id_to_prefix.at(node_robot_id), node.key);
     gtsam::Pose3 node_pose(node.pose.matrix());
-    addNewNode(node_key, node_pose);
+    if (checkNewNode(node_key)) {
+      addNewNode(node_key, node_pose);
+    }
     // Note that the pose here directly updates the pg initial pose. Which matters for
     // the processNodeValence function (connecting node to vertex) but does not matter
     // as much if the node to vertex edges will be directly given
@@ -443,13 +445,16 @@ void DeformationGraph::processNewNode(const gtsam::Key& key,
 }
 
 bool DeformationGraph::checkNewNode(const gtsam::Key& key) {
-  const char& prefix = gtsam::Symbol(key).chr();
-  const size_t& idx = gtsam::Symbol(key).index();
-  if (idx > 0) {
-    if (idx != pg_initial_poses_[prefix].size()) {
-      SPARK_LOG(ERROR) << "DeformationGraph: Nodes skipped in pose graph nodes";
-      return false;
-    }
+  const char prefix = gtsam::Symbol(key).chr();
+  const size_t idx = gtsam::Symbol(key).index();
+  if (idx > pg_initial_poses_[prefix].size()) {
+    SPARK_LOG(ERROR) << "DeformationGraph: Nodes skipped in pose graph nodes";
+    return false;
+  }
+
+  if (idx < pg_initial_poses_[prefix].size()) {
+    // Duplicated processing
+    return false;
   }
   return true;
 }
