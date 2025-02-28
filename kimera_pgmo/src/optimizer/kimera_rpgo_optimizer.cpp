@@ -6,6 +6,12 @@
 
 #include "kimera_pgmo/deformation_graph_4dof.h"
 namespace kimera_pgmo {
+namespace {
+static const auto registration =
+    config::RegistrationWithConfig<Optimizer,
+                                   KimeraRpgoOptimizer,
+                                   KimeraRpgoOptimizer::Config>("KimeraRpgoOptimizer");
+}
 
 using namespace kimera_rpgo;
 
@@ -69,7 +75,7 @@ KimeraRpgoOptimizer::KimeraRpgoOptimizer(const Config& config)
     rpgo_config_.pcm_config = config.pcm;
   }
 
-  rpgo_.reset(new Rpgo(rpgo_config_));
+  rpgo_.reset(new Rpgo(rpgo_config_, false));
 }
 
 KimeraRpgoOptimizer::~KimeraRpgoOptimizer() {}

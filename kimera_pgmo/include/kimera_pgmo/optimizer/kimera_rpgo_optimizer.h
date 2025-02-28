@@ -49,12 +49,8 @@ class KimeraRpgoOptimizer : public Optimizer {
   Values temp_result_;
   std::vector<double> inlier_weights_;
   std::vector<double> temp_inlier_weights_;
-
- private:
-  inline static const auto registration_ =
-      config::RegistrationWithConfig<Optimizer,
-                                     KimeraRpgoOptimizer,
-                                     KimeraRpgoOptimizer::Config>("KimeraRpgoOptimizer");
 };
+
 void declare_config(KimeraRpgoOptimizer::Config& config);
+
 }  // namespace kimera_pgmo
