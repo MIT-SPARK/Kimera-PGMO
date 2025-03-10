@@ -214,7 +214,13 @@ void KimeraPgmo::incrementalPoseGraphCallback(const PoseGraph& msg) {
 
   {  // start interface critical section
     std::unique_lock<std::mutex> lock(interface_mutex_);
-    processIncrementalPoseGraph(graph, trajectory_, timestamps_, unconnected_nodes_);
+    processIncrementalPoseGraph(graph,
+                                unconnected_mesh_indices_,
+                                unconnected_mesh_index_stamps_,
+                                trajectory_,
+                                timestamps_);
+    unconnected_mesh_indices_.clear();
+    unconnected_mesh_index_stamps_.clear();
     // Update optimized path
     *optimized_path_ = getOptimizedTrajectory(config_.robot_id);
   }  // end interface critical section
@@ -315,7 +321,9 @@ void KimeraPgmo::incrementalMeshGraphCallback(const PoseGraph& msg) {
 
   {  // start interface critical section
     std::unique_lock<std::mutex> lock(interface_mutex_);
-    processIncrementalMeshGraph(graph, timestamps_, unconnected_nodes_);
+    // TODO(Yun) maybe just sync mesh and pose graph callback
+    processIncrementalMeshGraph(
+        graph, timestamps_, unconnected_mesh_indices_, unconnected_mesh_index_stamps_);
   }  // end interface critical section
 
   // Stop timer and save
@@ -351,9 +359,6 @@ bool KimeraPgmo::saveGraphCallback(std_srvs::Empty::Request&,
   std::ofstream csvfile;
   std::string dgrf_name = config_.log_path + std::string("/pgmo.dgrf");
   saveDeformationGraph(dgrf_name);
-  std::string sparse_mapping_name =
-      config_.log_path + std::string("/sparsification_mapping.txt");
-  savePoseGraphSparseMapping(sparse_mapping_name);
   ROS_INFO("KimeraPgmo: Saved deformation graph to file.");
   return true;
 }
@@ -369,7 +374,6 @@ bool KimeraPgmo::loadGraphMeshCallback(LoadGraphMesh::Request& request,
     response.success = loadGraphAndMesh(request.robot_id,
                                         request.ply_file,
                                         request.dgrf_file,
-                                        request.sparse_mapping_file,
                                         optimized_mesh_,
                                         &mesh_vertex_stamps_,
                                         true);

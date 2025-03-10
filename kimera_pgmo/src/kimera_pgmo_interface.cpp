@@ -25,16 +25,16 @@ using pose_graph_tools::PoseGraphEdge;
 void declare_config(KimeraPgmoConfig& config) {
   using namespace config;
   name("KimeraPgmoConfig");
-  enum_field(
-      config.mode, "run_mode", {{RunMode::FULL, "FULL"}, {RunMode::MESH, "MESH"}});
+  enum_field(config.mode,
+             "run_mode",
+             {{RunMode::FULL, "FULL"},
+              {RunMode::EXTERNAL_OPTIMIZER, "EXTERNAL_OPTIMIZER"},
+              {RunMode::MESH_ONLY, "MESH_ONLY"}});
   field(config.embed_delta_t, "embed_trajectory_delta_t");
   field(config.num_interp_pts, "num_interp_pts");
   field(config.interp_horizon, "interp_horizon");
   field(config.b_add_initial_prior, "add_initial_prior");
   field(config.log_path, "output_prefix");
-  field(config.b_enable_sparsify, "enable_sparsify");
-  field(config.trans_sparse_dist, "trans_node_dist");
-  field(config.rot_sparse_dist, "rot_node_dist");
 
   {  // config namespace covariance
     NameSpace ns("covariance");
@@ -63,14 +63,12 @@ KimeraPgmoInterface::KimeraPgmoInterface(const KimeraPgmoConfig& config)
 bool KimeraPgmoInterface::loadGraphAndMesh(size_t robot_id,
                                            const std::string& ply_path,
                                            const std::string& dgrf_path,
-                                           const std::string& sparse_mapping_file_path,
                                            pcl::PolygonMesh::Ptr optimized_mesh,
                                            std::vector<Timestamp>* mesh_vertex_stamps,
                                            bool do_optimize) {
   pcl::PolygonMeshPtr mesh(new pcl::PolygonMesh());
   kimera_pgmo::ReadMeshWithStampsFromPly(ply_path, mesh, mesh_vertex_stamps);
 
-  loadPoseGraphSparseMapping(sparse_mapping_file_path);
   loadDeformationGraphFromFile(dgrf_path);
   SPARK_LOG(INFO) << "Loaded new graph. Currently have "
                   << deformation_graph_->getNumVertices()
@@ -85,23 +83,7 @@ bool KimeraPgmoInterface::loadGraphAndMesh(size_t robot_id,
 Path KimeraPgmoInterface::getOptimizedTrajectory(size_t robot_id) const {
   // return the optimized trajectory (pose graph)
   const char& robot_prefix = robot_id_to_prefix.at(robot_id);
-  auto optimized_traj = deformation_graph_->getTrajectory(robot_prefix);
-
-  if (!config_.b_enable_sparsify) {
-    // The optimized trajectory in deformation graph is already the full trajectory
-    return optimized_traj;
-  }
-
-  Path optimized_traj_interpolated;
-  for (size_t i = 0; i < optimized_traj.size(); i++) {
-    gtsam::Key sparse_key = gtsam::Symbol(robot_prefix, i);
-    for (const auto& keyed_pose : sparse_frames_.at(sparse_key).keyed_transforms) {
-      optimized_traj_interpolated.push_back(
-          optimized_traj[i].compose(keyed_pose.second));
-    }
-  }
-
-  return optimized_traj_interpolated;
+  return deformation_graph_->getTrajectory(robot_prefix);
 }
 
 std::vector<Timestamp> KimeraPgmoInterface::getRobotTimestamps(size_t robot_id) const {
@@ -110,10 +92,7 @@ std::vector<Timestamp> KimeraPgmoInterface::getRobotTimestamps(size_t robot_id) 
   // TODO(yun) remove call to get optimized trajectory
   Path optimized_traj = deformation_graph_->getTrajectory(robot_prefix);
   for (size_t i = 0; i < optimized_traj.size(); i++) {
-    gtsam::Key sparse_key = gtsam::Symbol(robot_prefix, i);
-    for (const auto& keyed_pose : sparse_frames_.at(sparse_key).keyed_transforms) {
-      stamps.push_back(keyed_stamps_.at(keyed_pose.first));
-    }
+    stamps.push_back(keyed_stamps_.at(gtsam::Symbol(robot_prefix, i)));
   }
 
   return stamps;
@@ -158,9 +137,14 @@ void KimeraPgmoInterface::loadDeformationGraphFromFile(const std::string& input,
 
 ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
     const PoseGraph& msg,
+    const std::vector<size_t>& new_mesh_indices,
+    const std::vector<Timestamp>& new_mesh_index_stamps,
     Path& initial_trajectory,
-    std::vector<Timestamp>& node_timestamps,
-    std::queue<size_t>& unconnected_nodes) {
+    std::vector<Timestamp>& node_timestamps) {
+  std::map<Timestamp, gtsam::Key> stamped_nodes;
+  std::vector<gtsam::Key> nodes;
+  std::vector<gtsam::Pose3> odom_measurements;
+
   // if first node initialize
   //// Note that we assume for all node ids that the keys start with 0
   if (!msg.nodes.empty() && msg.nodes[0].key == 0 && initial_trajectory.empty()) {
@@ -169,171 +153,242 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
 
     const gtsam::Symbol key_symb(GetRobotPrefix(robot_id), 0);
     const gtsam::Pose3 init_pose(init_node.pose.matrix());
+    if (config_.mode != RunMode::MESH_ONLY) {
+      deformation_graph_->processNewNode(
+          key_symb, init_pose, config_.b_add_initial_prior, config_.prior_variance);
+    }
 
-    // Initiate first node and add prior
-    deformation_graph_->processNewNode(
-        key_symb.key(), init_pose, config_.b_add_initial_prior, config_.prior_variance);
-
-    // Create first sparse frame
-    SparseKeyframe init_sparse_frame;
-    init_sparse_frame.initialize(key_symb, init_node.robot_id, init_node.key);
-    sparse_frames_.insert({key_symb, init_sparse_frame});
-    full_sparse_frame_map_.insert({key_symb, key_symb});
     keyed_stamps_.insert({key_symb, init_node.stamp_ns});
+    stamped_nodes[init_node.stamp_ns] = key_symb;
+    nodes.push_back(key_symb);
 
     // Add to trajectory and timestamp map
     initial_trajectory.push_back(init_pose);
     node_timestamps.push_back(init_node.stamp_ns);
 
     // Push node to queue to be connected to mesh vertices later
-    unconnected_nodes.push(0);
     SPARK_LOG(DEBUG) << "Initialized first node in pose graph.";
   }
 
-  try {
-    for (const auto& pg_edge : msg.edges) {
-      // Get edge information
-      const gtsam::Pose3 measure(pg_edge.pose.matrix());
-      const Vertex& prev_node = pg_edge.key_from;
-      const Vertex& current_node = pg_edge.key_to;
+  for (const auto& pg_edge : msg.edges) {
+    // Get edge information
+    const gtsam::Pose3 measure(pg_edge.pose.matrix());
+    const Vertex& prev_node = pg_edge.key_from;
+    const Vertex& current_node = pg_edge.key_to;
 
-      size_t robot_from = pg_edge.robot_from;
-      size_t robot_to = pg_edge.robot_to;
+    size_t robot_from = pg_edge.robot_from;
+    size_t robot_to = pg_edge.robot_to;
 
-      const gtsam::Symbol from_key(GetRobotPrefix(robot_from), prev_node);
-      const gtsam::Symbol to_key(GetRobotPrefix(robot_to), current_node);
+    const gtsam::Symbol from_key(GetRobotPrefix(robot_from), prev_node);
+    const gtsam::Symbol to_key(GetRobotPrefix(robot_to), current_node);
 
-      if (pg_edge.type == pose_graph_tools::PoseGraphEdge::ODOM) {
-        // odometry edge
-        if (robot_from != robot_to) {
-          SPARK_LOG(ERROR)
-              << "Odometry edge should not connect two nodes from different "
-                 "robots.";
-          return ProcessPoseGraphStatus::INVALID;
-        }
+    if (pg_edge.type == pose_graph_tools::PoseGraphEdge::ODOM) {
+      // odometry edge
+      if (robot_from != robot_to) {
+        SPARK_LOG(ERROR) << "Odometry edge should not connect two nodes from different "
+                            "robots.";
+        return ProcessPoseGraphStatus::INVALID;
+      }
 
-        if (!full_sparse_frame_map_.count(from_key)) {
+      if (to_key.index() != initial_trajectory.size()) {
+        if (to_key.index() > initial_trajectory.size()) {
           SPARK_LOG(ERROR) << "Missing from node "
-                           << gtsam::DefaultKeyFormatter(from_key).c_str()
+                           << gtsam::DefaultKeyFormatter(from_key)
                            << " in odometry edge.";
           return ProcessPoseGraphStatus::MISSING;
         }
+        SPARK_LOG(WARNING) << "Duplicated edge";
+        continue;
+      }
 
-        if (full_sparse_frame_map_.count(from_key) &&
-            full_sparse_frame_map_.count(to_key)) {
-          SPARK_LOG(WARNING) << "Duplicated edge.";
-          continue;
-        }
+      // Calculate pose of new node
+      const auto& new_pose = initial_trajectory.at(from_key.index()).compose(measure);
+      initial_trajectory.push_back(new_pose);
 
-        gtsam::Key sparse_key = full_sparse_frame_map_.at(from_key);
-        bool add_to_sparse_frame = sparse_frames_[sparse_key].addNewEdge(
-            pg_edge, config_.trans_sparse_dist, config_.rot_sparse_dist);
+      node_timestamps.push_back(pg_edge.stamp_ns);
+      keyed_stamps_.insert({to_key, pg_edge.stamp_ns});
+      stamped_nodes[pg_edge.stamp_ns] = to_key;
+      nodes.push_back(to_key);
+      odom_measurements.push_back(measure);
 
-        if (add_to_sparse_frame && config_.b_enable_sparsify) {
-          full_sparse_frame_map_.insert({to_key, sparse_key});
-          keyed_stamps_.insert({to_key, pg_edge.stamp_ns});
-          node_timestamps.back() = pg_edge.stamp_ns;
-        } else {
-          sparse_frames_[sparse_key].active = false;
-          sparse_key = sparse_key + 1;
-          full_sparse_frame_map_.insert({to_key, sparse_key});
-          keyed_stamps_.insert({to_key, pg_edge.stamp_ns});
-          SparseKeyframe new_sparse_frame;
-          new_sparse_frame.initialize(sparse_key, robot_from, current_node);
-          sparse_frames_[sparse_key] = new_sparse_frame;
+      if (config_.mode == RunMode::MESH_ONLY) {
+        continue;
+      }
 
-          const Vertex current_sparse_node = gtsam::Symbol(sparse_key).index();
-          if (initial_trajectory.size() != current_sparse_node) {
-            SPARK_LOG(WARNING)
-                << "New current node does not match current trajectory length. "
-                << initial_trajectory.size() << " vs " << current_sparse_node;
-            if (initial_trajectory.size() < current_sparse_node) {
-              return ProcessPoseGraphStatus::MISSING;
-            }
+      deformation_graph_->processNewBetween(
+          from_key, to_key, measure, config_.odom_variance);
+      deformation_graph_->updatePoseGraphInitialGuess(from_key, to_key, measure);
 
-            // duplicate, continue to next edge
-            SPARK_LOG(WARNING) << "Duplicate edge.";
-            continue;
-          }
+    } else if (pg_edge.type == pose_graph_tools::PoseGraphEdge::LOOPCLOSE) {
+      if (!keyed_stamps_.count(from_key) || !keyed_stamps_.count(to_key)) {
+        SPARK_LOG(ERROR) << "Caught loop closure between unknown nodes.";
+        return ProcessPoseGraphStatus::LC_MISSING_NODES;
+      }
 
-          // Calculate pose of new node
-          const auto& new_pose =
-              initial_trajectory.at(current_sparse_node - 1)
-                  .compose(sparse_frames_[sparse_key - 1].current_transform);
+      if (loop_closures_.count(from_key) && loop_closures_.at(from_key).count(to_key)) {
+        // Loop closure already exists TODO(yun) add flag to toggle this check
+        continue;
+      }
 
-          // Add to trajectory and timestamp maps
-          if (initial_trajectory.size() == current_sparse_node) {
-            initial_trajectory.push_back(new_pose);
-          }
-
-          node_timestamps.push_back(pg_edge.stamp_ns);
-          // Add new node to queue to be connected to mesh later
-          unconnected_nodes.push(current_sparse_node);
-
-          // Add the pose estimate of new node and between factor (odometry) to
-          // deformation graph
-          deformation_graph_->processNewBetween(
-              sparse_key - 1,
-              sparse_key,
-              sparse_frames_[sparse_key - 1].current_transform,
-              config_.odom_variance);
-        }
-      } else if (pg_edge.type == pose_graph_tools::PoseGraphEdge::LOOPCLOSE &&
-                 config_.mode == RunMode::FULL) {
-        if (!full_sparse_frame_map_.count(from_key) ||
-            !full_sparse_frame_map_.count(to_key)) {
-          SPARK_LOG(ERROR) << "Caught loop closure between unknown nodes.";
-          return ProcessPoseGraphStatus::LC_MISSING_NODES;
-        }
-
-        gtsam::Key from_sparse_key = full_sparse_frame_map_.at(from_key);
-        gtsam::Key to_sparse_key = full_sparse_frame_map_.at(to_key);
-        // measure = from_T_to. sparse_from_T_sparse_to = sparse_from_T_from * from_T_to
-        // * (sparse_to_T_to)^(-1)
-        if (loop_closures_.count(from_sparse_key) &&
-            loop_closures_.at(from_sparse_key).count(to_sparse_key)) {
-          // Loop closure already exists TODO(yun) add flag to toggle this check
-          continue;
-        }
-
-        gtsam::Pose3 from_sparse_T_to_sparse =
-            sparse_frames_.at(from_sparse_key).keyed_transforms.at(from_key) * measure *
-            sparse_frames_.at(to_sparse_key).keyed_transforms.at(to_key).inverse();
+      if (config_.mode == RunMode::FULL) {
         // Loop closure edge (only add if we are in full
         // optimization mode ) Add to deformation graph
-        deformation_graph_->processNewBetween(from_sparse_key,
-                                              to_sparse_key,
-                                              from_sparse_T_to_sparse,
-                                              config_.lc_variance);
-        if (!loop_closures_.count(from_sparse_key)) {
-          loop_closures_[from_sparse_key] = std::set<gtsam::Key>();
+        deformation_graph_->processNewBetween(
+            from_key, to_key, measure, config_.lc_variance);
+      } else if (config_.mode == RunMode::MESH_ONLY) {
+        if (!addMeshMeshConnections(
+                {from_key, to_key}, {measure}, initial_trajectory, false)) {
+          SPARK_LOG(WARNING)
+              << "Failed to add mesh-to-mesh connections for loop closure.";
         }
-
-        if (!loop_closures_.count(to_sparse_key)) {
-          loop_closures_[to_sparse_key] = std::set<gtsam::Key>();
-        }
-
-        loop_closures_[from_sparse_key].insert(to_sparse_key);
-        loop_closures_[to_sparse_key].insert(from_sparse_key);
-        SPARK_LOG(INFO) << "KimeraPgmo: Loop closure detected between robot "
-                        << robot_from << " node " << prev_node << " and robot "
-                        << robot_to << " node " << current_node << ".";
-        num_loop_closures_++;
       }
+      auto& loop_closures_to = loop_closures_[from_key];
+      loop_closures_to.insert(to_key);
+      auto& loop_closures_from = loop_closures_[to_key];
+      loop_closures_from.insert(from_key);
+      SPARK_LOG(INFO) << "KimeraPgmo: Loop closure detected between robot "
+                      << robot_from << " node " << prev_node << " and robot "
+                      << robot_to << " node " << current_node << ".";
+      num_loop_closures_++;
     }
-  } catch (const std::exception& e) {
-    SPARK_LOG(ERROR) << "Error in KimeraPgmo incrementalPoseGraphCallback: "
-                     << e.what();
-    return ProcessPoseGraphStatus::UNKNOWN;
   }
 
+  // Find pose to mesh connections
+  updatePoseMeshConnections(stamped_nodes, new_mesh_indices, new_mesh_index_stamps);
+
+  if (config_.mode != RunMode::MESH_ONLY) {
+    if (!addPoseMeshConnections(nodes)) {
+      if (nodes.size() > 0 && new_mesh_indices.size() > 0) {
+        SPARK_LOG(WARNING) << "KimeraPgmo: Partial mesh not connected to pose graph.";
+      }
+      return ProcessPoseGraphStatus::MESH_DISCONNECTED;
+    }
+  } else {
+    if (!addMeshMeshConnections(nodes, odom_measurements, initial_trajectory, true)) {
+      if (nodes.size() > 0 && new_mesh_indices.size() > 0) {
+        SPARK_LOG(WARNING) << "KimeraPgmo: Partial mesh not connected to pose graph.";
+      }
+      return ProcessPoseGraphStatus::MESH_DISCONNECTED;
+    }
+  }
   return ProcessPoseGraphStatus::SUCCESS;
+}
+
+void KimeraPgmoInterface::updatePoseMeshConnections(
+    const std::map<Timestamp, gtsam::Key>& stamped_nodes,
+    const std::vector<size_t>& new_mesh_indices,
+    const std::vector<Timestamp>& new_mesh_index_stamps) {
+  if (stamped_nodes.empty() || new_mesh_indices.size() == 0) {
+    return;
+  }
+
+  for (size_t i = 0; i < new_mesh_indices.size(); i++) {
+    size_t mesh_idx = new_mesh_indices[i];
+    Timestamp mesh_idx_stamp = new_mesh_index_stamps[i];
+
+    auto it = stamped_nodes.lower_bound(mesh_idx_stamp);
+    if (it != stamped_nodes.begin()) {
+      auto prev_it = std::prev(it);
+      if (it == stamped_nodes.end() ||
+          (mesh_idx_stamp - prev_it->first) < it->first - mesh_idx_stamp) {
+        it = prev_it;
+      }
+    }
+
+    auto& valences = node_valences_[it->second];
+    valences.push_back(mesh_idx);
+  }
+}
+
+bool KimeraPgmoInterface::addPoseMeshConnections(const std::vector<gtsam::Key>& nodes) {
+  bool connection = false;
+  for (const auto& key : nodes) {
+    if (!node_valences_.count(key)) {
+      continue;
+    }
+    connection = true;
+    auto robot_id = robot_prefix_to_id.at(gtsam::Symbol(key).chr());
+    deformation_graph_->processNodeValence(key,
+                                           node_valences_[key],
+                                           GetVertexPrefix(robot_id),
+                                           config_.pose_mesh_variance);
+  }
+  return connection;
+}
+
+bool KimeraPgmoInterface::addMeshMeshConnections(
+    const std::vector<gtsam::Key>& nodes,
+    const std::vector<gtsam::Pose3>& measurements,
+    const Path& initial_trajectory,
+    bool search_previous) {
+  // Try find the last node that had vertices connected
+  gtsam::Symbol prev_node;
+  size_t prev_robot_id;
+  std::vector<size_t> prev_valences;
+  gtsam::Pose3 prev_pose;
+  gtsam::Pose3 prev_T_curr;
+  if (search_previous) {
+    auto it = node_valences_.lower_bound(*nodes.begin());
+    // Find previous key with valences
+    while (it != node_valences_.begin()) {
+      --it;
+      if (!it->second.empty()) {
+        prev_node = it->first;
+        prev_valences = it->second;
+        prev_robot_id = robot_prefix_to_id.at(prev_node.chr());
+        prev_pose = initial_trajectory.at(prev_node.index());
+        prev_T_curr = prev_pose.between(
+            initial_trajectory.at(gtsam::Symbol(*nodes.begin()).index()));
+        break;
+      }
+    }
+  }
+
+  bool connection = false;
+  size_t measurement_idx = 0;
+  // Iterate through current nodes
+  for (const auto& key : nodes) {
+    if (!node_valences_.count(key)) {
+      if (measurement_idx < measurements.size()) {
+        prev_T_curr.compose(measurements[measurement_idx++]);
+      }
+      continue;
+    }
+
+    auto key_symb = gtsam::Symbol(key);
+    auto robot_id = robot_prefix_to_id.at(key_symb.chr());
+    const auto& current_valences = node_valences_.at(key);
+    // TODO(Yun) maybe just make this single robot
+    // Since initial_trajectory implies single robot
+    auto current_pose = initial_trajectory.at(key_symb.index());
+    if (!prev_valences.empty()) {
+      connection = true;
+      deformation_graph_->processBetweenAsMeshConnections(
+          prev_pose,
+          prev_valences,
+          current_pose,
+          current_valences,
+          prev_T_curr,
+          GetVertexPrefix(robot_id),
+          GetVertexPrefix(prev_robot_id),
+          config_.mesh_edge_variance);
+    }
+    prev_valences = current_valences;
+    prev_node = key;
+    prev_robot_id = robot_id;
+    prev_pose = initial_trajectory.at(key_symb.index());
+    if (measurement_idx < measurements.size()) {
+      prev_T_curr = measurements[measurement_idx++];
+    }
+  }
+  return connection;
 }
 
 ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
     const PoseGraph& mesh_graph,
     const std::vector<Timestamp>& node_timestamps,
-    std::queue<size_t>& unconnected_nodes) {
+    std::vector<size_t>& new_mesh_indices,
+    std::vector<Timestamp>& new_mesh_index_stamps) {
   if (mesh_graph.edges.empty() || mesh_graph.nodes.empty()) {
     SPARK_LOG(DEBUG)
         << "processIncrementalMeshGraph: 0 nodes or 0 edges in mesh graph msg.";
@@ -346,8 +401,6 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
   std::vector<std::pair<gtsam::Key, gtsam::Key>> new_mesh_edges;
   gtsam::Values new_mesh_nodes;
   std::unordered_map<gtsam::Key, Timestamp> new_mesh_node_stamps;
-  std::vector<size_t> new_indices;
-  std::vector<Timestamp> new_index_stamps;
 
   // Convert and add edges
   for (const auto& e : mesh_graph.edges) {
@@ -385,59 +438,10 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
   deformation_graph_->processNewMeshEdgesAndNodes(new_mesh_edges,
                                                   new_mesh_nodes,
                                                   new_mesh_node_stamps,
-                                                  &new_indices,
-                                                  &new_index_stamps,
+                                                  &new_mesh_indices,
+                                                  &new_mesh_index_stamps,
                                                   config_.mesh_edge_variance);
-  assert(new_indices.size() == new_index_stamps.size());
-
-  bool connection = false;
-  if (!unconnected_nodes.empty() && new_indices.size() > 0) {
-    std::map<size_t, std::vector<size_t>> node_valences;
-    for (size_t i = 0; i < new_indices.size(); i++) {
-      size_t idx = new_indices[i];
-      Timestamp idx_time = new_index_stamps[i];
-      size_t closest_node = unconnected_nodes.front();
-      Timestamp min_difference = std::numeric_limits<Timestamp>::max();
-      while (!unconnected_nodes.empty()) {
-        const size_t node = unconnected_nodes.front();
-        if (abs(int64_t(node_timestamps[node] - idx_time)) < min_difference) {
-          min_difference = abs(int64_t(node_timestamps[node] - idx_time));
-          closest_node = node;
-          if (unconnected_nodes.size() == 1) {
-            break;
-          }
-
-          unconnected_nodes.pop();
-        } else {
-          break;
-        }
-      }
-
-      if (!node_valences.count(closest_node)) {
-        node_valences.insert({closest_node, std::vector<size_t>()});
-      }
-
-      node_valences[closest_node].push_back(idx);
-    }
-
-    for (const auto& node_val : node_valences) {
-      if (verbose_) {
-        SPARK_LOG(INFO) << "Connecting robot " << robot_id << " node " << node_val.first
-                        << " to " << node_val.second.size() << " vertices.";
-      }
-
-      deformation_graph_->processNodeValence(
-          gtsam::Symbol(GetRobotPrefix(robot_id), node_val.first),
-          node_val.second,
-          GetVertexPrefix(robot_id),
-          config_.pose_mesh_variance);
-      connection = true;
-    }
-  }
-
-  if (!connection && new_indices.size() > 0) {
-    SPARK_LOG(WARNING) << "KimeraPgmo: Partial mesh not connected to pose graph.";
-  }
+  assert(new_mesh_indices.size() == new_mesh_index_stamps.size());
 
   return ProcessMeshGraphStatus::SUCCESS;
 }
@@ -537,75 +541,6 @@ bool KimeraPgmoInterface::saveDeformationGraph(const std::string& dgrf_name) {
   // Save mesh
   deformation_graph_->save(dgrf_name);
   SPARK_LOG(INFO) << "KimeraPgmo: Saved deformation graph to file.";
-  return true;
-}
-
-bool KimeraPgmoInterface::savePoseGraphSparseMapping(const std::string& output_path) {
-  std::ofstream outfile;
-  outfile.open(output_path);
-  outfile << "full-key,sparse-key,x,y,z,qw,qx,qy,qz\n";
-  // TODO this doesn't save all infromation of the sparse frames
-  for (const auto& mapping : full_sparse_frame_map_) {
-    outfile << std::to_string(mapping.first) << "," << std::to_string(mapping.second);
-    const auto& sparse_frame = sparse_frames_.at(mapping.second);
-    const auto& rel_pose = sparse_frame.keyed_transforms.at(mapping.first);
-    const auto pos = rel_pose.translation();
-    const auto quat = rel_pose.rotation().toQuaternion();
-    outfile << "," << pos.x() << "," << pos.y() << "," << pos.z() << "," << quat.w()
-            << "," << quat.x() << "," << quat.y() << "," << quat.z() << "\n";
-  }
-
-  outfile.close();
-  return true;
-}
-
-bool KimeraPgmoInterface::loadPoseGraphSparseMapping(const std::string& input_path) {
-  std::ifstream infile(input_path);
-
-  // Values that will be filled
-  gtsam::Key full_key, sparse_key;
-  double qx, qy, qz, qw;
-  double tx, ty, tz;
-
-  std::string line;
-  std::string token;
-  // Skip first line (headers)
-  std::getline(infile, line);
-  // Iterate over remaining lines
-  while (std::getline(infile, line)) {
-    std::istringstream ss(line);
-
-    std::getline(ss, token, ',');
-    full_key = std::stoull(token);
-    std::getline(ss, token, ',');
-    sparse_key = std::stoull(token);
-
-    std::getline(ss, token, ',');
-    tx = std::stod(token);
-    std::getline(ss, token, ',');
-    ty = std::stod(token);
-    std::getline(ss, token, ',');
-    tz = std::stod(token);
-
-    std::getline(ss, token, ',');
-    qw = std::stod(token);
-    std::getline(ss, token, ',');
-    qx = std::stod(token);
-    std::getline(ss, token, ',');
-    qy = std::stod(token);
-    std::getline(ss, token, ',');
-    qz = std::stod(token);
-
-    full_sparse_frame_map_.insert({full_key, sparse_key});
-    if (sparse_frames_.count(sparse_key) == 0) {
-      sparse_frames_.insert({sparse_key, SparseKeyframe()});
-    }
-
-    gtsam::Pose3 transform(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(tx, ty, tz));
-    sparse_frames_[sparse_key].keyed_transforms.insert({full_key, transform});
-  }
-
-  infile.close();
   return true;
 }
 

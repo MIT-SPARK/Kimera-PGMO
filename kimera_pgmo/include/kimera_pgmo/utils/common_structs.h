@@ -37,7 +37,8 @@ enum class ProcessPoseGraphStatus {
   UNKNOWN,
   DUPLICATE,
   SUCCESS,
-  LC_MISSING_NODES
+  LC_MISSING_NODES,
+  MESH_DISCONNECTED
 };
 
 enum class ProcessMeshGraphStatus {

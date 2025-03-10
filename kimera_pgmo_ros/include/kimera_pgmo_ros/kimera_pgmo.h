@@ -209,7 +209,8 @@ class KimeraPgmo : public KimeraPgmoInterface {
 
   // Trajectory
   Path trajectory_;
-  std::queue<size_t> unconnected_nodes_;
+  std::vector<size_t> unconnected_mesh_indices_;
+  std::vector<uint64_t> unconnected_mesh_index_stamps_;
   std::vector<Timestamp> timestamps_;
   std::queue<size_t> dpgmo_num_poses_last_req_;
 

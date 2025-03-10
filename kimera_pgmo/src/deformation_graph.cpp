@@ -150,6 +150,38 @@ void DeformationGraph::processNodeValence(const gtsam::Key& key,
   }
 }
 
+void DeformationGraph::processBetweenAsMeshConnections(
+    const gtsam::Pose3& w_T_source,
+    const Vertices& source,
+    const gtsam::Pose3& w_T_dest,
+    const Vertices& dest,
+    const gtsam::Pose3& source_T_dest,
+    const char& source_prefix,
+    const char& dest_prefix,
+    double variance,
+    bool temp) {
+  for (const Vertex& s : source) {
+    const gtsam::Symbol vertex_s(source_prefix, s);
+    auto w_T_s = gtsam::Pose3(gtsam::Rot3(), vertex_positions_[source_prefix].at(s));
+    auto s_T_source = w_T_s.between(w_T_source);
+    for (const Vertex& d : dest) {
+      const gtsam::Symbol vertex_d(dest_prefix, d);
+      // For now we do not duplicate deformation graph edges even if there are multiple
+      // between factors connecting them. Hence the adjacency book-keeping.
+      if (adjacency_map_.count(vertex_s) &&
+          adjacency_map_.at(vertex_s).count(vertex_d)) {
+        continue;
+      }
+      auto w_T_d = gtsam::Pose3(gtsam::Rot3(), vertex_positions_[dest_prefix].at(d));
+      auto d_T_dest = w_T_d.between(w_T_dest);
+      auto s_T_d = s_T_source.compose(source_T_dest).compose(d_T_dest.inverse());
+      auto d_T_s = s_T_d.inverse();
+      addDeformationEdge(vertex_s, vertex_d, s_T_d.translation(), variance, temp);
+      addDeformationEdge(vertex_d, vertex_s, d_T_s.translation(), variance, temp);
+    }
+  }
+}
+
 void DeformationGraph::processPointMeasurement(const gtsam::Key& from_key,
                                                const gtsam::Key& to_key,
                                                const gtsam::Pose3& from_pose,
@@ -178,6 +210,8 @@ void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
       gtsam::noiseModel::Isotropic::Variance(3, variance);
   // Create deformation edge factor
   const DeformationEdgeFactor new_edge(from_key, to_key, from_pose, to_point, noise);
+  auto& adjacent_keys = adjacency_map_[from_key];
+  adjacent_keys.insert(to_key);
   if (temp) {
     temp_nfg_->add(new_edge);
     return;
@@ -195,6 +229,8 @@ void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
       gtsam::noiseModel::Isotropic::Variance(3, variance);
   // Create deformation edge factor
   const DeformationEdgeFactor new_edge(from_key, to_key, measurement, noise);
+  auto& adjacent_keys = adjacency_map_[from_key];
+  adjacent_keys.insert(to_key);
   if (temp) {
     temp_nfg_->add(new_edge);
     return;
@@ -243,10 +279,6 @@ void DeformationGraph::processNewBetween(const gtsam::Key& key_from,
   }
 
   addNewBetween(key_from, key_to, meas, variance);
-
-  if (key_to == key_from + 1) {
-    updatePoseGraphInitialGuess(key_from, key_to, meas);
-  }
 }
 
 bool DeformationGraph::checkNewBetween(const gtsam::Key& key_from,
@@ -787,6 +819,17 @@ size_t DeformationGraph::getRemappedId(const std::map<size_t, size_t>& remap,
                                        size_t original) const {
   const auto iter = remap.find(original);
   return iter == remap.end() ? original : iter->second;
+}
+
+bool DeformationGraph::checkAdjacency(gtsam::Key from, gtsam::Key to) const {
+  if (!adjacency_map_.count(from)) {
+    return false;
+  }
+
+  if (!adjacency_map_.at(from).count(to)) {
+    return false;
+  }
+  return true;
 }
 
 bool DeformationGraph::tryConvertKeyToMeshNode(const gtsam::Key& key,

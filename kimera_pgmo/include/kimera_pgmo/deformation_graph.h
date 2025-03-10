@@ -205,6 +205,15 @@ class DeformationGraph {
                          const gtsam::Pose3& meas,
                          double variance = 1e-4);
 
+  /*! \brief Adding new initial guess according to an odometry measurement
+   *  - key_from: Key of front node to connect between factor
+   *  - key_to: Key of back node to connect between factor
+   *  - meas: Measurement of between (odom) factor
+   */
+  void updatePoseGraphInitialGuess(const gtsam::Key& key_from,
+                                   const gtsam::Key& key_to,
+                                   const gtsam::Pose3& meas);
+
   /*! \brief Add a new temporary between factor to the deformation graph
    *  - key_from: Key of front node to connect between factor
    *  - key_to: Key of back node to connect between factor
@@ -249,6 +258,30 @@ class DeformationGraph {
                           const char& valence_prefix,
                           double variance = 1e-4,
                           bool temp = false);
+
+  /*! \brief Add deformation graph edge between mesh vertices
+   *  - source_pose: pose of source (for the between) that is in same frame as the
+   * initial vertex positions
+   *  - source: The source set of mesh vertices
+   *  - dest_pose: pose of dest (for the between) that is in the same frame as the
+   * initial vertex positions
+   *  - dest: The destination set of mesh vertices
+   *  - source_T_dest: measurement to add (of the between)
+   *  - source_prefix: the prefixes of the key of the nodes corresponding to source mesh
+   * vertices
+   *  - dest_prefix: the prefixes of the key of the nodes corresponding to the dest mesh
+   * vertices
+   *  - variance: covariance of the deformation graph edges
+   */
+  void processBetweenAsMeshConnections(const gtsam::Pose3& source_pose,
+                                       const Vertices& source,
+                                       const gtsam::Pose3& dest_pose,
+                                       const Vertices& dest,
+                                       const gtsam::Pose3& source_T_dest,
+                                       const char& source_prefix,
+                                       const char& dest_prefix,
+                                       double variance = 1e-4,
+                                       bool temp = false);
 
   /*! \brief Add point measurements as a deformation edge factor
    *  - from_key: key of the pose point measurement is made from
@@ -532,10 +565,6 @@ class DeformationGraph {
  protected:
   bool checkNewBetween(const gtsam::Key& key_from, const gtsam::Key& key_to);
 
-  void updatePoseGraphInitialGuess(const gtsam::Key& key_from,
-                                   const gtsam::Key& key_to,
-                                   const gtsam::Pose3& meas);
-
   void addNewBetween(const gtsam::Key& key_from,
                      const gtsam::Key& key_to,
                      const gtsam::Pose3& meas,
@@ -603,6 +632,8 @@ class DeformationGraph {
 
   size_t getRemappedId(const std::map<size_t, size_t>& remap, size_t original) const;
 
+  bool checkAdjacency(gtsam::Key from, gtsam::Key to) const;
+
  private:
   bool verbose_;
 
@@ -626,6 +657,9 @@ class DeformationGraph {
   std::shared_ptr<std::vector<double>> inlier_weights_;
   // gnc weights for temp factors (from last update)
   std::shared_ptr<std::vector<double>> temp_inlier_weights_;
+
+  // track adjacency
+  std::map<gtsam::Key, std::set<gtsam::Key>> adjacency_map_;
 
   size_t num_loopclosures_ = 0;
 

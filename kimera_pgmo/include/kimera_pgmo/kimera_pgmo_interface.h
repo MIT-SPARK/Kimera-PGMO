@@ -18,7 +18,6 @@
 #include "kimera_pgmo/deformation_graph.h"
 #include "kimera_pgmo/optimizer/kimera_rpgo_optimizer.h"
 #include "kimera_pgmo/optimizer/optimizer_interface.h"
-#include "kimera_pgmo/sparse_keyframe.h"
 #include "kimera_pgmo/utils/common_functions.h"
 namespace kimera_pgmo {
 
@@ -26,8 +25,9 @@ using Path = std::vector<gtsam::Pose3>;
 using PathPtr = std::shared_ptr<Path>;
 
 enum class RunMode {
-  FULL = 0u,  // Optimize mesh and pose graph
-  MESH = 1u,  // Optimize mesh based on given optimized trajectory
+  FULL = 0u,                // Optimize mesh and pose graph
+  EXTERNAL_OPTIMIZER = 1u,  // Optimize mesh based on given optimized trajectory
+  MESH_ONLY = 2u,           // No pose graph in deformation graph
 };
 
 struct KimeraPgmoConfig {
@@ -45,10 +45,6 @@ struct KimeraPgmoConfig {
   double prior_variance;
   double mesh_edge_variance;
   double pose_mesh_variance;
-  // sparsification
-  bool b_enable_sparsify = false;
-  double trans_sparse_dist = 1.0;
-  double rot_sparse_dist = 1.2;
   // logging
   std::string log_path = "";
 
@@ -81,7 +77,6 @@ class KimeraPgmoInterface {
   bool loadGraphAndMesh(size_t robot_id,
                         const std::string& ply_path,
                         const std::string& dgrf_path,
-                        const std::string& sparse_mapping_file_path,
                         pcl::PolygonMesh::Ptr optimized_mesh,
                         std::vector<Timestamp>* mesh_vertex_stamps,
                         bool do_optimize);
@@ -134,17 +129,18 @@ class KimeraPgmoInterface {
    * graph. Also updates the initial trajectory, the node connection queue, and
    * the node timestamps
    * - msg: incremental pose graph msg
+   * - new_mesh_indices: new mesh indices to connect pose-mesh connections
+   * - new_mesh_index_stamps: timestamps corresponding to new mesh indices
    * - initial_trajectory: vector storing the initial poses of all the odometric
    * nodes
-   * - unconnected_nodes: nodes not yet connected to mesh vertices and still
-   * within the embedded time window
    * - node_timestamps: vector of the timestamps of each odometric node
    */
   ProcessPoseGraphStatus processIncrementalPoseGraph(
       const pose_graph_tools::PoseGraph& pose_graph,
+      const std::vector<size_t>& new_mesh_indices,
+      const std::vector<Timestamp>& new_mesh_index_stamps,
       Path& initial_trajectory,
-      std::vector<Timestamp>& node_timestamps,
-      std::queue<size_t>& unconnected_nodes);
+      std::vector<Timestamp>& node_timestamps);
 
   /*! \brief Process the mesh graph that consists of the new mesh edges and mesh
    * nodes to be added to the deformation graph
@@ -156,7 +152,8 @@ class KimeraPgmoInterface {
   ProcessMeshGraphStatus processIncrementalMeshGraph(
       const pose_graph_tools::PoseGraph& mesh_graph_msg,
       const std::vector<Timestamp>& node_timestamps,
-      std::queue<size_t>& unconnected_nodes);
+      std::vector<size_t>& new_mesh_indices,
+      std::vector<Timestamp>& new_mesh_index_stamps);
 
   /*! \brief Given an optimized trajectory, adjust the mesh. The path should
    * correspond to the nodes of the pose graph received in the
@@ -185,6 +182,35 @@ class KimeraPgmoInterface {
                         pcl::PolygonMesh& optimized_mesh,
                         bool do_optimize);
 
+  /*! \brief Connect poses to mesh vertices in deformation graph
+   *  - stamped_nodes: unconnected poses keyed by timestamp
+   *  - new_indices: new mesh indices
+   *  - new_index_stamps: new mesh index timestamps
+   */
+  void updatePoseMeshConnections(const std::map<Timestamp, gtsam::Key>& stamped_nodes,
+                                 const std::vector<size_t>& new_indices,
+                                 const std::vector<Timestamp>& new_index_stamps);
+
+  /*! \brief Connect poses to mesh vertices in deformation graph. Assumes
+   * updatePoseMeshConnections already called and the connections already updated in
+   * node_valences_
+   *  - stamped_nodes: unconnected poses keyed by timestamp
+   */
+  bool addPoseMeshConnections(const std::vector<gtsam::Key>& nodes);
+
+  /*! \brief Connect mesh vertices to mesh vertices in deformation graph based on
+   * received odometry. Assumes updatePoseMeshConnections already called and the
+   * connections already updated in node_valences_
+   *  - stamped_nodes: new poses keyed by timestamp
+   *  - measurements: pose measurements
+   *  - initial_trajectory: initial pose trajectory
+   *  - search_previous: also try connect to previous nodes (set to true for odometry)
+   */
+  bool addMeshMeshConnections(const std::vector<gtsam::Key>& nodes,
+                              const std::vector<gtsam::Pose3>& measurements,
+                              const Path& initial_trajectory,
+                              bool search_previous);
+
   /*! \brief Saves mesh as a ply file.
    * - mesh: mesh to save
    * - ply_name: name of the ply file output
@@ -204,16 +230,6 @@ class KimeraPgmoInterface {
    */
   bool saveDeformationGraph(const std::string& dgrf_name);
 
-  /*! \brief Saves the full_to_sparse_frames mapping
-   * - output_path: name of the file to write to
-   */
-  bool savePoseGraphSparseMapping(const std::string& output_path);
-
-  /*! \brief Loads the full_to_sparse_frames mapping
-   * - input_path: name of the file to read from
-   */
-  bool loadPoseGraphSparseMapping(const std::string& input_path);
-
   void setVerboseFlag(bool verbose);
 
  protected:
@@ -229,11 +245,10 @@ class KimeraPgmoInterface {
 
   // Track number of loop closures
   size_t num_loop_closures_;
-
-  // Sparse key frame mapping
-  std::unordered_map<gtsam::Key, gtsam::Key> full_sparse_frame_map_;
-  std::unordered_map<gtsam::Key, SparseKeyframe> sparse_frames_;
   std::unordered_map<gtsam::Key, std::set<gtsam::Key>> loop_closures_;
+
+  // Track node valences
+  std::map<gtsam::Key, std::vector<size_t>> node_valences_;
 
   // Timestamp mapping
   std::unordered_map<gtsam::Key, Timestamp> keyed_stamps_;

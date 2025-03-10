@@ -57,7 +57,6 @@ class KimeraPgmoTest : public ::testing::Test {
     nh.setParam("optimizer/verbosity", "2");
     nh.setParam("optimizer/use_gnc", "False");
     nh.setParam("add_initial_prior", true);
-    nh.setParam("enable_sparsify", false);
     nh.setParam("covariance/odom", 0.000001);
     nh.setParam("covariance/loop_close", 0.0001);
     nh.setParam("covariance/prior", 0.00001);
@@ -506,7 +505,8 @@ TEST_F(KimeraPgmoTest, checkRobotIdMeshCallback) {
   IncrementalMeshGraphCallback(mesh_graph_msg);
 
   // Now should have 13 values (3 nodes + 10 vertices)
-  // And 56 factors (1 prior + 1 odom + 16 edges + 10 connections + 1 odom + 1 lc + 16 edges + 10 connections)
+  // And 56 factors (1 prior + 1 odom + 16 edges + 10 connections + 1 odom + 1 lc + 16
+  // edges + 10 connections)
   gtsam::NonlinearFactorGraph factors = getFactors();
   gtsam::Values values = getValues();
   EXPECT_EQ(56u, factors.size());
@@ -535,68 +535,6 @@ TEST_F(KimeraPgmoTest, checkRobotIdMeshCallback) {
   EXPECT_EQ(gtsam::Symbol('u', 9), factor54.back());
 }
 
-TEST_F(KimeraPgmoTest, sparseKeyFrames) {
-  nh.setParam("enable_sparsify", true);
-  nh.setParam("trans_node_dist", 1.1);
-  nh.setParam("rot_node_dist", 2.0);
-
-  reinit();
-
-  // Here we should test if the mesh is added to the deformation graph correctly
-  OctreeCompressionPtr compression(new OctreeCompression(0.5));
-  Graph graph_struct;
-
-  // Check callback
-  auto inc_graph = SingleOdomGraph(ros::Time(10.2), 0);
-  IncrementalPoseGraphCallback(inc_graph);
-  // At this point should have one node (0, 0, 0)
-
-  // Add mesh
-  pcl::PolygonMesh mesh1 = createMesh(0, 0, 0);
-
-  auto mesh_graph_msg =
-      processMeshToGraph(mesh1, 0, ros::Time(12.5), compression, &graph_struct);
-  IncrementalMeshGraphCallback(mesh_graph_msg);
-
-  // Now should have 6 values (1 node + 5 vertices)
-  // And 27 factors (1 prior + 16 edges + 10 connections)
-  gtsam::NonlinearFactorGraph factors = getFactors();
-  gtsam::Values values = getValues();
-  EXPECT_EQ(27u, factors.size());
-  EXPECT_EQ(6u, values.size());
-
-  // load second incremental pose graph
-  inc_graph = OdomLoopclosureGraph(ros::Time(12.8), 0);
-  IncrementalPoseGraphCallback(inc_graph);
-
-  // Add mesh
-  pcl::PolygonMesh mesh2 = createMesh(2, 0, 0);
-  mesh_graph_msg =
-      processMeshToGraph(mesh2, 0, ros::Time(13.0), compression, &graph_struct);
-  IncrementalMeshGraphCallback(mesh_graph_msg);
-
-  // Now should have 12 values (2 nodes + 10 vertices)
-  // And 55 factors (1 prior + 16 edges + 10 connections + 1 odom + 1 lc + 16 edges + 10 connections)
-  factors = getFactors();
-  values = getValues();
-  EXPECT_EQ(55u, factors.size());
-  EXPECT_EQ(12u, values.size());
-
-  // And also add the connection of nodes and vertices
-  EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[27]));
-  gtsam::BetweenFactor<gtsam::Pose3> factor27 =
-      *cast_factor<gtsam::BetweenFactor<gtsam::Pose3> >(factors[27]);
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 0)),
-                                  factor27.measured()));
-  EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor27.front());
-  EXPECT_EQ(gtsam::Symbol('a', 1).key(), factor27.back());
-
-  EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors[53]));
-  DeformationEdgeFactor factor53 = *cast_factor<DeformationEdgeFactor>(factors[53]);
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, -1, 1), factor53.measurement()));
-  EXPECT_EQ(gtsam::Symbol('a', 1), factor53.front());
-  EXPECT_EQ(gtsam::Symbol('s', 9), factor53.back());
-}
 }  // namespace kimera_pgmo
 
 int main(int argc, char** argv) {

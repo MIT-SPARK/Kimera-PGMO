@@ -4,10 +4,8 @@
   <arg name="run_mode" default="MESH" />
   <arg name="output_path" default="$(find kimera_pgmo_ros)/log" />
   <arg name="log" default="true" />
-  <arg name="enable_sparsify" default="false"/>
 
   <arg name="dgrf_path"/>
-  <arg name="sparse_mapping_path"/>
   <arg name="ply_path"/>
   <arg name="original_traj"/>
   <arg name="optimized_traj"/>
@@ -19,10 +17,8 @@
     <param name="output_prefix" value="$(arg output_path)" />
     <param name="robot_id" value="$(arg robot_id)" />
     <param name="run_mode" value="$(arg run_mode)" />
-    <param name="enable_sparsify" value="$(arg enable_sparsify)" />
     <param name="log_output" value="$(arg log)" />
     <param name="dgrf_path" value="$(arg dgrf_path)"/>
-    <param name="sparse_mapping_path" value="$(arg sparse_mapping_path)"/>
     <param name="ply_path" value="$(arg ply_path)"/>
     <param name="original_traj" value="$(arg original_traj)"/>
     <param name="optimized_traj" value="$(arg optimized_traj)"/>

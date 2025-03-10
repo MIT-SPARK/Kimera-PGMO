@@ -21,7 +21,6 @@ struct InputConfig {
   std::string ply_path;
   std::string orig_traj_path;
   std::string optimized_traj_path;
-  std::string sparse_mapping_path;
 
   size_t robot_id = 0;
   uint64_t max_diff_ns = 0;
@@ -34,7 +33,6 @@ void declare_config(InputConfig& config) {
   field(config.ply_path, "ply_path");
   field(config.orig_traj_path, "orig_traj_path");
   field(config.optimized_traj_path, "optimized_traj_path");
-  field(config.sparse_mapping_path, "sparse_mapping_path");
   field(config.robot_id, "robot_id");
   field(config.max_diff_ns, "max_diff_ns");
 }
@@ -54,7 +52,6 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
 
     ReadMeshWithStampsFromPly(inputs.ply_path, original_mesh_, &vertex_stamps_);
     loadDeformationGraphFromFile(inputs.dgrf_path, inputs.robot_id);
-    loadPoseGraphSparseMapping(inputs.sparse_mapping_path);
     SPARK_LOG(INFO) << "Load mesh and graph success";
 
     loadOriginalPath(inputs.orig_traj_path);
