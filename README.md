@@ -20,6 +20,9 @@ If you find this library helpful or use it in your projects, please cite:
 
 <img src="images/pgmo_optimization.png" width="900">
 
+> :warning: **Warning** <br>
+> The ROS2 version of this package is in active development and is not guaranteed to build, run or have documentation. You have been warned!
+
 ## Dependencies 
 In addition to PCL, OpenCV, and GTSAM, Kimera-PGMO is designed as part of Kimera, so the following Kimera packages and their dependencies are needed:
 
