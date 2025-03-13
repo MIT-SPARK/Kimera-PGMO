@@ -205,6 +205,16 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
 
       node_timestamps.push_back(pg_edge.stamp_ns);
       keyed_stamps_.insert({to_key, pg_edge.stamp_ns});
+
+      // For mesh only also need to add the previous node to stamped_nodes for
+      // connectivity
+      if (config_.mode == RunMode::MESH_ONLY) {
+        auto from_stamp = keyed_stamps_.at(from_key);
+        if (!stamped_nodes.count(from_stamp)) {
+          stamped_nodes[from_stamp] = from_key;
+        }
+      }
+
       stamped_nodes[pg_edge.stamp_ns] = to_key;
       odom_measurements.push_back(measure);
 
@@ -364,7 +374,7 @@ bool KimeraPgmoInterface::addMeshMeshConnections(
           curr_valences,
           measurements.at(measurement_idx),
           GetVertexPrefix(prev_robot_id),
-          GetRobotPrefix(curr_robot_id),
+          GetVertexPrefix(curr_robot_id),
           config_.mesh_edge_variance);
     }
 
