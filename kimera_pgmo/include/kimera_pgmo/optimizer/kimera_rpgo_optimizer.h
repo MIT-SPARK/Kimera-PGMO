@@ -27,7 +27,8 @@ class KimeraRpgoOptimizer : public Optimizer {
   void update(const Factors& factors,
               const Values& initial,
               const Factors* temp_factors = nullptr,
-              const Values* temp_initial = nullptr) override;
+              const Values* temp_initial = nullptr,
+              const std::set<size_t>* known_inliers = nullptr) override;
 
   const Values& getEstimates() const override;
   const Values& getTempEstimates() const override;

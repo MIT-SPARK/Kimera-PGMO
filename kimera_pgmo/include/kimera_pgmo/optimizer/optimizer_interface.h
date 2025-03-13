@@ -17,7 +17,8 @@ class Optimizer {
   virtual void update(const Factors& factors,
                       const Values& initial,
                       const Factors* temp_factors = nullptr,
-                      const Values* temp_initial = nullptr) = 0;
+                      const Values* temp_initial = nullptr,
+                      const std::set<size_t>* known_inliers = nullptr) = 0;
 
   virtual const Values& getEstimates() const = 0;
   virtual const Values& getTempEstimates() const = 0;
