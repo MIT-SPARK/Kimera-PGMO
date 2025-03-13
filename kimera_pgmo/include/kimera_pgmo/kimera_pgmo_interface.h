@@ -182,21 +182,22 @@ class KimeraPgmoInterface {
                         pcl::PolygonMesh& optimized_mesh,
                         bool do_optimize);
 
-  /*! \brief Connect poses to mesh vertices in deformation graph
-   *  - stamped_nodes: unconnected poses keyed by timestamp
-   *  - new_indices: new mesh indices
-   *  - new_index_stamps: new mesh index timestamps
+  /*! \brief Find connections to (deformation graph) mesh vertices in deformation graph
+   * based on timestamp
+   *  - robot_id: robot id for vertex stamp lookup
+   *  - stamp: timestamp of ndoe
+   *  - indices: vertex indices
    */
-  void updatePoseMeshConnections(const std::map<Timestamp, gtsam::Key>& stamped_nodes,
-                                 const std::vector<size_t>& new_indices,
-                                 const std::vector<Timestamp>& new_index_stamps);
+  bool findClosestMeshIndices(const size_t& robot_id,
+                              const Timestamp& stamp,
+                              std::vector<size_t>& indices);
 
   /*! \brief Connect poses to mesh vertices in deformation graph. Assumes
    * updatePoseMeshConnections already called and the connections already updated in
    * node_valences_
    *  - stamped_nodes: unconnected poses keyed by timestamp
    */
-  bool addPoseMeshConnections(const std::vector<gtsam::Key>& nodes);
+  bool addPoseMeshConnections(const std::map<Timestamp, gtsam::Key>& stamped_nodes);
 
   /*! \brief Connect mesh vertices to mesh vertices in deformation graph based on
    * received odometry. Assumes updatePoseMeshConnections already called and the
@@ -206,10 +207,9 @@ class KimeraPgmoInterface {
    *  - initial_trajectory: initial pose trajectory
    *  - search_previous: also try connect to previous nodes (set to true for odometry)
    */
-  bool addMeshMeshConnections(const std::vector<gtsam::Key>& nodes,
+  bool addMeshMeshConnections(const std::map<Timestamp, gtsam::Key>& nodes,
                               const std::vector<gtsam::Pose3>& measurements,
-                              const Path& initial_trajectory,
-                              bool search_previous);
+                              const Path& initial_trajectory);
 
   /*! \brief Saves mesh as a ply file.
    * - mesh: mesh to save
@@ -246,9 +246,6 @@ class KimeraPgmoInterface {
   // Track number of loop closures
   size_t num_loop_closures_;
   std::unordered_map<gtsam::Key, std::set<gtsam::Key>> loop_closures_;
-
-  // Track node valences
-  std::map<gtsam::Key, std::vector<size_t>> node_valences_;
 
   // Timestamp mapping
   std::unordered_map<gtsam::Key, Timestamp> keyed_stamps_;
