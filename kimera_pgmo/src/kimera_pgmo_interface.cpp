@@ -247,10 +247,12 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
         const auto& to_stamp = keyed_stamps_.at(to_key);
         if (!addMeshMeshConnections({{from_stamp, from_key}, {to_stamp, to_key}},
                                     {measure},
-                                    initial_trajectory)) {
+                                    initial_trajectory,
+                                    false)) {  // not necessarily inliers
           SPARK_LOG(WARNING)
               << "Failed to add mesh-to-mesh connections for loop closure.";
         }
+        deformation_graph_->setRecalculateVertices();
       }
       auto& loop_closures_to = loop_closures_[from_key];
       loop_closures_to.insert(to_key);
@@ -271,7 +273,10 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
       return ProcessPoseGraphStatus::MESH_DISCONNECTED;
     }
   } else {
-    if (!addMeshMeshConnections(stamped_nodes, odom_measurements, initial_trajectory)) {
+    if (!addMeshMeshConnections(stamped_nodes,
+                                odom_measurements,
+                                initial_trajectory,
+                                true)) {  // as inliers
       if (stamped_nodes.size() > 0 && new_mesh_indices.size() > 0) {
         SPARK_LOG(WARNING) << "KimeraPgmo: Partial mesh not connected to pose graph.";
       }
@@ -340,7 +345,8 @@ bool KimeraPgmoInterface::addPoseMeshConnections(
 bool KimeraPgmoInterface::addMeshMeshConnections(
     const std::map<Timestamp, gtsam::Key>& stamped_nodes,
     const std::vector<gtsam::Pose3>& measurements,
-    const Path& initial_trajectory) {
+    const Path& initial_trajectory,
+    bool as_inliers) {
   if (stamped_nodes.size() == 0) {
     return true;
   }
@@ -375,7 +381,8 @@ bool KimeraPgmoInterface::addMeshMeshConnections(
           measurements.at(measurement_idx),
           GetVertexPrefix(prev_robot_id),
           GetVertexPrefix(curr_robot_id),
-          config_.mesh_edge_variance);
+          config_.mesh_edge_variance,
+          as_inliers);
     }
 
     prev_node = std::move(curr_node);
@@ -468,7 +475,8 @@ void KimeraPgmoInterface::optimize() {
   pgo_->update(*deformation_graph_->getFactors(),
                *deformation_graph_->getValues(),
                deformation_graph_->getTempFactors(),
-               deformation_graph_->getTempValues());
+               deformation_graph_->getTempValues(),
+               deformation_graph_->getInlierSet());
   auto estimates = pgo_->getEstimates();
   auto temp_estimates = pgo_->getTempEstimates();
   auto inlier_weights = pgo_->getInlierWeights();

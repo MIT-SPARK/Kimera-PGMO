@@ -205,11 +205,12 @@ class KimeraPgmoInterface {
    *  - stamped_nodes: new poses keyed by timestamp
    *  - measurements: pose measurements
    *  - initial_trajectory: initial pose trajectory
-   *  - search_previous: also try connect to previous nodes (set to true for odometry)
+   *  - as_inliers: mark as inliers
    */
   bool addMeshMeshConnections(const std::map<Timestamp, gtsam::Key>& nodes,
                               const std::vector<gtsam::Pose3>& measurements,
-                              const Path& initial_trajectory);
+                              const Path& initial_trajectory,
+                              bool as_inliers);
 
   /*! \brief Saves mesh as a ply file.
    * - mesh: mesh to save

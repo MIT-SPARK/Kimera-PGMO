@@ -281,7 +281,8 @@ class DeformationGraph {
                                        const char& source_prefix,
                                        const char& dest_prefix,
                                        double variance = 1e-4,
-                                       bool temp = false);
+                                       bool temp = false,
+                                       bool inliers = false);
 
   /*! \brief Add point measurements as a deformation edge factor
    *  - from_key: key of the pose point measurement is made from
@@ -296,7 +297,8 @@ class DeformationGraph {
                                const gtsam::Pose3& from_pose,
                                const gtsam::Point3& to_point,
                                double variance,
-                               bool temp = false);
+                               bool temp = false,
+                               bool inlier = false);
 
   /*! \brief Remove sll prior factors of nodes that have given prefix
    *  - prefix: prefix of nodes to remove prior
@@ -411,6 +413,12 @@ class DeformationGraph {
    */
   const gtsam::NonlinearFactorGraph* getFactors() const { return nfg_.get(); }
 
+  /*! \brief Gets the set of inliers
+   *  - outputs the set of inlier indices
+   *  TODO(Yun) currently not supported for temp factors
+   */
+  const std::set<size_t>* getInlierSet() const { return inliers_.get(); }
+
   /*! \brief Gets the temp values since last optimization
    *  - outputs last temp values as GTSAM Values
    */
@@ -421,6 +429,11 @@ class DeformationGraph {
    *  - outputs the factors as a GTSAM NonlinearFactorGraph
    */
   const gtsam::NonlinearFactorGraph* getTempFactors() const { return temp_nfg_.get(); }
+
+  /*! \brief Gets the temp factors added to the backend, minus the detected
+   * outliers
+   *  - outputs the factors as a GTSAM NonlinearFactorGraph
+   */
 
   /*! \brief Gets the inlier weights since last optimization
    *  - outputs inlier weights as GTSAM vector
@@ -569,7 +582,8 @@ class DeformationGraph {
                      const gtsam::Key& key_to,
                      const gtsam::Pose3& meas,
                      double variance,
-                     bool temp = false);
+                     bool temp = false,
+                     bool inlier = false);
 
   bool checkNewTempBetween(const gtsam::Key& key_from, const gtsam::Key& key_to);
 
@@ -578,13 +592,15 @@ class DeformationGraph {
                           const gtsam::Pose3& from_pose,
                           const gtsam::Point3& to_point,
                           double variance,
-                          bool temp = false);
+                          bool temp = false,
+                          bool inlier = false);
 
   void addDeformationEdge(const gtsam::Key& from_key,
                           const gtsam::Key& to_key,
                           const gtsam::Point3& measurement,
                           double variance,
-                          bool temp = false);
+                          bool temp = false,
+                          bool inlier = false);
 
   bool addNewMeshNode(const gtsam::Key& node_key,
                       const gtsam::Pose3& node_pose,
@@ -647,6 +663,8 @@ class DeformationGraph {
 
   // factors
   std::shared_ptr<gtsam::NonlinearFactorGraph> nfg_;
+  // inlier set
+  std::shared_ptr<std::set<size_t>> inliers_;
   // current estimate
   std::shared_ptr<gtsam::Values> values_;
   // temp factors
