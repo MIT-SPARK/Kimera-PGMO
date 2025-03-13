@@ -619,7 +619,8 @@ class DeformationGraph {
   void addPrior(const gtsam::Key& key,
                 const gtsam::Pose3& pose,
                 double variance,
-                bool temp = false);
+                bool temp = false,
+                bool inlier = false);
 
   bool tryConvertFactorToPriorEdge(
       gtsam::NonlinearFactor* factor,

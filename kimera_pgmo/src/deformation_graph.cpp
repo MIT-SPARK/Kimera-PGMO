@@ -119,8 +119,12 @@ void DeformationGraph::processMeshGraph(const pose_graph_tools::PoseGraph& mesh_
     }
 
     gtsam::Pose3 from_T_to(edge.pose.matrix());
-    addDeformationEdge(
-        from_key, to_key, from_T_to.translation(), variance_map.at(edge.type), false, true);
+    addDeformationEdge(from_key,
+                       to_key,
+                       from_T_to.translation(),
+                       variance_map.at(edge.type),
+                       false,
+                       true);
   }
 }
 
@@ -178,8 +182,10 @@ void DeformationGraph::processBetweenAsMeshConnections(
       auto d_T_dest = w_T_d.between(w_T_dest);
       auto s_T_d = s_T_source.compose(source_T_dest).compose(d_T_dest.inverse());
       auto d_T_s = s_T_d.inverse();
-      addDeformationEdge(vertex_s, vertex_d, s_T_d.translation(), variance, temp, inliers);
-      addDeformationEdge(vertex_d, vertex_s, d_T_s.translation(), variance, temp, inliers);
+      addDeformationEdge(
+          vertex_s, vertex_d, s_T_d.translation(), variance, temp, inliers);
+      addDeformationEdge(
+          vertex_d, vertex_s, d_T_s.translation(), variance, temp, inliers);
     }
   }
 }
@@ -252,7 +258,8 @@ void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
 void DeformationGraph::addPrior(const gtsam::Key& key,
                                 const gtsam::Pose3& pose,
                                 double variance,
-                                bool temp) {
+                                bool temp,
+                                bool inlier) {
   gtsam::Vector6 variances;
   variances.head<3>().setConstant(1e-02 * variance);
   variances.tail<3>().setConstant(variance);
@@ -262,6 +269,7 @@ void DeformationGraph::addPrior(const gtsam::Key& key,
   if (temp) {
     temp_nfg_->add(measurement);
   } else {
+    inliers_->insert(nfg_->size());
     nfg_->add(measurement);
   }
 }
@@ -406,6 +414,10 @@ bool DeformationGraph::addNewMeshNode(const gtsam::Key& node_key,
   }
   vertex_positions_[node_prefix].push_back(node_pose.translation());
   vertex_stamps_[node_prefix].push_back(node_stamp);
+  // TODO(Yun) temporary hack, check if this assumption always valid even with poses
+  if (values_->size() == 0) {
+    addPrior(node_key, node_pose, 1e-3, false, true);
+  }
   values_->insert(node_key, node_pose);
   return true;
 }
@@ -684,6 +696,10 @@ bool DeformationGraph::tryConvertFactorToPriorEdge(gtsam::NonlinearFactor* facto
   }
 
   const gtsam::Symbol key(factor_ptr->key());
+  if (!robot_prefix_to_id.count(key.chr())) {
+    return false;
+  }
+
   edge.key_from = key.index();
   edge.key_to = key.index();
   edge.robot_from = robot_prefix_to_id.at(key.chr());
