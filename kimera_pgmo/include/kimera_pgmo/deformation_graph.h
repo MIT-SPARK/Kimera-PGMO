@@ -413,11 +413,11 @@ class DeformationGraph {
    */
   const gtsam::NonlinearFactorGraph* getFactors() const { return nfg_.get(); }
 
-  /*! \brief Gets the set of inliers
+  /*! \brief Gets the set of known inliers
    *  - outputs the set of inlier indices
    *  TODO(Yun) currently not supported for temp factors
    */
-  const std::set<size_t>* getInlierSet() const { return known_inliers_.get(); }
+  const std::set<size_t>* getKnownInlierSet() const { return known_inliers_.get(); }
 
   /*! \brief Gets the temp values since last optimization
    *  - outputs last temp values as GTSAM Values
@@ -429,6 +429,13 @@ class DeformationGraph {
    *  - outputs the factors as a GTSAM NonlinearFactorGraph
    */
   const gtsam::NonlinearFactorGraph* getTempFactors() const { return temp_nfg_.get(); }
+
+  /*! \brief Gets the set of temp known inliers
+   *  - outputs the set of inlier indices
+   */
+  const std::set<size_t>* getTempKnownInlierSet() const {
+    return temp_known_inliers_.get();
+  }
 
   /*! \brief Gets the inlier weights since last optimization
    *  - outputs inlier weights as GTSAM vector
@@ -665,6 +672,8 @@ class DeformationGraph {
   std::shared_ptr<gtsam::Values> values_;
   // temp factors
   std::shared_ptr<gtsam::NonlinearFactorGraph> temp_nfg_;
+  // known inlier set
+  std::shared_ptr<std::set<size_t>> temp_known_inliers_;
   // current temp estimate
   std::shared_ptr<gtsam::Values> temp_values_;
   // gnc weights (from last update)

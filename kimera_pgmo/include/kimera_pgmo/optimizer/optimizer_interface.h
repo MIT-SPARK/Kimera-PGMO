@@ -18,7 +18,8 @@ class Optimizer {
                       const Values& initial,
                       const Factors* temp_factors = nullptr,
                       const Values* temp_initial = nullptr,
-                      const std::set<size_t>* known_inliers = nullptr) = 0;
+                      const std::set<size_t>* known_inliers = nullptr,
+                      const std::set<size_t>* temp_known_inliers = nullptr) = 0;
 
   virtual const Values& getEstimates() const = 0;
   virtual const Values& getTempEstimates() const = 0;

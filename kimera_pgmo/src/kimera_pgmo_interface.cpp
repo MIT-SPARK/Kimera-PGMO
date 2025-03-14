@@ -476,7 +476,7 @@ void KimeraPgmoInterface::optimize() {
                *deformation_graph_->getValues(),
                deformation_graph_->getTempFactors(),
                deformation_graph_->getTempValues(),
-               deformation_graph_->getInlierSet());
+               deformation_graph_->getKnownInlierSet());
   auto estimates = pgo_->getEstimates();
   auto temp_estimates = pgo_->getTempEstimates();
   auto inlier_weights = pgo_->getInlierWeights();
