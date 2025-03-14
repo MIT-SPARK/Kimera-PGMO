@@ -36,7 +36,7 @@ using EdgeType = pose_graph_tools::PoseGraphEdge::Type;
 DeformationGraph::DeformationGraph()
     : verbose_(true),
       nfg_(new gtsam::NonlinearFactorGraph),
-      inliers_(new std::set<size_t>),
+      known_inliers_(new std::set<size_t>),
       values_(new gtsam::Values),
       temp_nfg_(new gtsam::NonlinearFactorGraph),
       temp_values_(new gtsam::Values),
@@ -165,7 +165,7 @@ void DeformationGraph::processBetweenAsMeshConnections(
     const char& dest_prefix,
     double variance,
     bool temp,
-    bool inliers) {
+    bool known_inliers) {
   for (const Vertex& s : source) {
     const gtsam::Symbol vertex_s(source_prefix, s);
     auto w_T_s = gtsam::Pose3(gtsam::Rot3(), vertex_positions_[source_prefix].at(s));
@@ -183,9 +183,9 @@ void DeformationGraph::processBetweenAsMeshConnections(
       auto s_T_d = s_T_source.compose(source_T_dest).compose(d_T_dest.inverse());
       auto d_T_s = s_T_d.inverse();
       addDeformationEdge(
-          vertex_s, vertex_d, s_T_d.translation(), variance, temp, inliers);
+          vertex_s, vertex_d, s_T_d.translation(), variance, temp, known_inliers);
       addDeformationEdge(
-          vertex_d, vertex_s, d_T_s.translation(), variance, temp, inliers);
+          vertex_d, vertex_s, d_T_s.translation(), variance, temp, known_inliers);
     }
   }
 }
@@ -196,7 +196,7 @@ void DeformationGraph::processPointMeasurement(const gtsam::Key& from_key,
                                                const gtsam::Point3& to_point,
                                                double variance,
                                                bool temp,
-                                               bool inlier) {
+                                               bool known_inlier) {
   if (!values_->exists(to_key) && !temp_values_->exists(to_key)) {
     if (temp) {
       temp_values_->insert(to_key, gtsam::Pose3(gtsam::Rot3(), to_point));
@@ -205,7 +205,8 @@ void DeformationGraph::processPointMeasurement(const gtsam::Key& from_key,
     }
   }
 
-  addDeformationEdge(from_key, to_key, from_pose, to_point, variance, temp, inlier);
+  addDeformationEdge(
+      from_key, to_key, from_pose, to_point, variance, temp, known_inlier);
 }
 
 void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
@@ -214,7 +215,7 @@ void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
                                           const gtsam::Point3& to_point,
                                           double variance,
                                           bool temp,
-                                          bool inlier) {
+                                          bool known_inlier) {
   // Define noise. Hardcoded for now
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(3, variance);
@@ -226,8 +227,8 @@ void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
     temp_nfg_->add(new_edge);
     return;
   }
-  if (inlier) {
-    inliers_->insert(nfg_->size());
+  if (known_inlier) {
+    known_inliers_->insert(nfg_->size());
   }
   nfg_->add(new_edge);
 }
@@ -237,7 +238,7 @@ void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
                                           const gtsam::Point3& measurement,
                                           double variance,
                                           bool temp,
-                                          bool inlier) {
+                                          bool known_inlier) {
   // Define noise. Hardcoded for now
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(3, variance);
@@ -249,8 +250,8 @@ void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
     temp_nfg_->add(new_edge);
     return;
   }
-  if (inlier) {
-    inliers_->insert(nfg_->size());
+  if (known_inlier) {
+    known_inliers_->insert(nfg_->size());
   }
   nfg_->add(new_edge);
 }
@@ -259,7 +260,7 @@ void DeformationGraph::addPrior(const gtsam::Key& key,
                                 const gtsam::Pose3& pose,
                                 double variance,
                                 bool temp,
-                                bool inlier) {
+                                bool known_inlier) {
   gtsam::Vector6 variances;
   variances.head<3>().setConstant(1e-02 * variance);
   variances.tail<3>().setConstant(variance);
@@ -269,7 +270,7 @@ void DeformationGraph::addPrior(const gtsam::Key& key,
   if (temp) {
     temp_nfg_->add(measurement);
   } else {
-    inliers_->insert(nfg_->size());
+    known_inliers_->insert(nfg_->size());
     nfg_->add(measurement);
   }
 }
@@ -341,7 +342,7 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
                                      const gtsam::Pose3& meas,
                                      double variance,
                                      bool temp,
-                                     bool inlier) {
+                                     bool known_inlier) {
   gtsam::Vector6 variances;
   variances.head<3>().setConstant(1e-02 * variance);
   variances.tail<3>().setConstant(variance);
@@ -351,8 +352,8 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
     temp_nfg_->add(gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
     return;
   }
-  if (inlier) {
-    inliers_->insert(nfg_->size());
+  if (known_inlier) {
+    known_inliers_->insert(nfg_->size());
   }
   nfg_->add(gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
 
