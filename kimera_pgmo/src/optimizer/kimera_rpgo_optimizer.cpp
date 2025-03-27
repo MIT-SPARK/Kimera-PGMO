@@ -24,6 +24,7 @@ void declare_config(KimeraRpgoOptimizer::Config& config) {
               {SolverConfig::LeastSquaresOption::GN, "GN"},
               {SolverConfig::LeastSquaresOption::DOGLEG, "DOGLEG"}});
   field(config.verbosity, "verbosity");
+  field(config.print_summary, "print_summary");
   field(config.use_4dof_optim, "use_4dof_optim");
   field(config.use_gnc, "use_gnc");
   {
@@ -62,6 +63,7 @@ void declare_config(KimeraRpgoOptimizer::Config& config) {
 KimeraRpgoOptimizer::KimeraRpgoOptimizer(const Config& config)
     : config(config::checkValid(config)) {
   // Initialize RPGO
+  rpgo_config_.print_summary = config.print_summary;
   rpgo_config_.solver_config.least_squares_option = config.solver;
   rpgo_config_.solver_config.verbosity = config.verbosity;
   rpgo_config_.solver_config.setLeastSquaresParamsDefault();
