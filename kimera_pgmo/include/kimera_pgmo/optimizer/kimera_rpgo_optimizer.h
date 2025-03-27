@@ -16,6 +16,7 @@ class KimeraRpgoOptimizer : public Optimizer {
     kimera_rpgo::GncParams gnc;
     bool use_pcm = false;
     kimera_rpgo::PcmConfig pcm;
+    bool print_summary = true;
     int verbosity = 0;
   } const config;
 
