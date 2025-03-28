@@ -7,7 +7,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_compile_options(-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter)
 
-find_package(config_utilities REQUIRED)
 find_package(kimera_pgmo REQUIRED)
 find_package(
   catkin REQUIRED
@@ -35,7 +34,7 @@ catkin_package(
   LIBRARIES
   ${PROJECT_NAME})
 
-add_library(${PROJECT_NAME}  
+add_library(${PROJECT_NAME}
   src/conversion/gtsam_conversions.cpp
   src/kimera_pgmo.cpp
   src/conversion/mesh_conversion.cpp
@@ -46,38 +45,33 @@ add_library(${PROJECT_NAME}
 target_include_directories(${PROJECT_NAME} PUBLIC include ${catkin_INCLUDE_DIRS})
 target_link_libraries(
   ${PROJECT_NAME}
-  PUBLIC ${catkin_LIBRARIES} kimera_pgmo::kimera_pgmo 
-  PRIVATE config_utilities::config_utilities)
+  PUBLIC ${catkin_LIBRARIES} kimera_pgmo::kimera_pgmo)
 
 add_executable(kimera_pgmo_node app/kimera_pgmo_node.cpp)
-target_link_libraries(kimera_pgmo_node ${PROJECT_NAME}
-                      config_utilities::config_utilities)
+target_link_libraries(kimera_pgmo_node ${PROJECT_NAME})
 
 add_executable(mesh_frontend_node app/mesh_frontend_node.cpp)
-target_link_libraries(mesh_frontend_node ${PROJECT_NAME}
-                      config_utilities::config_utilities)
+target_link_libraries(mesh_frontend_node ${PROJECT_NAME})
 
 add_executable(mesh_publisher_node app/mesh_publisher_node.cpp)
-target_link_libraries(mesh_publisher_node ${PROJECT_NAME}
-                      config_utilities::config_utilities)
+target_link_libraries(mesh_publisher_node ${PROJECT_NAME})
 
 add_executable(mesh_trajectory_deformer app/mesh_trajectory_deformer.cpp)
-target_link_libraries(mesh_trajectory_deformer ${PROJECT_NAME}
-                      config_utilities::config_utilities)
+target_link_libraries(mesh_trajectory_deformer ${PROJECT_NAME})
 
 # Optionally build the voxblox frontend if voxblox_msgs is present.
 find_package(voxblox_msgs QUIET)
 if(voxblox_msgs_FOUND)
   message(STATUS "Building with voxblox_msgs support")
-  add_executable(voxblox_mesh_frontend_node 
-    app/voxblox_mesh_frontend_node.cpp 
+  add_executable(voxblox_mesh_frontend_node
+    app/voxblox_mesh_frontend_node.cpp
     src/conversion/voxblox_msg_conversion.cpp
     src/voxblox_mesh_frontend.cpp
     src/voxblox_msg_interface.cpp
   )
-  target_link_libraries(voxblox_mesh_frontend_node 
+  target_link_libraries(voxblox_mesh_frontend_node
     PUBLIC ${PROJECT_NAME}
-    PRIVATE config_utilities::config_utilities ${voxblox_msgs_LIBRARIES})
+    PRIVATE ${voxblox_msgs_LIBRARIES})
 endif()
 
 if(CATKIN_ENABLE_TESTING)

@@ -1,0 +1,10 @@
+optimizer:
+  verbosity: 1
+  type: KimeraRpgoOptimizer
+  solver: LM
+  gnc:
+    fix_odom: false
+    inlier_probability: 0.9
+    mu_step: 1.6
+    max_iterations: 100
+

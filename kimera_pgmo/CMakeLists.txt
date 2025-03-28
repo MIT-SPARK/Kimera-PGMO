@@ -50,11 +50,19 @@ target_include_directories(
          ${PCL_INCLUDE_DIRS})
 target_link_libraries(
   ${PROJECT_NAME}
-  PUBLIC ${PCL_LIBRARIES} Eigen3::Eigen kimera_rpgo::kimera_rpgo gtsam
-         pose_graph_tools::pose_graph_tools spatial_hash::spatial_hash
-  PRIVATE "$<BUILD_INTERFACE:config_utilities::config_utilities>")
+  PUBLIC ${PCL_LIBRARIES}
+         Eigen3::Eigen
+         kimera_rpgo::kimera_rpgo
+         gtsam
+         pose_graph_tools::pose_graph_tools
+         spatial_hash::spatial_hash
+         config_utilities::config_utilities
+)
 set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
 add_library(kimera_pgmo::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
+
+add_executable(offline_deformation app/offline_deformation.cpp)
+target_link_libraries(offline_deformation ${PROJECT_NAME} gflags)
 
 if(KIMERA_PGMO_ENABLE_TESTS)
   enable_testing()
