@@ -62,7 +62,7 @@ set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
 add_library(kimera_pgmo::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
 add_executable(offline_deformation app/offline_deformation.cpp)
-target_link_libraries(offline_deformation ${PROJECT_NAME} gflags)
+target_link_libraries(offline_deformation ${PROJECT_NAME})
 
 if(KIMERA_PGMO_ENABLE_TESTS)
   enable_testing()
