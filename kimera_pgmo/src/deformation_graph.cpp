@@ -173,6 +173,10 @@ void DeformationGraph::processBetweenAsMeshConnections(
     auto s_T_source = w_T_s.between(w_T_source);
     for (const Vertex& d : dest) {
       const gtsam::Symbol vertex_d(dest_prefix, d);
+      // Do not add edge to self
+      if (vertex_s == vertex_d) {
+        continue;
+      }
       // For now we do not duplicate deformation graph edges even if there are multiple
       // between factors connecting them. Hence the adjacency book-keeping.
       if (adjacency_map_.count(vertex_s) &&

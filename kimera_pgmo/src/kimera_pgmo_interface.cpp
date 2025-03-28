@@ -385,6 +385,7 @@ bool KimeraPgmoInterface::addMeshMeshConnections(
           GetVertexPrefix(prev_robot_id),
           GetVertexPrefix(curr_robot_id),
           config_.mesh_edge_variance,
+          false, // Not temp
           as_inliers);
     }
 
