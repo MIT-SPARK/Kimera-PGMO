@@ -3,6 +3,7 @@ include(CMakeFindDependencyMacro)
 
 get_filename_component(kimera_pgmo_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 
+find_dependency(config_utilities REQUIRED)
 find_dependency(Eigen3 REQUIRED)
 find_dependency(GTSAM REQUIRED)
 find_dependency(kimera_rpgo REQUIRED)

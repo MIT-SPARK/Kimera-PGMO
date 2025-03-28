@@ -36,8 +36,10 @@ using EdgeType = pose_graph_tools::PoseGraphEdge::Type;
 DeformationGraph::DeformationGraph()
     : verbose_(true),
       nfg_(new gtsam::NonlinearFactorGraph),
+      known_inliers_(new std::set<size_t>),
       values_(new gtsam::Values),
       temp_nfg_(new gtsam::NonlinearFactorGraph),
+      temp_known_inliers_(new std::set<size_t>),
       temp_values_(new gtsam::Values),
       inlier_weights_(new std::vector<double>),
       temp_inlier_weights_(new std::vector<double>),
@@ -118,8 +120,12 @@ void DeformationGraph::processMeshGraph(const pose_graph_tools::PoseGraph& mesh_
     }
 
     gtsam::Pose3 from_T_to(edge.pose.matrix());
-    addDeformationEdge(
-        from_key, to_key, from_T_to.translation(), variance_map.at(edge.type));
+    addDeformationEdge(from_key,
+                       to_key,
+                       from_T_to.translation(),
+                       variance_map.at(edge.type),
+                       false,
+                       true);
   }
 }
 
@@ -144,9 +150,9 @@ void DeformationGraph::processNodeValence(const gtsam::Key& key,
                                    vertex_positions_[valence_prefix].at(v));
 
     addDeformationEdge(
-        key, vertex, node_pose, vertex_pose.translation(), variance, temp);
+        key, vertex, node_pose, vertex_pose.translation(), variance, temp, true);
     addDeformationEdge(
-        vertex, key, vertex_pose, node_pose.translation(), variance, temp);
+        vertex, key, vertex_pose, node_pose.translation(), variance, temp, true);
   }
 }
 
@@ -159,13 +165,18 @@ void DeformationGraph::processBetweenAsMeshConnections(
     const char& source_prefix,
     const char& dest_prefix,
     double variance,
-    bool temp) {
+    bool temp,
+    bool known_inliers) {
   for (const Vertex& s : source) {
     const gtsam::Symbol vertex_s(source_prefix, s);
     auto w_T_s = gtsam::Pose3(gtsam::Rot3(), vertex_positions_[source_prefix].at(s));
     auto s_T_source = w_T_s.between(w_T_source);
     for (const Vertex& d : dest) {
       const gtsam::Symbol vertex_d(dest_prefix, d);
+      // Do not add edge to self
+      if (vertex_s == vertex_d) {
+        continue;
+      }
       // For now we do not duplicate deformation graph edges even if there are multiple
       // between factors connecting them. Hence the adjacency book-keeping.
       if (adjacency_map_.count(vertex_s) &&
@@ -176,8 +187,10 @@ void DeformationGraph::processBetweenAsMeshConnections(
       auto d_T_dest = w_T_d.between(w_T_dest);
       auto s_T_d = s_T_source.compose(source_T_dest).compose(d_T_dest.inverse());
       auto d_T_s = s_T_d.inverse();
-      addDeformationEdge(vertex_s, vertex_d, s_T_d.translation(), variance, temp);
-      addDeformationEdge(vertex_d, vertex_s, d_T_s.translation(), variance, temp);
+      addDeformationEdge(
+          vertex_s, vertex_d, s_T_d.translation(), variance, temp, known_inliers);
+      addDeformationEdge(
+          vertex_d, vertex_s, d_T_s.translation(), variance, temp, known_inliers);
     }
   }
 }
@@ -187,7 +200,8 @@ void DeformationGraph::processPointMeasurement(const gtsam::Key& from_key,
                                                const gtsam::Pose3& from_pose,
                                                const gtsam::Point3& to_point,
                                                double variance,
-                                               bool temp) {
+                                               bool temp,
+                                               bool known_inlier) {
   if (!values_->exists(to_key) && !temp_values_->exists(to_key)) {
     if (temp) {
       temp_values_->insert(to_key, gtsam::Pose3(gtsam::Rot3(), to_point));
@@ -196,7 +210,8 @@ void DeformationGraph::processPointMeasurement(const gtsam::Key& from_key,
     }
   }
 
-  addDeformationEdge(from_key, to_key, from_pose, to_point, variance, temp);
+  addDeformationEdge(
+      from_key, to_key, from_pose, to_point, variance, temp, known_inlier);
 }
 
 void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
@@ -204,7 +219,8 @@ void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
                                           const gtsam::Pose3& from_pose,
                                           const gtsam::Point3& to_point,
                                           double variance,
-                                          bool temp) {
+                                          bool temp,
+                                          bool known_inlier) {
   // Define noise. Hardcoded for now
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(3, variance);
@@ -213,8 +229,14 @@ void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
   auto& adjacent_keys = adjacency_map_[from_key];
   adjacent_keys.insert(to_key);
   if (temp) {
+    if (known_inlier) {
+      temp_known_inliers_->insert(temp_nfg_->size());
+    }
     temp_nfg_->add(new_edge);
     return;
+  }
+  if (known_inlier) {
+    known_inliers_->insert(nfg_->size());
   }
   nfg_->add(new_edge);
 }
@@ -223,7 +245,8 @@ void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
                                           const gtsam::Key& to_key,
                                           const gtsam::Point3& measurement,
                                           double variance,
-                                          bool temp) {
+                                          bool temp,
+                                          bool known_inlier) {
   // Define noise. Hardcoded for now
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(3, variance);
@@ -232,8 +255,14 @@ void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
   auto& adjacent_keys = adjacency_map_[from_key];
   adjacent_keys.insert(to_key);
   if (temp) {
+    if (known_inlier) {
+      temp_known_inliers_->insert(temp_nfg_->size());
+    }
     temp_nfg_->add(new_edge);
     return;
+  }
+  if (known_inlier) {
+    known_inliers_->insert(nfg_->size());
   }
   nfg_->add(new_edge);
 }
@@ -241,7 +270,8 @@ void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
 void DeformationGraph::addPrior(const gtsam::Key& key,
                                 const gtsam::Pose3& pose,
                                 double variance,
-                                bool temp) {
+                                bool temp,
+                                bool known_inlier) {
   gtsam::Vector6 variances;
   variances.head<3>().setConstant(1e-02 * variance);
   variances.tail<3>().setConstant(variance);
@@ -249,8 +279,14 @@ void DeformationGraph::addPrior(const gtsam::Key& key,
 
   gtsam::PriorFactor<gtsam::Pose3> measurement(key, pose, noise);
   if (temp) {
+    if (known_inlier) {
+      temp_known_inliers_->insert(temp_nfg_->size());
+    }
     temp_nfg_->add(measurement);
   } else {
+    if (known_inlier) {
+      known_inliers_->insert(nfg_->size());
+    }
     nfg_->add(measurement);
   }
 }
@@ -321,15 +357,22 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
                                      const gtsam::Key& key_to,
                                      const gtsam::Pose3& meas,
                                      double variance,
-                                     bool temp) {
+                                     bool temp,
+                                     bool known_inlier) {
   gtsam::Vector6 variances;
   variances.head<3>().setConstant(1e-02 * variance);
   variances.tail<3>().setConstant(variance);
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Diagonal::Variances(variances);
   if (temp) {
+    if (known_inlier) {
+      temp_known_inliers_->insert(temp_nfg_->size());
+    }
     temp_nfg_->add(gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
     return;
+  }
+  if (known_inlier) {
+    known_inliers_->insert(nfg_->size());
   }
   nfg_->add(gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
 
@@ -391,6 +434,10 @@ bool DeformationGraph::addNewMeshNode(const gtsam::Key& node_key,
   }
   vertex_positions_[node_prefix].push_back(node_pose.translation());
   vertex_stamps_[node_prefix].push_back(node_stamp);
+  // TODO(Yun) temporary hack, check if this assumption always valid even with poses
+  if (values_->size() == 0) {
+    addPrior(node_key, node_pose, 1e-3, false, true);
+  }
   values_->insert(node_key, node_pose);
   return true;
 }
@@ -457,7 +504,7 @@ void DeformationGraph::processNewMeshEdgesAndNodes(
     const gtsam::Pose3& pose_from = mesh_nodes.at<gtsam::Pose3>(e.first);
     const gtsam::Point3& point_to = mesh_nodes.at<gtsam::Pose3>(e.second).translation();
 
-    addDeformationEdge(e.first, e.second, pose_from, point_to, variance);
+    addDeformationEdge(e.first, e.second, pose_from, point_to, variance, false, true);
   }
 }
 
@@ -669,6 +716,10 @@ bool DeformationGraph::tryConvertFactorToPriorEdge(gtsam::NonlinearFactor* facto
   }
 
   const gtsam::Symbol key(factor_ptr->key());
+  if (!robot_prefix_to_id.count(key.chr())) {
+    return false;
+  }
+
   edge.key_from = key.index();
   edge.key_to = key.index();
   edge.robot_from = robot_prefix_to_id.at(key.chr());

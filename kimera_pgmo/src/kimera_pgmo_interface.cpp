@@ -142,7 +142,6 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
     Path& initial_trajectory,
     std::vector<Timestamp>& node_timestamps) {
   std::map<Timestamp, gtsam::Key> stamped_nodes;
-  std::vector<gtsam::Key> nodes;
   std::vector<gtsam::Pose3> odom_measurements;
 
   // if first node initialize
@@ -160,7 +159,6 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
 
     keyed_stamps_.insert({key_symb, init_node.stamp_ns});
     stamped_nodes[init_node.stamp_ns] = key_symb;
-    nodes.push_back(key_symb);
 
     // Add to trajectory and timestamp map
     initial_trajectory.push_back(init_pose);
@@ -207,8 +205,17 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
 
       node_timestamps.push_back(pg_edge.stamp_ns);
       keyed_stamps_.insert({to_key, pg_edge.stamp_ns});
+
+      // For mesh only also need to add the previous node to stamped_nodes for
+      // connectivity
+      if (config_.mode == RunMode::MESH_ONLY) {
+        auto from_stamp = keyed_stamps_.at(from_key);
+        if (!stamped_nodes.count(from_stamp)) {
+          stamped_nodes[from_stamp] = from_key;
+        }
+      }
+
       stamped_nodes[pg_edge.stamp_ns] = to_key;
-      nodes.push_back(to_key);
       odom_measurements.push_back(measure);
 
       if (config_.mode == RunMode::MESH_ONLY) {
@@ -236,11 +243,16 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
         deformation_graph_->processNewBetween(
             from_key, to_key, measure, config_.lc_variance);
       } else if (config_.mode == RunMode::MESH_ONLY) {
-        if (!addMeshMeshConnections(
-                {from_key, to_key}, {measure}, initial_trajectory, false)) {
+        const auto& from_stamp = keyed_stamps_.at(from_key);
+        const auto& to_stamp = keyed_stamps_.at(to_key);
+        if (!addMeshMeshConnections({{from_stamp, from_key}, {to_stamp, to_key}},
+                                    {measure},
+                                    initial_trajectory,
+                                    false)) {  // not necessarily inliers
           SPARK_LOG(WARNING)
               << "Failed to add mesh-to-mesh connections for loop closure.";
         }
+        deformation_graph_->setRecalculateVertices();
       }
       auto& loop_closures_to = loop_closures_[from_key];
       loop_closures_to.insert(to_key);
@@ -253,19 +265,19 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
     }
   }
 
-  // Find pose to mesh connections
-  updatePoseMeshConnections(stamped_nodes, new_mesh_indices, new_mesh_index_stamps);
-
   if (config_.mode != RunMode::MESH_ONLY) {
-    if (!addPoseMeshConnections(nodes)) {
-      if (nodes.size() > 0 && new_mesh_indices.size() > 0) {
+    if (!addPoseMeshConnections(stamped_nodes)) {
+      if (stamped_nodes.size() > 0 && new_mesh_indices.size() > 0) {
         SPARK_LOG(WARNING) << "KimeraPgmo: Partial mesh not connected to pose graph.";
       }
       return ProcessPoseGraphStatus::MESH_DISCONNECTED;
     }
   } else {
-    if (!addMeshMeshConnections(nodes, odom_measurements, initial_trajectory, true)) {
-      if (nodes.size() > 0 && new_mesh_indices.size() > 0) {
+    if (!addMeshMeshConnections(stamped_nodes,
+                                odom_measurements,
+                                initial_trajectory,
+                                true)) {  // as inliers
+      if (stamped_nodes.size() > 0 && new_mesh_indices.size() > 0) {
         SPARK_LOG(WARNING) << "KimeraPgmo: Partial mesh not connected to pose graph.";
       }
       return ProcessPoseGraphStatus::MESH_DISCONNECTED;
@@ -274,112 +286,115 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
   return ProcessPoseGraphStatus::SUCCESS;
 }
 
-void KimeraPgmoInterface::updatePoseMeshConnections(
-    const std::map<Timestamp, gtsam::Key>& stamped_nodes,
-    const std::vector<size_t>& new_mesh_indices,
-    const std::vector<Timestamp>& new_mesh_index_stamps) {
-  if (stamped_nodes.empty() || new_mesh_indices.size() == 0) {
-    return;
+bool KimeraPgmoInterface::findClosestMeshIndices(const size_t& robot_id,
+                                                 const Timestamp& stamp,
+                                                 std::vector<size_t>& indices) {
+  if (!deformation_graph_->hasVertexKey(GetVertexPrefix(robot_id))) {
+    return false;
+  }
+  const auto& mesh_stamps =
+      deformation_graph_->getVertexStamps(GetVertexPrefix(robot_id));
+  if (mesh_stamps.empty()) {
+    return false;
   }
 
-  for (size_t i = 0; i < new_mesh_indices.size(); i++) {
-    size_t mesh_idx = new_mesh_indices[i];
-    Timestamp mesh_idx_stamp = new_mesh_index_stamps[i];
+  // TODO(Yun): Implicit assumption here that the mesh stamps are ordered (normally are
+  // since that's how processIncrementalMeshGraph works) but might need to account for
+  // out-of-order timestamps
+  auto lower = std::lower_bound(mesh_stamps.begin(), mesh_stamps.end(), stamp);
+  size_t idx = std::distance(mesh_stamps.begin(), lower);
 
-    auto it = stamped_nodes.lower_bound(mesh_idx_stamp);
-    if (it != stamped_nodes.begin()) {
-      auto prev_it = std::prev(it);
-      if (it == stamped_nodes.end() ||
-          (mesh_idx_stamp - prev_it->first) < it->first - mesh_idx_stamp) {
-        it = prev_it;
-      }
+  size_t closest;
+  if (idx == 0) {
+    closest = mesh_stamps.front();
+  } else if (idx == mesh_stamps.size()) {
+    closest = mesh_stamps.back();
+  } else {
+    size_t prev = mesh_stamps[idx - 1];
+    size_t curr = mesh_stamps[idx];
+
+    closest = (stamp - prev <= curr - stamp) ? prev : curr;
+  }
+
+  // Collect other indices with same value
+  for (size_t i = 0; i < mesh_stamps.size(); i++) {
+    if (mesh_stamps[i] == closest) {
+      indices.push_back(i);
     }
-
-    auto& valences = node_valences_[it->second];
-    valences.push_back(mesh_idx);
   }
+  return true;
 }
 
-bool KimeraPgmoInterface::addPoseMeshConnections(const std::vector<gtsam::Key>& nodes) {
+bool KimeraPgmoInterface::addPoseMeshConnections(
+    const std::map<Timestamp, gtsam::Key>& stamped_nodes) {
   bool connection = false;
-  for (const auto& key : nodes) {
-    if (!node_valences_.count(key)) {
+  for (const auto& [stamp, key] : stamped_nodes) {
+    const auto robot_id = robot_prefix_to_id.at(gtsam::Symbol(key).chr());
+    std::vector<size_t> vertex_indices;
+    if (!findClosestMeshIndices(robot_id, stamp, vertex_indices)) {
+      continue;
+    }
+
+    if (vertex_indices.empty()) {
       continue;
     }
     connection = true;
-    auto robot_id = robot_prefix_to_id.at(gtsam::Symbol(key).chr());
-    deformation_graph_->processNodeValence(key,
-                                           node_valences_[key],
-                                           GetVertexPrefix(robot_id),
-                                           config_.pose_mesh_variance);
+    deformation_graph_->processNodeValence(
+        key, vertex_indices, GetVertexPrefix(robot_id), config_.pose_mesh_variance);
   }
   return connection;
 }
 
 bool KimeraPgmoInterface::addMeshMeshConnections(
-    const std::vector<gtsam::Key>& nodes,
+    const std::map<Timestamp, gtsam::Key>& stamped_nodes,
     const std::vector<gtsam::Pose3>& measurements,
     const Path& initial_trajectory,
-    bool search_previous) {
-  // Try find the last node that had vertices connected
-  gtsam::Symbol prev_node;
-  size_t prev_robot_id;
-  std::vector<size_t> prev_valences;
-  gtsam::Pose3 prev_pose;
-  gtsam::Pose3 prev_T_curr;
-  if (search_previous) {
-    auto it = node_valences_.lower_bound(*nodes.begin());
-    // Find previous key with valences
-    while (it != node_valences_.begin()) {
-      --it;
-      if (!it->second.empty()) {
-        prev_node = it->first;
-        prev_valences = it->second;
-        prev_robot_id = robot_prefix_to_id.at(prev_node.chr());
-        prev_pose = initial_trajectory.at(prev_node.index());
-        prev_T_curr = prev_pose.between(
-            initial_trajectory.at(gtsam::Symbol(*nodes.begin()).index()));
-        break;
-      }
-    }
+    bool as_inliers) {
+  if (stamped_nodes.size() == 0) {
+    return true;
   }
+
+  auto first_node_it = stamped_nodes.begin();
+  gtsam::Symbol prev_node = gtsam::Symbol(first_node_it->second);
+  Timestamp prev_stamp = first_node_it->first;
+  size_t prev_robot_id = robot_prefix_to_id.at(prev_node.chr());
+  std::vector<size_t> prev_valences;
+  gtsam::Pose3 prev_pose = initial_trajectory.at(prev_node.index());
+  findClosestMeshIndices(prev_robot_id, prev_stamp, prev_valences);
 
   bool connection = false;
   size_t measurement_idx = 0;
   // Iterate through current nodes
-  for (const auto& key : nodes) {
-    if (!node_valences_.count(key)) {
-      if (measurement_idx < measurements.size()) {
-        prev_T_curr.compose(measurements[measurement_idx++]);
-      }
-      continue;
-    }
+  for (auto node_it = std::next(first_node_it); node_it != stamped_nodes.end();
+       ++node_it) {
+    auto [curr_stamp, curr_key] = *node_it;
+    auto curr_node = gtsam::Symbol(curr_key);
+    auto curr_robot_id = robot_prefix_to_id.at(curr_node.chr());
+    auto curr_pose = initial_trajectory.at(curr_node.index());
+    std::vector<size_t> curr_valences;
+    findClosestMeshIndices(curr_robot_id, curr_stamp, curr_valences);
 
-    auto key_symb = gtsam::Symbol(key);
-    auto robot_id = robot_prefix_to_id.at(key_symb.chr());
-    const auto& current_valences = node_valences_.at(key);
-    // TODO(Yun) maybe just make this single robot
-    // Since initial_trajectory implies single robot
-    auto current_pose = initial_trajectory.at(key_symb.index());
-    if (!prev_valences.empty()) {
+    if (!curr_valences.empty() && !prev_valences.empty()) {
       connection = true;
       deformation_graph_->processBetweenAsMeshConnections(
           prev_pose,
           prev_valences,
-          current_pose,
-          current_valences,
-          prev_T_curr,
-          GetVertexPrefix(robot_id),
+          curr_pose,
+          curr_valences,
+          measurements.at(measurement_idx),
           GetVertexPrefix(prev_robot_id),
-          config_.mesh_edge_variance);
+          GetVertexPrefix(curr_robot_id),
+          config_.mesh_edge_variance,
+          false, // Not temp
+          as_inliers);
     }
-    prev_valences = current_valences;
-    prev_node = key;
-    prev_robot_id = robot_id;
-    prev_pose = initial_trajectory.at(key_symb.index());
-    if (measurement_idx < measurements.size()) {
-      prev_T_curr = measurements[measurement_idx++];
-    }
+
+    prev_node = std::move(curr_node);
+    prev_stamp = curr_stamp;
+    prev_robot_id = curr_robot_id;
+    prev_pose = std::move(curr_pose);
+    prev_valences = std::move(curr_valences);
+    measurement_idx++;
   }
   return connection;
 }
@@ -464,7 +479,8 @@ void KimeraPgmoInterface::optimize() {
   pgo_->update(*deformation_graph_->getFactors(),
                *deformation_graph_->getValues(),
                deformation_graph_->getTempFactors(),
-               deformation_graph_->getTempValues());
+               deformation_graph_->getTempValues(),
+               deformation_graph_->getKnownInlierSet());
   auto estimates = pgo_->getEstimates();
   auto temp_estimates = pgo_->getTempEstimates();
   auto inlier_weights = pgo_->getInlierWeights();
