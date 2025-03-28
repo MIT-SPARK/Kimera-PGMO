@@ -298,6 +298,9 @@ bool KimeraPgmoInterface::findClosestMeshIndices(const size_t& robot_id,
     return false;
   }
 
+  // TODO(Yun): Implicit assumption here that the mesh stamps are ordered (normally are
+  // since that's how processIncrementalMeshGraph works) but might need to account for
+  // out-of-order timestamps
   auto lower = std::lower_bound(mesh_stamps.begin(), mesh_stamps.end(), stamp);
   size_t idx = std::distance(mesh_stamps.begin(), lower);
 

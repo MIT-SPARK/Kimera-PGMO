@@ -602,7 +602,7 @@ class DeformationGraph {
                           const gtsam::Point3& measurement,
                           double variance,
                           bool temp = false,
-                          bool knwon_inlier = false);
+                          bool known_inlier = false);
 
   bool addNewMeshNode(const gtsam::Key& node_key,
                       const gtsam::Pose3& node_pose,
