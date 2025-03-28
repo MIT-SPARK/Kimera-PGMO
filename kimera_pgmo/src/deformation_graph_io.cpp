@@ -168,6 +168,20 @@ void DeformationGraph::save(const std::string& filename) const {
     }
   }
 
+  // save known inliers
+  stream << "KNOWN_INLIERS";
+  for (const auto& idx : *known_inliers_) {
+    stream << " " << idx;
+  }
+  stream << std::endl;
+
+  // save temporary known inliers
+  stream << "TEMP_KNOWN_INLIERS";
+  for (const auto& idx : *temp_known_inliers_) {
+    stream << " " << idx;
+  }
+  stream << std::endl;
+
   // save the initial positions and timestamps of the mesh vertices
   for (const auto& pfx_vertices : vertex_positions_) {
     streamVertices(pfx_vertices.first,
@@ -302,6 +316,16 @@ void DeformationGraph::load(const std::string& filename,
         gtsam::Pose3 meas(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
         gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
         nfg_->add(gtsam::PriorFactor<gtsam::Pose3>(gtsam_key, meas, noise));
+      }
+    } else if (tag == "KNOWN_INLIERS") {
+      size_t idx;
+      while (ss >> idx) {
+        known_inliers_->insert(idx);
+      }
+    } else if (tag == "TEMP_KNOWN_INLIERS") {
+      size_t idx;
+      while (ss >> idx) {
+        temp_known_inliers_->insert(idx);
       }
     } else if (tag == "VERTEX") {
       size_t key;
