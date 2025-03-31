@@ -501,8 +501,8 @@ void DeformationGraph::processNewMeshEdgesAndNodes(
     if (!checkNewMeshEdge(e.first, e.second)) {
       SPARK_LOG(FATAL) << "Error adding new mesh edge.";
     }
-    const gtsam::Pose3& pose_from = mesh_nodes.at<gtsam::Pose3>(e.first);
-    const gtsam::Point3& point_to = mesh_nodes.at<gtsam::Pose3>(e.second).translation();
+    const gtsam::Pose3 pose_from = mesh_nodes.at<gtsam::Pose3>(e.first);
+    const gtsam::Point3 point_to = mesh_nodes.at<gtsam::Pose3>(e.second).translation();
 
     addDeformationEdge(e.first, e.second, pose_from, point_to, variance, false, true);
   }
