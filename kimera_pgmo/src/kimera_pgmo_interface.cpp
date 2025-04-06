@@ -485,10 +485,13 @@ void KimeraPgmoInterface::optimize() {
   auto temp_estimates = pgo_->getTempEstimates();
   auto inlier_weights = pgo_->getInlierWeights();
   auto temp_inlier_weights = pgo_->getTempInlierWeights();
-  deformation_graph_->updateValues(estimates);
-  deformation_graph_->updateTempValues(temp_estimates);
-  deformation_graph_->updateInlierWeights(inlier_weights);
-  deformation_graph_->updateTempInlierWeights(temp_inlier_weights);
+  {
+    std::unique_lock<std::mutex> deformation_graph_lock(deformation_graph_->getMutex());
+    deformation_graph_->updateValues(estimates);
+    deformation_graph_->updateTempValues(temp_estimates);
+    deformation_graph_->updateInlierWeights(inlier_weights);
+    deformation_graph_->updateTempInlierWeights(temp_inlier_weights);
+  }
 }
 
 bool KimeraPgmoInterface::optimizeFullMesh(
