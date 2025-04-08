@@ -476,15 +476,26 @@ void KimeraPgmoInterface::processOptimizedPath(const Path& path, size_t robot_id
 }
 
 void KimeraPgmoInterface::optimize() {
-  pgo_->update(*deformation_graph_->getFactors(),
-               *deformation_graph_->getValues(),
-               deformation_graph_->getTempFactors(),
-               deformation_graph_->getTempValues(),
-               deformation_graph_->getKnownInlierSet());
+  gtsam::NonlinearFactorGraph factors, temp_factors;
+  gtsam::Values initial, temp_initial;
+  std::set<size_t> known_inliers, temp_known_inliers;
+  {
+    std::unique_lock<std::mutex> deformation_graph_lock(deformation_graph_->getMutex());
+    factors = deformation_graph_->getFactorsCopy();
+    initial = deformation_graph_->getValuesCopy();
+    temp_factors = deformation_graph_->getTempFactorsCopy();
+    temp_initial = deformation_graph_->getTempValuesCopy();
+    known_inliers = deformation_graph_->getKnownInlierSetCopy();
+    temp_known_inliers = deformation_graph_->getTempKnownInlierSetCopy();
+  }
+
+  pgo_->update(
+      factors, initial, known_inliers, temp_factors, temp_initial, temp_known_inliers);
   auto estimates = pgo_->getEstimates();
   auto temp_estimates = pgo_->getTempEstimates();
   auto inlier_weights = pgo_->getInlierWeights();
   auto temp_inlier_weights = pgo_->getTempInlierWeights();
+
   {
     std::unique_lock<std::mutex> deformation_graph_lock(deformation_graph_->getMutex());
     deformation_graph_->updateValues(estimates);

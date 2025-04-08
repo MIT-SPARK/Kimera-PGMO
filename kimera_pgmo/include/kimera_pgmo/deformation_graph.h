@@ -418,33 +418,63 @@ class DeformationGraph {
    */
   const gtsam::Values* getValues() const { return values_.get(); }
 
-  /*! \brief Gets the factors added to the backend, minus the detected outliers
+  /*! \brief Gets the estimated values since last optimization as a copy
+   *  - outputs last estimated values as GTSAM Values
+   */
+  const gtsam::Values getValuesCopy() const { return *values_; }
+
+  /*! \brief Gets the factors added to the backend
    *  - outputs the factors as a GTSAM NonlinearFactorGraph
    */
   const gtsam::NonlinearFactorGraph* getFactors() const { return nfg_.get(); }
 
+  /*! \brief Gets the factors added to the backend as a copy
+   *  - outputs the factors as a GTSAM NonlinearFactorGraph
+   */
+  const gtsam::NonlinearFactorGraph getFactorsCopy() const { return *nfg_; }
+
   /*! \brief Gets the set of known inliers
    *  - outputs the set of inlier indices
-   *  TODO(Yun) currently not supported for temp factors
    */
   const std::set<size_t>* getKnownInlierSet() const { return known_inliers_.get(); }
+
+  /*! \brief Gets the set of known inliers as a copy
+   *  - outputs the set of inlier indices
+   */
+  const std::set<size_t> getKnownInlierSetCopy() const { return *known_inliers_; }
 
   /*! \brief Gets the temp values since last optimization
    *  - outputs last temp values as GTSAM Values
    */
   const gtsam::Values* getTempValues() const { return temp_values_.get(); }
 
-  /*! \brief Gets the temp factors added to the backend, minus the detected
-   * outliers
+  /*! \brief Gets the temp values since last optimization as a copy
+   *  - outputs last temp values as GTSAM Values
+   */
+  const gtsam::Values getTempValuesCopy() const { return *temp_values_; }
+
+  /*! \brief Gets the temp factors added to the backend as a copy
    *  - outputs the factors as a GTSAM NonlinearFactorGraph
    */
   const gtsam::NonlinearFactorGraph* getTempFactors() const { return temp_nfg_.get(); }
+
+  /*! \brief Gets the temp factors added to the backend as a copy
+   *  - outputs the factors as a GTSAM NonlinearFactorGraph
+   */
+  const gtsam::NonlinearFactorGraph getTempFactorsCopy() const { return *temp_nfg_; }
 
   /*! \brief Gets the set of temp known inliers
    *  - outputs the set of inlier indices
    */
   const std::set<size_t>* getTempKnownInlierSet() const {
     return temp_known_inliers_.get();
+  }
+
+  /*! \brief Gets copy of the set of temp known inliers
+   *  - outputs the set of inlier indices
+   */
+  const std::set<size_t> getTempKnownInlierSetCopy() const {
+    return *temp_known_inliers_;
   }
 
   /*! \brief Gets the inlier weights since last optimization

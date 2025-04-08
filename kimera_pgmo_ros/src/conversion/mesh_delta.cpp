@@ -81,6 +81,8 @@ void TypeAdapter<DeltaPgmo, DeltaMsg>::convert_to_custom(const ros_message_type&
   delta = DeltaPgmo(msg.vertex_start, msg.face_start);
   delta.stamp_updates = msg.stamp_updates;
   delta.semantic_updates = msg.semantic_updates;
+  delta.timestamp_ns = static_cast<uint64_t>(msg.header.stamp.nanosec) * 1e+9 +
+                       static_cast<uint64_t>(msg.header.stamp.nanosec);
 
   assert(msg.vertex_updates.size() == msg.vertex_updates_colors.size());
 

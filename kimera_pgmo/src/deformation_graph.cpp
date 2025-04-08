@@ -411,7 +411,7 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
 
   // if it's a loop closure factor
   if (key_to != key_from + 1) {
-    SPARK_LOG(INFO) << "DeformationGraph: Added loop closure";
+    SPARK_LOG(DEBUG) << "DeformationGraph: Added loop closure";
     num_loopclosures_++;
     recalculate_vertices_ = true;
   }
