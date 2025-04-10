@@ -39,11 +39,12 @@ class OfflineDeformation {
   }
 
   void run() {
-    pgo_->update(*deformation_graph_->getFactors(),
-                 *deformation_graph_->getValues(),
-                 deformation_graph_->getTempFactors(),
-                 deformation_graph_->getTempValues(),
-                 deformation_graph_->getKnownInlierSet());
+    pgo_->update(deformation_graph_->getFactorsCopy(),
+                 deformation_graph_->getValuesCopy(),
+                 deformation_graph_->getKnownInlierSetCopy(),
+                 deformation_graph_->getTempFactorsCopy(),
+                 deformation_graph_->getTempValuesCopy(),
+                 deformation_graph_->getTempKnownInlierSetCopy());
     auto estimates = pgo_->getEstimates();
     auto temp_estimates = pgo_->getTempEstimates();
     auto inlier_weights = pgo_->getInlierWeights();

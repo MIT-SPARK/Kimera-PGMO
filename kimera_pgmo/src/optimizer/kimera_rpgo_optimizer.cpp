@@ -84,10 +84,10 @@ KimeraRpgoOptimizer::~KimeraRpgoOptimizer() {}
 
 void KimeraRpgoOptimizer::update(const Factors& factors,
                                  const Values& initial,
-                                 const Factors* temp_factors,
-                                 const Values* temp_initial,
-                                 const std::set<size_t>* known_inliers,
-                                 const std::set<size_t>* temp_known_inliers) {
+                                 const std::set<size_t>& known_inliers,
+                                 const Factors& temp_factors,
+                                 const Values& temp_initial,
+                                 const std::set<size_t>& temp_known_inliers) {
   rpgo_->clear();
 
   const auto& [input_factors, input_initial] =
@@ -100,27 +100,18 @@ void KimeraRpgoOptimizer::update(const Factors& factors,
   result_ = initial;
 
   const auto& [input_temp_factors, input_temp_initial] =
-      processFactorsAndValues(*temp_factors, *temp_initial, config.use_4dof_optim);
+      processFactorsAndValues(temp_factors, temp_initial, config.use_4dof_optim);
 
-  if (temp_factors) {
-    rpgo_->addFactors(input_temp_factors);
-  }
+  rpgo_->addFactors(input_temp_factors);
+  rpgo_->addValues(input_temp_initial);
+  temp_result_ = temp_initial;
 
-  if (temp_initial) {
-    rpgo_->addValues(input_temp_initial);
-    temp_result_ = gtsam::Values(*temp_initial);
+  std::set<size_t> all_known_inliers = known_inliers;
+  size_t n = factors.size();
+  for (const auto& temp_idx : temp_known_inliers) {
+    all_known_inliers.insert(temp_idx + n);
   }
-
-  if (known_inliers) {
-    std::set<size_t> all_known_inliers = *known_inliers;
-    if (temp_known_inliers) {
-      size_t n = factors.size();
-      for (const auto& temp_idx : *temp_known_inliers) {
-        all_known_inliers.insert(temp_idx + n);
-      }
-    }
-    rpgo_->setKnownInliers(all_known_inliers);
-  }
+  rpgo_->setKnownInliers(all_known_inliers);
 
   // Run optimizer
   rpgo_->run();
@@ -141,10 +132,8 @@ void KimeraRpgoOptimizer::update(const Factors& factors,
   auto inlier_weights = rpgo_->getInlierWeights();
   inlier_weights_ = std::vector<double>(inlier_weights.begin(),
                                         inlier_weights.begin() + factors.size());
-  if (temp_factors) {
-    temp_inlier_weights_ = std::vector<double>(
-        inlier_weights.end() - temp_factors->size(), inlier_weights.end());
-  }
+  temp_inlier_weights_ = std::vector<double>(inlier_weights.end() - temp_factors.size(),
+                                             inlier_weights.end());
 
   if (!log_path_.empty()) {
     rpgo_->writeLog(log_path_ + "/rpgo_log.json");

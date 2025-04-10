@@ -65,9 +65,8 @@ class DeformationEdgeFactor
                         gtsam::Key node2_key,
                         const gtsam::Point3& measurement,
                         gtsam::SharedNoiseModel model)
-      : gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>(model,
-                                                             node1_key,
-                                                             node2_key),
+      : gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>(
+            model, node1_key, node2_key),
         measurement_(measurement) {}
 
   DeformationEdgeFactor(gtsam::Key node1_key,
@@ -75,9 +74,8 @@ class DeformationEdgeFactor
                         const gtsam::Pose3& node1_pose,
                         const gtsam::Point3& node2_point,
                         gtsam::SharedNoiseModel model)
-      : gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>(model,
-                                                             node1_key,
-                                                             node2_key) {
+      : gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose3>(
+            model, node1_key, node2_key) {
     measurement_ =
         node1_pose.rotation().inverse().rotate(node2_point - node1_pose.translation());
   }
@@ -259,6 +257,18 @@ class DeformationGraph {
                           double variance = 1e-4,
                           bool temp = false);
 
+  /*! \brief Check before adding node and vertex edge and get node pose and vertex
+   * positiong
+   *  - key: Key of pose graph node
+   *  - vertex: Key of vertex
+   *  - node_pose: reference to node pose
+   *  - vertex_pos: reference to vertex position
+   */
+  bool checkNodeValence(const gtsam::Key& key,
+                        const gtsam::Key& vertex,
+                        gtsam::Pose3& node_pose,
+                        gtsam::Point3& vertex_pos) const;
+
   /*! \brief Add deformation graph edge between mesh vertices
    *  - source_pose: pose of source (for the between) that is in same frame as the
    * initial vertex positions
@@ -408,33 +418,63 @@ class DeformationGraph {
    */
   const gtsam::Values* getValues() const { return values_.get(); }
 
-  /*! \brief Gets the factors added to the backend, minus the detected outliers
+  /*! \brief Gets the estimated values since last optimization as a copy
+   *  - outputs last estimated values as GTSAM Values
+   */
+  const gtsam::Values getValuesCopy() const { return *values_; }
+
+  /*! \brief Gets the factors added to the backend
    *  - outputs the factors as a GTSAM NonlinearFactorGraph
    */
   const gtsam::NonlinearFactorGraph* getFactors() const { return nfg_.get(); }
 
+  /*! \brief Gets the factors added to the backend as a copy
+   *  - outputs the factors as a GTSAM NonlinearFactorGraph
+   */
+  const gtsam::NonlinearFactorGraph getFactorsCopy() const { return *nfg_; }
+
   /*! \brief Gets the set of known inliers
    *  - outputs the set of inlier indices
-   *  TODO(Yun) currently not supported for temp factors
    */
   const std::set<size_t>* getKnownInlierSet() const { return known_inliers_.get(); }
+
+  /*! \brief Gets the set of known inliers as a copy
+   *  - outputs the set of inlier indices
+   */
+  const std::set<size_t> getKnownInlierSetCopy() const { return *known_inliers_; }
 
   /*! \brief Gets the temp values since last optimization
    *  - outputs last temp values as GTSAM Values
    */
   const gtsam::Values* getTempValues() const { return temp_values_.get(); }
 
-  /*! \brief Gets the temp factors added to the backend, minus the detected
-   * outliers
+  /*! \brief Gets the temp values since last optimization as a copy
+   *  - outputs last temp values as GTSAM Values
+   */
+  const gtsam::Values getTempValuesCopy() const { return *temp_values_; }
+
+  /*! \brief Gets the temp factors added to the backend as a copy
    *  - outputs the factors as a GTSAM NonlinearFactorGraph
    */
   const gtsam::NonlinearFactorGraph* getTempFactors() const { return temp_nfg_.get(); }
+
+  /*! \brief Gets the temp factors added to the backend as a copy
+   *  - outputs the factors as a GTSAM NonlinearFactorGraph
+   */
+  const gtsam::NonlinearFactorGraph getTempFactorsCopy() const { return *temp_nfg_; }
 
   /*! \brief Gets the set of temp known inliers
    *  - outputs the set of inlier indices
    */
   const std::set<size_t>* getTempKnownInlierSet() const {
     return temp_known_inliers_.get();
+  }
+
+  /*! \brief Gets copy of the set of temp known inliers
+   *  - outputs the set of inlier indices
+   */
+  const std::set<size_t> getTempKnownInlierSetCopy() const {
+    return *temp_known_inliers_;
   }
 
   /*! \brief Gets the inlier weights since last optimization
@@ -577,8 +617,12 @@ class DeformationGraph {
                        char prefix,
                        size_t start_index);
 
+  inline std::unique_lock<std::mutex> acquireLock() {
+    return std::unique_lock<std::mutex>(mutex_);
+  }
+
  protected:
-  bool checkNewBetween(const gtsam::Key& key_from, const gtsam::Key& key_to);
+  bool checkNewBetween(const gtsam::Key& key_from, const gtsam::Key& key_to) const;
 
   void addNewBetween(const gtsam::Key& key_from,
                      const gtsam::Key& key_to,
@@ -587,7 +631,7 @@ class DeformationGraph {
                      bool temp = false,
                      bool known_inlier = false);
 
-  bool checkNewTempBetween(const gtsam::Key& key_from, const gtsam::Key& key_to);
+  bool checkNewTempBetween(const gtsam::Key& key_from, const gtsam::Key& key_to) const;
 
   void addDeformationEdge(const gtsam::Key& from_key,
                           const gtsam::Key& to_key,
@@ -608,11 +652,11 @@ class DeformationGraph {
                       const gtsam::Pose3& node_pose,
                       const Timestamp& node_stamp);
 
-  bool checkNewMeshNode(const gtsam::Key& node_key);
+  bool checkNewMeshNode(const gtsam::Key& node_key) const;
 
-  bool checkNewMeshEdge(const gtsam::Key& from, const gtsam::Key& to);
+  bool checkNewMeshEdge(const gtsam::Key& from, const gtsam::Key& to) const;
 
-  bool checkNewNode(const gtsam::Key& key);
+  bool checkNewNode(const gtsam::Key& key) const;
 
   void addNewNode(const gtsam::Key& key, const gtsam::Pose3& initial_pose);
 
@@ -689,6 +733,9 @@ class DeformationGraph {
   // Recalculate only if new measurements added
   bool recalculate_vertices_;
   std::map<char, pcl::PointCloud<pcl::PointXYZ>> last_calculated_vertices_;
+
+  // Mutex
+  std::mutex mutex_;
 };
 
 using DeformationGraphPtr = std::shared_ptr<DeformationGraph>;
