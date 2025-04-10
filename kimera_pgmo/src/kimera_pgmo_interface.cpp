@@ -480,7 +480,7 @@ void KimeraPgmoInterface::optimize() {
   gtsam::Values initial, temp_initial;
   std::set<size_t> known_inliers, temp_known_inliers;
   {
-    std::unique_lock<std::mutex> deformation_graph_lock(deformation_graph_->getMutex());
+    deformation_graph_->acquireLock();
     factors = deformation_graph_->getFactorsCopy();
     initial = deformation_graph_->getValuesCopy();
     temp_factors = deformation_graph_->getTempFactorsCopy();
@@ -497,7 +497,7 @@ void KimeraPgmoInterface::optimize() {
   auto temp_inlier_weights = pgo_->getTempInlierWeights();
 
   {
-    std::unique_lock<std::mutex> deformation_graph_lock(deformation_graph_->getMutex());
+    deformation_graph_->acquireLock();
     deformation_graph_->updateValues(estimates);
     deformation_graph_->updateTempValues(temp_estimates);
     deformation_graph_->updateInlierWeights(inlier_weights);

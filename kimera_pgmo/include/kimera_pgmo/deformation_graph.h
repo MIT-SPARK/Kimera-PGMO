@@ -617,7 +617,9 @@ class DeformationGraph {
                        char prefix,
                        size_t start_index);
 
-  inline std::mutex& getMutex() { return mutex_; }
+  inline std::unique_lock<std::mutex> acquireLock() {
+    return std::unique_lock<std::mutex>(mutex_);
+  }
 
  protected:
   bool checkNewBetween(const gtsam::Key& key_from, const gtsam::Key& key_to) const;

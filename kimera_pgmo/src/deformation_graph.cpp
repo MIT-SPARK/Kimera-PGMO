@@ -50,7 +50,7 @@ DeformationGraph::~DeformationGraph() {}
 void DeformationGraph::processPoseGraph(const pose_graph_tools::PoseGraph& pose_graph,
                                         const EdgeTypeVarianceMap& variance_map,
                                         std::map<size_t, size_t> robot_id_remap) {
-  std::unique_lock<std::mutex> lock(mutex_);  // Call mutex
+  std::lock_guard<std::mutex> lock(mutex_);  // Call mutex
 
   for (const auto& node : pose_graph.nodes) {
     auto node_robot_id = getRemappedId(robot_id_remap, node.robot_id);
@@ -87,7 +87,7 @@ void DeformationGraph::processPoseGraph(const pose_graph_tools::PoseGraph& pose_
 void DeformationGraph::processMeshGraph(const pose_graph_tools::PoseGraph& mesh_graph,
                                         const EdgeTypeVarianceMap& variance_map,
                                         std::map<size_t, size_t> robot_id_remap) {
-  std::unique_lock<std::mutex> lock(mutex_);  // Call mutex
+  std::lock_guard<std::mutex> lock(mutex_);  // Call mutex
 
   for (const auto& node : mesh_graph.nodes) {
     auto node_robot_id = getRemappedId(robot_id_remap, node.robot_id);
@@ -138,7 +138,7 @@ void DeformationGraph::processNodeValence(const gtsam::Key& key,
                                           const char& valence_prefix,
                                           double variance,
                                           bool temp) {
-  std::unique_lock<std::mutex> lock(mutex_);  // Call mutex
+  std::lock_guard<std::mutex> lock(mutex_);  // Call mutex
 
   // Add the consistency factors
   for (Vertex v : valences) {
@@ -191,7 +191,7 @@ void DeformationGraph::processBetweenAsMeshConnections(
     double variance,
     bool temp,
     bool known_inliers) {
-  std::unique_lock<std::mutex> lock(mutex_);  // Call mutex
+  std::lock_guard<std::mutex> lock(mutex_);  // Call mutex
 
   for (const Vertex& s : source) {
     const gtsam::Symbol vertex_s(source_prefix, s);
@@ -228,7 +228,7 @@ void DeformationGraph::processPointMeasurement(const gtsam::Key& from_key,
                                                double variance,
                                                bool temp,
                                                bool known_inlier) {
-  std::unique_lock<std::mutex> lock(mutex_);  // Call mutex
+  std::lock_guard<std::mutex> lock(mutex_);  // Call mutex
 
   if (!values_->exists(to_key) && !temp_values_->exists(to_key)) {
     if (temp) {
@@ -321,7 +321,7 @@ void DeformationGraph::addPrior(const gtsam::Key& key,
 
 void DeformationGraph::processNodeMeasurements(const MeasurementVector& measurements,
                                                double variance) {
-  std::unique_lock<std::mutex> lock(mutex_);  // Call mutex
+  std::lock_guard<std::mutex> lock(mutex_);  // Call mutex
 
   for (auto&& [key, pose] : measurements) {
     if (!values_->exists(key)) {
@@ -340,7 +340,7 @@ void DeformationGraph::processNewBetween(const gtsam::Key& key_from,
                                          const gtsam::Key& key_to,
                                          const gtsam::Pose3& meas,
                                          double variance) {
-  std::unique_lock<std::mutex> lock(mutex_);  // Call mutex
+  std::lock_guard<std::mutex> lock(mutex_);  // Call mutex
 
   if (!checkNewBetween(key_from, key_to)) {
     return;
@@ -373,7 +373,7 @@ bool DeformationGraph::checkNewBetween(const gtsam::Key& key_from,
 void DeformationGraph::updatePoseGraphInitialGuess(const gtsam::Key& key_from,
                                                    const gtsam::Key& key_to,
                                                    const gtsam::Pose3& meas) {
-  std::unique_lock<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock(mutex_);
   const char& to_prefix = gtsam::Symbol(key_to).chr();
   gtsam::Pose3 initial_estimate, init_pose;
   if (values_->exists(key_from)) {
@@ -421,7 +421,7 @@ void DeformationGraph::processNewTempBetween(const gtsam::Key& key_from,
                                              const gtsam::Key& key_to,
                                              const gtsam::Pose3& meas,
                                              double variance) {
-  std::unique_lock<std::mutex> lock(mutex_);  // Call mutex
+  std::lock_guard<std::mutex> lock(mutex_);  // Call mutex
 
   if (!checkNewTempBetween(key_from, key_to)) {
     return;
@@ -446,7 +446,7 @@ bool DeformationGraph::checkNewTempBetween(const gtsam::Key& key_from,
 }
 
 void DeformationGraph::processNewTempEdges(const PoseGraph& edges, double variance) {
-  std::unique_lock<std::mutex> lock(mutex_);  // Call mutex
+  std::lock_guard<std::mutex> lock(mutex_);  // Call mutex
 
   for (const auto& e : edges.edges) {
     if (!checkNewTempBetween(e.key_from, e.key_to)) {
@@ -515,7 +515,7 @@ void DeformationGraph::processNewMeshEdgesAndNodes(
     std::vector<size_t>* added_indices,
     std::vector<Timestamp>* added_index_stamps,
     double variance) {
-  std::unique_lock<std::mutex> lock(mutex_);  // Call mutex
+  std::lock_guard<std::mutex> lock(mutex_);  // Call mutex
 
   assert(node_stamps.size() == mesh_nodes.size());
 
@@ -552,7 +552,7 @@ void DeformationGraph::processNewNode(const gtsam::Key& key,
                                       const gtsam::Pose3& initial_pose,
                                       bool add_prior,
                                       double prior_variance) {
-  std::unique_lock<std::mutex> lock(mutex_);  // Call mutex
+  std::lock_guard<std::mutex> lock(mutex_);  // Call mutex
 
   if (!checkNewNode(key)) {
     SPARK_LOG(FATAL) << "processNewNode failed check.";
@@ -603,7 +603,7 @@ void DeformationGraph::processNewTempNode(const gtsam::Key& key,
                                           const gtsam::Pose3& initial_pose,
                                           bool add_prior,
                                           double prior_variance) {
-  std::unique_lock<std::mutex> lock(mutex_);  // Call mutex
+  std::lock_guard<std::mutex> lock(mutex_);  // Call mutex
 
   addNewTempNode(key, initial_pose);
 
@@ -622,7 +622,7 @@ void DeformationGraph::processNewTempNodesValences(const NodeValenceInfoList& in
                                                    bool add_prior,
                                                    double edge_variance,
                                                    double prior_variance) {
-  std::unique_lock<std::mutex> lock(mutex_);  // Call mutex
+  std::lock_guard<std::mutex> lock(mutex_);  // Call mutex
 
   for (const auto& factor : info) {
     // Note(Yun) here we do not directly call process new temp and valences
@@ -658,7 +658,7 @@ void DeformationGraph::processNewTempNodesValences(const NodeValenceInfoList& in
 }
 
 void DeformationGraph::removePriorsWithPrefix(const char& prefix) {
-  std::unique_lock<std::mutex> lock(mutex_);
+  std::lock_guard<std::mutex> lock(mutex_);
   // First make copy of nfg_
   const gtsam::NonlinearFactorGraph nfg_copy = *nfg_;
   const gtsam::NonlinearFactorGraph temp_nfg_copy = *temp_nfg_;
