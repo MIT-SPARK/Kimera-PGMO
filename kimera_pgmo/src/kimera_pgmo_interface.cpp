@@ -476,19 +476,33 @@ void KimeraPgmoInterface::processOptimizedPath(const Path& path, size_t robot_id
 }
 
 void KimeraPgmoInterface::optimize() {
-  pgo_->update(*deformation_graph_->getFactors(),
-               *deformation_graph_->getValues(),
-               deformation_graph_->getTempFactors(),
-               deformation_graph_->getTempValues(),
-               deformation_graph_->getKnownInlierSet());
+  gtsam::NonlinearFactorGraph factors, temp_factors;
+  gtsam::Values initial, temp_initial;
+  std::set<size_t> known_inliers, temp_known_inliers;
+  {
+    deformation_graph_->acquireLock();
+    factors = deformation_graph_->getFactorsCopy();
+    initial = deformation_graph_->getValuesCopy();
+    temp_factors = deformation_graph_->getTempFactorsCopy();
+    temp_initial = deformation_graph_->getTempValuesCopy();
+    known_inliers = deformation_graph_->getKnownInlierSetCopy();
+    temp_known_inliers = deformation_graph_->getTempKnownInlierSetCopy();
+  }
+
+  pgo_->update(
+      factors, initial, known_inliers, temp_factors, temp_initial, temp_known_inliers);
   auto estimates = pgo_->getEstimates();
   auto temp_estimates = pgo_->getTempEstimates();
   auto inlier_weights = pgo_->getInlierWeights();
   auto temp_inlier_weights = pgo_->getTempInlierWeights();
-  deformation_graph_->updateValues(estimates);
-  deformation_graph_->updateTempValues(temp_estimates);
-  deformation_graph_->updateInlierWeights(inlier_weights);
-  deformation_graph_->updateTempInlierWeights(temp_inlier_weights);
+
+  {
+    deformation_graph_->acquireLock();
+    deformation_graph_->updateValues(estimates);
+    deformation_graph_->updateTempValues(temp_estimates);
+    deformation_graph_->updateInlierWeights(inlier_weights);
+    deformation_graph_->updateTempInlierWeights(temp_inlier_weights);
+  }
 }
 
 bool KimeraPgmoInterface::optimizeFullMesh(
