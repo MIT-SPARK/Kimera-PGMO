@@ -539,7 +539,7 @@ bool KimeraPgmoInterface::optimizeFullMesh(
 }
 
 bool KimeraPgmoInterface::saveMesh(const pcl::PolygonMesh& mesh,
-                                   const std::string& ply_name) {
+                                   const std::string& ply_name) const {
   // Save mesh
   WriteMeshToPly(ply_name, mesh);
   SPARK_LOG(INFO) << "KimeraPgmo: Saved mesh to file.";
@@ -548,7 +548,7 @@ bool KimeraPgmoInterface::saveMesh(const pcl::PolygonMesh& mesh,
 
 bool KimeraPgmoInterface::saveTrajectory(const Path& trajectory,
                                          const std::vector<Timestamp>& timestamps,
-                                         const std::string& csv_file) {
+                                         const std::string& csv_file) const {
   // There should be a timestamp associated with each pose
   assert(trajectory.size() == timestamps.size());
 
@@ -567,7 +567,7 @@ bool KimeraPgmoInterface::saveTrajectory(const Path& trajectory,
   return true;
 }
 
-bool KimeraPgmoInterface::saveDeformationGraph(const std::string& dgrf_name) {
+bool KimeraPgmoInterface::saveDeformationGraph(const std::string& dgrf_name) const {
   // Save mesh
   deformation_graph_->save(dgrf_name);
   SPARK_LOG(INFO) << "KimeraPgmo: Saved deformation graph to file.";

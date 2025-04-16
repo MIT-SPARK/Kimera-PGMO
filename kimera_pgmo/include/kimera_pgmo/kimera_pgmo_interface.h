@@ -216,7 +216,7 @@ class KimeraPgmoInterface {
    * - mesh: mesh to save
    * - ply_name: name of the ply file output
    */
-  bool saveMesh(const pcl::PolygonMesh& mesh, const std::string& ply_name);
+  bool saveMesh(const pcl::PolygonMesh& mesh, const std::string& ply_name) const;
 
   /*! \brief Saves trajectory to csv files.
    * - trajectory: trajectory to save
@@ -224,12 +224,12 @@ class KimeraPgmoInterface {
    */
   bool saveTrajectory(const Path& trajectory,
                       const std::vector<Timestamp>& timestamps,
-                      const std::string& csv_file);
+                      const std::string& csv_file) const;
 
   /*! \brief Saves deformation graph to file.
    * - dgrf_file: name of the file to write to
    */
-  bool saveDeformationGraph(const std::string& dgrf_name);
+  bool saveDeformationGraph(const std::string& dgrf_name) const;
 
   void setVerboseFlag(bool verbose);
 
