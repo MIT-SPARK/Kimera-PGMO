@@ -481,6 +481,7 @@ void KimeraPgmoInterface::optimize() {
   std::set<size_t> known_inliers, temp_known_inliers;
   {
     deformation_graph_->acquireLock();
+    optimizeImpl();
     factors = deformation_graph_->getFactorsCopy();
     initial = deformation_graph_->getValuesCopy();
     temp_factors = deformation_graph_->getTempFactorsCopy();

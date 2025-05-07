@@ -168,6 +168,10 @@ class KimeraPgmoInterface {
    */
   void optimize();
 
+  /*! \brief Optimize additional implementation (like adding temp factors)
+   */
+  virtual void optimizeImpl() {}
+
   /*! \brief Optimize the full mesh (and pose graph) using the deformation graph
    * then publish the deformed mesh
    *  - mesh_msg: the full unoptimized mesh in KimeraPgmoMesh format
