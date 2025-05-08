@@ -1008,18 +1008,10 @@ void DeformationGraph::updateTempValues(const gtsam::Values& updates) {
 }
 
 void DeformationGraph::updateInlierWeights(const std::vector<double>& weights) {
-  if (weights.size() != nfg_->size()) {
-    SPARK_LOG(FATAL)
-        << "Inlier weights dimension should equal the number of non-temp factors.";
-  }
   *inlier_weights_ = weights;
 }
 
 void DeformationGraph::updateTempInlierWeights(const std::vector<double>& weights) {
-  if (weights.size() != temp_nfg_->size()) {
-    SPARK_LOG(FATAL)
-        << "Temp inlier weights dimension should equal the number of temp factors.";
-  }
   *temp_inlier_weights_ = weights;
 }
 }  // namespace kimera_pgmo
