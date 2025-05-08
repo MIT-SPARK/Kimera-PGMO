@@ -385,7 +385,7 @@ bool KimeraPgmoInterface::addMeshMeshConnections(
           GetVertexPrefix(prev_robot_id),
           GetVertexPrefix(curr_robot_id),
           config_.mesh_edge_variance,
-          false, // Not temp
+          false,  // Not temp
           as_inliers);
     }
 
@@ -480,7 +480,7 @@ void KimeraPgmoInterface::optimize() {
   gtsam::Values initial, temp_initial;
   std::set<size_t> known_inliers, temp_known_inliers;
   {
-    deformation_graph_->acquireLock();
+    auto lock = deformation_graph_->acquireLock();
     optimizeImpl();
     factors = deformation_graph_->getFactorsCopy();
     initial = deformation_graph_->getValuesCopy();
@@ -498,7 +498,7 @@ void KimeraPgmoInterface::optimize() {
   auto temp_inlier_weights = pgo_->getTempInlierWeights();
 
   {
-    deformation_graph_->acquireLock();
+    auto lock = deformation_graph_->acquireLock();
     deformation_graph_->updateValues(estimates);
     deformation_graph_->updateTempValues(temp_estimates);
     deformation_graph_->updateInlierWeights(inlier_weights);
