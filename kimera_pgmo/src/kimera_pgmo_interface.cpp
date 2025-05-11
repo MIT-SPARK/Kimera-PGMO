@@ -385,7 +385,7 @@ bool KimeraPgmoInterface::addMeshMeshConnections(
           GetVertexPrefix(prev_robot_id),
           GetVertexPrefix(curr_robot_id),
           config_.mesh_edge_variance,
-          false, // Not temp
+          false,  // Not temp
           as_inliers);
     }
 
@@ -480,7 +480,8 @@ void KimeraPgmoInterface::optimize() {
   gtsam::Values initial, temp_initial;
   std::set<size_t> known_inliers, temp_known_inliers;
   {
-    deformation_graph_->acquireLock();
+    auto lock = deformation_graph_->acquireLock();
+    optimizeImpl();
     factors = deformation_graph_->getFactorsCopy();
     initial = deformation_graph_->getValuesCopy();
     temp_factors = deformation_graph_->getTempFactorsCopy();
@@ -497,7 +498,7 @@ void KimeraPgmoInterface::optimize() {
   auto temp_inlier_weights = pgo_->getTempInlierWeights();
 
   {
-    deformation_graph_->acquireLock();
+    auto lock = deformation_graph_->acquireLock();
     deformation_graph_->updateValues(estimates);
     deformation_graph_->updateTempValues(temp_estimates);
     deformation_graph_->updateInlierWeights(inlier_weights);
@@ -539,7 +540,7 @@ bool KimeraPgmoInterface::optimizeFullMesh(
 }
 
 bool KimeraPgmoInterface::saveMesh(const pcl::PolygonMesh& mesh,
-                                   const std::string& ply_name) {
+                                   const std::string& ply_name) const {
   // Save mesh
   WriteMeshToPly(ply_name, mesh);
   SPARK_LOG(INFO) << "KimeraPgmo: Saved mesh to file.";
@@ -548,7 +549,7 @@ bool KimeraPgmoInterface::saveMesh(const pcl::PolygonMesh& mesh,
 
 bool KimeraPgmoInterface::saveTrajectory(const Path& trajectory,
                                          const std::vector<Timestamp>& timestamps,
-                                         const std::string& csv_file) {
+                                         const std::string& csv_file) const {
   // There should be a timestamp associated with each pose
   assert(trajectory.size() == timestamps.size());
 
@@ -567,7 +568,7 @@ bool KimeraPgmoInterface::saveTrajectory(const Path& trajectory,
   return true;
 }
 
-bool KimeraPgmoInterface::saveDeformationGraph(const std::string& dgrf_name) {
+bool KimeraPgmoInterface::saveDeformationGraph(const std::string& dgrf_name) const {
   // Save mesh
   deformation_graph_->save(dgrf_name);
   SPARK_LOG(INFO) << "KimeraPgmo: Saved deformation graph to file.";

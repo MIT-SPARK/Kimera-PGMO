@@ -552,6 +552,13 @@ class DeformationGraph {
 
   /*! \brief Clear all temporary values, factors, and related structures
    */
+  inline void clearFactors() {
+    nfg_->resize(0);
+    temp_nfg_->resize(0);
+  }
+
+  /*! \brief Clear all temporary values, factors, and related structures
+   */
   inline void clearTemporaryStructures() {
     temp_values_->clear();
     temp_nfg_->resize(0);
