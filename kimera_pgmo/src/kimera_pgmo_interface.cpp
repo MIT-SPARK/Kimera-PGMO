@@ -222,9 +222,9 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
         continue;
       }
 
+      deformation_graph_->updatePoseGraphInitialGuess(from_key, to_key, measure);
       deformation_graph_->processNewBetween(
           from_key, to_key, measure, config_.odom_variance);
-      deformation_graph_->updatePoseGraphInitialGuess(from_key, to_key, measure);
 
     } else if (pg_edge.type == pose_graph_tools::PoseGraphEdge::LOOPCLOSE) {
       if (!keyed_stamps_.count(from_key) || !keyed_stamps_.count(to_key)) {
