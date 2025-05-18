@@ -348,7 +348,7 @@ bool DeformationGraph::checkNewBetween(const gtsam::Key& key_from,
     return false;
   }
 
-  if (to_idx > pg_initial_poses_.at(to_prefix).size()) {
+  if (to_idx >= pg_initial_poses_.at(to_prefix).size()) {
     SPARK_LOG(ERROR) << "DeformationGraph: skipping keys in addNewBetween.";
     return false;
   }
