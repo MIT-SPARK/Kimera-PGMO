@@ -75,7 +75,12 @@ void DeformationGraph::processPoseGraph(const pose_graph_tools::PoseGraph& pose_
     auto to_key = gtsam::Symbol(robot_id_to_prefix.at(to_robot), edge.key_to);
     gtsam::Pose3 from_T_to(edge.pose.matrix());
     if (from_key != to_key) {
-      addNewBetween(from_key, to_key, from_T_to, variance_map.at(edge.type));
+      addNewBetween(from_key,
+                    to_key,
+                    from_T_to,
+                    variance_map.at(edge.type),
+                    false,
+                    edge.type == EdgeType::ODOM);
     } else {
       addPrior(from_key, from_T_to, variance_map.at(edge.type));
     }
