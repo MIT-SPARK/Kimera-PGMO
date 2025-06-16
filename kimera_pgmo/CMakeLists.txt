@@ -14,9 +14,20 @@ find_package(config_utilities REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(GTSAM REQUIRED)
 find_package(kimera_rpgo REQUIRED)
-find_package(PCL REQUIRED COMPONENTS common geometry kdtree octree)
 find_package(pose_graph_tools REQUIRED)
 find_package(spatial_hash REQUIRED)
+
+set(CLEAR_WARNING_SUPPRESSION OFF)
+if(NOT DEFINED CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
+  set(CLEAR_WARNING_SUPPRESSION ON)
+  set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE INTERNAL "No dev warnings")
+endif()
+
+find_package(PCL REQUIRED COMPONENTS common geometry kdtree octree)
+
+if (CLEAR_WARNING_SUPPRESSION)
+  unset(CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
+endif()
 
 include(GNUInstallDirs)
 include(CMakePackageConfigHelpers)
