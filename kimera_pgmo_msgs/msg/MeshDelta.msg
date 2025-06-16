@@ -12,3 +12,4 @@ uint64[] prev_indices
 uint64[] curr_indices
 uint64 vertex_start
 uint64 face_start
+uint16 sequence_number

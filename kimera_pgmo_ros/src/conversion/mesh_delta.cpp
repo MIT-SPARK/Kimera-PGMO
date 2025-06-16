@@ -21,6 +21,7 @@ void TypeAdapter<DeltaPgmo, DeltaMsg>::convert_to_ros_message(const custom_type&
   msg.header.stamp = rclcpp::Time(delta.timestamp_ns);
   msg.vertex_start = delta.vertex_start;
   msg.face_start = delta.face_start;
+  msg.sequence_number = delta.sequence_number;
 
   // Convert vertices
   const auto& vertices = *delta.vertex_updates;
@@ -79,6 +80,7 @@ void TypeAdapter<DeltaPgmo, DeltaMsg>::convert_to_ros_message(const custom_type&
 void TypeAdapter<DeltaPgmo, DeltaMsg>::convert_to_custom(const ros_message_type& msg,
                                                          custom_type& delta) {
   delta = DeltaPgmo(msg.vertex_start, msg.face_start);
+  delta.sequence_number = msg.sequence_number;
   delta.stamp_updates = msg.stamp_updates;
   delta.semantic_updates = msg.semantic_updates;
   delta.timestamp_ns = rclcpp::Time(msg.header.stamp).nanoseconds();
