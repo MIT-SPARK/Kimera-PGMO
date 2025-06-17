@@ -9,7 +9,18 @@ find_dependency(GTSAM REQUIRED)
 find_dependency(kimera_rpgo REQUIRED)
 find_dependency(pose_graph_tools REQUIRED)
 find_dependency(spatial_hash REQUIRED)
+
+set(CLEAR_WARNING_SUPPRESSION OFF)
+if(NOT DEFINED CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
+  set(CLEAR_WARNING_SUPPRESSION ON)
+  set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE INTERNAL "No dev warnings")
+endif()
+
 find_dependency(PCL REQUIRED COMPATIBILITY common geometry kdtree octree)
+
+if (CLEAR_WARNING_SUPPRESSION)
+  unset(CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
+endif()
 
 if(NOT TARGET kimera_pgmo::kimera_pgmo)
   include("${kimera_pgmo_CMAKE_DIR}/kimera_pgmoTargets.cmake")
