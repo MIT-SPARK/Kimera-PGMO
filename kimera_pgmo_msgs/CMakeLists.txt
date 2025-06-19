@@ -22,6 +22,7 @@ rosidl_generate_interfaces(
   msg/MeshDelta.msg
   msg/TriangleIndices.msg
   srv/LoadGraphMesh.srv
+  srv/MeshDeltaRequest.srv
   DEPENDENCIES
   builtin_interfaces
   geometry_msgs
