@@ -49,11 +49,15 @@ DeformationGraph::~DeformationGraph() {}
 
 void DeformationGraph::processPoseGraph(const pose_graph_tools::PoseGraph& pose_graph,
                                         const EdgeTypeVarianceMap& variance_map,
-                                        std::map<size_t, size_t> robot_id_remap) {
+                                        std::map<size_t, size_t> robot_id_remap,
+                                        Eigen::Isometry3d* transform) {
   for (const auto& node : pose_graph.nodes) {
     auto node_robot_id = getRemappedId(robot_id_remap, node.robot_id);
     auto node_key = gtsam::Symbol(robot_id_to_prefix.at(node_robot_id), node.key);
     gtsam::Pose3 node_pose(node.pose.matrix());
+    if (transform) {
+      node_pose = gtsam::Pose3(transform->matrix()).compose(node_pose);
+    }
     if (checkNewNode(node_key)) {
       addNewNode(node_key, node_pose);
     }
@@ -89,12 +93,16 @@ void DeformationGraph::processPoseGraph(const pose_graph_tools::PoseGraph& pose_
 
 void DeformationGraph::processMeshGraph(const pose_graph_tools::PoseGraph& mesh_graph,
                                         const EdgeTypeVarianceMap& variance_map,
-                                        std::map<size_t, size_t> robot_id_remap) {
+                                        std::map<size_t, size_t> robot_id_remap,
+                                        Eigen::Isometry3d* transform) {
   for (const auto& node : mesh_graph.nodes) {
     auto node_robot_id = getRemappedId(robot_id_remap, node.robot_id);
     auto node_key =
         gtsam::Symbol(robot_id_to_vertex_prefix.at(node_robot_id), node.key);
     gtsam::Pose3 node_pose(node.pose.matrix());
+    if (transform) {
+      node_pose = gtsam::Pose3(transform->matrix()).compose(node_pose);
+    }
     addNewMeshNode(node_key, node_pose, node.stamp_ns);
     // Note that the node_pose here directly updates the initial vertex positions. Which
     // matters for the processNodeValence function (connecting node to vertex) but does
