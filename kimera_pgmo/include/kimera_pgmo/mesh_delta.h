@@ -121,6 +121,7 @@ class MeshDelta {
   Timestamp timestamp_ns = 0;
   size_t vertex_start = 0;
   size_t face_start = 0;
+  uint16_t sequence_number = 0;
 
   pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertex_updates;
   std::vector<Timestamp> stamp_updates;

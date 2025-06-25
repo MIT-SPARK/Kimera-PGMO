@@ -245,6 +245,7 @@ MeshDelta::Ptr DeltaCompression::update(MeshInterface& mesh,
   // mesh update.
   num_archived_vertices_ = delta_->getTotalArchivedVertices();
   num_archived_faces_ = delta_->getTotalArchivedFaces();
+  delta_->sequence_number = sequence_number_;
   ++sequence_number_;
   if (sequence_number_ == 0) {
     // NOTE(nathan) roll-over is rare but 0 would conflict with the initial values for
