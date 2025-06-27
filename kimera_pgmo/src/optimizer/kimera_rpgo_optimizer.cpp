@@ -3,6 +3,9 @@
 #include <config_utilities/config.h>
 #include <config_utilities/types/enum.h>
 #include <config_utilities/validation.h>
+#include <glog/logging.h>
+
+#include <algorithm>
 
 #include "kimera_pgmo/deformation_graph_4dof.h"
 namespace kimera_pgmo {
@@ -134,6 +137,13 @@ void KimeraRpgoOptimizer::update(const Factors& factors,
                                         inlier_weights.begin() + factors.size());
   temp_inlier_weights_ = std::vector<double>(inlier_weights.end() - temp_factors.size(),
                                              inlier_weights.end());
+
+  int num_inliers = std::count_if(inlier_weights.begin(),
+                                  inlier_weights.end(),
+                                  [](double val) { return val > 0.5; });
+  LOG(INFO) << "Optimized with " << factors.size() << " factors, "
+            << all_known_inliers.size() << " known inliers, " << num_inliers
+            << " final inliers.";
 
   if (!log_path_.empty()) {
     rpgo_->writeLog(log_path_ + "/rpgo_log.json");
