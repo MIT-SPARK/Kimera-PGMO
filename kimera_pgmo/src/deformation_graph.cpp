@@ -536,11 +536,9 @@ void DeformationGraph::processNewNode(const gtsam::Key& key,
                                       const gtsam::Pose3& initial_pose,
                                       bool add_prior,
                                       double prior_variance) {
-  if (!checkNewNode(key)) {
-    SPARK_LOG(FATAL) << "processNewNode failed check.";
+  if (checkNewNode(key)) {
+    addNewNode(key, initial_pose);
   }
-
-  addNewNode(key, initial_pose);
 
   if (add_prior) {
     addPrior(key, initial_pose, prior_variance);
