@@ -552,6 +552,19 @@ class DeformationGraph {
    */
   inline void setRecalculateVertices() { recalculate_vertices_ = true; }
 
+  /*! \brief Clear all (everything)
+   */
+  inline void clear() {
+    nfg_->resize(0);
+    temp_nfg_->resize(0);
+    values_->clear();
+    temp_values_->clear();
+    pg_initial_poses_.clear();
+    temp_pg_initial_poses_.clear();
+    vertex_positions_.clear();
+    vertex_stamps_.clear();
+  }
+
   /*! \brief Clear all temporary values, factors, and related structures
    */
   inline void clearFactors() {
