@@ -168,9 +168,13 @@ class KimeraPgmoInterface {
    */
   void optimize();
 
-  /*! \brief Optimize additional implementation (like adding temp factors)
+  /*! \brief Optimize additional startup implementation (like adding temp factors)
    */
-  virtual void optimizeImpl() {}
+  virtual void optimizeStartup() {}
+
+  /*! \brief Optimize additional spindown implementation
+   */
+  virtual void optimizeCleanup(const gtsam::Values& results) {}
 
   /*! \brief Optimize the full mesh (and pose graph) using the deformation graph
    * then publish the deformed mesh

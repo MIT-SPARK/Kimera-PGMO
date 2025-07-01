@@ -136,7 +136,8 @@ class DeformationGraph {
    */
   void processPoseGraph(const pose_graph_tools::PoseGraph& pose_graph,
                         const EdgeTypeVarianceMap& variance_map,
-                        std::map<size_t, size_t> robot_id_remap = {});
+                        std::map<size_t, size_t> robot_id_remap = {},
+                        Eigen::Isometry3d* transform = nullptr);
 
   /*! \brief Directly add a full mesh graph to the deformation graph. TODO(Yun) figure
    * out how we handle the pose graph node to mesh graph node connections.
@@ -146,7 +147,8 @@ class DeformationGraph {
    */
   void processMeshGraph(const pose_graph_tools::PoseGraph& mesh_graph,
                         const EdgeTypeVarianceMap& variance_map,
-                        std::map<size_t, size_t> robot_id_remap = {});
+                        std::map<size_t, size_t> robot_id_remap = {},
+                        Eigen::Isometry3d* transform = nullptr);
 
   /*! \brief Fix the measurements of multiple nodes
    *  - measurements: a vector of key->pose pair of node measurements
@@ -549,6 +551,19 @@ class DeformationGraph {
   /*! \brief Recalculate vertices setter
    */
   inline void setRecalculateVertices() { recalculate_vertices_ = true; }
+
+  /*! \brief Clear all (everything)
+   */
+  inline void clear() {
+    nfg_->resize(0);
+    temp_nfg_->resize(0);
+    values_->clear();
+    temp_values_->clear();
+    pg_initial_poses_.clear();
+    temp_pg_initial_poses_.clear();
+    vertex_positions_.clear();
+    vertex_stamps_.clear();
+  }
 
   /*! \brief Clear all temporary values, factors, and related structures
    */
