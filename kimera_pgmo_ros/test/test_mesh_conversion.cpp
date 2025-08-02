@@ -92,7 +92,7 @@ TEST(TestMeshConversion, PCLtoMeshMsg) {
   pcl::PointCloud<pcl::PointXYZRGBA> converted_vertices;
   pcl::fromPCLPointCloud2(new_mesh.cloud, converted_vertices);
 
-  EXPECT_EQ(4, converted_vertices.points.size());
+  EXPECT_EQ(5u, converted_vertices.points.size());
   EXPECT_EQ(1.0, converted_vertices.points[0].z);
   EXPECT_EQ(1.0, converted_vertices.points[1].x);
   EXPECT_EQ(mesh->polygons[0].vertices[2], new_mesh.polygons[0].vertices[2]);
