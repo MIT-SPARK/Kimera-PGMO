@@ -33,8 +33,9 @@ using PoseBetween = gtsam::BetweenFactor<gtsam::Pose3>;
 using PosePrior = gtsam::PriorFactor<gtsam::Pose3>;
 using EdgeType = pose_graph_tools::PoseGraphEdge::Type;
 
-DeformationGraph::DeformationGraph()
-    : verbose_(true),
+DeformationGraph::DeformationGraph(bool add_init_vertex_prior)
+    : add_init_vertex_prior_(add_init_vertex_prior),
+      verbose_(true),
       nfg_(new gtsam::NonlinearFactorGraph),
       known_inliers_(new std::set<size_t>),
       values_(new gtsam::Values),
@@ -466,7 +467,7 @@ bool DeformationGraph::addNewMeshNode(const gtsam::Key& node_key,
   vertex_positions_[node_prefix].push_back(node_pose.translation());
   vertex_stamps_[node_prefix].push_back(node_stamp);
   // TODO(Yun) temporary hack, check if this assumption always valid even with poses
-  if (values_->size() == 0) {
+  if (add_init_vertex_prior_ && values_->size() == 0) {
     addPrior(node_key, node_pose, 1e-3, false, true);
   }
   values_->insert(node_key, node_pose);

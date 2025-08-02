@@ -55,7 +55,7 @@ KimeraPgmoInterface::KimeraPgmoInterface(const KimeraPgmoConfig& config)
     : config_(config::checkValid(config)),
       pgo_(config.optimizer.create()),
       full_mesh_updated_(false),
-      deformation_graph_(new DeformationGraph),
+      deformation_graph_(new DeformationGraph(config_.mode == RunMode::MESH_ONLY)),
       num_loop_closures_(0) {
   pgo_->setLogPath(config.log_path);
 }

@@ -124,7 +124,7 @@ class DeformationGraph {
  public:
   /*! \brief Deformation graph class constructor
    */
-  DeformationGraph();
+  DeformationGraph(bool add_init_vertex_prior = false);
   ~DeformationGraph();
 
   inline void setVerboseFlag(bool verbose) { verbose_ = verbose; }
@@ -720,6 +720,7 @@ class DeformationGraph {
   bool checkAdjacency(gtsam::Key from, gtsam::Key to) const;
 
  private:
+  bool add_init_vertex_prior_;
   bool verbose_;
 
   // Keep track of vertices not part of mesh
