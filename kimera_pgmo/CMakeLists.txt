@@ -7,7 +7,6 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_compile_options(-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter)
 
-option(KIMERA_PGMO_ENABLE_TESTS "Build unit tets" ON)
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
 find_package(config_utilities REQUIRED)
@@ -78,7 +77,8 @@ target_link_libraries(offline_deformation ${PROJECT_NAME})
 add_executable(mesh_trajectory_deformer app/mesh_trajectory_deformer.cpp)
 target_link_libraries(mesh_trajectory_deformer ${PROJECT_NAME})
 
-if(KIMERA_PGMO_ENABLE_TESTS)
+include(CTest)
+if(BUILD_TESTING)
   enable_testing()
   add_subdirectory(test)
 endif()

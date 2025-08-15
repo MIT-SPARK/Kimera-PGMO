@@ -29,13 +29,16 @@ bool inOctree(pcl::octree::OctreePointCloudSearch<T>& octree,
 
   const auto resolution = octree.getResolution();
   const auto threshold = resolution * resolution;
-  float sqr_distance = threshold + 1.0f;
-  octree.approxNearestSearch(v, *matched_ind, sqr_distance);
-  if (sqr_distance >= threshold) {
+
+  pcl::Indices indices(1);
+  std::vector<float> dist(1);
+  const auto found = octree.nearestKSearch(v, 1, indices, dist);
+  if (!found || dist[0] >= threshold) {
     *matched_ind = -1;
     return false;
   }
 
+  *matched_ind = indices[0];
   return true;
 }
 

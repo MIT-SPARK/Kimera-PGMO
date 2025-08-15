@@ -182,8 +182,8 @@ TEST(TestDeformationGraph, processNewMeshEdgesAndNodes) {
   auto values = graph.getValues();
   auto factors = graph.getFactors();
 
-  EXPECT_EQ(size_t(6), factors->size());
-  EXPECT_EQ(size_t(3), values->size());
+  EXPECT_EQ(6u, factors->size());
+  EXPECT_EQ(3u, values->size());
 }
 
 TEST(TestDeformationGraph, reconstructMesh) {
@@ -350,8 +350,8 @@ TEST(TestDeformationGraph, updateMesh) {
   auto values = graph.getValues();
   auto factors = graph.getFactors();
 
-  EXPECT_EQ(size_t(6), factors->size());
-  EXPECT_EQ(size_t(3), values->size());
+  ASSERT_EQ(6u, factors->size());
+  ASSERT_EQ(3u, values->size());
   EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors->at(0)));
   DeformationEdgeFactor factor = *cast_factor<DeformationEdgeFactor>(factors->at(0));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor.measurement()));
@@ -366,8 +366,8 @@ TEST(TestDeformationGraph, updateMesh) {
   values = graph.getValues();
   factors = graph.getFactors();
 
-  EXPECT_EQ(size_t(10), factors->size());
-  EXPECT_EQ(size_t(4), values->size());
+  ASSERT_EQ(10u, factors->size());
+  ASSERT_EQ(4u, values->size());
   EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors->at(9)));
   DeformationEdgeFactor factor6 = *cast_factor<DeformationEdgeFactor>(factors->at(6));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(-2, -2, -2), factor6.measurement()));
@@ -375,6 +375,9 @@ TEST(TestDeformationGraph, updateMesh) {
   EXPECT_EQ(gtsam::Symbol('v', 0).key(), factor6.back());
 
   Vertices new_node_valences_2{2};
+  graph.processNewNode(gtsam::Symbol('a', 1),
+                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
+                       false);
   graph.processNewBetween(
       gtsam::Symbol('a', 0),
       gtsam::Symbol('a', 1),
@@ -385,8 +388,8 @@ TEST(TestDeformationGraph, updateMesh) {
   values = graph.getValues();
   factors = graph.getFactors();
 
-  EXPECT_EQ(size_t(13), factors->size());
-  EXPECT_EQ(size_t(5), values->size());
+  ASSERT_EQ(13u, factors->size());
+  ASSERT_EQ(5u, values->size());
   EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors->at(12)));
   DeformationEdgeFactor factor12 = *cast_factor<DeformationEdgeFactor>(factors->at(12));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(2, 2, 4), factor12.measurement()));
@@ -430,7 +433,7 @@ TEST(TestDeformationGraph, addNodeMeasurements) {
 
   factors = graph.getFactors();
 
-  EXPECT_EQ(size_t(12), factors->size());
+  EXPECT_EQ(12u, factors->size());
   EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors->at(10)));
   EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors->at(11)));
 
@@ -477,7 +480,7 @@ TEST(TestDeformationGraph, removePriorsWithPrefix) {
 
   auto factors = graph.getFactors();
 
-  EXPECT_EQ(size_t(11), factors->size());
+  EXPECT_EQ(11u, factors->size());
   EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors->at(10)));
 
   OptimizeOnce(graph);
@@ -500,7 +503,7 @@ TEST(TestDeformationGraph, removePriorsWithPrefix) {
   graph.removePriorsWithPrefix('a');
 
   factors = graph.getFactors();
-  EXPECT_EQ(size_t(10), factors->size());
+  EXPECT_EQ(10u, factors->size());
 
   // Add another prior to see if mesh reset
   std::vector<std::pair<gtsam::Key, gtsam::Pose3>> priors;
@@ -534,6 +537,8 @@ TEST(TestDeformationGraph, processNewBetween) {
   Vertices new_node_valences{0, 2};
   graph.processNewNode(
       gtsam::Symbol('a', 0), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), true);
+  graph.processNewNode(
+      gtsam::Symbol('a', 1), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)), false);
   graph.processNewBetween(gtsam::Symbol('a', 0),
                           gtsam::Symbol('a', 1),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)));
@@ -543,8 +548,8 @@ TEST(TestDeformationGraph, processNewBetween) {
 
   auto factors = graph.getFactors();
   auto values = graph.getValues();
-  EXPECT_EQ(size_t(12), factors->size());
-  EXPECT_EQ(size_t(5), values->size());
+  ASSERT_EQ(12u, factors->size());
+  ASSERT_EQ(5u, values->size());
 
   // Check the prior factor
   EXPECT_TRUE(cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors->at(6)));
@@ -570,6 +575,8 @@ TEST(TestDeformationGraph, processNewBetween) {
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
                                   traj[1]));
 
+  graph.processNewNode(
+      gtsam::Symbol('a', 2), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)), false);
   graph.processNewBetween(gtsam::Symbol('a', 1),
                           gtsam::Symbol('a', 2),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)));
@@ -582,8 +589,8 @@ TEST(TestDeformationGraph, processNewBetween) {
 
   OptimizeOnce(graph);
 
-  EXPECT_EQ(size_t(16), factors->size());
-  EXPECT_EQ(size_t(6), values->size());
+  ASSERT_EQ(16u, factors->size());
+  ASSERT_EQ(6u, values->size());
 
   // Check the between factor
   EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors->at(12)));
@@ -604,7 +611,7 @@ TEST(TestDeformationGraph, processNewBetween) {
   EXPECT_EQ(gtsam::Symbol('a', 2).key(), new2.back());
 
   traj = graph.getTrajectory('a');
-  EXPECT_EQ(3, traj.size());
+  ASSERT_EQ(3, traj.size());
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.05, 2.05)), traj[2], 0.05));
 }
@@ -616,11 +623,15 @@ TEST(TestDeformationGraph, addTemporary) {
   Vertices new_node_valences{0, 2};
   graph.processNewNode(
       gtsam::Symbol('a', 0), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), true);
+  graph.processNewNode(
+      gtsam::Symbol('a', 1), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)), false);
   graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
   graph.processNewBetween(gtsam::Symbol('a', 0),
                           gtsam::Symbol('a', 1),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)));
 
+  graph.processNewNode(
+      gtsam::Symbol('a', 2), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)), false);
   graph.processNewBetween(gtsam::Symbol('a', 1),
                           gtsam::Symbol('a', 2),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)));
@@ -634,8 +645,8 @@ TEST(TestDeformationGraph, addTemporary) {
   auto temp_factors = graph.getTempFactors();
   auto temp_values = graph.getTempValues();
 
-  EXPECT_EQ(size_t(15), factors->size());
-  EXPECT_EQ(size_t(6), values->size());
+  EXPECT_EQ(15u, factors->size());
+  EXPECT_EQ(6u, values->size());
 
   OptimizeOnce(graph);
 
@@ -657,11 +668,11 @@ TEST(TestDeformationGraph, addTemporary) {
   OptimizeOnce(graph);
 
   // Check added factors
-  EXPECT_EQ(size_t(15), factors->size());
-  EXPECT_EQ(size_t(6), values->size());
+  EXPECT_EQ(15u, factors->size());
+  EXPECT_EQ(6u, values->size());
 
-  EXPECT_EQ(size_t(5), temp_factors->size());
-  EXPECT_EQ(size_t(2), temp_values->size());
+  EXPECT_EQ(5u, temp_factors->size());
+  EXPECT_EQ(2u, temp_values->size());
 
   traj = graph.getTrajectory('a');
   EXPECT_EQ(3, traj.size());
@@ -670,8 +681,8 @@ TEST(TestDeformationGraph, addTemporary) {
 
   OptimizeOnce(graph);
 
-  EXPECT_EQ(size_t(0), temp_factors->size());
-  EXPECT_EQ(size_t(0), temp_values->size());
+  EXPECT_EQ(0u, temp_factors->size());
+  EXPECT_EQ(0u, temp_values->size());
 
   // Re-ad temporary nodes and edges
   graph.processNewTempNode(gtsam::Symbol('p', 0), gtsam::Pose3(), false);
@@ -681,8 +692,8 @@ TEST(TestDeformationGraph, addTemporary) {
 
   OptimizeOnce(graph);
 
-  EXPECT_EQ(size_t(6), temp_factors->size());
-  EXPECT_EQ(size_t(1), temp_values->size());
+  EXPECT_EQ(6u, temp_factors->size());
+  EXPECT_EQ(1u, temp_values->size());
 }
 
 TEST(TestDeformationGraph, processNewTempNodesValences) {
@@ -703,8 +714,8 @@ TEST(TestDeformationGraph, processNewTempNodesValences) {
   auto temp_factors = graph.getTempFactors();
   auto temp_values = graph.getTempValues();
 
-  EXPECT_EQ(size_t(6), factors->size());
-  EXPECT_EQ(size_t(3), values->size());
+  EXPECT_EQ(6u, factors->size());
+  EXPECT_EQ(3u, values->size());
 
   for (size_t i = 0; i < 3; i++) {
     gtsam::Pose3 node_pose(gtsam::Rot3(), gtsam::Point3(static_cast<double>(i), 0, 0));
@@ -732,8 +743,8 @@ TEST(TestDeformationGraph, processNewTempNodesValences) {
   graph.clearTemporaryStructures();
   OptimizeOnce(graph);
 
-  EXPECT_EQ(size_t(0), temp_factors->size());
-  EXPECT_EQ(size_t(0), temp_values->size());
+  EXPECT_EQ(0u, temp_factors->size());
+  EXPECT_EQ(0u, temp_values->size());
 }
 
 TEST(TestDeformationGraph, processNewTempEdges) {
@@ -764,10 +775,10 @@ TEST(TestDeformationGraph, processNewTempEdges) {
   auto temp_factors = graph.getTempFactors();
   auto temp_values = graph.getTempValues();
 
-  EXPECT_EQ(size_t(3), values->size());
-  EXPECT_EQ(size_t(6), factors->size());
-  EXPECT_EQ(size_t(4), temp_values->size());
-  EXPECT_EQ(size_t(3), temp_factors->size());
+  EXPECT_EQ(3u, values->size());
+  EXPECT_EQ(6u, factors->size());
+  EXPECT_EQ(4u, temp_values->size());
+  EXPECT_EQ(3u, temp_factors->size());
 }
 
 TEST(TestDeformationGraph, saveAndLoad) {
@@ -778,10 +789,17 @@ TEST(TestDeformationGraph, saveAndLoad) {
   graph.processNewNode(
       gtsam::Symbol('a', 0), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), true);
   graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
+
+  graph.processNewNode(gtsam::Symbol('a', 1),
+                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
+                       false);
   graph.processNewBetween(gtsam::Symbol('a', 0),
                           gtsam::Symbol('a', 1),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)));
 
+  graph.processNewNode(gtsam::Symbol('a', 2),
+                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)),
+                       false);
   graph.processNewBetween(gtsam::Symbol('a', 1),
                           gtsam::Symbol('a', 2),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)));
@@ -805,11 +823,11 @@ TEST(TestDeformationGraph, saveAndLoad) {
   auto temp_values = graph.getTempValues();
   auto temp_factors = graph.getTempFactors();
 
-  EXPECT_EQ(size_t(15), factors->size());
-  EXPECT_EQ(size_t(6), values->size());
+  EXPECT_EQ(15u, factors->size());
+  EXPECT_EQ(6u, values->size());
 
-  EXPECT_EQ(size_t(5), temp_factors->size());
-  EXPECT_EQ(size_t(2), temp_values->size());
+  EXPECT_EQ(5u, temp_factors->size());
+  EXPECT_EQ(2u, temp_values->size());
   graph.save(std::string(DATASET_PATH) + "/graph.dgrf");
   DeformationGraph new_graph;
   new_graph.load(std::string(DATASET_PATH) + "/graph.dgrf");
@@ -819,11 +837,11 @@ TEST(TestDeformationGraph, saveAndLoad) {
   temp_values = new_graph.getTempValues();
   temp_factors = new_graph.getTempFactors();
 
-  EXPECT_EQ(size_t(15), factors->size());
-  EXPECT_EQ(size_t(6), values->size());
+  EXPECT_EQ(15u, factors->size());
+  EXPECT_EQ(6u, values->size());
 
-  EXPECT_EQ(size_t(5), temp_factors->size());
-  EXPECT_EQ(size_t(2), temp_values->size());
+  EXPECT_EQ(5u, temp_factors->size());
+  EXPECT_EQ(2u, temp_values->size());
   EXPECT_EQ(3, new_graph.getNumVertices());
   EXPECT_EQ(0, new_graph.getInitialPositionVertex('v', 0).x());
   EXPECT_EQ(1, new_graph.getInitialPositionVertex('v', 2).y());

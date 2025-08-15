@@ -83,13 +83,13 @@ TEST(TestGtsamConversions, GtsamGraphToRos) {
   geometry_msgs::msg::Pose expected1;
   geometry_msgs::msg::Pose expected2;
   expected2.orientation.w = 0.0;
-  expected2.orientation.y = 1.0;
+  expected2.orientation.x = 1.0;
   expected2.position.x = 1.0;
   expected2.position.y = 1.0;
   expected2.position.z = 1.0;
 
   // Check edges
-  EXPECT_EQ(2u, pose_graph_ptr->edges.size());
+  ASSERT_EQ(2u, pose_graph_ptr->edges.size());
   EXPECT_EQ(expected1, pose_graph_ptr->edges[0].pose);
   EXPECT_EQ(expected2, pose_graph_ptr->edges[1].pose);
 
