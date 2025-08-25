@@ -13,6 +13,7 @@
 #include <pose_graph_tools/pose_graph.h>
 
 #include "kimera_pgmo/deformation_graph.h"
+#include "kimera_pgmo/deformation_graph_factor.h"
 #include "utils/logging.h"
 
 namespace kimera_pgmo {

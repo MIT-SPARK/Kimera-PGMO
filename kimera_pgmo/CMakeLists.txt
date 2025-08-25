@@ -46,6 +46,7 @@ add_library(
   src/utils/range_generator.cpp
   src/optimizer/kimera_rpgo_optimizer.cpp
   src/deformation_graph.cpp
+  src/deformation_graph_factor.cpp
   src/deformation_graph_io.cpp
   src/mesh_deformation.cpp
   src/mesh_delta.cpp

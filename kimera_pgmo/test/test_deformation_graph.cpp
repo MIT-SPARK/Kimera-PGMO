@@ -9,6 +9,7 @@
 #include <pcl/conversions.h>
 
 #include "kimera_pgmo/deformation_graph.h"
+#include "kimera_pgmo/deformation_graph_factor.h"
 #include "kimera_pgmo/utils/common_functions.h"
 #include "kimera_pgmo/utils/common_structs.h"
 #include "kimera_pgmo/utils/mesh_io.h"
