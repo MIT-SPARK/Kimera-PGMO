@@ -34,19 +34,18 @@ struct KimeraPgmoConfig {
   KimeraPgmoConfig() = default;
 
   // pgmo behavior
-  RunMode mode;
-  double embed_delta_t;
-  int num_interp_pts;
-  double interp_horizon;
-  bool b_add_initial_prior;
+  RunMode mode = RunMode::FULL;
+  int num_interp_pts = 3;
+  double interp_horizon = 5.0;
+  bool b_add_initial_prior = true;
   // covariances
-  double odom_variance;
-  double lc_variance;
-  double prior_variance;
-  double mesh_edge_variance;
-  double pose_mesh_variance;
+  double odom_variance = -1.0;
+  double lc_variance = -1.0;
+  double prior_variance = -1.0;
+  double mesh_edge_variance = -1.0;
+  double pose_mesh_variance = -1.0;
   // logging
-  std::string log_path = "";
+  std::string log_path;
 
   // optimizer
   config::VirtualConfig<Optimizer> optimizer{KimeraRpgoOptimizer::Config()};
