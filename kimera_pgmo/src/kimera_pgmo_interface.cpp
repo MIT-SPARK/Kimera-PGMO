@@ -30,7 +30,6 @@ void declare_config(KimeraPgmoConfig& config) {
              {{RunMode::FULL, "FULL"},
               {RunMode::EXTERNAL_OPTIMIZER, "EXTERNAL_OPTIMIZER"},
               {RunMode::MESH_ONLY, "MESH_ONLY"}});
-  field(config.embed_delta_t, "embed_trajectory_delta_t");
   field(config.num_interp_pts, "num_interp_pts");
   field(config.interp_horizon, "interp_horizon");
   field(config.b_add_initial_prior, "add_initial_prior");
@@ -48,6 +47,12 @@ void declare_config(KimeraPgmoConfig& config) {
   field(config.optimizer, "optimizer");
 
   check(config.num_interp_pts, GT, 1, "num_interp_pts");
+  check(config.interp_horizon, GT, 0.0, "interp_horizon");
+  check(config.odom_variance, GT, 0.0, "odom_variance");
+  check(config.lc_variance, GT, 0.0, "lc_variance");
+  check(config.prior_variance, GT, 0.0, "prior_variance");
+  check(config.mesh_edge_variance, GT, 0.0, "mesh_edge_variance");
+  check(config.pose_mesh_variance, GT, 0.0, "pose_mesh_variance");
 }
 
 // Constructor
