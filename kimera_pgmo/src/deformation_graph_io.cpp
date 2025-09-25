@@ -82,16 +82,30 @@ class Parser {
   std::map<std::string, ParseFunction> tag_parsers_;
 };
 
-gtsam::Key rekey(gtsam::Symbol key, size_t robot_id) {
-  char new_prefix = kimera_pgmo::robot_id_to_prefix.at(robot_id);
-  char new_vertex_prefix = kimera_pgmo::robot_id_to_vertex_prefix.at(robot_id);
-  if (kimera_pgmo::robot_prefix_to_id.count(key.chr())) {
-    return gtsam::Symbol(new_prefix, key.index());
+gtsam::Key rekey(size_t key, const std::map<size_t, size_t>& id_remap) {
+  const auto prefix = gtsam::Symbol(key).chr();
+  const auto index = gtsam::Symbol(key).index();
+  if (!robot_prefix_to_id.count(prefix) && !vertex_prefix_to_id.count(prefix)) {
+    throw std::runtime_error("invalid key prefix '" + std::to_string(prefix) + "'");
   }
-  if (kimera_pgmo::vertex_prefix_to_id.count(key.chr())) {
-    return gtsam::Symbol(new_vertex_prefix, key.index());
+
+  const bool is_vertex = vertex_prefix_to_id.count(prefix);
+  const auto prev_id =
+      is_vertex ? vertex_prefix_to_id.at(prefix) : robot_prefix_to_id.at(prefix);
+
+  auto iter = id_remap.find(prev_id);
+  if (iter == id_remap.end()) {
+    return key;
   }
-  return key;
+
+  const auto robot_id = iter->second;
+  if (!robot_id_to_prefix.count(robot_id)) {
+    throw std::runtime_error("new robot ID has no prefix: " + std::to_string(robot_id));
+  }
+
+  char new_prefix = is_vertex ? robot_id_to_vertex_prefix.at(robot_id)
+                              : robot_id_to_prefix.at(robot_id);
+  return gtsam::Symbol(new_prefix, index);
 }
 
 void streamValue(const gtsam::Key& key,
@@ -184,23 +198,19 @@ void streamVertices(const char& prefix,
 
 void parseValue(std::istream& in,
                 gtsam::Values& values,
-                std::optional<size_t> new_robot_id) {
+                const std::map<size_t, size_t>& id_remap) {
   size_t key;
   double x, y, z, qx, qy, qz, qw;
   in >> key >> x >> y >> z >> qx >> qy >> qz >> qw;
 
-  gtsam::Symbol gtsam_key(key);
-  if (new_robot_id) {
-    gtsam_key = rekey(gtsam_key, *new_robot_id);
-  }
-
+  const auto gtsam_key = rekey(key, id_remap);
   gtsam::Pose3 pose(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
   values.insert(gtsam_key, pose);
 }
 
 void parseBetween(std::istream& in,
                   gtsam::NonlinearFactorGraph& factors,
-                  std::optional<size_t> new_robot_id) {
+                  const std::map<size_t, size_t>& id_remap) {
   size_t key1, key2;
   double x, y, z, qx, qy, qz, qw;
   gtsam::Matrix6 m;
@@ -214,13 +224,8 @@ void parseBetween(std::istream& in,
     }
   }
 
-  gtsam::Symbol gtsam_key1(key1);
-  gtsam::Symbol gtsam_key2(key2);
-  if (new_robot_id) {
-    gtsam_key1 = rekey(gtsam_key1, *new_robot_id);
-    gtsam_key2 = rekey(gtsam_key2, *new_robot_id);
-  }
-
+  const auto gtsam_key1 = rekey(key1, id_remap);
+  const auto gtsam_key2 = rekey(key2, id_remap);
   gtsam::Pose3 meas(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
   gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
   factors.add(gtsam::BetweenFactor<gtsam::Pose3>(gtsam_key1, gtsam_key2, meas, noise));
@@ -228,7 +233,7 @@ void parseBetween(std::istream& in,
 
 void parseDedge(std::istream& in,
                 gtsam::NonlinearFactorGraph& factors,
-                std::optional<size_t> new_robot_id) {
+                const std::map<size_t, size_t>& id_remap) {
   size_t key1, key2;
   double x, y, z;
   gtsam::Matrix3 m;
@@ -242,13 +247,8 @@ void parseDedge(std::istream& in,
     }
   }
 
-  gtsam::Symbol gtsam_key1(key1);
-  gtsam::Symbol gtsam_key2(key2);
-  if (new_robot_id) {
-    gtsam_key1 = rekey(key1, *new_robot_id);
-    gtsam_key2 = rekey(key2, *new_robot_id);
-  }
-
+  const auto gtsam_key1 = rekey(key1, id_remap);
+  const auto gtsam_key2 = rekey(key2, id_remap);
   gtsam::Point3 measurement(x, y, z);
   gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
   factors.add(DeformationEdgeFactor(gtsam_key1, gtsam_key2, measurement, noise));
@@ -256,7 +256,7 @@ void parseDedge(std::istream& in,
 
 void parsePrior(std::istream& in,
                 gtsam::NonlinearFactorGraph& factors,
-                std::optional<size_t> new_robot_id) {
+                const std::map<size_t, size_t>& id_remap) {
   size_t key;
   double x, y, z, qx, qy, qz, qw;
   gtsam::Matrix6 m;
@@ -270,11 +270,7 @@ void parsePrior(std::istream& in,
     }
   }
 
-  gtsam::Symbol gtsam_key(key);
-  if (new_robot_id) {
-    gtsam_key = rekey(gtsam_key, *new_robot_id);
-  }
-
+  const auto gtsam_key = rekey(key, id_remap);
   gtsam::Pose3 meas(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
   gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
   factors.add(gtsam::PriorFactor<gtsam::Pose3>(gtsam_key, meas, noise));
@@ -282,19 +278,12 @@ void parsePrior(std::istream& in,
 
 void parseVertex(std::istream& in,
                  DgraphVertex& vertex,
-                 std::optional<size_t> new_robot_id) {
+                 const std::map<size_t, size_t>& id_remap) {
   size_t key;
   double x, y, z;
   in >> key >> vertex.timestamp_ns >> x >> y >> z;
   vertex.pos = gtsam::Point3(x, y, z);
-
-  gtsam::Symbol vertex_symb(key);
-  char vertex_prefix = vertex_symb.chr();
-  if (new_robot_id && kimera_pgmo::vertex_prefix_to_id.count(vertex_prefix) > 0) {
-    vertex_prefix = kimera_pgmo::robot_id_to_vertex_prefix.at(*new_robot_id);
-  }
-
-  vertex.key = gtsam::Symbol(vertex_prefix, vertex_symb.index());
+  vertex.key = rekey(key, id_remap);
 }
 
 void parseInliers(std::istream& in, std::set<size_t>& inliers) {
@@ -308,19 +297,19 @@ void setupParser(Parser& parser,
                  PGOInfo& info,
                  bool is_temp,
                  bool include_priors,
-                 std::optional<size_t> new_id) {
+                 std::map<size_t, size_t> remap) {
   const auto tags = is_temp ? TagInfo::temp() : TagInfo::nominal();
   parser.addCallback(tags.node,
-                     [&](std::istream& ss) { parseValue(ss, info.values, new_id); });
+                     [&](std::istream& ss) { parseValue(ss, info.values, remap); });
   parser.addCallback(tags.between,
-                     [&](std::istream& ss) { parseBetween(ss, info.factors, new_id); });
+                     [&](std::istream& ss) { parseBetween(ss, info.factors, remap); });
   parser.addCallback(tags.dedge,
-                     [&](std::istream& ss) { parseDedge(ss, info.factors, new_id); });
+                     [&](std::istream& ss) { parseDedge(ss, info.factors, remap); });
   parser.addCallback(tags.inlier,
                      [&](std::istream& ss) { parseInliers(ss, info.known_inliers); });
   if (include_priors) {
     parser.addCallback(tags.prior,
-                       [&](std::istream& ss) { parsePrior(ss, info.factors, new_id); });
+                       [&](std::istream& ss) { parsePrior(ss, info.factors, remap); });
   }
 }
 
@@ -367,9 +356,9 @@ void PGOInfo::save(std::ostream& out, bool is_temp) const {
 void PGOInfo::load(std::istream& in,
                    bool is_temp,
                    bool include_priors,
-                   std::optional<size_t> new_id) {
+                   const std::map<size_t, size_t>& id_remapping) {
   Parser parser;
-  setupParser(parser, *this, is_temp, include_priors, new_id);
+  setupParser(parser, *this, is_temp, include_priors, id_remapping);
   parser.parse(in);
 }
 
@@ -381,10 +370,10 @@ void PGOInfo::save(const std::filesystem::path& filepath, bool is_temp) const {
 std::shared_ptr<PGOInfo> PGOInfo::load(const std::filesystem::path filepath,
                                        bool is_temp,
                                        bool include_priors,
-                                       std::optional<size_t> new_robot_id) {
+                                       const std::map<size_t, size_t>& id_remapping) {
   auto info = std::make_shared<PGOInfo>();
   std::ifstream fin(filepath);
-  info->load(fin, is_temp, include_priors, new_robot_id);
+  info->load(fin, is_temp, include_priors, id_remapping);
   return info;
 }
 

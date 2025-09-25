@@ -50,14 +50,14 @@ struct PGOInfo {
   void load(std::istream& in,
             bool is_temp = false,
             bool include_priors = true,
-            std::optional<size_t> new_robot_id = std::nullopt);
+            const std::map<size_t, size_t>& id_remapping = {});
 
   void save(const std::filesystem::path& filepath, bool is_temp = false) const;
   static std::shared_ptr<PGOInfo> load(
       const std::filesystem::path,
       bool is_temp = false,
       bool include_priors = true,
-      std::optional<size_t> new_robot_id = std::nullopt);
+      const std::map<size_t, size_t>& id_remapping = {});
 };
 
 using NodeValenceInfoList = std::vector<NodeValenceInfo>;
