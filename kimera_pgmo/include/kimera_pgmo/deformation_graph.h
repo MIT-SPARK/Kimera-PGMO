@@ -46,7 +46,10 @@ struct PGOInfo {
   std::vector<double> inlier_weights;
 
   void save(std::ostream& out, bool is_temp = false) const;
-  void load(std::istream& in);
+  void load(std::istream& in,
+            bool is_temp = false,
+            bool include_priors = true,
+            std::optional<size_t> new_robot_id = std::nullopt);
 };
 
 using NodeValenceInfoList = std::vector<NodeValenceInfo>;
