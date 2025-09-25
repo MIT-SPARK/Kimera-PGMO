@@ -21,6 +21,12 @@ const T* cast_to_ptr(const Ptr& ptr) {
   return dynamic_cast<const T*>(ptr.get());
 }
 
+struct DgraphVertex {
+  gtsam::Symbol key;
+  Timestamp timestamp_ns;
+  gtsam::Point3 pos;
+};
+
 struct TagInfo {
   std::string node;
   std::string between;
@@ -49,7 +55,32 @@ struct TagInfo {
   }
 };
 
-}  // namespace
+class Parser {
+ public:
+  using ParseFunction = std::function<void(std::istream&)>;
+  void addCallback(const std::string& tag, const ParseFunction& callback) {
+    tag_parsers_[tag] = callback;
+  }
+
+  void parse(std::istream& in) const {
+    std::string line;
+    while (std::getline(in, line)) {
+      std::stringstream ss(line);
+      std::string tag;
+      ss >> tag;
+
+      auto iter = tag_parsers_.find(tag);
+      if (iter == tag_parsers_.end()) {
+        continue;
+      }
+
+      iter->second(ss);
+    }
+  }
+
+ private:
+  std::map<std::string, ParseFunction> tag_parsers_;
+};
 
 gtsam::Key rekey(gtsam::Symbol key, size_t robot_id) {
   char new_prefix = kimera_pgmo::robot_id_to_prefix.at(robot_id);
@@ -249,12 +280,6 @@ void parsePrior(std::istream& in,
   factors.add(gtsam::PriorFactor<gtsam::Pose3>(gtsam_key, meas, noise));
 }
 
-struct DgraphVertex {
-  gtsam::Symbol key;
-  Timestamp timestamp_ns;
-  gtsam::Point3 pos;
-};
-
 void parseVertex(std::istream& in,
                  DgraphVertex& vertex,
                  std::optional<size_t> new_robot_id) {
@@ -271,6 +296,35 @@ void parseVertex(std::istream& in,
 
   vertex.key = gtsam::Symbol(vertex_prefix, vertex_symb.index());
 }
+
+void parseInliers(std::istream& in, std::set<size_t>& inliers) {
+  size_t idx;
+  while (in >> idx) {
+    inliers.insert(idx);
+  }
+}
+
+void setupParser(Parser& parser,
+                 PGOInfo& info,
+                 bool is_temp,
+                 bool include_priors,
+                 std::optional<size_t> new_id) {
+  const auto tags = is_temp ? TagInfo::temp() : TagInfo::nominal();
+  parser.addCallback(tags.node,
+                     [&](std::istream& ss) { parseValue(ss, info.values, new_id); });
+  parser.addCallback(tags.between,
+                     [&](std::istream& ss) { parseBetween(ss, info.factors, new_id); });
+  parser.addCallback(tags.dedge,
+                     [&](std::istream& ss) { parseDedge(ss, info.factors, new_id); });
+  parser.addCallback(tags.inlier,
+                     [&](std::istream& ss) { parseInliers(ss, info.known_inliers); });
+  if (include_priors) {
+    parser.addCallback(tags.prior,
+                       [&](std::istream& ss) { parsePrior(ss, info.factors, new_id); });
+  }
+}
+
+}  // namespace
 
 void PGOInfo::save(std::ostream& out, bool is_temp) const {
   const auto tags = is_temp ? TagInfo::temp() : TagInfo::nominal();
@@ -310,44 +364,28 @@ void PGOInfo::save(std::ostream& out, bool is_temp) const {
   out << std::endl;
 }
 
-void parseInliers(std::istream& in, std::set<size_t>& inliers) {
-  size_t idx;
-  while (in >> idx) {
-    inliers.insert(idx);
-  }
-}
-
 void PGOInfo::load(std::istream& in,
                    bool is_temp,
                    bool include_priors,
-                   std::optional<size_t> new_robot_id) {
-  const auto tags = is_temp ? TagInfo::temp() : TagInfo::nominal();
+                   std::optional<size_t> new_id) {
+  Parser parser;
+  setupParser(parser, *this, is_temp, include_priors, new_id);
+  parser.parse(in);
+}
 
-  std::string line;
-  while (std::getline(in, line)) {
-    std::stringstream ss(line);
-    std::string tag;
-    ss >> tag;
-    if (tag == tags.node) {
-      parseValue(ss, values, new_robot_id);
-    }
+void PGOInfo::save(const std::filesystem::path& filepath, bool is_temp) const {
+  std::ofstream fout(filepath);
+  save(fout, is_temp);
+}
 
-    if (tag == tags.between) {
-      parseBetween(ss, factors, new_robot_id);
-    }
-
-    if (tag == tags.dedge) {
-      parseDedge(ss, factors, new_robot_id);
-    }
-
-    if (tag == tags.prior && include_priors) {
-      parsePrior(ss, factors, new_robot_id);
-    }
-
-    if (tag == tags.inlier) {
-      parseInliers(ss, known_inliers);
-    }
-  }
+std::shared_ptr<PGOInfo> PGOInfo::load(const std::filesystem::path filepath,
+                                       bool is_temp,
+                                       bool include_priors,
+                                       std::optional<size_t> new_robot_id) {
+  auto info = std::make_shared<PGOInfo>();
+  std::ifstream fin(filepath);
+  info->load(fin, is_temp, include_priors, new_robot_id);
+  return info;
 }
 
 void DeformationGraph::save(const std::string& filename) const {
@@ -369,42 +407,41 @@ void DeformationGraph::load(const std::string& filename,
                             bool set_robot_id,
                             size_t new_robot_id,
                             bool include_priors) {
+  info_.reset(new PGOInfo());
+  temp_info_.reset(new PGOInfo());
+
   std::optional<size_t> id_to_use;
   if (set_robot_id) {
     id_to_use = new_robot_id;
   }
 
-  std::ifstream infile(filename);
+  Parser parser;
+  setupParser(parser, *info_, false, include_priors, new_robot_id);
+  setupParser(parser, *temp_info_, true, include_priors, new_robot_id);
+  parser.addCallback("VERTEX", [&](std::istream& in) {
+    DgraphVertex vertex;
+    parseVertex(in, vertex, new_robot_id);
 
-  std::string line;
-  while (std::getline(infile, line)) {
-    std::stringstream ss(line);
-    std::string tag;
-    ss >> tag;
-
-    if (tag == "VERTEX") {
-      DgraphVertex vertex;
-      parseVertex(ss, vertex, new_robot_id);
-
-      const auto vertex_prefix = vertex.key.chr();
-      const auto vertex_index = vertex.key.index();
-      if (vertex_index == 0) {
-        vertex_positions_[vertex_prefix] = std::vector<gtsam::Point3>{};
-        vertex_stamps_[vertex_prefix] = std::vector<Timestamp>{};
-      }
-
-      if (vertex_index != vertex_positions_[vertex_prefix].size()) {
-        std::stringstream ss;
-        ss << "Misaligned vertex indices: " << vertex_index << " vs. "
-           << vertex_positions_[vertex_prefix].size() << "!";
-        throw std::runtime_error(ss.str());
-      }
-
-      vertex_positions_[vertex_prefix].push_back(vertex.pos);
-      vertex_stamps_[vertex_prefix].push_back(vertex.timestamp_ns);
+    const auto vertex_prefix = vertex.key.chr();
+    const auto vertex_index = vertex.key.index();
+    if (vertex_index == 0) {
+      vertex_positions_[vertex_prefix] = std::vector<gtsam::Point3>{};
+      vertex_stamps_[vertex_prefix] = std::vector<Timestamp>{};
     }
-  }
 
+    if (vertex_index != vertex_positions_[vertex_prefix].size()) {
+      std::stringstream ss;
+      ss << "Misaligned vertex indices: " << vertex_index << " vs. "
+         << vertex_positions_[vertex_prefix].size() << "!";
+      throw std::runtime_error(ss.str());
+    }
+
+    vertex_positions_[vertex_prefix].push_back(vertex.pos);
+    vertex_stamps_[vertex_prefix].push_back(vertex.timestamp_ns);
+  });
+
+  std::ifstream infile(filename);
+  parser.parse(infile);
   // TODO(nathan) dump all values in the initial pose
 }
 

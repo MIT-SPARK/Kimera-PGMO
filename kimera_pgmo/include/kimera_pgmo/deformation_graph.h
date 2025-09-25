@@ -16,6 +16,7 @@
 #include <pcl/point_types.h>
 #include <pose_graph_tools/pose_graph.h>
 
+#include <filesystem>
 #include <map>
 #include <unordered_map>
 #include <vector>
@@ -50,6 +51,13 @@ struct PGOInfo {
             bool is_temp = false,
             bool include_priors = true,
             std::optional<size_t> new_robot_id = std::nullopt);
+
+  void save(const std::filesystem::path& filepath, bool is_temp = false) const;
+  static std::shared_ptr<PGOInfo> load(
+      const std::filesystem::path,
+      bool is_temp = false,
+      bool include_priors = true,
+      std::optional<size_t> new_robot_id = std::nullopt);
 };
 
 using NodeValenceInfoList = std::vector<NodeValenceInfo>;
