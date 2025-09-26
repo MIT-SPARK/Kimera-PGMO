@@ -250,8 +250,6 @@ class KimeraPgmoInterface {
    */
   bool saveDeformationGraph(const std::string& dgrf_name) const;
 
-  void setVerboseFlag(bool verbose);
-
  protected:
   bool verbose_;  // whether or not to print messages
   KimeraPgmoConfig config_;

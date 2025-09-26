@@ -41,23 +41,26 @@ struct NodeValenceInfo {
 };
 
 struct PGOInfo {
+ public:
   gtsam::Values values;
   gtsam::NonlinearFactorGraph factors;
   std::set<size_t> known_inliers;
   std::vector<double> inlier_weights;
 
-  void save(std::ostream& out, bool is_temp = false) const;
-  void load(std::istream& in,
-            bool is_temp = false,
-            bool include_priors = true,
-            const std::map<size_t, size_t>& id_remapping = {});
+  void clear();
+  void rekey(const std::map<char, char>& prefix_remapping);
+  void forceRobotId(size_t robot_id);
 
+  void save(std::ostream& out, bool is_temp = false) const;
   void save(const std::filesystem::path& filepath, bool is_temp = false) const;
-  static std::shared_ptr<PGOInfo> load(
-      const std::filesystem::path,
-      bool is_temp = false,
-      bool include_priors = true,
-      const std::map<size_t, size_t>& id_remapping = {});
+
+  void load(std::istream& in, bool is_temp = false, bool include_priors = true);
+  static std::shared_ptr<PGOInfo> load(const std::filesystem::path,
+                                       bool is_temp = false,
+                                       bool include_priors = true);
+
+ private:
+  void rekey(const std::function<gtsam::Symbol(gtsam::Symbol)>& remapping);
 };
 
 using NodeValenceInfoList = std::vector<NodeValenceInfo>;
@@ -69,8 +72,6 @@ class DeformationGraph {
    */
   DeformationGraph(bool add_init_vertex_prior = false);
   ~DeformationGraph();
-
-  void setVerboseFlag(bool verbose);
 
   /*! \brief Directly add a full pose graph to the deformation graph
    *  - pose_graph: full pose graph
@@ -497,12 +498,15 @@ class DeformationGraph {
 
   /*! \brief Load deformation graph from file
    * - filename: input file name
+   * - include_temp: include all temp values and factors
+   * - include_priors: include all prior factors
    */
   void load(const std::string& filename,
             bool include_temp = true,
-            bool set_robot_id = false,
-            size_t new_robot_id = 0,
             bool include_priors = true);
+
+  //! Force all factors and values to use the same robot ID
+  void forceRobotId(size_t robot_id);
 
   bool hasPrefixPoses(char prefix) const;
 
@@ -608,17 +612,17 @@ class DeformationGraph {
  private:
   std::mutex mutex_;
 
-  bool verbose_;
   bool add_init_vertex_prior_;
+  size_t num_loopclosures_;
 
-  // Keep track of vertices not part of mesh for embedding trajectory, etc.
-  std::map<char, std::vector<gtsam::Pose3>> pg_initial_poses_;
+  // deformation graph vertices
   std::map<char, std::vector<gtsam::Point3>> vertex_positions_;
   std::map<char, std::vector<Timestamp>> vertex_stamps_;
 
-  // factors
-  std::shared_ptr<PGOInfo> info_;
-  std::shared_ptr<PGOInfo> temp_info_;
+  // optimization info
+  PGOInfo info_;
+  PGOInfo temp_info_;
+  std::map<char, std::vector<gtsam::Pose3>> pg_initial_poses_;
   std::unordered_map<gtsam::Key, gtsam::Pose3> temp_pg_initial_poses_;
 
   // track adjacency
@@ -626,7 +630,6 @@ class DeformationGraph {
 
   // Recalculate only if new measurements added
   bool recalculate_vertices_;
-  size_t num_loopclosures_;
   std::map<char, pcl::PointCloud<pcl::PointXYZ>> last_calculated_vertices_;
 };
 

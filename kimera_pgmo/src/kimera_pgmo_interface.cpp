@@ -149,7 +149,7 @@ void KimeraPgmoInterface::loadDeformationGraphFromFile(const std::string& input)
 void KimeraPgmoInterface::loadDeformationGraphFromFile(const std::string& input,
                                                        size_t robot_id,
                                                        bool include_priors) {
-  deformation_graph_->load(input, true, true, robot_id, include_priors);
+  deformation_graph_->load(input, true, include_priors);
   num_loop_closures_ = deformation_graph_->getNumLoopclosures();
 }
 
@@ -633,13 +633,6 @@ bool KimeraPgmoInterface::saveDeformationGraph(const std::string& dgrf_name) con
   deformation_graph_->save(dgrf_name);
   SPARK_LOG(INFO) << "KimeraPgmo: Saved deformation graph to file.";
   return true;
-}
-
-void KimeraPgmoInterface::setVerboseFlag(bool verbose) {
-  verbose_ = verbose;
-  if (deformation_graph_) {
-    deformation_graph_->setVerboseFlag(verbose);
-  }
 }
 
 }  // namespace kimera_pgmo

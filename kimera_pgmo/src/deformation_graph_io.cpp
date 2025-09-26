@@ -82,32 +82,6 @@ class Parser {
   std::map<std::string, ParseFunction> tag_parsers_;
 };
 
-gtsam::Key rekey(size_t key, const std::map<size_t, size_t>& id_remap) {
-  const auto prefix = gtsam::Symbol(key).chr();
-  const auto index = gtsam::Symbol(key).index();
-  if (!robot_prefix_to_id.count(prefix) && !vertex_prefix_to_id.count(prefix)) {
-    throw std::runtime_error("invalid key prefix '" + std::to_string(prefix) + "'");
-  }
-
-  const bool is_vertex = vertex_prefix_to_id.count(prefix);
-  const auto prev_id =
-      is_vertex ? vertex_prefix_to_id.at(prefix) : robot_prefix_to_id.at(prefix);
-
-  auto iter = id_remap.find(prev_id);
-  if (iter == id_remap.end()) {
-    return key;
-  }
-
-  const auto robot_id = iter->second;
-  if (!robot_id_to_prefix.count(robot_id)) {
-    throw std::runtime_error("new robot ID has no prefix: " + std::to_string(robot_id));
-  }
-
-  char new_prefix = is_vertex ? robot_id_to_vertex_prefix.at(robot_id)
-                              : robot_id_to_prefix.at(robot_id);
-  return gtsam::Symbol(new_prefix, index);
-}
-
 void streamValue(const gtsam::Key& key,
                  const gtsam::Pose3& pose,
                  std::ostream& stream) {
@@ -196,21 +170,17 @@ void streamVertices(const char& prefix,
   }
 }
 
-void parseValue(std::istream& in,
-                gtsam::Values& values,
-                const std::map<size_t, size_t>& id_remap) {
+void parseValue(std::istream& in, gtsam::Values& values) {
   size_t key;
   double x, y, z, qx, qy, qz, qw;
   in >> key >> x >> y >> z >> qx >> qy >> qz >> qw;
 
-  const auto gtsam_key = rekey(key, id_remap);
+  const gtsam::Symbol gtsam_key(key);
   gtsam::Pose3 pose(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
   values.insert(gtsam_key, pose);
 }
 
-void parseBetween(std::istream& in,
-                  gtsam::NonlinearFactorGraph& factors,
-                  const std::map<size_t, size_t>& id_remap) {
+void parseBetween(std::istream& in, gtsam::NonlinearFactorGraph& factors) {
   size_t key1, key2;
   double x, y, z, qx, qy, qz, qw;
   gtsam::Matrix6 m;
@@ -224,16 +194,14 @@ void parseBetween(std::istream& in,
     }
   }
 
-  const auto gtsam_key1 = rekey(key1, id_remap);
-  const auto gtsam_key2 = rekey(key2, id_remap);
+  const gtsam::Symbol gtsam_key1(key1);
+  const gtsam::Symbol gtsam_key2(key2);
   gtsam::Pose3 meas(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
   gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
   factors.add(gtsam::BetweenFactor<gtsam::Pose3>(gtsam_key1, gtsam_key2, meas, noise));
 }
 
-void parseDedge(std::istream& in,
-                gtsam::NonlinearFactorGraph& factors,
-                const std::map<size_t, size_t>& id_remap) {
+void parseDedge(std::istream& in, gtsam::NonlinearFactorGraph& factors) {
   size_t key1, key2;
   double x, y, z;
   gtsam::Matrix3 m;
@@ -247,16 +215,14 @@ void parseDedge(std::istream& in,
     }
   }
 
-  const auto gtsam_key1 = rekey(key1, id_remap);
-  const auto gtsam_key2 = rekey(key2, id_remap);
+  const gtsam::Symbol gtsam_key1(key1);
+  const gtsam::Symbol gtsam_key2(key2);
   gtsam::Point3 measurement(x, y, z);
   gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
   factors.add(DeformationEdgeFactor(gtsam_key1, gtsam_key2, measurement, noise));
 }
 
-void parsePrior(std::istream& in,
-                gtsam::NonlinearFactorGraph& factors,
-                const std::map<size_t, size_t>& id_remap) {
+void parsePrior(std::istream& in, gtsam::NonlinearFactorGraph& factors) {
   size_t key;
   double x, y, z, qx, qy, qz, qw;
   gtsam::Matrix6 m;
@@ -270,20 +236,18 @@ void parsePrior(std::istream& in,
     }
   }
 
-  const auto gtsam_key = rekey(key, id_remap);
+  const gtsam::Symbol gtsam_key(key);
   gtsam::Pose3 meas(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
   gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
   factors.add(gtsam::PriorFactor<gtsam::Pose3>(gtsam_key, meas, noise));
 }
 
-void parseVertex(std::istream& in,
-                 DgraphVertex& vertex,
-                 const std::map<size_t, size_t>& id_remap) {
+void parseVertex(std::istream& in, DgraphVertex& vertex) {
   size_t key;
   double x, y, z;
   in >> key >> vertex.timestamp_ns >> x >> y >> z;
   vertex.pos = gtsam::Point3(x, y, z);
-  vertex.key = rekey(key, id_remap);
+  vertex.key = gtsam::Symbol(key);
 }
 
 void parseInliers(std::istream& in, std::set<size_t>& inliers) {
@@ -293,23 +257,29 @@ void parseInliers(std::istream& in, std::set<size_t>& inliers) {
   }
 }
 
-void setupParser(Parser& parser,
-                 PGOInfo& info,
-                 bool is_temp,
-                 bool include_priors,
-                 std::map<size_t, size_t> remap) {
+void setupParser(Parser& parser, PGOInfo& info, bool is_temp, bool include_priors) {
   const auto tags = is_temp ? TagInfo::temp() : TagInfo::nominal();
-  parser.addCallback(tags.node,
-                     [&](std::istream& ss) { parseValue(ss, info.values, remap); });
-  parser.addCallback(tags.between,
-                     [&](std::istream& ss) { parseBetween(ss, info.factors, remap); });
-  parser.addCallback(tags.dedge,
-                     [&](std::istream& ss) { parseDedge(ss, info.factors, remap); });
-  parser.addCallback(tags.inlier,
-                     [&](std::istream& ss) { parseInliers(ss, info.known_inliers); });
+  parser.addCallback(tags.node, [&info, tags](std::istream& ss) {
+    SPARK_LOG(DEBUG) << "Parsing " << tags.node;
+    parseValue(ss, info.values);
+  });
+  parser.addCallback(tags.between, [&info, tags](std::istream& ss) {
+    SPARK_LOG(DEBUG) << "Parsing " << tags.between;
+    parseBetween(ss, info.factors);
+  });
+  parser.addCallback(tags.dedge, [&info, tags](std::istream& ss) {
+    SPARK_LOG(DEBUG) << "Parsing " << tags.dedge;
+    parseDedge(ss, info.factors);
+  });
+  parser.addCallback(tags.inlier, [&info, tags](std::istream& ss) {
+    SPARK_LOG(DEBUG) << "Parsing " << tags.inlier;
+    parseInliers(ss, info.known_inliers);
+  });
   if (include_priors) {
-    parser.addCallback(tags.prior,
-                       [&](std::istream& ss) { parsePrior(ss, info.factors, remap); });
+    parser.addCallback(tags.prior, [&info, tags](std::istream& ss) {
+      SPARK_LOG(DEBUG) << "Parsing " << tags.prior;
+      parsePrior(ss, info.factors);
+    });
   }
 }
 
@@ -353,12 +323,9 @@ void PGOInfo::save(std::ostream& out, bool is_temp) const {
   out << std::endl;
 }
 
-void PGOInfo::load(std::istream& in,
-                   bool is_temp,
-                   bool include_priors,
-                   const std::map<size_t, size_t>& id_remapping) {
+void PGOInfo::load(std::istream& in, bool is_temp, bool include_priors) {
   Parser parser;
-  setupParser(parser, *this, is_temp, include_priors, id_remapping);
+  setupParser(parser, *this, is_temp, include_priors);
   parser.parse(in);
 }
 
@@ -369,18 +336,17 @@ void PGOInfo::save(const std::filesystem::path& filepath, bool is_temp) const {
 
 std::shared_ptr<PGOInfo> PGOInfo::load(const std::filesystem::path filepath,
                                        bool is_temp,
-                                       bool include_priors,
-                                       const std::map<size_t, size_t>& id_remapping) {
+                                       bool include_priors) {
   auto info = std::make_shared<PGOInfo>();
   std::ifstream fin(filepath);
-  info->load(fin, is_temp, include_priors, id_remapping);
+  info->load(fin, is_temp, include_priors);
   return info;
 }
 
 void DeformationGraph::save(const std::string& filename) const {
   std::ofstream stream(filename);
-  info_->save(stream, false);
-  temp_info_->save(stream, true);
+  info_.save(stream, false);
+  temp_info_.save(stream, true);
 
   // save the initial positions and timestamps of the mesh vertices
   for (const auto& [prefix, positions] : vertex_positions_) {
@@ -390,26 +356,21 @@ void DeformationGraph::save(const std::string& filename) const {
   stream.close();
 }
 
-// TODO(nathan) rekey symbols by map of ids
 void DeformationGraph::load(const std::string& filename,
                             bool include_temp,
-                            bool set_robot_id,
-                            size_t new_robot_id,
                             bool include_priors) {
-  info_.reset(new PGOInfo());
-  temp_info_.reset(new PGOInfo());
-
-  std::optional<size_t> id_to_use;
-  if (set_robot_id) {
-    id_to_use = new_robot_id;
-  }
+  info_.clear();
+  temp_info_.clear();
 
   Parser parser;
-  setupParser(parser, *info_, false, include_priors, new_robot_id);
-  setupParser(parser, *temp_info_, true, include_priors, new_robot_id);
+  setupParser(parser, info_, false, include_priors);
+  if (include_temp) {
+    setupParser(parser, temp_info_, true, include_priors);
+  }
+
   parser.addCallback("VERTEX", [&](std::istream& in) {
     DgraphVertex vertex;
-    parseVertex(in, vertex, new_robot_id);
+    parseVertex(in, vertex);
 
     const auto vertex_prefix = vertex.key.chr();
     const auto vertex_index = vertex.key.index();
@@ -431,6 +392,7 @@ void DeformationGraph::load(const std::string& filename,
 
   std::ifstream infile(filename);
   parser.parse(infile);
+
   // TODO(nathan) dump all values in the initial pose
 }
 
