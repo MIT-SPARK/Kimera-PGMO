@@ -331,8 +331,8 @@ class DeformationGraph {
    * considered for association
    */
   template <typename CloudIn, typename CloudOut>
-  void deformAllPoints(CloudOut& vertices,
-                       const CloudIn& old_vertices,
+  void deformAllPoints(CloudOut& new_points,
+                       const CloudIn& old_points,
                        char prefix,
                        size_t k = 4,
                        double tol_t = 10.0) const;
