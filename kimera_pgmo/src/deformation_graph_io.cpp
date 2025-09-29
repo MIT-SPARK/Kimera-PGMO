@@ -21,12 +21,6 @@ const T* cast_to_ptr(const Ptr& ptr) {
   return dynamic_cast<const T*>(ptr.get());
 }
 
-struct DgraphVertex {
-  gtsam::Symbol key;
-  Timestamp timestamp_ns;
-  gtsam::Point3 pos;
-};
-
 struct TagInfo {
   std::string node;
   std::string between;
@@ -159,14 +153,16 @@ void streamPriorFactor(const gtsam::PriorFactor<gtsam::Pose3>& prior,
 }
 
 void streamVertices(const char& prefix,
-                    const std::vector<gtsam::Point3>& positions,
-                    const std::vector<Timestamp>& stamps,
+                    const std::vector<deformation::DeformationVertex>& vertices,
                     std::ostream& stream) {
-  assert(positions.size() == stamps.size());
-  for (size_t index = 0; index < positions.size(); index++) {
+  size_t index = 0;
+  for (const auto& vertex : vertices) {
     gtsam::Key key = gtsam::Symbol(prefix, index);
-    stream << "VERTEX " << key << " " << stamps[index] << " " << positions[index].x()
-           << " " << positions[index].y() << " " << positions[index].z() << std::endl;
+    ++index;
+
+    stream << "VERTEX " << key << " " << vertex.timestamp_ns << " "
+           << vertex.position.x() << " " << vertex.position.y() << " "
+           << vertex.position.z() << std::endl;
   }
 }
 
@@ -242,12 +238,12 @@ void parsePrior(std::istream& in, gtsam::NonlinearFactorGraph& factors) {
   factors.add(gtsam::PriorFactor<gtsam::Pose3>(gtsam_key, meas, noise));
 }
 
-void parseVertex(std::istream& in, DgraphVertex& vertex) {
+gtsam::Symbol parseVertex(std::istream& in, deformation::DeformationVertex& vertex) {
   size_t key;
   double x, y, z;
   in >> key >> vertex.timestamp_ns >> x >> y >> z;
-  vertex.pos = gtsam::Point3(x, y, z);
-  vertex.key = gtsam::Symbol(key);
+  vertex.position = gtsam::Point3(x, y, z);
+  return gtsam::Symbol(key);
 }
 
 void parseInliers(std::istream& in, std::set<size_t>& inliers) {
@@ -349,8 +345,8 @@ void DeformationGraph::save(const std::string& filename) const {
   temp_info_.save(stream, true);
 
   // save the initial positions and timestamps of the mesh vertices
-  for (const auto& [prefix, positions] : vertex_positions_) {
-    streamVertices(prefix, positions, vertex_stamps_.at(prefix), stream);
+  for (const auto& [prefix, vertices] : vertices_) {
+    streamVertices(prefix, vertices, stream);
   }
 
   stream.close();
@@ -369,25 +365,23 @@ void DeformationGraph::load(const std::string& filename,
   }
 
   parser.addCallback("VERTEX", [&](std::istream& in) {
-    DgraphVertex vertex;
-    parseVertex(in, vertex);
+    deformation::DeformationVertex vertex;
+    const auto key = parseVertex(in, vertex);
 
-    const auto vertex_prefix = vertex.key.chr();
-    const auto vertex_index = vertex.key.index();
-    if (vertex_index == 0) {
-      vertex_positions_[vertex_prefix] = std::vector<gtsam::Point3>{};
-      vertex_stamps_[vertex_prefix] = std::vector<Timestamp>{};
+    auto iter = vertices_.find(key.chr());
+    if (iter == vertices_.end()) {
+      iter = vertices_.emplace(key.chr(), std::vector<deformation::DeformationVertex>())
+                 .first;
     }
 
-    if (vertex_index != vertex_positions_[vertex_prefix].size()) {
+    if (key.index() != iter->second.size()) {
       std::stringstream ss;
-      ss << "Misaligned vertex indices: " << vertex_index << " vs. "
-         << vertex_positions_[vertex_prefix].size() << "!";
+      ss << "Misaligned vertex indices: " << key.index() << " vs. "
+         << iter->second.size() << "!";
       throw std::runtime_error(ss.str());
     }
 
-    vertex_positions_[vertex_prefix].push_back(vertex.pos);
-    vertex_stamps_[vertex_prefix].push_back(vertex.timestamp_ns);
+    iter->second.push_back(vertex);
   });
 
   std::ifstream infile(filename);

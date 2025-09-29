@@ -19,6 +19,13 @@
 namespace kimera_pgmo {
 namespace deformation {
 
+struct DeformationVertex {
+  Timestamp timestamp_ns;
+  gtsam::Point3 position;
+};
+
+using DeformationVertices = std::vector<DeformationVertex>;
+
 class SearchTree {
  public:
   explicit SearchTree(double resolution = 1.0);
@@ -43,7 +50,7 @@ class SearchTree {
 
 Eigen::Isometry3d interpDeformation(std::set<size_t>& control_points_seen,
                                     char prefix,
-                                    const std::vector<gtsam::Point3>& control_points,
+                                    const DeformationVertices& control_points,
                                     const gtsam::Values& values,
                                     const SearchTree& octree,
                                     size_t k,
@@ -52,7 +59,7 @@ Eigen::Isometry3d interpDeformation(std::set<size_t>& control_points_seen,
 // Calculate new point location from k points
 traits::Pos interpPoint(std::set<size_t>& control_points_seen,
                         char prefix,
-                        const std::vector<gtsam::Point3>& control_points,
+                        const DeformationVertices& control_points,
                         const gtsam::Values& values,
                         const SearchTree& octree,
                         size_t k,
@@ -61,7 +68,7 @@ traits::Pos interpPoint(std::set<size_t>& control_points_seen,
 using PointCallback = std::function<void(const size_t,
                                          std::set<size_t>&,
                                          char,
-                                         const std::vector<gtsam::Point3>&,
+                                         const DeformationVertices&,
                                          const gtsam::Values&,
                                          const SearchTree&,
                                          size_t)>;
@@ -82,8 +89,7 @@ void processPoints(const PointCallback& callback,
                    std::vector<std::set<size_t>>& control_point_map,
                    const CloudIn& points,
                    char prefix,
-                   const std::vector<gtsam::Point3>& control_points,
-                   const std::vector<Timestamp>& /* control_point_stamps */,
+                   const DeformationVertices& control_points,
                    const gtsam::Values& values,
                    size_t k = 4,
                    double /* tol_t */ = 10.0,
@@ -95,7 +101,7 @@ void processPoints(const PointCallback& callback,
   }
 
   // Cannot deform if no nodes in the deformation graph
-  if (control_points.size() == 0) {
+  if (control_points.empty()) {
     SPARK_LOG(WARNING) << "No control points. No deformation";
     return;
   }
@@ -105,7 +111,7 @@ void processPoints(const PointCallback& callback,
   // Build Octree
   SearchTree tree;
   for (size_t j = 0; j < control_points.size(); j++) {
-    tree.addPoint(control_points[j], values.exists(gtsam::Symbol(prefix, j)));
+    tree.addPoint(control_points[j].position, values.exists(gtsam::Symbol(prefix, j)));
   }
 
   if (tree.getLeafCount() < k) {
@@ -140,8 +146,7 @@ void processPoints(const PointCallback& callback,
                    std::vector<std::set<size_t>>& control_point_map,
                    const CloudIn& points,
                    char prefix,
-                   const std::vector<gtsam::Point3>& control_points,
-                   const std::vector<Timestamp>& control_point_stamps,
+                   const DeformationVertices& control_points,
                    const gtsam::Values& values,
                    size_t k = 4,
                    double tol_t = 10.0,
@@ -172,10 +177,10 @@ void processPoints(const PointCallback& callback,
     // Add control points to octree until both
     // exceeds interpolate horizon and have enough points to deform
     while (ctrl_pt_idx < control_points.size() &&
-           (control_point_stamps[ctrl_pt_idx] <= stamp + stampFromSec(tol_t) ||
+           (control_points[ctrl_pt_idx].timestamp_ns <= stamp + stampFromSec(tol_t) ||
             num_ctrl_pts < k + 1)) {
       const auto ctrl_valid = values.exists(gtsam::Symbol(prefix, ctrl_pt_idx));
-      search_tree.addPoint(control_points[ctrl_pt_idx], ctrl_valid);
+      search_tree.addPoint(control_points[ctrl_pt_idx].position, ctrl_valid);
       ctrl_pt_idx++;
       if (!ctrl_valid) {
         continue;
@@ -200,7 +205,8 @@ void processPoints(const PointCallback& callback,
 
     size_t num_leaves = search_tree.getLeafCount();
     while (lower_ctrl_pt_idx < control_points.size() && num_leaves > k + 1 &&
-           control_point_stamps[lower_ctrl_pt_idx] < stamp - stampFromSec(tol_t)) {
+           control_points[lower_ctrl_pt_idx].timestamp_ns <
+               stamp - stampFromSec(tol_t)) {
       if (!values.exists(gtsam::Symbol(prefix, lower_ctrl_pt_idx))) {
         lower_ctrl_pt_idx++;
         continue;
@@ -228,19 +234,18 @@ void deformPoints(CloudOut& new_points,
                   std::vector<std::set<size_t>>& control_point_map,
                   const CloudIn& points,
                   char prefix,
-                  const std::vector<gtsam::Point3>& control_points,
-                  const std::vector<Timestamp>& control_point_stamps,
+                  const DeformationVertices& control_points,
                   const gtsam::Values& values,
                   size_t k = 4,
                   double tol_t = 10.0,
                   const std::vector<size_t>* indices = nullptr) {
   processPoints(
       [&](const size_t ii,
-          std::set<size_t>& control_points_seen,
+          auto& control_points_seen,
           char prefix,
-          const std::vector<gtsam::Point3>& control_points,
-          const gtsam::Values& values,
-          const SearchTree& octree,
+          const auto& control_points,
+          const auto& values,
+          const auto& octree,
           size_t k) {
         const auto p_old = traits::get_vertex(points, ii);
         const auto p_new = interpPoint(
@@ -251,7 +256,6 @@ void deformPoints(CloudOut& new_points,
       points,
       prefix,
       control_points,
-      control_point_stamps,
       values,
       k,
       tol_t,

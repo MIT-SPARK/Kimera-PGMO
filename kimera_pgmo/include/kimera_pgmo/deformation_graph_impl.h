@@ -27,7 +27,7 @@ size_t DeformationGraph::findStartIndex(char prefix,
 
   Timestamp min_stamp =
       std::max(static_cast<Timestamp>(0),
-               vertex_stamps_.at(prefix).back() - stampFromSec(tol_t));
+               vertices_.at(prefix).back().timestamp_ns - stampFromSec(tol_t));
 
   RangeGenerator gen(traits::num_vertices(cloud));
   auto bound = std::upper_bound(gen.begin(), gen.end(), min_stamp, [&](auto v, auto i) {
@@ -89,9 +89,9 @@ void DeformationGraph::predeformPoints(CloudOut& new_vertices,
     }
 
     const Eigen::Vector3d vi = traits::get_vertex(vertices, i).template cast<double>();
-    gtsam::Pose3 transform =
+    const auto transform =
         optimized_values.at<gtsam::Pose3>(gtsam::Symbol(prefix, index));
-    gtsam::Point3 gindex = vertex_positions_[prefix].at(index);
+    const auto gindex = vertices_[prefix].at(index).position;
     gtsam::Point3 deformed_point =
         transform.rotation().rotate(vi - gindex) + transform.translation();
     traits::set_vertex(new_vertices, i, deformed_point.cast<float>());
@@ -109,9 +109,9 @@ void DeformationGraph::deformPoints(CloudOut& vertices,
                                     int start_index_hint,
                                     std::vector<std::set<size_t>>* vertex_graph_map) {
   // Cannot deform if no nodes in the deformation graph
-  if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
-    SPARK_LOG(DEBUG)
-        << "Deformation graph has no vertices for mesh prefix. No deformation";
+  const auto iter = vertices_.find(prefix);
+  if (iter == vertices_.end()) {
+    SPARK_LOG(DEBUG) << "Deformation graph has no vertices for prefix. No deformation";
     return;
   }
 
@@ -140,8 +140,7 @@ void DeformationGraph::deformPoints(CloudOut& vertices,
                             vertex_graph_map_deformed,
                             old_vertices,
                             prefix,
-                            vertex_positions_.at(prefix),
-                            vertex_stamps_.at(prefix),
+                            iter->second,
                             optimized_values,
                             k,
                             tol_t,

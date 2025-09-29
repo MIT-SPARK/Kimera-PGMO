@@ -307,40 +307,8 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
 bool KimeraPgmoInterface::findClosestMeshIndices(const size_t& robot_id,
                                                  const Timestamp& stamp,
                                                  std::vector<size_t>& indices) {
-  if (!deformation_graph_->hasVertexKey(GetVertexPrefix(robot_id))) {
-    return false;
-  }
-  const auto& mesh_stamps =
-      deformation_graph_->getVertexStamps(GetVertexPrefix(robot_id));
-  if (mesh_stamps.empty()) {
-    return false;
-  }
-
-  // TODO(Yun): Implicit assumption here that the mesh stamps are ordered (normally are
-  // since that's how processIncrementalMeshGraph works) but might need to account for
-  // out-of-order timestamps
-  auto lower = std::lower_bound(mesh_stamps.begin(), mesh_stamps.end(), stamp);
-  size_t idx = std::distance(mesh_stamps.begin(), lower);
-
-  size_t closest;
-  if (idx == 0) {
-    closest = mesh_stamps.front();
-  } else if (idx == mesh_stamps.size()) {
-    closest = mesh_stamps.back();
-  } else {
-    size_t prev = mesh_stamps[idx - 1];
-    size_t curr = mesh_stamps[idx];
-
-    closest = (stamp - prev <= curr - stamp) ? prev : curr;
-  }
-
-  // Collect other indices with same value
-  for (size_t i = 0; i < mesh_stamps.size(); i++) {
-    if (mesh_stamps[i] == closest) {
-      indices.push_back(i);
-    }
-  }
-  return true;
+  indices = deformation_graph_->getClosestVertexIndices(robot_id, stamp);
+  return !indices.empty();
 }
 
 bool KimeraPgmoInterface::addPoseMeshConnections(

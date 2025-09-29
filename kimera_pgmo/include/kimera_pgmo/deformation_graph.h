@@ -40,6 +40,8 @@ struct NodeValenceInfo {
   Vertices valence;
 };
 
+using NodeValenceInfoList = std::vector<NodeValenceInfo>;
+
 struct PGOInfo {
  public:
   gtsam::Values values;
@@ -63,13 +65,10 @@ struct PGOInfo {
   void rekey(const std::function<gtsam::Symbol(gtsam::Symbol)>& remapping);
 };
 
-using NodeValenceInfoList = std::vector<NodeValenceInfo>;
-using EdgeTypeVarianceMap = std::map<pose_graph_tools::PoseGraphEdge::Type, double>;
-
 class DeformationGraph {
  public:
-  /*! \brief Deformation graph class constructor
-   */
+  using EdgeTypeVarianceMap = std::map<pose_graph_tools::PoseGraphEdge::Type, double>;
+
   DeformationGraph(bool add_init_vertex_prior = false);
   ~DeformationGraph();
 
@@ -199,7 +198,7 @@ class DeformationGraph {
    */
   void processNodeValence(const gtsam::Key& key,
                           const Vertices& valences,
-                          const char& valence_prefix,
+                          char valence_prefix,
                           double variance = 1e-4,
                           bool temp = false);
 
@@ -234,8 +233,8 @@ class DeformationGraph {
                                        const gtsam::Pose3& dest_pose,
                                        const Vertices& dest,
                                        const gtsam::Pose3& source_T_dest,
-                                       const char& source_prefix,
-                                       const char& dest_prefix,
+                                       char source_prefix,
+                                       char dest_prefix,
                                        double variance = 1e-4,
                                        bool temp = false,
                                        bool known_inliers = false);
@@ -259,7 +258,7 @@ class DeformationGraph {
   /*! \brief Remove sll prior factors of nodes that have given prefix
    *  - prefix: prefix of nodes to remove prior
    */
-  void removePriorsWithPrefix(const char& prefix);
+  void removePriorsWithPrefix(char prefix);
 
   /*! \brief Get the optimized estimates for nodes with certain prefix
    *  - prefix: prefix of the nodes to query best estimate
@@ -278,7 +277,7 @@ class DeformationGraph {
   pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
                               const std::vector<Timestamp>& stamps,
                               const std::vector<int>& graph_indices,
-                              const char& prefix,
+                              char prefix,
                               size_t k = 4,
                               double tol_t = 10.0);
 
@@ -295,7 +294,7 @@ class DeformationGraph {
   pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
                               const std::vector<Timestamp>& stamps,
                               const std::vector<int>& graph_indices,
-                              const char& prefix,
+                              char prefix,
                               const gtsam::Values& optimized_values,
                               size_t k = 4,
                               double tol_t = 10.0);
@@ -377,52 +376,52 @@ class DeformationGraph {
                     int start_index_hint = -1,
                     std::vector<std::set<size_t>>* vertex_graph_map = nullptr);
 
-  //! \brief Get the number of loop closures processed by pgo
+  //! Get the number of loop closures processed by pgo
   size_t getNumLoopclosures() const;
 
-  //! \brief Get the number of mesh vertices nodes in the deformation graph
+  //! Get the number of mesh vertices nodes in the deformation graph
   size_t getNumVertices() const;
 
-  //! \brief Gets the estimated values since last optimization
+  //! Gets the estimated values since last optimization
   const gtsam::Values* getValues() const;
 
-  //! \brief Gets the estimated values since last optimization as a copy
+  //! Gets the estimated values since last optimization as a copy
   gtsam::Values getValuesCopy() const;
 
-  //! \brief Gets the factors added to the backend
+  //! Gets the factors added to the backend
   const gtsam::NonlinearFactorGraph* getFactors() const;
 
-  //! \brief Gets the factors added to the backend as a copy
+  //! Gets the factors added to the backend as a copy
   gtsam::NonlinearFactorGraph getFactorsCopy() const;
 
-  //! \brief Gets the set of known inliers
+  //! Gets the set of known inliers
   const std::set<size_t>* getKnownInlierSet() const;
 
-  //! \brief Gets the set of known inliers as a copy
+  //! Gets the set of known inliers as a copy
   std::set<size_t> getKnownInlierSetCopy() const;
 
-  //! \brief Gets the temp values since last optimization
+  //! Gets the temp values since last optimization
   const gtsam::Values* getTempValues() const;
 
-  //! \brief Gets the temp values since last optimization as a copy
+  //! Gets the temp values since last optimization as a copy
   gtsam::Values getTempValuesCopy() const;
 
-  //! \brief Gets the temp factors added to the backend as a copy
+  //! Gets the temp factors added to the backend as a copy
   const gtsam::NonlinearFactorGraph* getTempFactors() const;
 
-  //! \brief Gets the temp factors added to the backend as a copy
+  //! Gets the temp factors added to the backend as a copy
   gtsam::NonlinearFactorGraph getTempFactorsCopy() const;
 
-  //! \brief Gets the set of temp known inliers
+  //! Gets the set of temp known inliers
   const std::set<size_t>* getTempKnownInlierSet() const;
 
-  //! \brief Gets copy of the set of temp known inliers
+  //! Gets copy of the set of temp known inliers
   std::set<size_t> getTempKnownInlierSetCopy() const;
 
-  //! \brief Gets the inlier weights since last optimization
+  //! Gets the inlier weights since last optimization
   const std::vector<double>* getInlierWeights() const;
 
-  //! \brief Gets the temp inlier weights since last optimization
+  //! Gets the temp inlier weights since last optimization
   const std::vector<double>* getTempInlierWeights() const;
 
   /*! \brief Gets the pose graph from the backend
@@ -436,39 +435,28 @@ class DeformationGraph {
       bool include_between_edges = true,
       bool optimized = true) const;
 
-  //! \brief Get the intial pose of a keyframe node
-  gtsam::Pose3 getInitialPose(const char& prefix, const size_t& index) const;
+  //! Get the intial pose of a keyframe node
+  gtsam::Pose3 getInitialPose(char prefix, size_t index) const;
 
-  //! \brief Get the intial position of a vertex
-  gtsam::Point3 getInitialPositionVertex(const char& prefix, const size_t& index) const;
-
-  //! \brief Get the intial positions of the vertices corresponding to prefix
-  std::vector<gtsam::Point3> getInitialPositionsVertices(const char& prefix) const;
-
-  //! \brief Get the timestamps of the vertices corresponding to prefix
-  std::vector<Timestamp> getVertexStamps(const char prefix) const;
-
+  //! Get whether vertices exist for a particular prefix
   bool hasVertexKey(char prefix) const;
 
-  //! \brief Get the observed stamp of a vertex
-  Timestamp getStampVertex(const char& prefix, const size_t& index) const;
+  //! Get the intial position of a vertex
+  gtsam::Point3 getInitialPositionVertex(char prefix, size_t index) const;
 
-  //! \brief Get the observed stamps of the vertices corresponding to prefix
-  std::vector<Timestamp> getStampVertices(const char& prefix) const;
-
-  //! \brief Recalculate vertices getter
+  //! Recalculate vertices getter
   bool getRecalculateVertices();
 
-  //! \brief Recalculate vertices setter
+  //! Recalculate vertices setter
   void setRecalculateVertices();
 
-  //! \brief Clear all (everything)
+  //! Clear all (everything)
   void clear();
 
-  //! \brief Clear all temporary values, factors, and related structures
+  //! Clear all temporary values, factors, and related structures
   void clearFactors();
 
-  //! \brief Clear all temporary values, factors, and related structures
+  //! Clear all temporary values, factors, and related structures
   void clearTemporaryStructures();
 
   /*! \brief Update the values. Use to update initial estimate. Use with caution since
@@ -483,17 +471,13 @@ class DeformationGraph {
    */
   void updateTempValues(const gtsam::Values& updates);
 
-  /*! \brief Update the inlier weights (e.g. GNC results).
-   */
+  //! Update the inlier weights (e.g. GNC results).
   void updateInlierWeights(const std::vector<double>& weights);
 
-  /*! \brief Update the temp inlier weights (e.g. GNC results).
-   */
+  //! Update the temp inlier weights (e.g. GNC results).
   void updateTempInlierWeights(const std::vector<double>& weights);
 
-  /*! \brief Save deformation graph to file
-   * - filename: output file name
-   */
+  //! Save deformation graph to provided filename
   void save(const std::string& filename) const;
 
   /*! \brief Load deformation graph from file
@@ -508,7 +492,12 @@ class DeformationGraph {
   //! Force all factors and values to use the same robot ID
   void forceRobotId(size_t robot_id);
 
+  //! Whether or not graph has priors for poses for the prefix
   bool hasPrefixPoses(char prefix) const;
+
+  //! Get closest vertices to timestamp for robot (empty means no match)
+  std::vector<size_t> getClosestVertexIndices(size_t robot_id,
+                                              Timestamp stamp_ns) const;
 
   template <typename Cloud>
   size_t findStartIndex(char prefix,
@@ -611,13 +600,11 @@ class DeformationGraph {
 
  private:
   std::mutex mutex_;
-
   bool add_init_vertex_prior_;
   size_t num_loopclosures_;
 
   // deformation graph vertices
-  std::map<char, std::vector<gtsam::Point3>> vertex_positions_;
-  std::map<char, std::vector<Timestamp>> vertex_stamps_;
+  std::map<char, std::vector<deformation::DeformationVertex>> vertices_;
 
   // optimization info
   PGOInfo info_;
