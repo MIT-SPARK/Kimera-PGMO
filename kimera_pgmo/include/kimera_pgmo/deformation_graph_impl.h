@@ -2,6 +2,9 @@
 #define KIMERA_PGMO_DEFORMATION_GRAPH_IMPL_H
 
 #include "kimera_pgmo/deformation_graph.h"
+#include "kimera_pgmo/pcl_mesh_traits.h"
+#include "kimera_pgmo/utils/logging.h"
+#include "kimera_pgmo/utils/range_generator.h"
 
 namespace kimera_pgmo {
 
