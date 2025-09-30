@@ -30,7 +30,6 @@ gtsam::Symbol rekeyRobotId(gtsam::Symbol key, size_t robot_id) {
 }  // namespace
 
 void PGOInfo::clear() {
-  initial.clear();
   values.clear();
   factors.resize(0);
   known_inliers.clear();
@@ -45,12 +44,6 @@ void PGOInfo::rekey(const std::map<char, char>& prefix_map) {
 }
 
 void PGOInfo::rekey(const std::function<gtsam::Symbol(gtsam::Symbol)>& key_remap) {
-  gtsam::Values new_initial;
-  for (const auto& key_value_pair : initial) {
-    gtsam::Symbol key = key_remap(key_value_pair.key);
-    new_initial.insert(key, key_value_pair.value);
-  }
-
   gtsam::Values new_values;
   std::map<gtsam::Key, gtsam::Key> remapping;
   for (const auto& key_value_pair : values) {
@@ -59,7 +52,6 @@ void PGOInfo::rekey(const std::function<gtsam::Symbol(gtsam::Symbol)>& key_remap
     new_values.insert(key, key_value_pair.value);
   }
 
-  initial = new_initial;
   values = new_values;
   factors = factors.rekey(remapping);
 }

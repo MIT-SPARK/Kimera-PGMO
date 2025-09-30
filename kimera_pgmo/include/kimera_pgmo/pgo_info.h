@@ -14,7 +14,6 @@ namespace kimera_pgmo {
 
 struct PGOInfo {
  public:
-  gtsam::Values initial;
   gtsam::Values values;
   gtsam::NonlinearFactorGraph factors;
   std::set<size_t> known_inliers;

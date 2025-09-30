@@ -166,7 +166,7 @@ void streamVertices(const char& prefix,
   }
 }
 
-void parseValue(std::istream& in, gtsam::Values& values) {
+gtsam::Symbol parseValue(std::istream& in, gtsam::Values& values) {
   size_t key;
   double x, y, z, qx, qy, qz, qw;
   in >> key >> x >> y >> z >> qx >> qy >> qz >> qw;
@@ -174,6 +174,7 @@ void parseValue(std::istream& in, gtsam::Values& values) {
   const gtsam::Symbol gtsam_key(key);
   gtsam::Pose3 pose(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
   values.insert(gtsam_key, pose);
+  return gtsam_key;
 }
 
 void parseBetween(std::istream& in, gtsam::NonlinearFactorGraph& factors) {
@@ -360,6 +361,21 @@ void DeformationGraph::load(const std::string& filename,
 
   Parser parser;
   setupParser(parser, info_, false, include_priors);
+  parser.addCallback("NODE", [this](std::istream& ss) {
+    const auto new_key = parseValue(ss, info_.values);
+    auto iter = pg_initial_poses_.find(new_key.chr());
+    if (iter == pg_initial_poses_.end()) {
+      iter =
+          pg_initial_poses_.emplace(new_key.chr(), std::vector<gtsam::Pose3>()).first;
+    }
+
+    if (iter->second.size() != new_key.index()) {
+      throw std::runtime_error("Initial value index mismatch");
+    }
+
+    iter->second.push_back(info_.values.at<gtsam::Pose3>(new_key));
+  });
+
   if (include_temp) {
     setupParser(parser, temp_info_, true, include_priors);
   }
@@ -386,6 +402,11 @@ void DeformationGraph::load(const std::string& filename,
 
   std::ifstream infile(filename);
   parser.parse(infile);
+
+  for (const auto& key_value_pair : temp_info_.values) {
+    temp_pg_initial_poses_.emplace(key_value_pair.key,
+                                   key_value_pair.value.cast<gtsam::Pose3>());
+  }
 
   // TODO(nathan) dump all values in the initial pose
 }
