@@ -256,27 +256,17 @@ void parseInliers(std::istream& in, std::set<size_t>& inliers) {
 
 void setupParser(Parser& parser, PGOInfo& info, bool is_temp, bool include_priors) {
   const auto tags = is_temp ? TagInfo::temp() : TagInfo::nominal();
-  parser.addCallback(tags.node, [&info, tags](std::istream& ss) {
-    SPARK_LOG(DEBUG) << "Parsing " << tags.node;
-    parseValue(ss, info.values);
-  });
-  parser.addCallback(tags.between, [&info, tags](std::istream& ss) {
-    SPARK_LOG(DEBUG) << "Parsing " << tags.between;
-    parseBetween(ss, info.factors);
-  });
-  parser.addCallback(tags.dedge, [&info, tags](std::istream& ss) {
-    SPARK_LOG(DEBUG) << "Parsing " << tags.dedge;
-    parseDedge(ss, info.factors);
-  });
-  parser.addCallback(tags.inlier, [&info, tags](std::istream& ss) {
-    SPARK_LOG(DEBUG) << "Parsing " << tags.inlier;
-    parseInliers(ss, info.known_inliers);
-  });
+  parser.addCallback(tags.node,
+                     [&info](std::istream& ss) { parseValue(ss, info.values); });
+  parser.addCallback(tags.between,
+                     [&info](std::istream& ss) { parseBetween(ss, info.factors); });
+  parser.addCallback(tags.dedge,
+                     [&info](std::istream& ss) { parseDedge(ss, info.factors); });
+  parser.addCallback(
+      tags.inlier, [&info](std::istream& ss) { parseInliers(ss, info.known_inliers); });
   if (include_priors) {
-    parser.addCallback(tags.prior, [&info, tags](std::istream& ss) {
-      SPARK_LOG(DEBUG) << "Parsing " << tags.prior;
-      parsePrior(ss, info.factors);
-    });
+    parser.addCallback(tags.prior,
+                       [&info](std::istream& ss) { parsePrior(ss, info.factors); });
   }
 }
 
