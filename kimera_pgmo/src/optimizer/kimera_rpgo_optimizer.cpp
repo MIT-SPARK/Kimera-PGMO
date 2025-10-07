@@ -28,6 +28,7 @@ void declare_config(KimeraRpgoOptimizer::Config& config) {
               {SolverConfig::LeastSquaresOption::DOGLEG, "DOGLEG"}});
   field(config.verbosity, "verbosity");
   field(config.print_summary, "print_summary");
+  field(config.print_iterations, "print_iterations");
   field(config.use_4dof_optim, "use_4dof_optim");
   field(config.use_gnc, "use_gnc");
   {
@@ -85,6 +86,12 @@ KimeraRpgoOptimizer::KimeraRpgoOptimizer(const Config& config)
 
 KimeraRpgoOptimizer::~KimeraRpgoOptimizer() {}
 
+struct IterInfo {
+  size_t iteration;
+  double prev_error;
+  double curr_error;
+};
+
 void KimeraRpgoOptimizer::update(const Factors& factors,
                                  const Values& initial,
                                  const std::set<size_t>& known_inliers,
@@ -92,6 +99,11 @@ void KimeraRpgoOptimizer::update(const Factors& factors,
                                  const Values& temp_initial,
                                  const std::set<size_t>& temp_known_inliers) {
   rpgo_->clear();
+
+  std::vector<IterInfo> iterations;
+  rpgo_->setIterationCallback([&](size_t iteration, double prev, double curr) {
+    iterations.push_back({iteration, prev, curr});
+  });
 
   const auto& [input_factors, input_initial] =
       processFactorsAndValues(factors, initial, config.use_4dof_optim);
@@ -141,9 +153,30 @@ void KimeraRpgoOptimizer::update(const Factors& factors,
   int num_inliers = std::count_if(inlier_weights.begin(),
                                   inlier_weights.end(),
                                   [](double val) { return val > 0.5; });
-  LOG(INFO) << "Optimized with " << factors.size() << " factors, "
-            << all_known_inliers.size() << " known inliers, " << num_inliers
-            << " final inliers.";
+
+  const auto last_log = rpgo_->getLog();
+  std::stringstream ss;
+  ss << "Optimized " << last_log.num_factors << " factors and " << last_log.num_variables
+     << " variables (" << num_inliers << " inliers, " << all_known_inliers.size()
+     << " known) in " << last_log.elapsed.count() << " [ms]";
+  if (config.print_iterations) {
+    ss << "\n" << std::string(80, '=') << "\n";
+    for (const auto iter : iterations) {
+      if (iter.iteration == 1) {
+        ss << std::string(80, '-') << "\n";
+        ss << "Starting cost: " << std::setprecision(3) << iter.prev_error << "\n";
+        ss << std::string(80, '-') << "\n";
+      }
+
+      ss << "Iteration " << iter.iteration << ": " << std::setprecision(3)
+         << std::scientific << iter.curr_error
+         << " (change: " << iter.prev_error - iter.curr_error << ")\n";
+    }
+
+    ss << std::string(80, '=') << "\n";
+  }
+
+  LOG(INFO) << ss.str();
 
   if (!log_path_.empty()) {
     rpgo_->writeLog(log_path_ + "/rpgo_log.json");
