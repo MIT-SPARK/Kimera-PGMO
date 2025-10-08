@@ -215,7 +215,8 @@ void DeformationGraph::deformAllPoints(CloudOut& vertices,
                                        size_t k,
                                        double tol_t) const {
   // Cannot deform if no nodes in the deformation graph
-  if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
+  const auto iter = vertices_.find(prefix);
+  if (iter == vertices_.end()) {
     SPARK_LOG(DEBUG) << "Deformation graph has no vertices for prefix. No deformation";
     return;
   }
