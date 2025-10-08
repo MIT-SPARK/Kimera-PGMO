@@ -378,6 +378,22 @@ class DeformationGraph {
                     int start_index_hint = -1,
                     std::vector<std::set<size_t>>* vertex_graph_map = nullptr);
 
+  /*! \brief Deform mesh vertices based on the deformation graph
+   * - vertices: vertices to deform
+   * - original_vertices: undeformed vertices
+   * - prefix: the prefixes of the key of the nodes corresponding to mesh
+   * - k: how many nearby nodes to use to adjust new position of vertices when
+   * interpolating for deformed mesh
+   * - tol_t: largest difference in time such that a control point can be
+   * considered for association
+   */
+  template <typename CloudIn, typename CloudOut>
+  void deformAllPoints(CloudOut& vertices,
+                       const CloudIn& old_vertices,
+                       char prefix,
+                       size_t k = 4,
+                       double tol_t = 10.0) const;
+
   /*! \brief Deform a mesh vertices based on the deformation graph
    * - original_vertices: undeformed vertices
    * - stamps: timestamp of vertices in mesh to deform
@@ -918,6 +934,32 @@ void DeformationGraph::deformPoints(CloudOut& vertices,
 
   cacheNewPoints(vertices, prefix, start_idx);
   recalculate_vertices_ = false;
+}
+
+template <typename CloudIn, typename CloudOut>
+void DeformationGraph::deformAllPoints(CloudOut& vertices,
+                                       const CloudIn& old_vertices,
+                                       char prefix,
+                                       size_t k,
+                                       double tol_t) const {
+  // Cannot deform if no nodes in the deformation graph
+  if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
+    SPARK_LOG(DEBUG)
+        << "Deformation graph has no vertices for mesh prefix. No deformation";
+    return;
+  }
+
+  std::vector<std::set<size_t>> vertex_graph_map_deformed;
+  deformation::deformPoints(vertices,
+                            vertex_graph_map_deformed,
+                            old_vertices,
+                            prefix,
+                            vertex_positions_.at(prefix),
+                            vertex_stamps_.at(prefix),
+                            *values_,
+                            k,
+                            tol_t,
+                            nullptr);
 }
 
 }  // namespace kimera_pgmo
