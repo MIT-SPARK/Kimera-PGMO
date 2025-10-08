@@ -18,6 +18,7 @@ class KimeraRpgoOptimizer : public Optimizer {
     bool use_pcm = false;
     kimera_rpgo::PcmConfig pcm;
     bool print_summary = true;
+    bool print_iterations = true;
     int verbosity = 0;
   } const config;
 
