@@ -846,7 +846,7 @@ void DeformationGraph::predeformPoints(CloudOut& new_vertices,
       continue;
     }
 
-    const auto vi = traits::get_vertex(vertices, i).template cast<double>();
+    const Eigen::Vector3d vi = traits::get_vertex(vertices, i).template cast<double>();
     gtsam::Pose3 transform =
         optimized_values.at<gtsam::Pose3>(gtsam::Symbol(prefix, index));
     gtsam::Point3 gindex = vertex_positions_[prefix].at(index);
