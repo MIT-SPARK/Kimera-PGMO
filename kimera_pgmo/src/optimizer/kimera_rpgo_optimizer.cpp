@@ -6,10 +6,13 @@
 #include <glog/logging.h>
 
 #include <algorithm>
+#include <iomanip>
 
 #include "kimera_pgmo/deformation_graph_4dof.h"
+
 namespace kimera_pgmo {
 namespace {
+
 static const auto registration =
     config::RegistrationWithConfig<Optimizer,
                                    KimeraRpgoOptimizer,
@@ -156,9 +159,10 @@ void KimeraRpgoOptimizer::update(const Factors& factors,
 
   const auto last_log = rpgo_->getLog();
   std::stringstream ss;
-  ss << "Optimized " << last_log.num_factors << " factors and " << last_log.num_variables
-     << " variables (" << num_inliers << " inliers, " << all_known_inliers.size()
-     << " known) in " << last_log.elapsed.count() << " [ms]";
+  ss << "Optimized " << last_log.num_factors << " factors and "
+     << last_log.num_variables << " variables (" << num_inliers << " inliers, "
+     << all_known_inliers.size() << " known) in " << last_log.elapsed.count()
+     << " [ms]";
   if (config.print_iterations) {
     ss << "\n" << std::string(80, '=') << "\n";
     for (const auto iter : iterations) {
@@ -213,4 +217,5 @@ const std::vector<double>& KimeraRpgoOptimizer::getTempInlierWeights() const {
 void KimeraRpgoOptimizer::setLogPath(const std::string& log_path) {
   Optimizer::setLogPath(log_path);
 }
+
 }  // namespace kimera_pgmo
