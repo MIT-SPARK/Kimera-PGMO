@@ -30,6 +30,18 @@ enum class RunMode {
   MESH_ONLY = 2u,           // No pose graph in deformation graph
 };
 
+struct OptimizeStats {
+  size_t total_factors = 0;
+  size_t total_values = 0;
+  size_t total_loop_closures = 0;
+  size_t inlier_loop_closures = 0;
+  size_t total_interrobot_loop_closures = 0;
+  size_t inlier_interrobot_loop_closures = 0;
+  double elapsed_s = 0.0;
+};
+
+std::ostream& operator<<(std::ostream& out, const OptimizeStats& stats);
+
 struct KimeraPgmoConfig {
   KimeraPgmoConfig() = default;
 
@@ -165,7 +177,7 @@ class KimeraPgmoInterface {
 
   /*! \brief Optimize the deformation graph
    */
-  void optimize();
+  OptimizeStats optimize();
 
   /*! \brief Optimize additional startup implementation (like adding temp factors)
    */

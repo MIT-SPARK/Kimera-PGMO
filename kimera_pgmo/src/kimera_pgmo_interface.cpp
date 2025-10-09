@@ -22,6 +22,19 @@ namespace kimera_pgmo {
 using pose_graph_tools::PoseGraph;
 using pose_graph_tools::PoseGraphEdge;
 
+using BetweenFactorT = gtsam::BetweenFactor<gtsam::Pose3>;
+
+std::ostream& operator<<(std::ostream& out, const OptimizeStats& stats) {
+  out << "total_factors: " << stats.total_factors
+      << "\ntotal_values: " << stats.total_values
+      << "\ntotal_loop_closures: " << stats.total_loop_closures
+      << "\ninlier_loop_closures: " << stats.inlier_loop_closures
+      << "\ntotal_interrobot_loop_closures: " << stats.total_interrobot_loop_closures
+      << "\ninlier_interrobot_loop_closures: " << stats.inlier_interrobot_loop_closures
+      << "\nelapsed_s: " << stats.elapsed_s;
+  return out;
+}
+
 void declare_config(KimeraPgmoConfig& config) {
   using namespace config;
   name("KimeraPgmoConfig");
@@ -480,7 +493,7 @@ void KimeraPgmoInterface::processOptimizedPath(const Path& path, size_t robot_id
   deformation_graph_->processNodeMeasurements(node_estimates, config_.prior_variance);
 }
 
-void KimeraPgmoInterface::optimize() {
+OptimizeStats KimeraPgmoInterface::optimize() {
   gtsam::NonlinearFactorGraph factors, temp_factors;
   gtsam::Values initial, temp_initial;
   std::set<size_t> known_inliers, temp_known_inliers;
@@ -495,12 +508,57 @@ void KimeraPgmoInterface::optimize() {
     temp_known_inliers = deformation_graph_->getTempKnownInlierSetCopy();
   }
 
+  const auto start = std::chrono::system_clock::now();
   pgo_->update(
       factors, initial, known_inliers, temp_factors, temp_initial, temp_known_inliers);
+  const auto end = std::chrono::system_clock::now();
+
   auto estimates = pgo_->getEstimates();
   auto temp_estimates = pgo_->getTempEstimates();
   auto inlier_weights = pgo_->getInlierWeights();
   auto temp_inlier_weights = pgo_->getTempInlierWeights();
+
+  if (inlier_weights.size() != factors.size()) {
+    SPARK_LOG(ERROR) << "inliers don't match factors: " << inlier_weights.size()
+                     << "  vs. " << factors.size();
+    throw std::runtime_error("failed!");
+  }
+
+  OptimizeStats stats;
+  size_t index = 0;
+  stats.total_factors = factors.size() + temp_factors.size();
+  stats.total_values = estimates.size() + temp_estimates.size();
+  for (const auto& factor : factors) {
+    const auto derived = dynamic_cast<const BetweenFactorT*>(factor.get());
+    if (!derived) {
+      continue;
+    }
+
+    const gtsam::Symbol k1(derived->keys().front());
+    const gtsam::Symbol k2(derived->keys().back());
+    const int64_t k1_index = k1.index();
+    const int64_t k2_index = k2.index();
+    if (std::abs(k1_index - k2_index) <= 1) {
+      continue;  // odometry
+    }
+
+    bool interrobot = k1.chr() != k2.chr();
+    bool inlier = true;
+    if (inlier_weights.size() < index && inlier_weights[index] < 0.5) {
+      inlier = false;
+    }
+
+    ++index;
+    stats.total_loop_closures += 1;
+    stats.inlier_loop_closures += (inlier ? 1 : 0);
+    if (interrobot) {
+      stats.total_interrobot_loop_closures += 1;
+      stats.inlier_interrobot_loop_closures += (inlier ? 1 : 0);
+    }
+  }
+
+  stats.elapsed_s =
+      std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
 
   {
     auto lock = deformation_graph_->acquireLock();
@@ -510,6 +568,8 @@ void KimeraPgmoInterface::optimize() {
     deformation_graph_->updateTempInlierWeights(temp_inlier_weights);
     optimizeCleanup(estimates);
   }
+
+  return stats;
 }
 
 bool KimeraPgmoInterface::optimizeFullMesh(
