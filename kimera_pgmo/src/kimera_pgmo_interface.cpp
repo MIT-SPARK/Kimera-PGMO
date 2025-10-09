@@ -518,14 +518,8 @@ OptimizeStats KimeraPgmoInterface::optimize() {
   auto inlier_weights = pgo_->getInlierWeights();
   auto temp_inlier_weights = pgo_->getTempInlierWeights();
 
-  if (inlier_weights.size() != factors.size()) {
-    SPARK_LOG(ERROR) << "inliers don't match factors: " << inlier_weights.size()
-                     << "  vs. " << factors.size();
-    throw std::runtime_error("failed!");
-  }
-
-  OptimizeStats stats;
   size_t index = 0;
+  OptimizeStats stats;
   stats.total_factors = factors.size() + temp_factors.size();
   stats.total_values = estimates.size() + temp_estimates.size();
   for (const auto& factor : factors) {
