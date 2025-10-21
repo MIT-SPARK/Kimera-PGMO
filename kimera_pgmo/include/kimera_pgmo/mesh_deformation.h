@@ -41,6 +41,14 @@ class SearchTree {
   std::unique_ptr<Impl> impl_;
 };
 
+Eigen::Isometry3d interpDeformation(std::set<size_t>& control_points_seen,
+                                    char prefix,
+                                    const std::vector<gtsam::Point3>& control_points,
+                                    const gtsam::Values& values,
+                                    const SearchTree& octree,
+                                    size_t k,
+                                    const traits::Pos& vi);
+
 // Calculate new point location from k points
 traits::Pos interpPoint(std::set<size_t>& control_points_seen,
                         char prefix,
@@ -49,6 +57,14 @@ traits::Pos interpPoint(std::set<size_t>& control_points_seen,
                         const SearchTree& octree,
                         size_t k,
                         const traits::Pos& vi);
+
+using PointCallback = std::function<void(const size_t,
+                                         std::set<size_t>&,
+                                         char,
+                                         const std::vector<gtsam::Point3>&,
+                                         const gtsam::Values&,
+                                         const SearchTree&,
+                                         size_t)>;
 
 /*! \brief Deform a points (i.e. the vertices of a mesh) based on the
  * controls points via deformation
@@ -60,19 +76,18 @@ traits::Pos interpPoint(std::set<size_t>& control_points_seen,
  * idx-in-control-points) from the previous two arguments.
  * - k: how many nearby nodes to use to adjust new position of vertices
  */
-template <typename CloudOut,
-          typename CloudIn,
+template <typename CloudIn,
           std::enable_if_t<!traits::has_get_stamp<CloudIn>::value, bool> = true>
-void deformPoints(CloudOut& new_points,
-                  std::vector<std::set<size_t>>& control_point_map,
-                  const CloudIn& points,
-                  char prefix,
-                  const std::vector<gtsam::Point3>& control_points,
-                  const std::vector<Timestamp>& /* control_point_stamps */,
-                  const gtsam::Values& values,
-                  size_t k = 4,
-                  double /* tol_t */ = 10.0,
-                  const std::vector<size_t>* indices = nullptr) {
+void processPoints(const PointCallback& callback,
+                   std::vector<std::set<size_t>>& control_point_map,
+                   const CloudIn& points,
+                   char prefix,
+                   const std::vector<gtsam::Point3>& control_points,
+                   const std::vector<Timestamp>& /* control_point_stamps */,
+                   const gtsam::Values& values,
+                   size_t k = 4,
+                   double /* tol_t */ = 10.0,
+                   const std::vector<size_t>* indices = nullptr) {
   // Check if there are points to deform
   const size_t num_points = indices ? indices->size() : traits::num_vertices(points);
   if (!num_points) {
@@ -88,12 +103,12 @@ void deformPoints(CloudOut& new_points,
   control_point_map.clear();
 
   // Build Octree
-  SearchTree search_tree;
+  SearchTree tree;
   for (size_t j = 0; j < control_points.size(); j++) {
-    search_tree.addPoint(control_points[j], values.exists(gtsam::Symbol(prefix, j)));
+    tree.addPoint(control_points[j], values.exists(gtsam::Symbol(prefix, j)));
   }
 
-  if (search_tree.getLeafCount() < k) {
+  if (tree.getLeafCount() < k) {
     SPARK_LOG(WARNING) << "Not enough valid control points to deform points";
     return;
   }
@@ -101,14 +116,7 @@ void deformPoints(CloudOut& new_points,
   for (size_t p_idx = 0; p_idx < num_points; ++p_idx) {
     const size_t ii = indices ? indices->at(p_idx) : p_idx;
     control_point_map.emplace_back();
-    const auto p_new = interpPoint(control_point_map.back(),
-                                   prefix,
-                                   control_points,
-                                   values,
-                                   search_tree,
-                                   k,
-                                   traits::get_vertex(points, ii));
-    traits::set_vertex(new_points, ii, p_new);
+    callback(ii, control_point_map.back(), prefix, control_points, values, tree, k);
   }
 }
 
@@ -126,19 +134,18 @@ void deformPoints(CloudOut& new_points,
  * - tol_t: time (in seconds) minimum difference in time that a control point
  * can be used for interpolation
  */
-template <typename CloudOut,
-          typename CloudIn,
+template <typename CloudIn,
           std::enable_if_t<traits::has_get_stamp<CloudIn>::value, bool> = true>
-void deformPoints(CloudOut& new_points,
-                  std::vector<std::set<size_t>>& control_point_map,
-                  const CloudIn& points,
-                  char prefix,
-                  const std::vector<gtsam::Point3>& control_points,
-                  const std::vector<Timestamp>& control_point_stamps,
-                  const gtsam::Values& values,
-                  size_t k = 4,
-                  double tol_t = 10.0,
-                  const std::vector<size_t>* indices = nullptr) {
+void processPoints(const PointCallback& callback,
+                   std::vector<std::set<size_t>>& control_point_map,
+                   const CloudIn& points,
+                   char prefix,
+                   const std::vector<gtsam::Point3>& control_points,
+                   const std::vector<Timestamp>& control_point_stamps,
+                   const gtsam::Values& values,
+                   size_t k = 4,
+                   double tol_t = 10.0,
+                   const std::vector<size_t>* indices = nullptr) {
   // Check if there are points to deform
   const size_t num_points = indices ? indices->size() : traits::num_vertices(points);
   if (!num_points) {
@@ -187,15 +194,8 @@ void deformPoints(CloudOut& new_points,
     }
 
     control_point_map.emplace_back();
-    const auto p_old = traits::get_vertex(points, ii);
-    const auto p_new = interpPoint(control_point_map.back(),
-                                   prefix,
-                                   control_points,
-                                   values,
-                                   search_tree,
-                                   k,
-                                   p_old);
-    traits::set_vertex(new_points, ii, p_new);
+    callback(
+        ii, control_point_map.back(), prefix, control_points, values, search_tree, k);
 
     size_t num_leaves = search_tree.getLeafCount();
     while (lower_ctrl_pt_idx < control_points.size() && num_leaves > k + 1 &&
@@ -210,6 +210,54 @@ void deformPoints(CloudOut& new_points,
       lower_ctrl_pt_idx++;
     }
   }
+}
+
+/*! \brief Deform a points (i.e. the vertices of a mesh) based on the
+ * controls points via deformation
+ * - original_points: set of points to deform
+ * - prefix: a char to distinguish the type of control points
+ * - control_points: original positions of the control points. In the case of
+ * mesh vertices, these are the original positions of the simplified mesh.
+ * - values: key-value pairs. Where each key should be gtsam::Symbol(prefix,
+ * idx-in-control-points) from the previous two arguments.
+ * - k: how many nearby nodes to use to adjust new position of vertices
+ */
+template <typename CloudOut, typename CloudIn>
+void deformPoints(CloudOut& new_points,
+                  std::vector<std::set<size_t>>& control_point_map,
+                  const CloudIn& points,
+                  char prefix,
+                  const std::vector<gtsam::Point3>& control_points,
+                  const std::vector<Timestamp>& control_point_stamps,
+                  const gtsam::Values& values,
+                  size_t k = 4,
+                  double tol_t = 10.0,
+                  const std::vector<size_t>* indices = nullptr) {
+  processPoints(
+      [&](const size_t ii,
+          std::set<size_t>& control_points_seen,
+          char prefix,
+          const std::vector<gtsam::Point3>& control_points,
+          const gtsam::Values& values,
+          const SearchTree& octree,
+          size_t k) {
+        const auto p_new = interpPoint(control_points_seen,
+                                       prefix,
+                                       control_points,
+                                       values,
+                                       octree,
+                                       k,
+                                       traits::get_vertex(points, ii));
+        traits::set_vertex(new_points, ii, p_new);
+      },
+      control_point_map,
+      points,
+      prefix,
+      control_points,
+      control_point_stamps,
+      values,
+      k,
+      tol_t);
 }
 
 }  // namespace deformation
