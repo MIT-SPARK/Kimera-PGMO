@@ -394,8 +394,8 @@ class DeformationGraph {
                        size_t k = 4,
                        double tol_t = 10.0) const;
 
-  /*! \brief Compute deformation transforms for all points
-   * - vertices: output transforms
+  /*! \brief Peform custom deformation on a set of points
+   * - callback: processing to perform for each point
    * - original_vertices: undeformed vertices
    * - prefix: the prefixes of the key of the nodes corresponding to mesh
    * - k: how many nearby nodes to use to adjust new position of vertices when
@@ -404,11 +404,12 @@ class DeformationGraph {
    * considered for association
    */
   template <typename CloudIn>
-  void computeDeformations(std::vector<Eigen::Isometry3d>& transforms,
-                           const CloudIn& old_vertices,
-                           char prefix,
-                           size_t k,
-                           double tol_t) const;
+  void customDeformation(
+      const std::function<void(const Eigen::Isometry3d&, size_t)>& callback,
+      const CloudIn& points,
+      char prefix,
+      size_t k,
+      double tol_t) const;
 
   /*! \brief Deform a mesh vertices based on the deformation graph
    * - original_vertices: undeformed vertices
@@ -953,11 +954,12 @@ void DeformationGraph::deformPoints(CloudOut& vertices,
 }
 
 template <typename CloudIn>
-void DeformationGraph::computeDeformations(std::vector<Eigen::Isometry3d>& transforms,
-                                           const CloudIn& points,
-                                           char prefix,
-                                           size_t k,
-                                           double tol_t) const {
+void DeformationGraph::customDeformation(
+    const std::function<void(const Eigen::Isometry3d&, size_t)>& callback,
+    const CloudIn& points,
+    char prefix,
+    size_t k,
+    double tol_t) const {
   // Cannot deform if no nodes in the deformation graph
   if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
     SPARK_LOG(DEBUG)
@@ -974,13 +976,15 @@ void DeformationGraph::computeDeformations(std::vector<Eigen::Isometry3d>& trans
           const gtsam::Values& values,
           const deformation::SearchTree& octree,
           size_t k) {
-        transforms.push_back(interpDeformation(control_points_seen,
-                                               prefix,
-                                               control_points,
-                                               values,
-                                               octree,
-                                               k,
-                                               traits::get_vertex(points, ii)));
+        const auto transform = interpDeformation(control_points_seen,
+                                                 prefix,
+                                                 control_points,
+                                                 values,
+                                                 octree,
+                                                 k,
+                                                 traits::get_vertex(points, ii));
+
+        callback(transform, ii);
       },
       vertex_graph_map_deformed,
       points,
