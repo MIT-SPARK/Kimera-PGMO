@@ -137,7 +137,7 @@ class DeformationGraph {
   void processPoseGraph(const pose_graph_tools::PoseGraph& pose_graph,
                         const EdgeTypeVarianceMap& variance_map,
                         std::map<size_t, size_t> robot_id_remap = {},
-                        Eigen::Isometry3d* transform = nullptr);
+                        const Eigen::Isometry3d* const transform = nullptr);
 
   /*! \brief Directly add a full mesh graph to the deformation graph. TODO(Yun) figure
    * out how we handle the pose graph node to mesh graph node connections.
@@ -148,7 +148,7 @@ class DeformationGraph {
   void processMeshGraph(const pose_graph_tools::PoseGraph& mesh_graph,
                         const EdgeTypeVarianceMap& variance_map,
                         std::map<size_t, size_t> robot_id_remap = {},
-                        Eigen::Isometry3d* transform = nullptr);
+                        const Eigen::Isometry3d* const transform = nullptr);
 
   /*! \brief Fix the measurements of multiple nodes
    *  - measurements: a vector of key->pose pair of node measurements
