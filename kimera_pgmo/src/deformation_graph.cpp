@@ -51,7 +51,7 @@ DeformationGraph::~DeformationGraph() {}
 void DeformationGraph::processPoseGraph(const pose_graph_tools::PoseGraph& pose_graph,
                                         const EdgeTypeVarianceMap& variance_map,
                                         std::map<size_t, size_t> robot_id_remap,
-                                        Eigen::Isometry3d* transform) {
+                                        const Eigen::Isometry3d* const transform) {
   for (const auto& node : pose_graph.nodes) {
     auto node_robot_id = getRemappedId(robot_id_remap, node.robot_id);
     auto node_key = gtsam::Symbol(robot_id_to_prefix.at(node_robot_id), node.key);
@@ -95,7 +95,7 @@ void DeformationGraph::processPoseGraph(const pose_graph_tools::PoseGraph& pose_
 void DeformationGraph::processMeshGraph(const pose_graph_tools::PoseGraph& mesh_graph,
                                         const EdgeTypeVarianceMap& variance_map,
                                         std::map<size_t, size_t> robot_id_remap,
-                                        Eigen::Isometry3d* transform) {
+                                        const Eigen::Isometry3d* const transform) {
   for (const auto& node : mesh_graph.nodes) {
     auto node_robot_id = getRemappedId(robot_id_remap, node.robot_id);
     auto node_key =
