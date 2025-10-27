@@ -8,8 +8,9 @@
 
 #include "kimera_pgmo/utils/logging.h"
 
-int main(int argc, char **argv) {
-  logging::Logger::addSink("cout", std::make_shared<logging::CoutSink>());
+int main(int argc, char** argv) {
+  logging::Logger::addSink("cout",
+                           std::make_shared<logging::CoutSink>(logging::Level::DEBUG));
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
