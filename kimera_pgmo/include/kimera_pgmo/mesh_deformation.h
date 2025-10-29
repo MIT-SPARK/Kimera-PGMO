@@ -256,7 +256,8 @@ void deformPoints(CloudOut& new_points,
       control_point_stamps,
       values,
       k,
-      tol_t);
+      tol_t,
+      indices);
 }
 
 }  // namespace deformation

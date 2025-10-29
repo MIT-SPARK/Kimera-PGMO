@@ -907,6 +907,7 @@ void DeformationGraph::deformPoints(CloudOut& vertices,
   }
 
   const auto start_idx = findStartIndex(prefix, start_index_hint, old_vertices, tol_t);
+  SPARK_LOG(DEBUG) << "Using start index: " << start_idx;
   fillPreviousPoints(vertices, prefix, start_idx);
 
   std::vector<size_t> to_deform;

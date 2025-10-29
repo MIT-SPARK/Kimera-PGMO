@@ -267,6 +267,7 @@ TEST(TestDeformationGraph, deformMeshTranslation) {
 
   // Try with k = 2
   new_mesh = graph.deformMesh(original, original_stamps, original_inds, 'v', 2);
+
   pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
   EXPECT_TRUE(ComparePointcloud(expected_vertices, actual_vertices, 1e-6));
   EXPECT_EQ(original.polygons[0].vertices, new_mesh.polygons[0].vertices);
@@ -537,8 +538,9 @@ TEST(TestDeformationGraph, processNewBetween) {
   Vertices new_node_valences{0, 2};
   graph.processNewNode(
       gtsam::Symbol('a', 0), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), true);
-  graph.processNewNode(
-      gtsam::Symbol('a', 1), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)), false);
+  graph.processNewNode(gtsam::Symbol('a', 1),
+                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
+                       false);
   graph.processNewBetween(gtsam::Symbol('a', 0),
                           gtsam::Symbol('a', 1),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)));
@@ -575,8 +577,9 @@ TEST(TestDeformationGraph, processNewBetween) {
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
                                   traj[1]));
 
-  graph.processNewNode(
-      gtsam::Symbol('a', 2), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)), false);
+  graph.processNewNode(gtsam::Symbol('a', 2),
+                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)),
+                       false);
   graph.processNewBetween(gtsam::Symbol('a', 1),
                           gtsam::Symbol('a', 2),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)));
@@ -623,15 +626,17 @@ TEST(TestDeformationGraph, addTemporary) {
   Vertices new_node_valences{0, 2};
   graph.processNewNode(
       gtsam::Symbol('a', 0), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), true);
-  graph.processNewNode(
-      gtsam::Symbol('a', 1), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)), false);
+  graph.processNewNode(gtsam::Symbol('a', 1),
+                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
+                       false);
   graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
   graph.processNewBetween(gtsam::Symbol('a', 0),
                           gtsam::Symbol('a', 1),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)));
 
-  graph.processNewNode(
-      gtsam::Symbol('a', 2), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)), false);
+  graph.processNewNode(gtsam::Symbol('a', 2),
+                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)),
+                       false);
   graph.processNewBetween(gtsam::Symbol('a', 1),
                           gtsam::Symbol('a', 2),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)));
