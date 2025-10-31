@@ -85,23 +85,27 @@ Eigen::Isometry3d interpDeformation(std::set<size_t>& control_points_seen,
   const double d_max = std::sqrt(nn_sq_dist[nn_index.size() - 1]);
   bool use_const_weight = std::sqrt(nn_sq_dist[0]) == d_max || d_max == 0;
 
+  // NOTE(nathan) weighted average of k rotations is not necessarily a rotation,
+  // but if the rotations are close enough together should be pretty close. Potentially
+  // worth trying slerp on all the rotations if large rotation differences are expected
   double weight_sum = 0;
-  Eigen::Matrix4d transform = Eigen::Matrix4d::Zero();
+  Eigen::Vector4d q = Eigen::Vector4d::Zero();
+  Eigen::Vector3d t = Eigen::Vector3d::Zero();
   for (size_t j = 0; j < nn_index.size() - 1; j++) {
     double w = use_const_weight ? 1 : (1 - std::sqrt(nn_sq_dist[j]) / d_max);
     weight_sum += w;
 
-    Eigen::Matrix4d offset = Eigen::Matrix4d::Identity();
-    offset.block<3, 1>(0, 3) = -control_points.at(nn_index[j]);
-    const Eigen::Matrix4d delta =
-        values.at<gtsam::Pose3>(gtsam::Symbol(prefix, nn_index[j])).matrix() * offset;
-
-    transform += w * delta;
+    const auto local_tf = values.at<gtsam::Pose3>(gtsam::Symbol(prefix, nn_index[j]));
+    const auto local_rot = local_tf.rotation();
+    q += w * local_rot.toQuaternion().coeffs();
+    t += w * (local_tf.translation() - local_rot * control_points.at(nn_index[j]));
     control_points_seen.insert(nn_index[j]);
   }
 
-  transform /= weight_sum;
-  return Eigen::Isometry3d(transform);
+  q /= weight_sum;
+  q.normalize();  // project to the nearest rotation
+  t /= weight_sum;
+  return Eigen::Translation3d(t) * Eigen::Quaterniond(q);
 }
 
 // Calculate new point location from k points
