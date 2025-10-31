@@ -244,9 +244,6 @@ void deformPoints(CloudOut& new_points,
         const auto p_old = traits::get_vertex(points, ii);
         const auto p_new = interpPoint(
             control_points_seen, prefix, control_points, values, octree, k, p_old);
-        Eigen::IOFormat fmt(3, Eigen::DontAlignCols, ", ", "; ", "", "", "[", "]");
-        SPARK_LOG(DEBUG) << "point " << ii << ": " << p_old.format(fmt) << " -> "
-                         << p_new.format(fmt);
         traits::set_vertex(new_points, ii, p_new);
       },
       control_point_map,
