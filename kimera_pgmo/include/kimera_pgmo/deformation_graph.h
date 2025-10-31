@@ -394,6 +394,23 @@ class DeformationGraph {
                        size_t k = 4,
                        double tol_t = 10.0) const;
 
+  /*! \brief Peform custom deformation on a set of points
+   * - callback: processing to perform for each point
+   * - original_vertices: undeformed vertices
+   * - prefix: the prefixes of the key of the nodes corresponding to mesh
+   * - k: how many nearby nodes to use to adjust new position of vertices when
+   * interpolating for deformed mesh
+   * - tol_t: largest difference in time such that a control point can be
+   * considered for association
+   */
+  template <typename CloudIn>
+  void customDeformation(
+      const std::function<void(const Eigen::Isometry3d&, size_t)>& callback,
+      const CloudIn& points,
+      char prefix,
+      size_t k,
+      double tol_t) const;
+
   /*! \brief Deform a mesh vertices based on the deformation graph
    * - original_vertices: undeformed vertices
    * - stamps: timestamp of vertices in mesh to deform
@@ -934,6 +951,50 @@ void DeformationGraph::deformPoints(CloudOut& vertices,
 
   cacheNewPoints(vertices, prefix, start_idx);
   recalculate_vertices_ = false;
+}
+
+template <typename CloudIn>
+void DeformationGraph::customDeformation(
+    const std::function<void(const Eigen::Isometry3d&, size_t)>& callback,
+    const CloudIn& points,
+    char prefix,
+    size_t k,
+    double tol_t) const {
+  // Cannot deform if no nodes in the deformation graph
+  if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
+    SPARK_LOG(DEBUG)
+        << "Deformation graph has no vertices for mesh prefix. No deformation";
+    return;
+  }
+
+  std::vector<std::set<size_t>> vertex_graph_map_deformed;
+  deformation::processPoints(
+      [&](const size_t ii,
+          std::set<size_t>& control_points_seen,
+          char prefix,
+          const std::vector<gtsam::Point3>& control_points,
+          const gtsam::Values& values,
+          const deformation::SearchTree& octree,
+          size_t k) {
+        const auto transform = interpDeformation(control_points_seen,
+                                                 prefix,
+                                                 control_points,
+                                                 values,
+                                                 octree,
+                                                 k,
+                                                 traits::get_vertex(points, ii));
+
+        callback(transform, ii);
+      },
+      vertex_graph_map_deformed,
+      points,
+      prefix,
+      vertex_positions_.at(prefix),
+      vertex_stamps_.at(prefix),
+      *values_,
+      k,
+      tol_t,
+      nullptr);
 }
 
 template <typename CloudIn, typename CloudOut>

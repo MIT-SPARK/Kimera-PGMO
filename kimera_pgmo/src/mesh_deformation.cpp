@@ -70,13 +70,13 @@ void SearchTree::search(const traits::Pos& point,
 }
 
 // Calculate new point location from k points
-traits::Pos interpPoint(std::set<size_t>& control_points_seen,
-                        char prefix,
-                        const std::vector<gtsam::Point3>& control_points,
-                        const gtsam::Values& values,
-                        const SearchTree& tree,
-                        size_t k,
-                        const traits::Pos& old_point) {
+Eigen::Isometry3d interpDeformation(std::set<size_t>& control_points_seen,
+                                    char prefix,
+                                    const std::vector<gtsam::Point3>& control_points,
+                                    const gtsam::Values& values,
+                                    const SearchTree& tree,
+                                    size_t k,
+                                    const traits::Pos& old_point) {
   // Query octree
   std::vector<int> nn_index;
   std::vector<float> nn_sq_dist;
@@ -85,24 +85,40 @@ traits::Pos interpPoint(std::set<size_t>& control_points_seen,
   const double d_max = std::sqrt(nn_sq_dist[nn_index.size() - 1]);
   bool use_const_weight = std::sqrt(nn_sq_dist[0]) == d_max || d_max == 0;
 
+  // NOTE(nathan) weighted average of k rotations is not necessarily a rotation,
+  // but if the rotations are close enough together should be pretty close. Potentially
+  // worth trying slerp on all the rotations if large rotation differences are expected
   double weight_sum = 0;
-  gtsam::Point3 new_point = gtsam::Point3::Zero();
-  const gtsam::Point3 vi = old_point.cast<double>();
+  Eigen::Vector4d q = Eigen::Vector4d::Zero();
+  Eigen::Vector3d t = Eigen::Vector3d::Zero();
   for (size_t j = 0; j < nn_index.size() - 1; j++) {
-    const auto& gj = control_points.at(nn_index[j]);
-
     double w = use_const_weight ? 1 : (1 - std::sqrt(nn_sq_dist[j]) / d_max);
     weight_sum += w;
-    auto transform = values.at<gtsam::Pose3>(gtsam::Symbol(prefix, nn_index[j]));
-    const gtsam::Point3 delta =
-        (transform.rotation().rotate(vi - gj) + transform.translation());
 
-    new_point += w * delta;
+    const auto local_tf = values.at<gtsam::Pose3>(gtsam::Symbol(prefix, nn_index[j]));
+    const auto local_rot = local_tf.rotation();
+    q += w * local_rot.toQuaternion().coeffs();
+    t += w * (local_tf.translation() - local_rot * control_points.at(nn_index[j]));
     control_points_seen.insert(nn_index[j]);
   }
 
-  new_point /= weight_sum;
-  return new_point.cast<float>();
+  q /= weight_sum;
+  q.normalize();  // project to the nearest rotation
+  t /= weight_sum;
+  return Eigen::Translation3d(t) * Eigen::Quaterniond(q);
+}
+
+// Calculate new point location from k points
+traits::Pos interpPoint(std::set<size_t>& control_points_seen,
+                        char prefix,
+                        const std::vector<gtsam::Point3>& control_points,
+                        const gtsam::Values& values,
+                        const SearchTree& tree,
+                        size_t k,
+                        const traits::Pos& vi) {
+  const auto new_T_old = interpDeformation(
+      control_points_seen, prefix, control_points, values, tree, k, vi);
+  return new_T_old.cast<float>() * vi;
 }
 
 }  // namespace deformation
