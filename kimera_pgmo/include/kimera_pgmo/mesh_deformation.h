@@ -185,7 +185,8 @@ void processPoints(const PointCallback& callback,
     }
 
     if (search_tree.getLeafCount() < k + 1) {
-      SPARK_LOG(DEBUG) << "Not enough valid control points in octree to interpolate";
+      SPARK_LOG(DEBUG) << "Not enough valid control points to interpolate point " << ii
+                       << ": " << search_tree.getLeafCount() << " < " << k + 1;
       if (num_ctrl_pts > 1) {
         k = num_ctrl_pts - 1;
       } else {

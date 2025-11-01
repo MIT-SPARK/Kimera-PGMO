@@ -461,15 +461,18 @@ bool DeformationGraph::addNewMeshNode(const gtsam::Key& node_key,
     vertex_positions_[node_prefix] = std::vector<gtsam::Point3>();
     vertex_stamps_[node_prefix] = std::vector<Timestamp>();
   }
+
   if (node_idx != vertex_positions_.at(node_prefix).size()) {
     return false;
   }
+
   vertex_positions_[node_prefix].push_back(node_pose.translation());
   vertex_stamps_[node_prefix].push_back(node_stamp);
   // TODO(Yun) temporary hack, check if this assumption always valid even with poses
   if (add_init_vertex_prior_ && values_->size() == 0) {
     addPrior(node_key, node_pose, 1e-3, false, true);
   }
+
   values_->insert(node_key, node_pose);
   return true;
 }
@@ -477,13 +480,14 @@ bool DeformationGraph::addNewMeshNode(const gtsam::Key& node_key,
 bool DeformationGraph::checkNewMeshNode(const gtsam::Key& node_key) const {
   char node_prefix = gtsam::Symbol(node_key).chr();
   size_t node_idx = gtsam::Symbol(node_key).index();
-
   if (!vertex_positions_.count(node_prefix)) {
     if (node_idx == 0) {
       return true;
     }
+
     return false;
   }
+
   // The check here returns true even for duplicated (added) nodes
   // Only return false if there is a likely message drop
   return node_idx <= vertex_positions_.at(node_prefix).size();
@@ -522,7 +526,6 @@ void DeformationGraph::processNewMeshEdgesAndNodes(
     }
 
     const gtsam::Pose3& node_pose = mesh_nodes.at<gtsam::Pose3>(node_key);
-
     if (addNewMeshNode(node_key, node_pose, node_stamps.at(node_key))) {
       added_indices->push_back(gtsam::Symbol(node_key).index());
       added_index_stamps->push_back(node_stamps.at(node_key));
@@ -534,9 +537,9 @@ void DeformationGraph::processNewMeshEdgesAndNodes(
     if (!checkNewMeshEdge(e.first, e.second)) {
       SPARK_LOG(FATAL) << "Error adding new mesh edge.";
     }
+
     const gtsam::Pose3 pose_from = mesh_nodes.at<gtsam::Pose3>(e.first);
     const gtsam::Point3 point_to = mesh_nodes.at<gtsam::Pose3>(e.second).translation();
-
     addDeformationEdge(e.first, e.second, pose_from, point_to, variance, false, true);
   }
 }
