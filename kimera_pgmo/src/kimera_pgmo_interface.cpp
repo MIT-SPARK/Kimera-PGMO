@@ -532,11 +532,11 @@ OptimizeStats KimeraPgmoInterface::optimize() {
     const gtsam::Symbol k2(derived->keys().back());
     const int64_t k1_index = k1.index();
     const int64_t k2_index = k2.index();
-    if (std::abs(k1_index - k2_index) <= 1) {
+    const bool interrobot = k1.chr() != k2.chr();
+    if (!interrobot && std::abs(k1_index - k2_index) <= 1) {
       continue;  // odometry
     }
 
-    bool interrobot = k1.chr() != k2.chr();
     bool inlier = true;
     if (inlier_weights.size() < index && inlier_weights[index] < 0.5) {
       inlier = false;
