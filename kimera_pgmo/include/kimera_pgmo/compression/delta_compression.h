@@ -139,6 +139,7 @@ class DeltaCompression {
   BlockInfoMap block_info_map_;
   VoxelInfoMap vertices_map_;
 
+  std::vector<VertexInfo> archived_vertices_;
   std::vector<Face> archived_faces_;
 
   uint16_t sequence_number_;

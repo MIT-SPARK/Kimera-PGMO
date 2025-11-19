@@ -319,9 +319,36 @@ void DeltaCompression::clearArchivedBlocks(const BlockIndices& blocks) {
 }
 
 void DeltaCompression::archiveBlocks(const BlockFilter& to_archive) {
-  // only reset archive delta if necessary (to allow for multiple archive calls
+  // only reset archive delta if necessary (to allow for multiple archive calls)
   if (!archive_delta_) {
     archive_delta_.reset(new MeshDelta(num_archived_vertices_, num_archived_faces_));
+  }
+
+  std::unordered_set<size_t> pending_archive;
+  for (const auto& [idx, block_info] : block_info_map_) {
+    if (!to_archive(idx, block_info)) {
+      continue;
+    }
+
+    // for every block we want to archive:
+    //   - update ref counts for any vertices the block contains
+    //   - any voxel/vertex that only has archived blocks pointing to it should get
+    //     archived by being added to the archive_delta_ (to be used as a starting point
+    //     next update call)
+    to_erase.push_back(idx);
+
+    for (const auto& voxel : block_info.vertices) {
+      auto& info = vertices_map_[voxel];
+      info.archiveObservation();
+      if (!info.shouldArchive()) {
+        continue;
+      }
+
+      const size_t new_index =
+          archive_delta_->addVertex(info.timestamp_ns, info.point, info.label, true);
+      archive_delta_->prev_to_curr[info.mesh_index] = new_index;
+      vertices_map_.erase(voxel);
+    }
   }
 
   spatial_hash::BlockIndices to_erase;
