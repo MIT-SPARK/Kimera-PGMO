@@ -251,9 +251,9 @@ void ExpectedDelta::checkTriangles(
       }
     }
 
-    EXPECT_TRUE(found_match) << "result face "
-                             << " (r: " << rface << ", a: " << absolute_face
-                             << ", i: " << i << ") has no match in expected: "
+    EXPECT_TRUE(found_match) << "result face " << " (r: " << rface
+                             << ", a: " << absolute_face << ", i: " << i
+                             << ") has no match in expected: "
                              << toString(expected_triangles);
   }
 
@@ -297,6 +297,17 @@ kimera_pgmo::test::BlockConfig block1_v2{
     {{{{0.5, 0.5, 0.5}, {0.5, 0.75, 0.75}, {0.5, 0.75, 0.5}}},
      {{{0.0, 0.0, 0.0}, {0.0, 0.5, 0.5}, {0.0, 0.0, 0.5}}}}};
 
+// contains the same vertices as block1_v1 but with a face that has the boundary vertex
+// with b2v2
+kimera_pgmo::test::BlockConfig block1_v3{
+    "block1_v3",
+    {0, 0, 0},
+    {
+        {{{0.5, 0.5, 0.5}, {0.5, 0.75, 0.75}, {0.5, 0.75, 0.5}}},
+        {{{0.0, 0.0, 0.0}, {0.0, 0.5, 0.5}, {0.0, 0.0, 0.5}}},
+        {{{0.1, 0.2, 0.3}, {0.2, 0.3, 0.4}, {0.0, 0.0, 0.5}}},
+    }};
+
 // contains no vertices or faces and should clear any faces
 kimera_pgmo::test::BlockConfig block2_empty{"block2_empty", {-1, 0, 0}, {}};
 
@@ -307,7 +318,7 @@ kimera_pgmo::test::BlockConfig block2_v1{
     {{{{-0.5, 0.5, 0.5}, {-0.5, 0.75, 0.75}, {-0.5, 0.75, 0.5}}},
      {{{0.0, 0.0, 0.0}, {0.0, 0.5, 0.5}, {0.0, 0.0, 0.5}}}}};
 
-// contains 2 faces, 1, unique and 1 partially shared with block1_v1 and block1_v2
+// contains 2 faces, 1 unique and 1 partially shared with block1_v1 and block1_v2
 kimera_pgmo::test::BlockConfig block2_v2{
     "block2_v2",
     {-1, 0, 0},
@@ -440,9 +451,27 @@ CompressionTestConfiguration test_configurations[] = {
         {{0, 1, 2}, {12, 13, 14}, {15, 16, 17}, {15, 16, 5}},  // all faces
         {12, 13, 14, 15, 16, 17}}},                            // b2v2 with 12 offset
       {{std::nullopt, 104s, {block2_empty}},
-       {{4, 1, 2},      // 2 shared vertices with b2 get archived this pass
+       {{3, 1, 3},      // Only b1 vertices not shared with b2 have been archived
         {{15, 16, 5}},  // partial face
         {}}}}},         // no remapping
+    {"BoundaryVertexRemapping",
+     1.0e-3,
+     {{{std::nullopt, 100s, {block1_v3}},
+       {{0, 0, 8},  // b1 (v3)
+        {{0, 1, 2}, {3, 4, 5}, {6, 7, 5}},
+        {0, 1, 2, 3, 4, 5, 6, 7, 5}}},
+      {{std::nullopt, 102s, {block2_v2}},
+       {{0, 0, 12},  // b2 (v2): 1 extra vertex
+        {{0, 1, 2}, {12, 13, 5}, {6, 7, 5}, {9, 10, 11}, {12, 13, 14}},
+        {9, 10, 11, 12, 13, 14}}},
+      {{101s, 103s, {block1_empty, block2_v2}},
+       {{0, 0, 12},  // b1 archived + b2v2
+        {{0, 1, 2}, {18, 19, 5}, {6, 7, 5}, {15, 16, 17}, {18, 19, 20}},
+        {15, 16, 17, 18, 19, 20}}},
+      {{std::nullopt, 104s, {block2_empty}},
+       {{3, 1, 5},  // Only b1 vertices not shared with b2 have been archived
+        {{18, 19, 5}, {6, 7, 5}},
+        {}}}}},
     {"RepeatedTimestamp",
      1.0e-3,
      {{{std::nullopt, 100s, {block1_v1}},
