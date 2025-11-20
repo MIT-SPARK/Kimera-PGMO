@@ -141,6 +141,44 @@ void MeshDelta::updateMesh(pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
   updateFaces(faces);
 }
 
+void MeshDelta::offsetVertices(size_t new_archive_size) {
+  size_t offset = vertex_start - new_archive_size;
+  vertex_start = new_archive_size;
+  for (auto& face : face_updates) {
+    face.v1 -= offset;
+    face.v2 -= offset;
+    face.v3 -= offset;
+  }
+
+  for (auto& face : face_archive_updates) {
+    face.v1 -= offset;
+    face.v2 -= offset;
+    face.v3 -= offset;
+  }
+
+  for (auto& [prev, curr] : prev_to_curr) {
+    curr -= offset;
+  }
+
+  std::set<size_t> new_deleted;
+  for (const auto old : deleted_indices) {
+    new_deleted.insert(old - offset);
+  }
+  deleted_indices = new_deleted;
+
+  std::set<size_t> new_observed;
+  for (const auto old : observed_indices) {
+    new_observed.insert(old - offset);
+  }
+  observed_indices = new_observed;
+
+  std::set<size_t> new_new;
+  for (const auto old : new_indices) {
+    new_new.insert(old - offset);
+  }
+  new_indices = new_new;
+}
+
 size_t MeshDelta::addVertex(uint64_t timestamp_ns,
                             const pcl::PointXYZRGBA& point,
                             std::optional<uint32_t> semantics,

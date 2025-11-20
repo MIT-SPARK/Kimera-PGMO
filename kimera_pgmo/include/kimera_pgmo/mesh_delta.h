@@ -84,6 +84,8 @@ class MeshDelta {
                   std::vector<uint32_t>* semantics = nullptr,
                   const Eigen::Isometry3f* transform = nullptr) const;
 
+  void offsetVertices(size_t new_archive_size);
+
   size_t addVertex(Timestamp timestamp_ns,
                    const pcl::PointXYZRGBA& point,
                    std::optional<uint32_t> semantics = std::nullopt,
