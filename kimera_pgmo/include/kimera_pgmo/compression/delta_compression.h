@@ -116,7 +116,7 @@ class DeltaCompression {
 
   void updateRemapping(MeshInterface& mesh, uint64_t timestamp_ns);
 
-  void addPendingVertices(MeshDelta& delta);
+  void addPendingVertices(MeshDelta& delta, size_t start_index = 0);
 
  protected:
   double resolution_;
