@@ -84,7 +84,8 @@ class MeshDelta {
                   std::vector<uint32_t>* semantics = nullptr,
                   const Eigen::Isometry3f* transform = nullptr) const;
 
-  void offsetVertices(size_t new_archive_size);
+  void setOffset(std::optional<size_t> vertex_start = std::nullopt,
+                 std::optional<size_t> face_start = std::nullopt);
 
   size_t addVertex(Timestamp timestamp_ns,
                    const pcl::PointXYZRGBA& point,
@@ -136,6 +137,8 @@ class MeshDelta {
   std::set<size_t> new_indices;
 
  protected:
+  size_t remapIndex(size_t prev) const;
+
   size_t num_archived_vertices_ = 0;
 };
 
@@ -172,6 +175,15 @@ void MeshDelta::updateFaces(Faces& faces) const {
   const size_t total_faces =
       face_start + face_archive_updates.size() + face_updates.size();
   traits::resize_faces(faces, total_faces);
+
+  // TODO(nathan) there is a more elegant way to do this
+  for (size_t i = 0; i < getTotalArchivedFaces(); ++i) {
+    auto face = traits::get_face(faces, i);
+    face[0] = remapIndex(face[0]);
+    face[1] = remapIndex(face[1]);
+    face[2] = remapIndex(face[2]);
+    traits::set_face(faces, i, face);
+  }
 
   size_t face_idx = face_start;
   for (const auto& face : face_archive_updates) {

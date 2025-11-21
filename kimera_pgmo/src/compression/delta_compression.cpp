@@ -150,7 +150,7 @@ void DeltaCompression::removeBlockObservations(const LongIndexSet& to_remove) {
     // we can't observe a vertex and then need to archive it in the same pass, so
     // info.mesh_index should point to the previous index. Need to add vertex to
     // boundary list to be processed later
-    //archived_vertices_.push_back(info);
+    archived_vertices_.push_back(info);
     vertices_map_.erase(prev);
   }
 }
@@ -463,7 +463,7 @@ void DeltaCompression::archiveBlockFaces(const BlockInfo& block_info,
       // push any face that we can't deal with currently to be considered for archival
       // later. Crucially, we don't remap any face indices here as we can't
       // distinguish whether an index was remapped here or not
-      //archived_faces_.push_back(face);
+      archived_faces_.push_back(face);
       continue;
     }
 
@@ -476,7 +476,7 @@ void DeltaCompression::archiveBlockFaces(const BlockInfo& block_info,
     }
 
     if (!canBeArchived(face, archive_threshold)) {
-      //archived_faces_.push_back(face);
+      archived_faces_.push_back(face);
       continue;
     }
 
