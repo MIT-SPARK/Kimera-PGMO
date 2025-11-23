@@ -42,7 +42,7 @@ inline size_t getRemappedIndex(const std::map<size_t, size_t>& remapping,
   return getRemappedIndex(remapping, original);
 }
 
-inline bool canBeArchived(const Face& face, size_t archive_threshold) {
+inline bool allVerticesBelow(const Face& face, size_t archive_threshold) {
   return face.v1 < archive_threshold && face.v2 < archive_threshold &&
          face.v3 < archive_threshold;
 }
@@ -421,11 +421,16 @@ void DeltaCompression::archiveBlocks(const BlockFilter& to_archive) {
 
   // 5. Sweep archived faces
   RedunancyChecker checker;
+  std::vector<Face> pending_faces;
   for (const auto& idx : to_erase) {
-    archiveBlockFaces(block_info_map_.at(idx), checker);
+    archiveBlockFaces(block_info_map_.at(idx), checker, pending_faces);
     block_info_map_.erase(idx);
   }
 
+  archive_delta_->face_archive_updates.insert(
+      archive_delta_->face_archive_updates.end(),
+      pending_faces.begin(),
+      pending_faces.end());
   SPARK_LOG(DEBUG) << "Finished archive with delta containing "
                    << archive_delta_->vertex_updates->size() << " vertice(s), "
                    << archive_delta_->face_updates.size() << " face(s), and "
@@ -436,11 +441,13 @@ void DeltaCompression::archiveBlocks(const BlockFilter& to_archive) {
 }
 
 void DeltaCompression::archiveBlockFaces(const BlockInfo& block_info,
-                                         RedunancyChecker& checker) {
+                                         RedunancyChecker& checker,
+                                         std::vector<Face>& pending_faces) {
   // We want to archive any face that points to an archived vertex or a pending vertex,
   // so we use the total vertices in the archive delta (which contains the new archived
   // vertices and the new pending vertices)
   const auto archive_threshold = archive_delta_->getTotalVertices();
+  const auto pending_threshold = archive_delta_->getTotalArchivedVertices();
 
   // this remapping points from the previous active index to the current archival index
   // of all vertices archived from the block being archived. Any active vertex (or
@@ -475,7 +482,7 @@ void DeltaCompression::archiveBlockFaces(const BlockInfo& block_info,
       continue;
     }
 
-    if (!canBeArchived(face, archive_threshold)) {
+    if (!allVerticesBelow(face, archive_threshold)) {
       archived_faces_.push_back(face);
       continue;
     }
@@ -485,7 +492,12 @@ void DeltaCompression::archiveBlockFaces(const BlockInfo& block_info,
     }
 
     checker.add(face);
-    archive_delta_->addFace(face, true);
+    const auto fully_archived = allVerticesBelow(face, pending_threshold);
+    if (fully_archived) {
+      archive_delta_->addFace(face, true);
+    } else {
+      pending_faces.push_back(face);
+    }
   }
 }
 
@@ -515,7 +527,7 @@ void DeltaCompression::updateAndAddArchivedFaces() {
       continue;
     }
 
-    const bool can_archive = canBeArchived(face, archive_threshold);
+    const bool can_archive = allVerticesBelow(face, archive_threshold);
     checker.add(face);
     delta_->addFace(face, can_archive);
     if (can_archive) {

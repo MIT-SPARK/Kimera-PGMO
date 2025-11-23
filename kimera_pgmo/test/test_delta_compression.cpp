@@ -407,12 +407,12 @@ CompressionTestConfiguration test_configurations[] = {
            {{0, 1, 2}, {12, 13, 14}},  // b1 archived faces
            {}}},                       // no remapping for empty input
          {{std::nullopt, 104s, {block1_v1}},
-          {{6, 2, 6},                               // b1 added again
-           {{15, 16, 17}, {21, 22, 23}},            // b1 faces
+          {{3, 1, 9},                               // b1 added again
+           {{12, 13, 14}, {15, 16, 17}, {21, 22, 23}},            // b1 faces
            {15, 16, 17, 15, 16, 17, 21, 22, 23}}},  // offset 15
          {{std::nullopt, 105s, {block1_v1}},
-          {{6, 2, 6},                               // b1 stays added
-           {{24, 25, 26}, {30, 31, 32}},            // faces indices overriden
+          {{3, 1, 9},                               // b1 stays added
+           {{12, 13, 14}, {24, 25, 26}, {30, 31, 32}},            // faces indices overriden
            {24, 25, 26, 24, 25, 26, 30, 31, 32}}},  // offset 24
      }},
     {"MultiBlockPartialUpdates",

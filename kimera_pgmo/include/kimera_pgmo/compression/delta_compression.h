@@ -112,7 +112,9 @@ class DeltaCompression {
 
   void updateAndAddArchivedFaces();
 
-  void archiveBlockFaces(const BlockInfo& block_info, RedunancyChecker& checker);
+  void archiveBlockFaces(const BlockInfo& block_info,
+                         RedunancyChecker& checker,
+                         std::vector<Face>& pending_faces);
 
   void updateRemapping(MeshInterface& mesh, uint64_t timestamp_ns);
 
