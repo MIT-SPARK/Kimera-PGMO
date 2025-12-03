@@ -1,0 +1,21 @@
+#include "gtest/gtest.h"
+#include "kimera_pgmo/compression/redundancy_checker.h"
+
+namespace kimera_pgmo {
+
+TEST(RedundancyChecker, SingleFaceCorrect) {
+  RedundancyChecker checker;
+  EXPECT_TRUE(checker.check({0, 1, 2}));
+  checker.add({0, 1, 2});
+  EXPECT_FALSE(checker.check({0, 1, 2}));
+}
+
+TEST(RedundancyChecker, DuplicatesCorrect) {
+  RedundancyChecker checker;
+  checker.add({0, 1, 2});
+  EXPECT_FALSE(checker.check({0, 1, 2}));
+  checker.add({1, 2, 3});
+}
+
+
+}  // namespace kimera_pgmo

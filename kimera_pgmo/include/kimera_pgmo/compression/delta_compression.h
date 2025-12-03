@@ -7,12 +7,29 @@
 #pragma once
 #include "kimera_pgmo/hashing.h"
 #include "kimera_pgmo/mesh_delta.h"
-#include "kimera_pgmo/utils/common_structs.h"
 #include "kimera_pgmo/utils/mesh_interface.h"
+#include "kimera_pgmo/compression/redundancy_checker.h"
 
 namespace kimera_pgmo {
 
-struct RedunancyChecker;
+struct DeltaFace {
+  DeltaFace(size_t v1, size_t v2, size_t v3);
+
+  DeltaFace(const std::vector<size_t>& indices, size_t i);
+  DeltaFace(const traits::Face& face);
+
+  bool valid() const;
+
+  void fill(std::vector<uint32_t>& other) const;
+
+  uint32_t v1;
+  uint32_t v2;
+  uint32_t v3;
+
+  operator std::array<size_t, 3>() const { return {v1, v2, v3}; }
+};
+
+std::ostream& operator<<(std::ostream& out, const DeltaFace& face);
 
 //! @brief Tracking info for every vertex
 struct VertexInfo {

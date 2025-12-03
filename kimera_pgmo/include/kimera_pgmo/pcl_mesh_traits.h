@@ -15,7 +15,6 @@ namespace pcl {
 using PgmoPos = kimera_pgmo::traits::Pos;
 using PgmoTraits = kimera_pgmo::traits::VertexTraits;
 
-
 template <typename T>
 size_t pgmoNumVertices(const PointCloud<T>& cloud) {
   return cloud.size();
@@ -27,17 +26,13 @@ void pgmoResizeVertices(PointCloud<T>& cloud, size_t size) {
 }
 
 template <typename T, std::enable_if_t<!traits::has_color_v<T>, bool> = true>
-PgmoPos pgmoGetVertex(const PointCloud<T>& cloud,
-                      size_t i,
-                      PgmoTraits*) {
+PgmoPos pgmoGetVertex(const PointCloud<T>& cloud, size_t i, PgmoTraits*) {
   const auto& p = cloud.at(i);
   return {p.x, p.y, p.z};
 }
 
 template <typename T, std::enable_if_t<traits::has_color_v<T>, bool> = true>
-PgmoPos pgmoGetVertex(const PointCloud<T>& cloud,
-                      size_t i,
-                      PgmoTraits* traits) {
+PgmoPos pgmoGetVertex(const PointCloud<T>& cloud, size_t i, PgmoTraits* traits) {
   const auto& p = cloud.at(i);
   if (traits) {
     traits->color = {{p.r, p.g, p.b, p.a}};
@@ -73,7 +68,6 @@ void pgmoSetVertex(PointCloud<T>& cloud,
     p.b = c[2];
     p.a = c[3];
   }
-
 }
 
 }  // namespace pcl
@@ -140,6 +134,61 @@ void pgmoSetVertex(StampedCloud<T>& cloud,
 template <typename T>
 uint64_t pgmoGetVertexStamp(const ConstStampedCloud<T>& cloud, size_t i) {
   return cloud.stamps.at(i);
+}
+
+struct LabeledCloud {
+  using Cloud = pcl::PointCloud<pcl::PointXYZRGBA>;
+
+  LabeledCloud(Cloud& points, std::vector<traits::Label>& labels)
+      : points(points), labels(labels) {}
+
+  Cloud& points;
+  std::vector<traits::Label>& labels;
+};
+
+struct LabeledStampedCloud : LabeledCloud {
+  using Cloud = pcl::PointCloud<pcl::PointXYZRGBA>;
+
+  LabeledStampedCloud(Cloud& points,
+                      std::vector<traits::Timestamp>& stamps,
+                      std::vector<traits::Label>& labels)
+      : LabeledCloud(points, labels), stamps(stamps) {}
+
+  std::vector<traits::Timestamp>& stamps;
+};
+
+size_t pgmoNumVertices(const LabeledCloud& cloud) { return cloud.points.size(); }
+
+void pgmoResizeVertices(LabeledCloud& cloud, size_t size) {
+  cloud.points.resize(size);
+  cloud.labels.resize(size);
+}
+
+size_t pgmoNumVertices(const LabeledStampedCloud& cloud) { return cloud.points.size(); }
+
+void pgmoResizeVertices(LabeledStampedCloud& cloud, size_t size) {
+  pgmoResizeVertices(static_cast<LabeledCloud&>(cloud), size);
+  cloud.stamps.resize(size);
+}
+
+void pgmoSetVertex(LabeledCloud& cloud,
+                   size_t i,
+                   const traits::Pos& pos,
+                   const traits::VertexTraits& traits) {
+  pgmoSetVertex(cloud.points, i, pos, traits);
+  if (traits.label) {
+    cloud.labels.at(i) = *traits.label;
+  }
+}
+
+void pgmoSetVertex(LabeledStampedCloud& cloud,
+                   size_t i,
+                   const traits::Pos& pos,
+                   const traits::VertexTraits& traits) {
+  pgmoSetVertex(static_cast<LabeledCloud&>(cloud), i, pos, traits);
+  if (traits.stamp) {
+    cloud.stamps.at(i) = *traits.stamp;
+  }
 }
 
 }  // namespace kimera_pgmo

@@ -9,19 +9,20 @@
 
 namespace kimera_pgmo {
 
-bool RedunancyChecker::check(const Face& face) const {
-  const bool present = hasEdge(face.v1, face.v2) && hasEdge(face.v2, face.v3) &&
-                       hasEdge(face.v2, face.v3);
+bool RedundancyChecker::check(const traits::Face& face) const {
+  // TODO(nathan) this is bad and needs to be smarter
+  const bool present = hasEdge(face[0], face[1]) && hasEdge(face[1], face[2]) &&
+                       hasEdge(face[2], face[3]);
   return !present;
 }
 
-void RedunancyChecker::add(const Face& face) {
-  addEdge(face.v1, face.v2);
-  addEdge(face.v2, face.v3);
-  addEdge(face.v3, face.v1);
+void RedundancyChecker::add(const traits::Face& face) {
+  addEdge(face[0], face[1]);
+  addEdge(face[1], face[2]);
+  addEdge(face[2], face[0]);
 }
 
-bool RedunancyChecker::hasEdge(size_t source, size_t target) const {
+bool RedundancyChecker::hasEdge(size_t source, size_t target) const {
   const auto iter = A.find(source);
   if (iter == A.end()) {
     return false;
@@ -30,7 +31,7 @@ bool RedunancyChecker::hasEdge(size_t source, size_t target) const {
   return iter->second.count(target);
 }
 
-void RedunancyChecker::addEdge(size_t source, size_t target) {
+void RedundancyChecker::addEdge(size_t source, size_t target) {
   auto iter = A.find(source);
   if (iter == A.end()) {
     iter = A.insert({source, {}}).first;

@@ -36,6 +36,7 @@ struct VertexTraits {
   std::optional<Color> color;
   std::optional<Timestamp> stamp;
   std::optional<Label> label;
+  std::optional<Timestamp> first_seen_stamp;
 };
 
 }  // namespace traits
