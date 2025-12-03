@@ -139,8 +139,7 @@ uint64_t pgmoGetVertexStamp(const ConstStampedCloud<T>& cloud, size_t i) {
 struct LabeledCloud {
   using Cloud = pcl::PointCloud<pcl::PointXYZRGBA>;
 
-  LabeledCloud(Cloud& points, std::vector<traits::Label>& labels)
-      : points(points), labels(labels) {}
+  LabeledCloud(Cloud& points, std::vector<traits::Label>& labels);
 
   Cloud& points;
   std::vector<traits::Label>& labels;
@@ -151,44 +150,24 @@ struct LabeledStampedCloud : LabeledCloud {
 
   LabeledStampedCloud(Cloud& points,
                       std::vector<traits::Timestamp>& stamps,
-                      std::vector<traits::Label>& labels)
-      : LabeledCloud(points, labels), stamps(stamps) {}
+                      std::vector<traits::Label>& labels);
 
   std::vector<traits::Timestamp>& stamps;
 };
 
-size_t pgmoNumVertices(const LabeledCloud& cloud) { return cloud.points.size(); }
-
-void pgmoResizeVertices(LabeledCloud& cloud, size_t size) {
-  cloud.points.resize(size);
-  cloud.labels.resize(size);
-}
-
-size_t pgmoNumVertices(const LabeledStampedCloud& cloud) { return cloud.points.size(); }
-
-void pgmoResizeVertices(LabeledStampedCloud& cloud, size_t size) {
-  pgmoResizeVertices(static_cast<LabeledCloud&>(cloud), size);
-  cloud.stamps.resize(size);
-}
+size_t pgmoNumVertices(const LabeledCloud& cloud);
+void pgmoResizeVertices(LabeledCloud& cloud, size_t size);
+size_t pgmoNumVertices(const LabeledStampedCloud& cloud);
+void pgmoResizeVertices(LabeledStampedCloud& cloud, size_t size);
 
 void pgmoSetVertex(LabeledCloud& cloud,
                    size_t i,
                    const traits::Pos& pos,
-                   const traits::VertexTraits& traits) {
-  pgmoSetVertex(cloud.points, i, pos, traits);
-  if (traits.label) {
-    cloud.labels.at(i) = *traits.label;
-  }
-}
+                   const traits::VertexTraits& traits);
 
 void pgmoSetVertex(LabeledStampedCloud& cloud,
                    size_t i,
                    const traits::Pos& pos,
-                   const traits::VertexTraits& traits) {
-  pgmoSetVertex(static_cast<LabeledCloud&>(cloud), i, pos, traits);
-  if (traits.stamp) {
-    cloud.stamps.at(i) = *traits.stamp;
-  }
-}
+                   const traits::VertexTraits& traits);
 
 }  // namespace kimera_pgmo

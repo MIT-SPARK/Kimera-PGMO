@@ -5,31 +5,12 @@
  * @author Nathan Hughes
  */
 #pragma once
+#include "kimera_pgmo/compression/redundancy_checker.h"
 #include "kimera_pgmo/hashing.h"
 #include "kimera_pgmo/mesh_delta.h"
 #include "kimera_pgmo/utils/mesh_interface.h"
-#include "kimera_pgmo/compression/redundancy_checker.h"
 
 namespace kimera_pgmo {
-
-struct DeltaFace {
-  DeltaFace(size_t v1, size_t v2, size_t v3);
-
-  DeltaFace(const std::vector<size_t>& indices, size_t i);
-  DeltaFace(const traits::Face& face);
-
-  bool valid() const;
-
-  void fill(std::vector<uint32_t>& other) const;
-
-  uint32_t v1;
-  uint32_t v2;
-  uint32_t v3;
-
-  operator std::array<size_t, 3>() const { return {v1, v2, v3}; }
-};
-
-std::ostream& operator<<(std::ostream& out, const DeltaFace& face);
 
 //! @brief Tracking info for every vertex
 struct VertexInfo {
@@ -65,7 +46,7 @@ struct VertexInfo {
 //! @brief Tracking struct for every block in the spatial grid used by the compression
 struct BlockInfo {
   //! @brief All vertices belonging to the block
-  spatial_hash::LongIndexSet vertices;
+  LongIndexSet vertices;
   //! @brief Last time the block was updated
   uint64_t update_time_ns;
   //! @brief Current flat list of indices
@@ -79,8 +60,7 @@ class DeltaCompression {
   using VoxelInfoMap = LongIndexMap<VertexInfo>;
   using BlockInfoMap = BlockIndexMap<BlockInfo>;
   using Ptr = std::shared_ptr<DeltaCompression>;
-  using BlockFilter =
-      std::function<bool(const spatial_hash::BlockIndex&, const BlockInfo&)>;
+  using BlockFilter = std::function<bool(const BlockIndex&, const BlockInfo&)>;
 
   /**
    * @brief Construct a mesh compressor at the provided spatial resolution
@@ -117,9 +97,9 @@ class DeltaCompression {
                 std::optional<uint32_t> semantic_label,
                 uint64_t timestamp_ns,
                 std::vector<size_t>& face_map,
-                spatial_hash::LongIndexSet& curr_voxels);
+                LongIndexSet& curr_voxels);
 
-  void removeBlockObservations(const spatial_hash::LongIndexSet& to_remove);
+  void removeBlockObservations(const LongIndexSet& to_remove);
 
   void addActive(uint64_t stamp_ns, HashedIndexMapping* remapping);
 
@@ -130,8 +110,8 @@ class DeltaCompression {
   void updateAndAddArchivedFaces();
 
   void archiveBlockFaces(const BlockInfo& block_info,
-                         RedunancyChecker& checker,
-                         std::vector<Face>& pending_faces);
+                         RedundancyChecker& checker,
+                         std::vector<traits::Face>& pending_faces);
 
   void updateRemapping(MeshInterface& mesh, uint64_t timestamp_ns);
 
@@ -149,7 +129,7 @@ class DeltaCompression {
   VoxelInfoMap vertices_map_;
 
   std::vector<VertexInfo> archived_vertices_;
-  std::vector<Face> archived_faces_;
+  std::vector<traits::Face> archived_faces_;
 
   uint16_t sequence_number_;
   size_t num_archived_vertices_;

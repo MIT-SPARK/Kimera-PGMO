@@ -20,7 +20,7 @@ class MeshDelta {
   MeshDelta(traits::Timestamp timestamp_ns = 0, uint16_t sequence_number = 0);
 
   size_t addVertex(const traits::Pos& pos,
-                   const traits::VertexTraits* traits = nullptr,
+                   const traits::VertexTraits& traits,
                    bool archive = false);
   void addFace(const traits::Face& face, bool archive = false);
 
@@ -60,6 +60,8 @@ class MeshDelta {
   const uint16_t sequence_number;
 
  protected:
+  friend class DeltaCompression;
+
   size_t num_archived_vertices_ = 0;
 
   std::vector<Vertex> vertex_updates_;

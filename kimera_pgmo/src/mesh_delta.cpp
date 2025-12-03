@@ -29,19 +29,14 @@ MeshDelta::MeshDelta(traits::Timestamp timestamp_ns, uint16_t sequence_number)
     : timestamp_ns(timestamp_ns), sequence_number(sequence_number) {}
 
 size_t MeshDelta::addVertex(const traits::Pos& pos,
-                            const traits::VertexTraits* traits,
+                            const traits::VertexTraits& traits,
                             bool archive) {
   const size_t index = vertex_updates_.size();
   if (archive) {
     ++num_archived_vertices_;
   }
 
-  auto& update = vertex_updates_.emplace_back();
-  update.pos = pos;
-  if (traits) {
-    update.traits = *traits;
-  }
-
+  vertex_updates_.push_back({pos, traits});
   return index;
 }
 

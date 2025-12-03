@@ -1,9 +1,4 @@
-/**
- * @file   reundancy_checker.h
- * @brief  Struct to check if faces are valid and have no duplicates
- * @author Yun Chang
- * @author Nathan Hughes
- */
+#pragma once
 #include <map>
 #include <set>
 

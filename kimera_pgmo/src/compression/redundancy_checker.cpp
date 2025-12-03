@@ -1,10 +1,3 @@
-/**
- * @file   reundancy_checker.h
- * @brief  Struct to check if faces are valid and have no duplicates
- * @author Yun Chang
- * @author Nathan Hughes
- */
-
 #include "kimera_pgmo/compression/redundancy_checker.h"
 
 namespace kimera_pgmo {

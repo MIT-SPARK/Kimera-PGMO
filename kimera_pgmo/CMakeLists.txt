@@ -19,12 +19,14 @@ find_package(spatial_hash REQUIRED)
 set(CLEAR_WARNING_SUPPRESSION OFF)
 if(NOT DEFINED CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
   set(CLEAR_WARNING_SUPPRESSION ON)
-  set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE INTERNAL "No dev warnings")
+  set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS
+      1
+      CACHE INTERNAL "No dev warnings")
 endif()
 
 find_package(PCL REQUIRED COMPONENTS common geometry kdtree octree)
 
-if (CLEAR_WARNING_SUPPRESSION)
+if(CLEAR_WARNING_SUPPRESSION)
   unset(CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
 endif()
 
@@ -51,6 +53,7 @@ add_library(
   src/mesh_delta.cpp
   src/mesh_frontend_interface.cpp
   src/mesh_traits.cpp
+  src/pcl_mesh_traits.cpp
   src/kimera_pgmo_interface.cpp
   src/sparse_keyframe.cpp)
 target_include_directories(
@@ -66,8 +69,7 @@ target_link_libraries(
          gtsam
          pose_graph_tools::pose_graph_tools
          spatial_hash::spatial_hash
-         config_utilities::config_utilities
-)
+         config_utilities::config_utilities)
 set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
 add_library(kimera_pgmo::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 

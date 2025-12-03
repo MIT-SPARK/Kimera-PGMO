@@ -8,9 +8,7 @@
 #include <pcl/Vertices.h>
 
 #include <Eigen/Dense>
-#include <array>
 #include <cstdint>
-#include <optional>
 #include <type_traits>
 
 #include "kimera_pgmo/mesh_types.h"
