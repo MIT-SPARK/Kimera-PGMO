@@ -603,6 +603,10 @@ class DeformationGraph {
    */
   void clearMeshNodesOnly();
 
+  /*! \brief Clear the last mesh interpolation cache
+   */
+  void clearMeshCache() { last_calculated_vertices_.clear(); }
+
   /*! \brief Clear all temporary values, factors, and related structures
    */
   inline void clearFactors() {
