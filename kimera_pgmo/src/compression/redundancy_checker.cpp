@@ -5,7 +5,7 @@ namespace kimera_pgmo {
 bool RedundancyChecker::check(const traits::Face& face) const {
   // TODO(nathan) this is bad and needs to be smarter
   const bool present = hasEdge(face[0], face[1]) && hasEdge(face[1], face[2]) &&
-                       hasEdge(face[2], face[3]);
+                       hasEdge(face[2], face[0]);
   return !present;
 }
 

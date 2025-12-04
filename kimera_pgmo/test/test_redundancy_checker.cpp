@@ -8,6 +8,11 @@ TEST(RedundancyChecker, SingleFaceCorrect) {
   EXPECT_TRUE(checker.check({0, 1, 2}));
   checker.add({0, 1, 2});
   EXPECT_FALSE(checker.check({0, 1, 2}));
+  EXPECT_FALSE(checker.check({1, 2, 0}));
+  EXPECT_FALSE(checker.check({2, 0, 1}));
+  EXPECT_TRUE(checker.check({0, 2, 1}));
+  EXPECT_TRUE(checker.check({2, 1, 0}));
+  EXPECT_TRUE(checker.check({1, 0, 2}));
 }
 
 TEST(RedundancyChecker, DuplicatesCorrect) {
