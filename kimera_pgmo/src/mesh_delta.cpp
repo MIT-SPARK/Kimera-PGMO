@@ -6,27 +6,23 @@
 
 #include "kimera_pgmo/mesh_delta.h"
 
+#include "kimera_pgmo/mesh_types.h"
+
 namespace kimera_pgmo {
 
-size_t pgmoNumVertices(const MeshDelta& delta) { return delta.getNumVertices(); }
+using TrackingInfo = MeshDelta::TrackingInfo;
 
-traits::Pos pgmoGetVertex(const MeshDelta& delta,
-                          size_t i,
-                          traits::VertexTraits* traits) {
-  const auto& point = delta.getVertex(i);
-  if (traits) {
-    *traits = point.traits;
-  }
-
-  return point.pos;
+TrackingInfo& MeshDelta::TrackingInfo::with_timestamp(traits::Timestamp stamp) {
+  timestamp_ns = stamp;
+  return *this;
 }
 
-size_t pgmoNumFaces(const MeshDelta& delta) { return delta.getNumFaces(); }
+TrackingInfo& MeshDelta::TrackingInfo::with_last_vertex_size(size_t last_size) {
+  last_vertex_size = last_size;
+  return *this;
+}
 
-traits::Face pgmoGetFace(const MeshDelta& delta, size_t i) { return delta.getFace(i); }
-
-MeshDelta::MeshDelta(traits::Timestamp timestamp_ns, uint16_t sequence_number)
-    : timestamp_ns(timestamp_ns), sequence_number(sequence_number) {}
+MeshDelta::MeshDelta(const TrackingInfo& info) : info(info) {}
 
 size_t MeshDelta::addVertex(const traits::Pos& pos,
                             const traits::VertexTraits& traits,
@@ -70,5 +66,22 @@ const MeshDelta::Face& MeshDelta::getFace(size_t i) const {
   i -= face_archive_updates_.size();
   return face_updates_.at(i);
 }
+
+size_t pgmoNumVertices(const MeshDelta& delta) { return delta.getNumVertices(); }
+
+traits::Pos pgmoGetVertex(const MeshDelta& delta,
+                          size_t i,
+                          traits::VertexTraits* traits) {
+  const auto& point = delta.getVertex(i);
+  if (traits) {
+    *traits = point.traits;
+  }
+
+  return point.pos;
+}
+
+size_t pgmoNumFaces(const MeshDelta& delta) { return delta.getNumFaces(); }
+
+traits::Face pgmoGetFace(const MeshDelta& delta, size_t i) { return delta.getFace(i); }
 
 }  // namespace kimera_pgmo

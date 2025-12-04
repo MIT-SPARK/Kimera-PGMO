@@ -21,6 +21,9 @@ class MeshDelta {
     uint16_t sequence_number = 0;
     traits::Timestamp timestamp_ns = 0;
     size_t last_vertex_size = 0;
+
+    TrackingInfo& with_timestamp(traits::Timestamp stamp);
+    TrackingInfo& with_last_vertex_size(size_t last_vertex_size);
   } const info;
 
   explicit MeshDelta(const TrackingInfo& info);
@@ -75,6 +78,16 @@ class MeshDelta {
   std::set<size_t> observed_indices_;
   std::set<size_t> new_indices_;
 };
+
+// vertex traits
+size_t pgmoNumVertices(const MeshDelta& delta);
+traits::Pos pgmoGetVertex(const MeshDelta& delta,
+                          size_t i,
+                          traits::VertexTraits* traits);
+
+// face traits
+size_t pgmoNumFaces(const MeshDelta& delta);
+traits::Face pgmoGetFace(const MeshDelta& delta, size_t i);
 
 }  // namespace kimera_pgmo
 

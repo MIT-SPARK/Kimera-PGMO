@@ -8,18 +8,16 @@
 #include "kimera_pgmo/compression/redundancy_checker.h"
 #include "kimera_pgmo/hashing.h"
 #include "kimera_pgmo/mesh_delta.h"
-#include "kimera_pgmo/utils/mesh_interface.h"
+#include "kimera_pgmo/mesh_types.h"
 
 namespace kimera_pgmo {
 
 //! @brief Tracking info for every vertex
 struct VertexInfo {
-  //! @brief Last timestamp vertex was updated
-  uint64_t timestamp_ns;
-  //! @brief Current vertex position and color
-  pcl::PointXYZRGBA point;
-  //! @brief Current vertex semantic label
-  std::optional<uint32_t> label;
+  //! @brief Position of vertex
+  traits::Pos pos;
+  //! @brief Traits of vertex
+  traits::VertexTraits traits;
   //! @brief Current vertex index in integrated mesh
   size_t mesh_index;
   //! @brief Was the vertex newly observed this pass
@@ -101,9 +99,7 @@ class DeltaCompression {
 
   void removeBlockObservations(const LongIndexSet& to_remove);
 
-  void addActive(uint64_t stamp_ns, HashedIndexMapping* remapping);
-
-  void addActiveFaces(uint64_t timestamp_ns, HashedIndexMapping* remapping);
+  void addActiveFaces(HashedIndexMapping* remapping);
 
   void addActiveVertices();
 
@@ -131,7 +127,7 @@ class DeltaCompression {
   std::vector<VertexInfo> archived_vertices_;
   std::vector<traits::Face> archived_faces_;
 
-  uint16_t sequence_number_;
+  MeshDelta::TrackingInfo tracking_info_;
   size_t num_archived_vertices_;
   size_t num_archived_faces_;
 };

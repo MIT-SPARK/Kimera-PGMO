@@ -8,10 +8,15 @@ namespace kimera_pgmo {
 template <typename Vertices>
 void MeshDelta::updateVertices(Vertices& vertices,
                                const Eigen::Isometry3f* transform) const {
-  // TODO(nathan) this is trickier than we though, the delta needs to know the change in
-  // active vertices / the previous band sizes of the active and 1-hop vertices
-  const size_t total_vertices = vertex_updates_.size();
+  const auto curr_size = traits::num_vertices(vertices);
+  if (curr_size < info.last_vertex_size) {
+    throw std::logic_error("Invalid target vertices!");
+  }
+
+  const auto start_idx = traits::num_vertices(vertices) - info.last_vertex_size;
+  const auto total_vertices = start_idx + vertex_updates_.size();
   traits::resize_vertices(vertices, total_vertices);
+
   for (size_t i = 0; i < vertex_updates_.size(); ++i) {
     const auto& p = vertex_updates_.at(i);
     traits::Pos pos = p.pos;
@@ -19,8 +24,7 @@ void MeshDelta::updateVertices(Vertices& vertices,
       pos = *transform * p.pos;
     }
 
-    // TODO(nathan) get indexing correct
-    traits::set_vertex(vertices, i, pos, p.traits);
+    traits::set_vertex(vertices, start_idx + i, pos, p.traits);
   }
 }
 
@@ -78,15 +82,5 @@ template <typename Mesh>
 MeshDelta::Ptr MeshDelta::fromMesh(const Mesh& mesh) {
   return fromMesh(mesh, mesh);
 }
-
-// vertex traits
-size_t pgmoNumVertices(const MeshDelta& delta);
-traits::Pos pgmoGetVertex(const MeshDelta& delta,
-                          size_t i,
-                          traits::VertexTraits* traits);
-
-// face traits
-size_t pgmoNumFaces(const MeshDelta& delta);
-traits::Face pgmoGetFace(const MeshDelta& delta, size_t i);
 
 }  // namespace kimera_pgmo

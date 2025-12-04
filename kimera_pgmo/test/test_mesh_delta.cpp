@@ -26,7 +26,7 @@ traits::VertexTraits makeTraits(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 TEST(MeshDelta, updateSimple) {
-  MeshDelta delta1;
+  MeshDelta delta1({1, 0, 0});
   delta1.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(0, 0, 0));
   delta1.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(1, 0, 0));
   delta1.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(2, 0, 0));
@@ -45,7 +45,7 @@ TEST(MeshDelta, updateSimple) {
 
   EXPECT_EQ(result.faces.size(), 2u);
 
-  MeshDelta delta2(2, 1);
+  MeshDelta delta2({2, 0, 2});
   delta2.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(2, 0, 0));
   delta2.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(3, 0, 0));
   delta2.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(4, 0, 0));
@@ -64,7 +64,7 @@ TEST(MeshDelta, updateSimple) {
 }
 
 TEST(MeshDelta, archiveVerticesCorrect) {
-  MeshDelta delta(1, 3);
+  MeshDelta delta({1, 0, 0});
   EXPECT_EQ(delta.addVertex(traits::Pos(1.0, 2.0, 3.0), {}, true), 1u);
   EXPECT_EQ(delta.addVertex(traits::Pos(1.0, 2.0, 3.0), {}, true), 2u);
   EXPECT_EQ(delta.addVertex(traits::Pos(1.0, 2.0, 3.0), {}, false), 3u);
@@ -74,7 +74,7 @@ TEST(MeshDelta, archiveVerticesCorrect) {
 }
 
 TEST(MeshDelta, archiveFacesCorrect) {
-  MeshDelta delta(1, 3);
+  MeshDelta delta({1, 0, 0});
   delta.addFace({0, 1, 2}, true);
   delta.addFace({1, 2, 3}, true);
   delta.addFace({0, 1, 2}, false);
