@@ -1029,4 +1029,74 @@ void DeformationGraph::updateInlierWeights(const std::vector<double>& weights) {
 void DeformationGraph::updateTempInlierWeights(const std::vector<double>& weights) {
   *temp_inlier_weights_ = weights;
 }
+
+void DeformationGraph::clearMeshNodesOnly() {
+  vertex_positions_.clear();
+  vertex_stamps_.clear();
+  adjacency_map_.clear();
+  last_calculated_vertices_.clear();
+
+  // Remove mesh vertices from values_
+  gtsam::Values new_values;
+  for (const auto& key_value : *values_) {
+    gtsam::Key key = key_value.key;
+    if (!IsMeshVertex(key)) {
+      // Keep non-mesh vertices (robot poses)
+      new_values.insert(key, values_->at(key));
+    }
+  }
+  values_ = std::make_shared<gtsam::Values>(new_values);
+
+  // Remove mesh vertices from temp_values_
+  gtsam::Values new_temp_values;
+  for (const auto& key_value : *temp_values_) {
+    gtsam::Key key = key_value.key;
+    if (!IsMeshVertex(key)) {
+      // Keep non-mesh vertices
+      new_temp_values.insert(key, temp_values_->at(key));
+    }
+  }
+  temp_values_ = std::make_shared<gtsam::Values>(new_temp_values);
+
+  // Remove factors involving mesh vertices
+  gtsam::NonlinearFactorGraph new_factors;
+  for (size_t i = 0; i < nfg_->size(); ++i) {
+    auto factor = (*nfg_)[i];
+    if (!factor) continue;
+
+    bool involves_mesh = false;
+    for (const auto& key : factor->keys()) {
+      if (IsMeshVertex(key)) {
+        involves_mesh = true;
+        break;
+      }
+    }
+
+    if (!involves_mesh) {
+      // Keep factors that don't involve mesh vertices
+      new_factors.add(factor);
+    }
+  }
+  nfg_ = std::make_shared<gtsam::NonlinearFactorGraph>(new_factors);
+
+  // Remove temp factors involving mesh vertices
+  gtsam::NonlinearFactorGraph new_temp_factors;
+  for (size_t i = 0; i < temp_nfg_->size(); ++i) {
+    auto factor = (*temp_nfg_)[i];
+    if (!factor) continue;
+
+    bool involves_mesh = false;
+    for (const auto& key : factor->keys()) {
+      if (IsMeshVertex(key)) {
+        involves_mesh = true;
+        break;
+      }
+    }
+
+    if (!involves_mesh) {
+      new_temp_factors.add(factor);
+    }
+  }
+  temp_nfg_ = std::make_shared<gtsam::NonlinearFactorGraph>(new_temp_factors);
+}
 }  // namespace kimera_pgmo

@@ -598,6 +598,11 @@ class DeformationGraph {
     vertex_stamps_.clear();
   }
 
+  /*! \brief Clear only mesh vertices and their associated factors
+   * Preserves robot poses and pose-only factors
+   */
+  void clearMeshNodesOnly();
+
   /*! \brief Clear all temporary values, factors, and related structures
    */
   inline void clearFactors() {
