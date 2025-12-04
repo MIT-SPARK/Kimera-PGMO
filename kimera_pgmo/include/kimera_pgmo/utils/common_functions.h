@@ -82,24 +82,12 @@ inline char GetVertexPrefix(size_t robot_id) {
   return robot_id_to_vertex_prefix.at(robot_id);
 }
 
-/*! \brief Get all mesh vertex prefixes used in the system
- *  - outputs set of all mesh vertex prefixes
- */
-inline std::set<char> GetMeshVertexPrefixes() {
-  std::set<char> prefixes;
-  for (const auto& [robot_id, prefix] : robot_id_to_vertex_prefix) {
-    prefixes.insert(prefix);
-  }
-  return prefixes;
-}
-
 /*! \brief Check if a GTSAM key represents a mesh vertex
  *  - key: GTSAM key to check
  *  - outputs true if key is a mesh vertex, false otherwise
  */
 inline bool IsMeshVertex(gtsam::Key key) {
-  static const auto mesh_prefixes = GetMeshVertexPrefixes();
-  return mesh_prefixes.count(gtsam::Symbol(key).chr()) > 0;
+  return vertex_prefix_to_id.count(gtsam::Symbol(key).chr()) > 0;
 }
 
 /*! \brief Converts a pcl point to gtsam point3

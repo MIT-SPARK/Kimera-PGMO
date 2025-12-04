@@ -55,8 +55,9 @@ void fillDeformationGraphMarkers(const DeformationGraph& graph,
 
     if (!front_is_pose_vertex && !back_is_pose_vertex) {
       // mesh-to-mesh
-      if (!graph_values->exists(front) || !graph_values->exists(back))
+      if (!graph_values->exists(front) || !graph_values->exists(back)) {
         continue;
+      }
 
       auto& p_front = mesh_mesh_viz.points.emplace_back();
       tf2::convert(graph_values->at<gtsam::Pose3>(front).translation(), p_front);
@@ -70,8 +71,9 @@ void fillDeformationGraphMarkers(const DeformationGraph& graph,
       mesh_mesh_viz.colors.push_back(color);
     } else {
       // pose-to-mesh
-      if (!graph_values->exists(front) || !graph_values->exists(back))
+      if (!graph_values->exists(front) || !graph_values->exists(back)) {
         continue;
+      }
 
       auto& p_front = pose_mesh_viz.points.emplace_back();
       tf2::convert(graph_values->at<gtsam::Pose3>(front).translation(), p_front);

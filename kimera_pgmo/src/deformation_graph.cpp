@@ -1034,35 +1034,22 @@ void DeformationGraph::clearMeshNodesOnly() {
   vertex_positions_.clear();
   vertex_stamps_.clear();
   adjacency_map_.clear();
-  last_calculated_vertices_.clear();
 
   // Remove mesh vertices from values_
-  gtsam::Values new_values;
+  auto new_values = std::make_shared<gtsam::Values>();
   for (const auto& key_value : *values_) {
     gtsam::Key key = key_value.key;
     if (!IsMeshVertex(key)) {
       // Keep non-mesh vertices (robot poses)
-      new_values.insert(key, values_->at(key));
+      new_values->insert(key, values_->at(key));
     }
   }
-  values_ = std::make_shared<gtsam::Values>(new_values);
-
-  // Remove mesh vertices from temp_values_
-  gtsam::Values new_temp_values;
-  for (const auto& key_value : *temp_values_) {
-    gtsam::Key key = key_value.key;
-    if (!IsMeshVertex(key)) {
-      // Keep non-mesh vertices
-      new_temp_values.insert(key, temp_values_->at(key));
-    }
-  }
-  temp_values_ = std::make_shared<gtsam::Values>(new_temp_values);
+  values_ = new_values;
 
   // Remove factors involving mesh vertices
-  gtsam::NonlinearFactorGraph new_factors;
-  for (size_t i = 0; i < nfg_->size(); ++i) {
-    auto factor = (*nfg_)[i];
-    if (!factor) continue;
+  auto new_factors = std::make_shared<gtsam::NonlinearFactorGraph>();
+  for (const auto& factor : *nfg_) {
+    if (!factor) { continue; }
 
     bool involves_mesh = false;
     for (const auto& key : factor->keys()) {
@@ -1074,16 +1061,16 @@ void DeformationGraph::clearMeshNodesOnly() {
 
     if (!involves_mesh) {
       // Keep factors that don't involve mesh vertices
-      new_factors.add(factor);
+      new_factors->add(factor);
     }
   }
-  nfg_ = std::make_shared<gtsam::NonlinearFactorGraph>(new_factors);
+  nfg_ = new_factors;
 
   // Remove temp factors involving mesh vertices
   gtsam::NonlinearFactorGraph new_temp_factors;
   for (size_t i = 0; i < temp_nfg_->size(); ++i) {
     auto factor = (*temp_nfg_)[i];
-    if (!factor) continue;
+    if (!factor) { continue; }
 
     bool involves_mesh = false;
     for (const auto& key : factor->keys()) {
