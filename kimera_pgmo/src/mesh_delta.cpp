@@ -91,17 +91,10 @@ MeshDelta::MeshDelta(size_t vertex_start, size_t face_start)
 MeshDelta::MeshDelta(const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
                      const std::vector<uint64_t>& stamps,
                      const std::vector<pcl::Vertices>& faces,
-                     std::optional<std::vector<uint32_t>> semantics) {
-  vertex_start = 0;
-  face_start = 0;
-
-  vertex_updates.reset(new pcl::PointCloud<pcl::PointXYZRGBA>(vertices));
-  stamp_updates = stamps;
-
-  if (semantics) {
-    semantic_updates = *semantics;
-  }
-
+                     std::optional<std::vector<uint32_t>> semantics)
+    : vertex_updates(new pcl::PointCloud<pcl::PointXYZRGBA>(vertices)),
+      stamp_updates(stamps),
+      semantic_updates(semantics ? *semantics : std::vector<uint32_t>{}) {
   face_updates.reserve(faces.size());
   for (const auto& face : faces) {
     Face f(face.vertices[0], face.vertices[1], face.vertices[2]);
@@ -139,6 +132,57 @@ void MeshDelta::updateMesh(pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
                            const Eigen::Isometry3f* transform) const {
   updateVertices(vertices, &stamps, semantics, transform);
   updateFaces(faces);
+}
+
+void MeshDelta::setOffset(std::optional<size_t> new_vertex_start,
+                          std::optional<size_t> new_face_start) {
+  // update face offset
+  face_start = new_face_start.value_or(face_start);
+  if (!new_vertex_start) {
+    return;
+  }
+
+  const size_t offset = vertex_start - *new_vertex_start;
+  vertex_start = *new_vertex_start;
+
+  for (auto& face : face_updates) {
+    face.v1 -= offset;
+    face.v2 -= offset;
+    face.v3 -= offset;
+  }
+
+  for (auto& face : face_archive_updates) {
+    face.v1 -= offset;
+    face.v2 -= offset;
+    face.v3 -= offset;
+  }
+
+  // TODO(nathan) should check this eventually, but prev points to pending or active
+  // vertices, which should all have been reindex the same way (by whatever offset has
+  // changed where the pending vertices start)
+  std::map<size_t, size_t> new_mapping;
+  for (auto& [prev, curr] : prev_to_curr) {
+    new_mapping[prev - offset] = curr - offset;
+  }
+  prev_to_curr = new_mapping;
+
+  std::set<size_t> new_deleted;
+  for (const auto old : deleted_indices) {
+    new_deleted.insert(old - offset);
+  }
+  deleted_indices = new_deleted;
+
+  std::set<size_t> new_observed;
+  for (const auto old : observed_indices) {
+    new_observed.insert(old - offset);
+  }
+  observed_indices = new_observed;
+
+  std::set<size_t> new_new;
+  for (const auto old : new_indices) {
+    new_new.insert(old - offset);
+  }
+  new_indices = new_new;
 }
 
 size_t MeshDelta::addVertex(uint64_t timestamp_ns,
@@ -259,6 +303,15 @@ void MeshDelta::checkFaces(const std::string& name) const {
       throw std::runtime_error(ss.str());
     }
   }
+}
+
+size_t MeshDelta::remapIndex(size_t orig) const {
+  if (orig < vertex_start) {
+    return orig;
+  }
+
+  auto iter = prev_to_curr.find(orig);
+  return iter == prev_to_curr.end() ? orig : iter->second;
 }
 
 std::ostream& operator<<(std::ostream& out, const MeshDelta& delta) {

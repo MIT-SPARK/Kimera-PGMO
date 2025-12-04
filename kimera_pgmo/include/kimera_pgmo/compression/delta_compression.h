@@ -89,14 +89,6 @@ class DeltaCompression {
   void archiveBlocksByTime(uint64_t earliest_time_ns);
 
   /**
-   * @brief Archive blocks in the provided index list
-   * @param blocks Block indices to archive
-   *
-   * @note Deprecated as spatial grid should be maintained internal to compression
-   */
-  [[deprecated]] void clearArchivedBlocks(const spatial_hash::BlockIndices& blocks);
-
-  /**
    * @brief Archive blocks in the underlying spatial grid
    * @param should_archive Filter function that returns true if a block should be
    * archived
@@ -120,13 +112,13 @@ class DeltaCompression {
 
   void updateAndAddArchivedFaces();
 
-  void archiveBlockFaces(const BlockInfo& block_info, RedunancyChecker& checker);
+  void archiveBlockFaces(const BlockInfo& block_info,
+                         RedunancyChecker& checker,
+                         std::vector<Face>& pending_faces);
 
   void updateRemapping(MeshInterface& mesh, uint64_t timestamp_ns);
 
-  bool canBeArchived(const Face& face, size_t archive_threshold) const;
-
-  bool canBeArchived(const Face& face) const;
+  void addPendingVertices(MeshDelta& delta, size_t start_index = 0);
 
  protected:
   double resolution_;
@@ -139,6 +131,7 @@ class DeltaCompression {
   BlockInfoMap block_info_map_;
   VoxelInfoMap vertices_map_;
 
+  std::vector<VertexInfo> archived_vertices_;
   std::vector<Face> archived_faces_;
 
   uint16_t sequence_number_;
