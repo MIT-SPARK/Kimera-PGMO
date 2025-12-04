@@ -7,6 +7,7 @@
 #pragma once
 
 #include <gtsam/geometry/Pose3.h>
+#include <gtsam/inference/Symbol.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
@@ -79,6 +80,14 @@ inline char GetVertexPrefix(size_t robot_id) {
     return '\0';
   }
   return robot_id_to_vertex_prefix.at(robot_id);
+}
+
+/*! \brief Check if a GTSAM key represents a mesh vertex
+ *  - key: GTSAM key to check
+ *  - outputs true if key is a mesh vertex, false otherwise
+ */
+inline bool IsMeshVertex(gtsam::Key key) {
+  return vertex_prefix_to_id.count(gtsam::Symbol(key).chr()) > 0;
 }
 
 /*! \brief Converts a pcl point to gtsam point3

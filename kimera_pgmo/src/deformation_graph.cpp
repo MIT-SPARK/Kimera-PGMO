@@ -1029,4 +1029,61 @@ void DeformationGraph::updateInlierWeights(const std::vector<double>& weights) {
 void DeformationGraph::updateTempInlierWeights(const std::vector<double>& weights) {
   *temp_inlier_weights_ = weights;
 }
+
+void DeformationGraph::clearMeshNodesOnly() {
+  vertex_positions_.clear();
+  vertex_stamps_.clear();
+  adjacency_map_.clear();
+
+  // Remove mesh vertices from values_
+  auto new_values = std::make_shared<gtsam::Values>();
+  for (const auto& key_value : *values_) {
+    gtsam::Key key = key_value.key;
+    if (!IsMeshVertex(key)) {
+      // Keep non-mesh vertices (robot poses)
+      new_values->insert(key, values_->at(key));
+    }
+  }
+  values_ = new_values;
+
+  // Remove factors involving mesh vertices
+  auto new_factors = std::make_shared<gtsam::NonlinearFactorGraph>();
+  for (const auto& factor : *nfg_) {
+    if (!factor) { continue; }
+
+    bool involves_mesh = false;
+    for (const auto& key : factor->keys()) {
+      if (IsMeshVertex(key)) {
+        involves_mesh = true;
+        break;
+      }
+    }
+
+    if (!involves_mesh) {
+      // Keep factors that don't involve mesh vertices
+      new_factors->add(factor);
+    }
+  }
+  nfg_ = new_factors;
+
+  // Remove temp factors involving mesh vertices
+  gtsam::NonlinearFactorGraph new_temp_factors;
+  for (size_t i = 0; i < temp_nfg_->size(); ++i) {
+    auto factor = (*temp_nfg_)[i];
+    if (!factor) { continue; }
+
+    bool involves_mesh = false;
+    for (const auto& key : factor->keys()) {
+      if (IsMeshVertex(key)) {
+        involves_mesh = true;
+        break;
+      }
+    }
+
+    if (!involves_mesh) {
+      new_temp_factors.add(factor);
+    }
+  }
+  temp_nfg_ = std::make_shared<gtsam::NonlinearFactorGraph>(new_temp_factors);
+}
 }  // namespace kimera_pgmo
