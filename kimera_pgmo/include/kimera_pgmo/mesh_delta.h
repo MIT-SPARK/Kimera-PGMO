@@ -17,7 +17,13 @@ class MeshDelta {
     traits::VertexTraits traits;
   };
 
-  MeshDelta(traits::Timestamp timestamp_ns = 0, uint16_t sequence_number = 0);
+  struct TrackingInfo {
+    uint16_t sequence_number = 0;
+    traits::Timestamp timestamp_ns = 0;
+    size_t last_vertex_size = 0;
+  } const info;
+
+  explicit MeshDelta(const TrackingInfo& info);
 
   size_t addVertex(const traits::Pos& pos,
                    const traits::VertexTraits& traits,
@@ -55,9 +61,6 @@ class MeshDelta {
 
   template <typename Faces>
   void updateFaces(Faces& faces) const;
-
-  const traits::Timestamp timestamp_ns;
-  const uint16_t sequence_number;
 
  protected:
   friend class DeltaCompression;
