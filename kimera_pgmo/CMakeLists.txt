@@ -19,9 +19,7 @@ find_package(spatial_hash REQUIRED)
 set(CLEAR_WARNING_SUPPRESSION OFF)
 if(NOT DEFINED CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
   set(CLEAR_WARNING_SUPPRESSION ON)
-  set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS
-      1
-      CACHE INTERNAL "No dev warnings")
+  set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE INTERNAL "No dev warnings")
 endif()
 
 find_package(PCL REQUIRED COMPONENTS common geometry kdtree octree)
@@ -40,7 +38,6 @@ add_library(
   src/compression/mesh_compression.cpp
   src/compression/octree_compression.cpp
   src/compression/redundancy_checker.cpp
-  src/compression/voxel_clearing_compression.cpp
   src/utils/common_functions.cpp
   src/utils/common_structs.cpp
   src/utils/logging.cpp

@@ -21,7 +21,7 @@ class MeshFrontendInterface {
   friend class MeshFrontendTest;
 
  public:
-  enum class FullCompressionMethod { OCTREE, BLOCK, VOXEL_CLEARING };
+  enum class FullCompressionMethod { OCTREE, BLOCK };
   enum class GraphCompressionMethod { OCTREE, BLOCK };
   struct Config {
     int robot_id = 0;
@@ -130,8 +130,7 @@ class MeshFrontendInterface {
   inline static const auto enum_init_ =
       config::Enum<FullCompressionMethod>::Initializer(
           {{FullCompressionMethod::OCTREE, "OCTREE"},
-           {FullCompressionMethod::BLOCK, "BLOCK"},
-           {FullCompressionMethod::VOXEL_CLEARING, "VOXEL_CLEARING"}});
+           {FullCompressionMethod::BLOCK, "BLOCK"}});
   inline static const auto enum_init_2 =
       config::Enum<GraphCompressionMethod>::Initializer(
           {{GraphCompressionMethod::OCTREE, "OCTREE"},

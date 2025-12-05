@@ -13,7 +13,7 @@ class MeshDelta {
   using Ptr = std::shared_ptr<MeshDelta>;
   using Face = traits::Face;
   struct Vertex {
-    traits::Pos pos;
+    traits::Pos pos = traits::Pos::Zero();
     traits::VertexTraits traits;
   };
 
@@ -64,6 +64,10 @@ class MeshDelta {
 
   template <typename Faces>
   void updateFaces(Faces& faces) const;
+
+  const std::vector<Face>& face_updates() const;
+  const std::vector<Face>& face_archive_updates() const;
+  const std::map<size_t, size_t>& prev_to_curr() const;
 
  protected:
   friend class DeltaCompression;

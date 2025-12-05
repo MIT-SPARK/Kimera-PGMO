@@ -13,21 +13,39 @@ namespace kimera_pgmo::test {
 
 uint8_t BlockConfig::point_index = 0;
 
-MeshBlock::MeshBlock(const float block_size, const BlockIndex &index)
+MeshBlock::MeshBlock(const float block_size, const BlockIndex& index)
     : Block(block_size, index) {}
 
+size_t pgmoNumFaces(const MeshBlock& mesh) { return mesh.vertices.size() / 3; }
+
+size_t pgmoNumVertices(const MeshBlock& mesh) { return mesh.vertices.size(); }
+
+traits::Pos pgmoGetVertex(const MeshBlock& mesh,
+                          size_t i,
+                          traits::VertexTraits* traits) {
+  const auto& p = mesh.vertices.at(i);
+  if (traits) {
+    traits->color = traits::Color{p.r, p.g, p.b, p.a};
+  }
+
+  return traits::Pos(p.x, p.y, p.z);
+}
+
+traits::Face pgmoGetFace(const MeshBlock& mesh, size_t i) {
+  return {3 * i, 3 * i + 1, 3 * i + 2};
+}
+
 OrderedBlockMeshInterface::OrderedBlockMeshInterface(
-    const std::shared_ptr<MeshLayer> &mesh,
-    const BlockIndices &blocks) {
+    const std::shared_ptr<MeshLayer>& mesh, const BlockIndices& blocks) {
   mesh_blocks_ = blocks;
   mesh_ = mesh;
 }
 
-const BlockIndices &OrderedBlockMeshInterface::blockIndices() const {
+const BlockIndices& OrderedBlockMeshInterface::blockIndices() const {
   return mesh_blocks_;
 }
 
-void OrderedBlockMeshInterface::markBlockActive(const BlockIndex &block) const {
+void OrderedBlockMeshInterface::markBlockActive(const BlockIndex& block) const {
   active_block_ = mesh_->getBlockPtr(block);
 }
 
@@ -51,8 +69,8 @@ std::shared_ptr<MeshInterface> OrderedBlockMeshInterface::clone() const {
       std::make_shared<MeshLayer>(*mesh_), mesh_blocks_);
 }
 
-inline void addPointToBlock(MeshBlock &block,
-                            const std::array<float, 3> &point,
+inline void addPointToBlock(MeshBlock& block,
+                            const std::array<float, 3>& point,
                             uint8_t point_index) {
   pcl::PointXYZRGBA pcl_point;
   pcl_point.x = point[0];
@@ -65,34 +83,24 @@ inline void addPointToBlock(MeshBlock &block,
   block.vertices.push_back(pcl_point);
 }
 
-void BlockConfig::addBlock(MeshLayer &layer) const {
+void BlockConfig::addBlock(MeshLayer& layer) const {
   BlockIndex block_idx(index[0], index[1], index[2]);
-  auto &mesh = layer.allocateBlock(block_idx);
+  auto& mesh = layer.allocateBlock(block_idx);
+  fillBlock(mesh);
+}
 
-  for (const auto &face : faces) {
-    addPointToBlock(mesh, face[0], point_index);
+void BlockConfig::fillBlock(MeshBlock& block) const {
+  for (const auto& face : faces) {
+    addPointToBlock(block, face[0], point_index);
     ++point_index;
-    addPointToBlock(mesh, face[1], point_index);
+    addPointToBlock(block, face[1], point_index);
     ++point_index;
-    addPointToBlock(mesh, face[2], point_index);
+    addPointToBlock(block, face[2], point_index);
     ++point_index;
   }
 }
 
 void BlockConfig::resetIndex() { point_index = 0; }
-
-std::shared_ptr<MeshInterface> createMesh(const std::vector<BlockConfig> &configs) {
-  auto mesh = std::make_shared<MeshLayer>(1.0);
-  spatial_hash::BlockIndices order;
-  for (const auto &config : configs) {
-    config.addBlock(*mesh);
-
-    const BlockIndex block_idx(config.index[0], config.index[1], config.index[2]);
-    order.push_back(block_idx);
-  }
-
-  return std::make_shared<OrderedBlockMeshInterface>(mesh, order);
-}
 
 pcl::PolygonMesh createSimpleMesh(double scale) {
   // Create simple pcl mesh

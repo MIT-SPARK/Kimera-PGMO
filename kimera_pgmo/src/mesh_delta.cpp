@@ -67,6 +67,18 @@ const MeshDelta::Face& MeshDelta::getFace(size_t i) const {
   return face_updates_.at(i);
 }
 
+const std::vector<MeshDelta::Face>& MeshDelta::face_updates() const {
+  return face_updates_;
+}
+
+const std::vector<MeshDelta::Face>& MeshDelta::face_archive_updates() const {
+  return face_archive_updates_;
+}
+
+const std::map<size_t, size_t>& MeshDelta::prev_to_curr() const {
+  return prev_to_curr_;
+}
+
 size_t pgmoNumVertices(const MeshDelta& delta) { return delta.getNumVertices(); }
 
 traits::Pos pgmoGetVertex(const MeshDelta& delta,

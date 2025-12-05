@@ -15,8 +15,6 @@
 
 #include "kimera_pgmo/compression/block_compression.h"
 #include "kimera_pgmo/compression/octree_compression.h"
-#include "kimera_pgmo/compression/voxel_clearing_compression.h"
-#include "kimera_pgmo/utils/common_functions.h"
 
 namespace kimera_pgmo {
 
@@ -48,8 +46,6 @@ MeshCompressionPtr createFullCompression(FullCompressionMethod method,
       return std::make_shared<OctreeCompression>(resolution);
     case FullCompressionMethod::BLOCK:
       return std::make_shared<BlockCompression>(resolution);
-    case FullCompressionMethod::VOXEL_CLEARING:
-      return std::make_shared<VoxelClearingCompression>(resolution);
     default:
       return nullptr;
   }

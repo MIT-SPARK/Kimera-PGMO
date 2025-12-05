@@ -15,7 +15,7 @@ namespace kimera_pgmo {
 //! @brief Tracking info for every vertex
 struct VertexInfo {
   //! @brief Position of vertex
-  traits::Pos pos;
+  traits::Pos pos = traits::Pos::Zero();
   //! @brief Traits of vertex
   traits::VertexTraits traits;
   //! @brief Current vertex index in integrated mesh

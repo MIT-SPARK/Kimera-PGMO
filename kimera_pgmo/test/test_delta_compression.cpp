@@ -5,22 +5,40 @@
  * @author Nathan Hughes
  */
 
-/*
 #include <gtest/gtest.h>
 
 #include <chrono>
+#include <sstream>
 
 #include "kimera_pgmo/compression/delta_compression.h"
+#include "kimera_pgmo/mesh_delta.h"
 #include "pgmo_fixtures.h"
 
 namespace kimera_pgmo {
 namespace {
 
+using ::kimera_pgmo::test::MeshBlock;
+using traits::Face;
+
+using OrderedMesh = std::vector<std::pair<BlockIndex, MeshBlock>>;
 using BlockConfigs = std::vector<::kimera_pgmo::test::BlockConfig>;
+using Faces = std::vector<traits::Face>;
+
+OrderedMesh createMesh(const BlockConfigs& configs) {
+  OrderedMesh mesh;
+  for (const auto& config : configs) {
+    const BlockIndex block_idx(config.index[0], config.index[1], config.index[2]);
+    MeshBlock block(1.0, block_idx);
+    config.fillBlock(block);
+    mesh.push_back({block_idx, block});
+  }
+
+  return mesh;
+}
 
 std::string toString(const Face& face) {
   std::stringstream ss;
-  ss << face;
+  ss << "(" << face[0] << ", " << face[1] << ", " << face[2] << ")";
   return ss.str();
 }
 
@@ -75,12 +93,14 @@ std::string toString(const std::vector<T>& vec) {
   return out.str();
 }
 
-std::vector<Face> remapFaces(const std::vector<Face>& faces,
-                             const std::map<size_t, size_t>& remapping) {
-  std::vector<Face> to_return;
+Face remapFace(const Face& face, const std::map<size_t, size_t>& remapping) {
+  return {remapping.at(face[0]), remapping.at(face[1]), remapping.at(face[2])};
+}
+
+Faces remapFaces(const Faces& faces, const std::map<size_t, size_t>& remapping) {
+  Faces to_return;
   for (const auto& face : faces) {
-    Face new_face(remapping.at(face.v1), remapping.at(face.v2), remapping.at(face.v3));
-    to_return.push_back(new_face);
+    to_return.push_back(remapFace(face, remapping));
   }
 
   return to_return;
@@ -117,10 +137,29 @@ std::vector<size_t> flattenRemapping(const BlockConfigs& order,
   return flattened;
 }
 
-bool operator==(const Face& lhs, const Face& rhs) {
-  std::set<size_t> lset{lhs.v1, lhs.v2, lhs.v3};
-  std::set<size_t> rset{rhs.v1, rhs.v2, rhs.v3};
+bool sameFace(const Face& lhs, const Face& rhs) {
+  std::set<size_t> lset{lhs[0], lhs[1], lhs[2]};
+  std::set<size_t> rset{rhs[0], rhs[1], rhs[2]};
   return lset == rset;
+}
+
+bool faceInFaces(const Face& face, const Faces& faces) {
+  for (const auto& f : faces) {
+    if (sameFace(face, f)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+Faces facesFromDelta(const MeshDelta& delta) {
+  Faces faces;
+  faces.insert(faces.end(),
+               delta.face_archive_updates().begin(),
+               delta.face_archive_updates().end());
+  faces.insert(faces.end(), delta.face_updates().begin(), delta.face_updates().end());
+  return faces;
 }
 
 }  // namespace
@@ -153,7 +192,7 @@ struct ExpectedDelta {
   // Expected faces in mesh delta. Indices are specified by absolute input point
   // indices, i.e., where the point falls within the total number of points inserted
   // during the test suite.
-  std::vector<Face> expected_triangles;
+  Faces expected_triangles;
   // Expected correpondences between input vertices and absolute point indices (input
   // vertex indices are computed by block order, i.e., the first block has indices
   // 0...N, the second block has indices N+1...M and so on).
@@ -163,7 +202,7 @@ struct ExpectedDelta {
                    const std::vector<size_t>& output_indices,
                    std::map<size_t, size_t>& prev_remapping) const;
 
-  void checkTriangles(const std::vector<Face>& result,
+  void checkTriangles(const Faces& result,
                       const std::map<size_t, size_t>& result_remapping) const;
 };
 
@@ -186,91 +225,75 @@ std::ostream& operator<<(std::ostream& out,
 void ExpectedDelta::checkOutput(const MeshDelta& output,
                                 const std::vector<size_t>& output_indices,
                                 std::map<size_t, size_t>& prev_remapping) const {
-  EXPECT_EQ(output.vertex_updates->size(), output.stamp_updates.size())
-      << "vertex and timestamp sizes disagree";
-  EXPECT_EQ(output.vertex_start, state.vertex_start);
-  EXPECT_EQ(output.face_start, state.face_start);
-  EXPECT_EQ(output.vertex_updates->size(), state.num_vertices);
+  // EXPECT_EQ(output.vertex_start, state.vertex_start);
+  // EXPECT_EQ(output.face_start, state.face_start);
+  EXPECT_EQ(output.getNumVertices(), state.num_vertices);
+  // TODO(nathan) this comes from the tracking info now
+  const auto vertex_start = 0;
 
   // copy all archived points over from previous delta
   std::map<size_t, size_t> result_remapping;
-  for (size_t i = 0; i < output.vertex_start; ++i) {
+  for (size_t i = 0; i < vertex_start; ++i) {
     if (prev_remapping.count(i)) {
       result_remapping[i] = prev_remapping.at(i);
     }
   }
 
   // convert current index in delta and absolute index
-  for (size_t i = 0; i < output.vertex_updates->size(); ++i) {
-    result_remapping[i + output.vertex_start] = output.vertex_updates->at(i).r;
+  for (size_t i = 0; i < output.getNumVertices(); ++i) {
+    const auto& v = output.getVertex(i);
+    if (!v.traits.color) {
+      continue;
+    }
+
+    result_remapping[i + vertex_start] = v.traits.color->at(0);
   }
 
   prev_remapping = result_remapping;
 
-  std::vector<Face> all_output_faces(output.face_archive_updates.begin(),
-                                     output.face_archive_updates.end());
-  all_output_faces.insert(
-      all_output_faces.end(), output.face_updates.begin(), output.face_updates.end());
+  const auto all_output_faces = facesFromDelta(output);
   checkTriangles(all_output_faces, result_remapping);
 
   const auto abs_output_indices = remapIndices(output_indices, result_remapping);
   EXPECT_EQ(expected_indices, abs_output_indices);
 }
 
-void ExpectedDelta::checkTriangles(
-    const std::vector<Face>& result,
-    const std::map<size_t, size_t>& result_remapping) const {
+void ExpectedDelta::checkTriangles(const Faces& result,
+                                   const std::map<size_t, size_t>& remapping) const {
   EXPECT_EQ(expected_triangles.size(), result.size())
       << "expected: " << toString(expected_triangles)
-      << ", result: " << toString(remapFaces(result, result_remapping))
+      << ", result: " << toString(remapFaces(result, remapping))
       << ", result (original): " << toString(result);
 
   std::vector<Face> absolute_faces;
   for (size_t i = 0; i < result.size(); ++i) {
     const auto& rface = result.at(i);
-    EXPECT_TRUE(result_remapping.count(rface.v1))
-        << rface << " @ " << i << "(map: " << toString(result_remapping) << ")";
-    EXPECT_TRUE(result_remapping.count(rface.v2))
-        << rface << " @ " << i << "(map: " << toString(result_remapping) << ")";
-    EXPECT_TRUE(result_remapping.count(rface.v3))
-        << rface << " @ " << i << "(map: " << toString(result_remapping) << ")";
-    if (!result_remapping.count(rface.v1) || !result_remapping.count(rface.v2) ||
-        !result_remapping.count(rface.v3)) {
+    std::stringstream ss;
+    ss << toString(rface) << " @ " << i << "(map: " << toString(remapping) << ")";
+
+    EXPECT_TRUE(remapping.count(rface[0])) << ss.str();
+    EXPECT_TRUE(remapping.count(rface[1])) << ss.str();
+    EXPECT_TRUE(remapping.count(rface[2])) << ss.str();
+    if (!remapping.count(rface[0]) || !remapping.count(rface[1]) ||
+        !remapping.count(rface[2])) {
       continue;
     }
 
-    Face absolute_face(result_remapping.at(rface.v1),
-                       result_remapping.at(rface.v2),
-                       result_remapping.at(rface.v3));
-    absolute_faces.push_back(absolute_face);
+    const auto aface = remapFace(rface, remapping);
+    absolute_faces.push_back(aface);
 
-    bool found_match = false;
-    for (const auto& expected : expected_triangles) {
-      if (expected == absolute_face) {
-        found_match = true;
-        break;
-      }
-    }
-
-    EXPECT_TRUE(found_match) << "result face " << " (r: " << rface
-                             << ", a: " << absolute_face << ", i: " << i
+    const auto found_match = faceInFaces(aface, expected_triangles);
+    EXPECT_TRUE(found_match) << "result face " << " (r: " << toString(rface)
+                             << ", a: " << toString(aface) << ", i: " << i
                              << ") has no match in expected: "
                              << toString(expected_triangles);
   }
 
   for (size_t i = 0; i < expected_triangles.size(); ++i) {
     const auto& expected = expected_triangles.at(i);
-
-    bool found_match = false;
-    for (const auto& absolute_face : absolute_faces) {
-      if (expected == absolute_face) {
-        found_match = true;
-        break;
-      }
-    }
-
-    EXPECT_TRUE(found_match) << "expected face (r: " << expected << ", i: " << i
-                             << ") has no match in result: "
+    const auto found_match = faceInFaces(expected, absolute_faces);
+    EXPECT_TRUE(found_match) << "expected face (r: " << toString(expected)
+                             << ", i: " << i << ") has no match in result: "
                              << toString(absolute_faces);
   }
 }
@@ -408,13 +431,13 @@ CompressionTestConfiguration test_configurations[] = {
            {{0, 1, 2}, {12, 13, 14}},  // b1 archived faces
            {}}},                       // no remapping for empty input
          {{std::nullopt, 104s, {block1_v1}},
-          {{3, 1, 9},                               // b1 added again
-           {{12, 13, 14}, {15, 16, 17}, {21, 22, 23}},            // b1 faces
-           {15, 16, 17, 15, 16, 17, 21, 22, 23}}},  // offset 15
+          {{3, 1, 9},                                   // b1 added again
+           {{12, 13, 14}, {15, 16, 17}, {21, 22, 23}},  // b1 faces
+           {15, 16, 17, 15, 16, 17, 21, 22, 23}}},      // offset 15
          {{std::nullopt, 105s, {block1_v1}},
-          {{3, 1, 9},                               // b1 stays added
-           {{12, 13, 14}, {24, 25, 26}, {30, 31, 32}},            // faces indices overriden
-           {24, 25, 26, 24, 25, 26, 30, 31, 32}}},  // offset 24
+          {{3, 1, 9},                                   // b1 stays added
+           {{12, 13, 14}, {24, 25, 26}, {30, 31, 32}},  // faces indices overriden
+           {24, 25, 26, 24, 25, 26, 30, 31, 32}}},      // offset 24
      }},
     {"MultiBlockPartialUpdates",
      1.0e-3,
@@ -559,20 +582,17 @@ TEST_P(DeltaCompressionFixture, CompressionCorrect) {
       compression.archiveBlocksByTime(input.prune_time_ns->count());
     }
 
-    auto mesh = ::kimera_pgmo::test::createMesh(input.blocks);
-    ASSERT_TRUE(mesh);
+    const auto timestamp_ns = input.timestamp_ns.count();
+    auto mesh = createMesh(input.blocks);
 
     HashedIndexMapping remapping;
-    const auto output =
-        compression.update(*mesh, input.timestamp_ns.count(), &remapping);
+    const auto output = compression.update(mesh, timestamp_ns, &remapping);
     ASSERT_TRUE(output != nullptr);
 
-    const auto result_indices = flattenRemapping(input.blocks, remapping);
-
     SCOPED_TRACE(input);
+    const auto result_indices = flattenRemapping(input.blocks, remapping);
     expected.checkOutput(*output, result_indices, result_remapping);
   }
 }
 
 }  // namespace kimera_pgmo
-   // */
