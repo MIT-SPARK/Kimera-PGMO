@@ -73,7 +73,8 @@ class DeltaCompression {
    * @param timestamp_ns Timestamp the mesh was generated at
    * @param remapping Optional output remapping between input mesh and integrated mesh
    */
-  MeshDelta::Ptr update(MeshInterface& mesh,
+  template <typename MeshBlocksT>
+  MeshDelta::Ptr update(const MeshBlocksT& mesh,
                         uint64_t timestamp_ns,
                         HashedIndexMapping* remapping = nullptr);
 
@@ -91,9 +92,8 @@ class DeltaCompression {
   void archiveBlocks(const BlockFilter& should_archive);
 
  protected:
-  void addPoint(const pcl::PointXYZRGBA& point,
-                std::optional<uint32_t> semantic_label,
-                uint64_t timestamp_ns,
+  void addPoint(const traits::Pos& point,
+                const traits::VertexTraits& traits,
                 std::vector<size_t>& face_map,
                 LongIndexSet& curr_voxels);
 
@@ -109,7 +109,8 @@ class DeltaCompression {
                          RedundancyChecker& checker,
                          std::vector<traits::Face>& pending_faces);
 
-  void updateRemapping(MeshInterface& mesh, uint64_t timestamp_ns);
+  template <typename MeshBlocksT>
+  void updateRemapping(const MeshBlocksT& mesh, uint64_t timestamp_ns);
 
   void addPendingVertices(MeshDelta& delta, size_t start_index = 0);
 
@@ -133,3 +134,5 @@ class DeltaCompression {
 };
 
 }  // namespace kimera_pgmo
+
+#include "kimera_pgmo/compression/impl/delta_compression.h"

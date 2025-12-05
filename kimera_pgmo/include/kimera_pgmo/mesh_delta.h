@@ -91,4 +91,4 @@ traits::Face pgmoGetFace(const MeshDelta& delta, size_t i);
 
 }  // namespace kimera_pgmo
 
-#include "kimera_pgmo/mesh_delta_impl.h"  // IWYU pragma: keep
+#include "kimera_pgmo/impl/mesh_delta.h"  // IWYU pragma: keep
