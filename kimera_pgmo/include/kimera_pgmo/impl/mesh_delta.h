@@ -5,15 +5,19 @@
 
 namespace kimera_pgmo {
 
+inline traits::Face offsetFace(const traits::Face& face, size_t offset) {
+  return {face[0] + offset, face[1] + offset, face[2] + offset};
+}
+
 template <typename Vertices>
-void MeshDelta::updateVertices(Vertices& vertices,
+size_t MeshDelta::updateVertices(Vertices& vertices,
                                const Eigen::Isometry3f* transform) const {
   const auto curr_size = traits::num_vertices(vertices);
-  if (curr_size < info.last_vertex_size) {
+  if (curr_size < info.prev_active_vertices) {
     throw std::logic_error("Invalid target vertices!");
   }
 
-  const auto start_idx = traits::num_vertices(vertices) - info.last_vertex_size;
+  const auto start_idx = curr_size - info.prev_active_vertices;
   const auto total_vertices = start_idx + vertex_updates_.size();
   traits::resize_vertices(vertices, total_vertices);
 
@@ -26,22 +30,29 @@ void MeshDelta::updateVertices(Vertices& vertices,
 
     traits::set_vertex(vertices, start_idx + i, pos, p.traits);
   }
+
+  return start_idx;
 }
 
 template <typename Faces>
-void MeshDelta::updateFaces(Faces& faces) const {
-  // TODO(nathan) this is trickier than I thought
-  const size_t total_faces = face_archive_updates_.size() + face_updates_.size();
+void MeshDelta::updateFaces(Faces& faces, size_t vertex_offset) const {
+  const auto curr_size = traits::num_faces(faces);
+  if (curr_size < info.prev_active_faces) {
+    throw std::logic_error("Invalid target vertices!");
+  }
+
+  const auto start_idx = curr_size - info.prev_active_faces;
+  const size_t total_faces = start_idx + getNumFaces();
   traits::resize_faces(faces, total_faces);
 
   size_t face_idx = 0;
   for (const auto& face : face_archive_updates_) {
-    traits::set_face(faces, face_idx, face);
+    traits::set_face(faces, face_idx, offsetFace(face, vertex_offset));
     ++face_idx;
   }
 
   for (const auto& face : face_updates_) {
-    traits::set_face(faces, face_idx, face);
+    traits::set_face(faces, face_idx, offsetFace(face, vertex_offset));
     ++face_idx;
   }
 }
@@ -50,8 +61,8 @@ template <typename Vertices, typename Faces>
 void MeshDelta::updateMesh(Vertices& vertices,
                            Faces& faces,
                            const Eigen::Isometry3f* transform) const {
-  updateVertices<Vertices>(vertices, transform);
-  updateFaces<Faces>(faces);
+  const auto offset = updateVertices<Vertices>(vertices, transform);
+  updateFaces<Faces>(faces, offset);
 }
 
 template <typename Mesh>

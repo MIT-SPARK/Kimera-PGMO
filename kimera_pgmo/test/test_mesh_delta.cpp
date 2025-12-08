@@ -4,7 +4,9 @@
  * @author Nathan Hughes
  */
 #include <gtest/gtest.h>
+
 #include <cstdint>
+
 #include <pcl/impl/point_types.hpp>
 
 #include "kimera_pgmo/mesh_delta.h"
@@ -26,7 +28,7 @@ traits::VertexTraits makeTraits(uint8_t r, uint8_t g, uint8_t b) {
 }
 
 TEST(MeshDelta, updateSimple) {
-  MeshDelta delta1({1, 0, 0});
+  MeshDelta delta1({0, 0, 0});
   delta1.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(0, 0, 0));
   delta1.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(1, 0, 0));
   delta1.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(2, 0, 0));
@@ -39,13 +41,13 @@ TEST(MeshDelta, updateSimple) {
   delta1.updateMesh(vertex_wrapper, result.faces);
   EXPECT_EQ(result.stamps.size(), result.vertices.size());
   EXPECT_EQ(result.vertices.size(), 4u);
+  EXPECT_EQ(result.faces.size(), 2u);
   for (size_t i = 0; i < result.vertices.size(); ++i) {
     EXPECT_EQ(static_cast<size_t>(result.vertices[i].r), i);
   }
 
-  EXPECT_EQ(result.faces.size(), 2u);
-
-  MeshDelta delta2({2, 0, 2});
+  // Fake archival of 2 vertices and 1 face
+  MeshDelta delta2({1, 2, 1});
   delta2.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(2, 0, 0));
   delta2.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(3, 0, 0));
   delta2.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(4, 0, 0));
@@ -56,30 +58,27 @@ TEST(MeshDelta, updateSimple) {
   delta2.updateMesh(vertex_wrapper, result.faces);
   EXPECT_EQ(result.stamps.size(), result.vertices.size());
   EXPECT_EQ(result.vertices.size(), 6u);
+  EXPECT_EQ(result.faces.size(), 3u);
   for (size_t i = 0; i < result.vertices.size(); ++i) {
     EXPECT_EQ(static_cast<size_t>(result.vertices[i].r), i);
   }
-
-  EXPECT_EQ(result.faces.size(), 3u);
 }
 
 TEST(MeshDelta, archiveVerticesCorrect) {
-  MeshDelta delta({1, 0, 0});
+  MeshDelta delta({0, 0, 0});
+  EXPECT_EQ(delta.addVertex(traits::Pos(1.0, 2.0, 3.0), {}, true), 0u);
   EXPECT_EQ(delta.addVertex(traits::Pos(1.0, 2.0, 3.0), {}, true), 1u);
-  EXPECT_EQ(delta.addVertex(traits::Pos(1.0, 2.0, 3.0), {}, true), 2u);
-  EXPECT_EQ(delta.addVertex(traits::Pos(1.0, 2.0, 3.0), {}, false), 3u);
-  EXPECT_EQ(delta.addVertex(traits::Pos(1.0, 2.0, 3.0), {}), 4u);
-  // EXPECT_EQ(delta.getTotalArchivedVertices(), 3u);
+  EXPECT_EQ(delta.addVertex(traits::Pos(1.0, 2.0, 3.0), {}, false), 2u);
+  EXPECT_EQ(delta.addVertex(traits::Pos(1.0, 2.0, 3.0), {}), 3u);
   EXPECT_EQ(delta.getNumArchivedVertices(), 2u);
 }
 
 TEST(MeshDelta, archiveFacesCorrect) {
-  MeshDelta delta({1, 0, 0});
+  MeshDelta delta({0, 0, 0});
   delta.addFace({0, 1, 2}, true);
   delta.addFace({1, 2, 3}, true);
   delta.addFace({0, 1, 2}, false);
   delta.addFace({1, 2, 3}, false);
-  // EXPECT_EQ(delta.getTotalArchivedFaces(), 5u);
   EXPECT_EQ(delta.getNumArchivedFaces(), 2u);
 }
 

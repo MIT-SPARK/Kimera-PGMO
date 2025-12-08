@@ -5,6 +5,8 @@
  * @author Nathan Hughes
  */
 #pragma once
+#include <cstdint>
+
 #include "kimera_pgmo/compression/redundancy_checker.h"
 #include "kimera_pgmo/hashing.h"
 #include "kimera_pgmo/mesh_delta.h"
@@ -43,14 +45,14 @@ struct VertexInfo {
 
 //! @brief Tracking struct for every block in the spatial grid used by the compression
 struct BlockInfo {
-  //! @brief All vertices belonging to the block
-  LongIndexSet vertices;
   //! @brief Last time the block was updated
   uint64_t update_time_ns;
-  //! @brief Current flat list of indices
-  std::vector<size_t> indices;
   //! @brief Last integration pass the block was updated
   uint16_t sequence_number = 0;
+  //! @brief All vertices belonging to the block
+  LongIndexSet vertices = {};
+  //! @brief Current faces
+  std::vector<traits::Face> faces = {};
 };
 
 class DeltaCompression {
@@ -92,6 +94,8 @@ class DeltaCompression {
   void archiveBlocks(const BlockFilter& should_archive);
 
  protected:
+  MeshDelta::Ptr computeDelta(uint64_t timestamp_ns);
+
   void addPoint(const traits::Pos& point,
                 const traits::VertexTraits& traits,
                 std::vector<size_t>& face_map,
@@ -99,18 +103,13 @@ class DeltaCompression {
 
   void removeBlockObservations(const LongIndexSet& to_remove);
 
-  void addActiveFaces(HashedIndexMapping* remapping);
-
+  void addActiveFaces();
   void addActiveVertices();
-
   void updateAndAddArchivedFaces();
 
   void archiveBlockFaces(const BlockInfo& block_info,
                          RedundancyChecker& checker,
                          std::vector<traits::Face>& pending_faces);
-
-  template <typename MeshBlocksT>
-  void updateRemapping(const MeshBlocksT& mesh, uint64_t timestamp_ns);
 
   void addPendingVertices(MeshDelta& delta, size_t start_index = 0);
 
@@ -135,4 +134,4 @@ class DeltaCompression {
 
 }  // namespace kimera_pgmo
 
-#include "kimera_pgmo/compression/impl/delta_compression.h"
+#include "kimera_pgmo/compression/impl/delta_compression.h"  // IWYU pragma: keep

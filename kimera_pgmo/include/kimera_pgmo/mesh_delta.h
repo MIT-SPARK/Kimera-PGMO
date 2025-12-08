@@ -19,10 +19,9 @@ class MeshDelta {
 
   struct TrackingInfo {
     uint16_t sequence_number = 0;
-    traits::Timestamp timestamp_ns = 0;
-    size_t last_vertex_size = 0;
+    size_t prev_active_vertices = 0;
+    size_t prev_active_faces = 0;
 
-    TrackingInfo& with_timestamp(traits::Timestamp stamp);
     TrackingInfo& with_last_vertex_size(size_t last_vertex_size);
   } const info;
 
@@ -34,6 +33,7 @@ class MeshDelta {
   void addFace(const traits::Face& face, bool archive = false);
 
   size_t getNumVertices() const;
+  size_t getNumActiveVertices() const;
   size_t getNumArchivedVertices() const;
   size_t getNumFaces() const;
   size_t getNumArchivedFaces() const;
@@ -59,15 +59,17 @@ class MeshDelta {
                   const Eigen::Isometry3f* transform = nullptr) const;
 
   template <typename Vertices>
-  void updateVertices(Vertices& vertices,
-                      const Eigen::Isometry3f* transform = nullptr) const;
+  size_t updateVertices(Vertices& vertices,
+                        const Eigen::Isometry3f* transform = nullptr) const;
 
   template <typename Faces>
-  void updateFaces(Faces& faces) const;
+  void updateFaces(Faces& faces, size_t vertex_offset) const;
 
   const std::vector<Face>& face_updates() const;
   const std::vector<Face>& face_archive_updates() const;
   const std::map<size_t, size_t>& prev_to_curr() const;
+
+  traits::Timestamp timestamp_ns = 0;
 
  protected:
   friend class DeltaCompression;
@@ -79,8 +81,6 @@ class MeshDelta {
   std::vector<Face> face_archive_updates_;
   std::map<size_t, size_t> prev_to_curr_;
   std::set<size_t> deleted_indices_;
-  std::set<size_t> observed_indices_;
-  std::set<size_t> new_indices_;
 };
 
 // vertex traits

@@ -12,13 +12,8 @@ namespace kimera_pgmo {
 
 using TrackingInfo = MeshDelta::TrackingInfo;
 
-TrackingInfo& MeshDelta::TrackingInfo::with_timestamp(traits::Timestamp stamp) {
-  timestamp_ns = stamp;
-  return *this;
-}
-
 TrackingInfo& MeshDelta::TrackingInfo::with_last_vertex_size(size_t last_size) {
-  last_vertex_size = last_size;
+  prev_active_vertices = last_size;
   return *this;
 }
 
@@ -45,6 +40,10 @@ void MeshDelta::addFace(const Face& face, bool archive) {
 }
 
 size_t MeshDelta::getNumVertices() const { return vertex_updates_.size(); }
+
+size_t MeshDelta::getNumActiveVertices() const {
+  return vertex_updates_.size() - num_archived_vertices_;
+}
 
 size_t MeshDelta::getNumArchivedVertices() const { return num_archived_vertices_; }
 
