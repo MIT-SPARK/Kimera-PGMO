@@ -1,7 +1,6 @@
 #pragma once
 #include <map>
 #include <memory>
-#include <set>
 #include <vector>
 
 #include "kimera_pgmo/mesh_types.h"
@@ -79,7 +78,6 @@ class MeshDelta {
   std::vector<Face> face_updates_;
   std::vector<Face> face_archive_updates_;
   std::map<size_t, size_t> prev_to_curr_;
-  std::set<size_t> deleted_indices_;
 };
 
 // vertex traits

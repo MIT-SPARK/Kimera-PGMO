@@ -1,7 +1,6 @@
 #pragma once
 #include "kimera_pgmo/compression/delta_compression.h"
 #include "kimera_pgmo/mesh_traits.h"
-#include "kimera_pgmo/utils/logging.h"
 
 namespace kimera_pgmo {
 
@@ -41,9 +40,6 @@ MeshDelta::Ptr DeltaCompression::update(const MeshBlocksT& mesh,
       const auto pos = traits::get_vertex(block, i, &traits);
       addPoint(pos, traits, local_remapping, curr_voxels);
       if (block_remap) {
-        SPARK_LOG(DEBUG) << "Remapping " << i << " -> " << local_remapping.back()
-                         << " with r-value of "
-                         << static_cast<int>(traits.color.value()[0]);
         block_remap->insert({i, local_remapping.back()});
       }
     }

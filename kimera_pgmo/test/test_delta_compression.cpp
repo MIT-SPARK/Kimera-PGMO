@@ -202,8 +202,7 @@ struct ExpectedDelta {
   std::vector<size_t> expected_indices;
 
   void checkOutput(const MeshDelta& output,
-                   const std::vector<size_t>& output_indices,
-                   std::vector<size_t>& remapping) const;
+                   const std::vector<size_t>& output_indices) const;
 
   void checkTriangles(const Faces& result, const std::vector<size_t>& remapping) const;
 };
@@ -225,23 +224,17 @@ std::ostream& operator<<(std::ostream& out,
 }
 
 void ExpectedDelta::checkOutput(const MeshDelta& output,
-                                const std::vector<size_t>& output_indices,
-                                std::vector<size_t>& remapping) const {
+                                const std::vector<size_t>& output_indices) const {
   EXPECT_EQ(output.info.prev_active_vertices, state.prev_active_vertices);
   EXPECT_EQ(output.info.prev_active_faces, state.prev_active_faces);
   EXPECT_EQ(output.getNumVertices(), state.num_vertices);
-  ASSERT_LE(output.info.prev_active_vertices, remapping.size());
 
-  // convert current index in delta and absolute index
-  const auto vertex_start = remapping.size() - output.info.prev_active_vertices;
-  remapping.resize(vertex_start + output.getNumVertices());
+  // convert current index in delta to absolute index
+  std::vector<size_t> remapping;
   for (size_t i = 0; i < output.getNumVertices(); ++i) {
     const auto& v = output.getVertex(i);
-    if (!v.traits.color) {
-      continue;
-    }
-
-    remapping[i + vertex_start] = v.traits.color->at(0);
+    ASSERT_TRUE(v.traits.color);
+    remapping.push_back(v.traits.color->at(0));
   }
 
   const auto all_output_faces = facesFromDelta(output);
@@ -369,168 +362,158 @@ CompressionTestConfiguration test_configurations[] = {
      1.0e-3,
      {
          {{std::nullopt, 100s, {block1_v1}},
-          {{6, 0, 0},                      // b1 vertices
-           {{3, 4, 5}, {6, 7, 8}},         // b1.f2 redundant
-           {3, 4, 5, 3, 4, 5, 6, 7, 8}}},  // b1.f2 vertices redundant
-         {
-             {std::nullopt, 101s, {block1_empty}},
-             {
-                 {0, 6, 2},
-                 {},
-                 {},
-             },
-         },
+          {{6, 0, 0},  // 6 unique vertices
+           {{3, 4, 5}, {6, 7, 8}},
+           {3, 4, 5, 3, 4, 5, 6, 7, 8}}},
+         {{std::nullopt, 101s, {block1_empty}},
+          {{0, 6, 2},  // empty -> clear 6 vertices and 2 faces
+           {},
+           {}}},
      }},
-     {"SingleBlockPrune",
-         1.0e-3,
-         {
-             {{std::nullopt, 100s, {block1_v1}},
-              {{6, 0, 0},                      // b1 vertices
-               {{3, 4, 5}, {6, 7, 8}},         // b1.f2 redundant
-               {3, 4, 5, 3, 4, 5, 6, 7, 8}}},  // b1.f2 vertices redundant
-             {{101s, 102s, {block1_empty}},
-              {{6, 6, 2},               // b1 vertices archived
-               {{3, 4, 5}, {6, 7, 8}},  // b1 non-duplicate faces
-               {}}},                    // empty block, no remmaping
-             {{std::nullopt, 103s, {block1_v1}},
-              {{6, 0, 0},                             // b1 archived plus b1 vertices
-               {{12, 13, 14}, {15, 16, 17}},           // b1 faces offset by 9
-               {12, 13, 14, 12, 13, 14, 15, 16, 17}}},  // b1 vertices offset by 9
-         }},
-    /*   {"MultiBlockClearing",
-         1.0e-3,
-         {
-             {{std::nullopt, 100s, {block1_v1, block2_v1}},
-              {{0, 0, 9},                            // b1 and b2 vertices
-               {{0, 1, 2}, {6, 7, 8}, {9, 10, 11}},  // b1.f2 and b2.f2 redundant
-               {0, 1, 2, 0, 1, 2, 6, 7, 8, 9, 10, 11, 6, 7, 8}}},  // no offset
-             {{std::nullopt, 101s, {block1_empty, block2_v1}},
-              {{0, 0, 6},                     // b1 cleared: b2 vertices
-               {{15, 16, 17}, {18, 19, 20}},  // b2 faces
-               {15, 16, 17, 18, 19, 20}}},    // b2 remaps to itself (offset 15)
-             {{std::nullopt, 102s, {block1_v1, block2_v1}},
-              {{0, 0, 9},                                   // b1 added again: 9
-       vertices
-               {{21, 22, 23}, {27, 28, 29}, {30, 31, 32}},  // b1.f2 and b2.f2 redundant
-               {21, 22, 23, 21, 22, 23, 27, 28, 29, 30, 31, 32, 27, 28, 29}}},  //
-       offset 21
-             {{std::nullopt, 103s, {block1_v1, block2_empty}},
-              {{0, 0, 6},                               // b2 cleared
-               {{36, 37, 38}, {42, 43, 44}},            // both b1 faces
-               {36, 37, 38, 36, 37, 38, 42, 43, 44}}},  // offset by 36
-         }},
-        {"MultiBlockPrune",
-         1.0e-3,
-         {
-             {{std::nullopt, 100s, {block1_v1}},
-              {{0, 0, 6},                      // b1: 6 vertices
-               {{0, 1, 2}, {6, 7, 8}},         // b1: 2 faces
-               {0, 1, 2, 0, 1, 2, 6, 7, 8}}},  // normal remapping for b1
-             {{std::nullopt, 102s, {block2_v1}},
-              {{0, 0, 9},                               // b2: 9 vertices
-               {{0, 1, 2}, {9, 10, 11}, {12, 13, 14}},  // b1 + b2 faces (no b1 offset)
-               {9, 10, 11, 12, 13, 14}}},  // b2 vertices override previous clusters
-             {{101s, 103s, {block1_empty, block2_empty}},
-              {{0, 0, 6},                  // b1 archived
-               {{0, 1, 2}, {12, 13, 14}},  // b1 archived faces
-               {}}},                       // no remapping for empty input
-             {{std::nullopt, 104s, {block1_v1}},
-              {{3, 1, 9},                                   // b1 added again
-               {{12, 13, 14}, {15, 16, 17}, {21, 22, 23}},  // b1 faces
-               {15, 16, 17, 15, 16, 17, 21, 22, 23}}},      // offset 15
-             {{std::nullopt, 105s, {block1_v1}},
-              {{3, 1, 9},                                   // b1 stays added
-               {{12, 13, 14}, {24, 25, 26}, {30, 31, 32}},  // faces indices overriden
-               {24, 25, 26, 24, 25, 26, 30, 31, 32}}},      // offset 24
-         }},
-        {"MultiBlockPartialUpdates",
-         1.0e-3,
-         {
-             {{std::nullopt, 100s, {block1_v1}},
-              {{0, 0, 6},                      // b1 vertices
-               {{0, 1, 2}, {6, 7, 8}},         // b1.f2 duplicate
-               {0, 1, 2, 0, 1, 2, 6, 7, 8}}},  // no offset
-             {{std::nullopt, 102s, {block2_v1}},
-              {{0, 0, 9},                               // b1 + b2 vertices
-               {{0, 1, 2}, {9, 10, 11}, {12, 13, 14}},  // b1.f2 and b2.f2 duplicate
-               {9, 10, 11, 12, 13, 14}}},               // b2 with offset 9
-             {{101s, 103s, {block1_empty, block2_v1}},
-              {{0, 0, 9},                                              // b1 archive
-               {{0, 1, 2}, {15, 16, 17}, {18, 19, 20}, {18, 19, 20}},  // b2.f2
-       duplicate
-                                                                       // with archived
-                                                                       // b1.f2
-               {15, 16, 17, 18, 19, 20}}},                             // b2 with offset
-       15
-             {{std::nullopt, 104s, {block2_v1}},
-              {{3, 1, 6},                                   // b2 re-added
-               {{21, 22, 23}, {24, 25, 26}, {24, 25, 26}},  // b2.f2 duplicate with
-       b1.f2 {21, 22, 23, 24, 25, 26}}},                  // b2 with offset 21
-             {{std::nullopt, 105s, {block1_v1, block2_v1}},
-              {{3, 1, 9},                                                 // b1+b2
-               {{27, 28, 29}, {33, 34, 35}, {36, 37, 38}, {33, 34, 35}},  // b2.f2 +
-       b1.f2 {27, 28, 29, 27, 28, 29, 33, 34, 35, 36, 37, 38, 33, 34, 35}}},  // offset
-       27
-             {{std::nullopt, 106s, {block1_empty, block2_empty}},
-              {{3, 1, 3},       // back to empty
-               {{33, 34, 35}},  // partial archive finalized
-               {}}},            // no remapping
-         }},
-        {"MultiBlockPartialArchive",
-         1.0e-3,
-         {
-             {{std::nullopt, 100s, {block1_v2}},
-              {{0, 0, 6},               // b1 (v2)
-               {{0, 1, 2}, {3, 4, 5}},  // both faces
-               {0, 1, 2, 3, 4, 5}}},
-             {{std::nullopt, 102s, {block2_v2}},
-              {{0, 0, 10},                                       // b2 (v2): 1 extra
-       vertex
-               {{0, 1, 2}, {9, 10, 5}, {6, 7, 8}, {9, 10, 11}},  // all faces, b2v2
-                                                                 // overrides
-               {6, 7, 8, 9, 10, 11}}},                           // b2 only remapping
-             {{101s, 103s, {block1_empty, block2_v2}},
-              {{0, 0, 10},                                            // b1 archived +
-       b2v2
-               {{0, 1, 2}, {12, 13, 14}, {15, 16, 17}, {15, 16, 5}},  // all faces
-               {12, 13, 14, 15, 16, 17}}},                            // b2v2 with 12
-       offset
-             {{std::nullopt, 104s, {block2_empty}},
-              {{3, 1, 3},      // Only b1 vertices not shared with b2 have been archived
-               {{15, 16, 5}},  // partial face
-               {}}},           // no remapping
-         }},
-        {"BoundaryVertexRemapping",
-         1.0e-3,
-         {
-             {{std::nullopt, 100s, {block1_v3}},
-              {{0, 0, 8}, {{0, 1, 2}, {3, 4, 5}, {6, 7, 5}}, {0, 1, 2, 3, 4, 5, 6, 7,
-       5}}},
-             {{std::nullopt, 102s, {block2_v2}},
-              {{0, 0, 12},
-               {{0, 1, 2}, {12, 13, 5}, {6, 7, 5}, {9, 10, 11}, {12, 13, 14}},
-               {9, 10, 11, 12, 13, 14}}},
-             {{101s, 103s, {block1_empty, block2_v2}},
-              {{0, 0, 12},
-               {{0, 1, 2}, {18, 19, 5}, {6, 7, 5}, {15, 16, 17}, {18, 19, 20}},
-               {15, 16, 17, 18, 19, 20}}},
-             {{std::nullopt, 104s, {block2_empty}}, {{3, 2, 5}, {{18, 19, 5}}, {}}},
-             {{std::nullopt, 105s, {block2_empty}}, {{3, 2, 5}, {{18, 19, 5}}, {}}},
-         }},
-        {"RepeatedTimestamp",
-         1.0e-3,
-         {
-             {{std::nullopt, 100s, {block1_v1}},
-              {{0, 0, 6},                      // b1 vertices
-               {{0, 1, 2}, {6, 7, 8}},         // b1.f2 redundant
-               {0, 1, 2, 0, 1, 2, 6, 7, 8}}},  // no offset
-             {{std::nullopt, 100s, {block2_v1}},
-              {{0, 0, 9},                               // b2 vertices added
-               {{0, 1, 2}, {9, 10, 11}, {12, 13, 14}},  // b1.f1, b1.f3, b2.f1
-               {9, 10, 11, 12, 13, 14}}},               // b2 remaps to itself (offset
-       9)
-         }},
-        */
+    {"SingleBlockPrune",
+     1.0e-3,
+     {
+         {{std::nullopt, 100s, {block1_v1}},
+          {{6, 0, 0},  // b1 has 6 vertices
+           {{3, 4, 5}, {6, 7, 8}},
+           {3, 4, 5, 3, 4, 5, 6, 7, 8}}},
+         {{101s, 102s, {block1_empty}},
+          {{6, 6, 2},  // replacing previous 6 with archived 6
+           {{3, 4, 5}, {6, 7, 8}},
+           {}}},
+         {{std::nullopt, 103s, {block1_v1}},
+          {{6, 0, 0},  // new 6 vertices + archival
+           {{12, 13, 14}, {15, 16, 17}},
+           {12, 13, 14, 12, 13, 14, 15, 16, 17}}},
+     }},
+    {"MultiBlockClearing",
+     1.0e-3,
+     {
+         {{std::nullopt, 100s, {block1_v1, block2_v1}},
+          {{9, 0, 0},  // 9 unique vertices (and 3 faces)
+           {{3, 4, 5}, {12, 13, 14}, {9, 10, 11}},
+           {3, 4, 5, 3, 4, 5, 12, 13, 14, 9, 10, 11, 12, 13, 14}}},
+         {{std::nullopt, 101s, {block1_empty, block2_v1}},
+          {{6, 9, 3},  // 6 unique vertices, clear 9/3 previous
+           {{15, 16, 17}, {18, 19, 20}},
+           {15, 16, 17, 18, 19, 20}}},
+         {{std::nullopt, 102s, {block1_v1, block2_v1}},
+          {{9, 6, 2},  // 9/3 unique, clear 6/2 previous
+           {{24, 25, 26}, {33, 34, 35}, {30, 31, 32}},
+           {24, 25, 26, 24, 25, 26, 33, 34, 35, 30, 31, 32, 33, 34, 35}}},
+         {{std::nullopt, 103s, {block1_v1, block2_empty}},
+          {{6, 9, 3},  // 6/2 unique, clear 9/3 previous
+           {{39, 40, 41}, {42, 43, 44}},
+           {39, 40, 41, 39, 40, 41, 42, 43, 44}}},
+     }},
+    {"MultiBlockPrune",
+     1.0e-3,
+     {
+         {{std::nullopt, 100s, {block1_v1}},
+          {{6, 0, 0},  // 6/2 unique
+           {{3, 4, 5}, {6, 7, 8}},
+           {3, 4, 5, 3, 4, 5, 6, 7, 8}}},
+         {{std::nullopt, 102s, {block2_v1}},
+          {{9, 6, 2},  // 9/3 unique, remove 6/2
+           {{3, 4, 5}, {12, 13, 14}, {9, 10, 11}},
+           {9, 10, 11, 12, 13, 14}}},
+         {{101s, 103s, {block1_empty, block2_empty}},
+          {{6, 9, 3},  //  6/2 unique, remove 9/3
+           {{3, 4, 5}, {12, 13, 14}},
+           {}}},
+         {{std::nullopt, 104s, {block1_v1}},
+          {{9, 3, 1},  // 6/2 unique, archive 3/1, 3/1 pending
+           {{12, 13, 14}, {18, 19, 20}, {21, 22, 23}},
+           {18, 19, 20, 18, 19, 20, 21, 22, 23}}},
+         {{std::nullopt, 105s, {block1_v1}},
+          {{9, 9, 3},  // 6/2 unique, archive 3/1, 3/1 pending
+           {{12, 13, 14}, {27, 28, 29}, {30, 31, 32}},
+           {27, 28, 29, 27, 28, 29, 30, 31, 32}}},
+     }},
+    {"MultiBlockPartialUpdates",
+     1.0e-3,
+     {
+         {{std::nullopt, 100s, {block1_v1}},
+          {{6, 0, 0},  // 6/2 unique
+           {{3, 4, 5}, {6, 7, 8}},
+           {3, 4, 5, 3, 4, 5, 6, 7, 8}}},
+         {{std::nullopt, 102s, {block2_v1}},
+          {{9, 6, 2},  // 9/3 unique, remove 6/2
+           {{3, 4, 5}, {12, 13, 14}, {9, 10, 11}},
+           {9, 10, 11, 12, 13, 14}}},
+         {{101s, 103s, {block1_empty, block2_v1}},
+          {{9, 9, 3},  // 9/3 unique, remove 9/3
+           {{3, 4, 5}, {18, 19, 20}, {15, 16, 17}, {18, 19, 20}},
+           {15, 16, 17, 18, 19, 20}}},
+         {{std::nullopt, 104s, {block2_v1}},
+          {{6, 6, 3},  // 3/2 unique, archive 3/1, pending 3/1
+           {{24, 25, 26}, {21, 22, 23}, {24, 25, 26}},
+           {21, 22, 23, 24, 25, 26}}},
+         {{std::nullopt, 105s, {block1_v1, block2_v1}},
+          {{9, 6, 3},  // 6/2 unique, pending 3/1
+           {{39, 40, 41}, {30, 31, 32}, {36, 37, 38}, {39, 40, 41}},
+           {30, 31, 32, 30, 31, 32, 39, 40, 41, 36, 37, 38, 39, 40, 41}}},
+         {{std::nullopt, 106s, {block1_empty, block2_empty}},
+          {{3, 9, 4},  // 6/2 unique, pending 3/1
+           {{39, 40, 41}},
+           {}}},
+     }},
+    {"MultiBlockPartialArchive",
+     1.0e-3,
+     {
+         {{std::nullopt, 100s, {block1_v2}},
+          {{6, 0, 0},  // 6/2 unique
+           {{0, 1, 2}, {3, 4, 5}},
+           {0, 1, 2, 3, 4, 5}}},
+         {{std::nullopt, 102s, {block2_v2}},
+          {{10, 6, 2},  // 10/4 unique
+           {{0, 1, 2}, {9, 10, 5}, {6, 7, 8}, {9, 10, 11}},
+           {6, 7, 8, 9, 10, 11}}},
+         {{101s, 103s, {block1_empty, block2_v2}},
+          {{10, 10, 4},  // 10/4 unique, replace all
+           {{0, 1, 2}, {15, 16, 5}, {12, 13, 14}, {15, 16, 17}},
+           {12, 13, 14, 15, 16, 17}}},
+         {{std::nullopt, 104s, {block2_empty}},
+          {{3, 7, 3},  // 3/1 pending, remove 7/3
+           {{15, 16, 5}},
+           {}}},
+     }},
+    {"BoundaryVertexRemapping",
+     1.0e-3,
+     {
+         {{std::nullopt, 100s, {block1_v3}},
+          {{8, 0, 0},  // 8/3 unique
+           {{0, 1, 2}, {3, 4, 8}, {6, 7, 8}},
+           {0, 1, 2, 3, 4, 8, 6, 7, 8}}},
+         {{std::nullopt, 102s, {block2_v2}},
+          {{12, 8, 3},  // 12/5 unique, previous 8/3
+           {{0, 1, 2}, {12, 13, 8}, {6, 7, 8}, {9, 10, 11}, {12, 13, 14}},
+           {9, 10, 11, 12, 13, 14}}},
+         {{101s, 103s, {block1_empty, block2_v2}},
+          {{12, 12, 5},  // 12/5 unique, previous 12/5
+           {{0, 1, 2}, {18, 19, 8}, {6, 7, 8}, {15, 16, 17}, {18, 19, 20}},
+           {15, 16, 17, 18, 19, 20}}},
+         {{std::nullopt, 104s, {block2_empty}},
+          {{5, 9, 3},  // 3/1 unique, previous 12/5, archive 3/2
+           {{18, 19, 8}},
+           {}}},
+         {{std::nullopt, 105s, {block2_empty}},
+          {{5, 5, 1},  // 3/1 unique, previous 3/1
+           {{18, 19, 8}},
+           {}}},
+     }},
+    {"RepeatedTimestamp",
+     1.0e-3,
+     {
+         {{std::nullopt, 100s, {block1_v1}},
+          {{6, 0, 0},  // 6/2 unique
+           {{3, 4, 5}, {6, 7, 8}},
+           {3, 4, 5, 3, 4, 5, 6, 7, 8}}},
+         {{std::nullopt, 100s, {block2_v1}},
+          {{9, 6, 2},  // 9/3 unique, 6/2 prev
+           {{3, 4, 5}, {9, 10, 11}, {12, 13, 14}},
+           {9, 10, 11, 12, 13, 14}}},
+     }},
 };
 
 }  // namespace
@@ -588,8 +571,6 @@ TEST_P(DeltaCompressionFixture, CompressionCorrect) {
   // reset absoulte index count for vertices
   ::kimera_pgmo::test::BlockConfig::resetIndex();
 
-  // keep track of mapping to absolute index
-  std::vector<size_t> result_remapping;
   for (const auto& [input, expected] : config.inputs) {
     if (input.prune_time_ns) {
       compression.archiveBlocksByTime(input.prune_time_ns->count());
@@ -604,7 +585,7 @@ TEST_P(DeltaCompressionFixture, CompressionCorrect) {
 
     SCOPED_TRACE(input);
     const auto result_indices = flattenRemapping(input.blocks, remapping);
-    expected.checkOutput(*output, result_indices, result_remapping);
+    expected.checkOutput(*output, result_indices);
   }
 }
 
