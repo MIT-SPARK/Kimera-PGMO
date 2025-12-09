@@ -94,7 +94,8 @@ class DeltaCompression {
   void archiveBlocks(const BlockFilter& should_archive);
 
  protected:
-  MeshDelta::Ptr computeDelta(uint64_t timestamp_ns);
+  MeshDelta::Ptr computeDelta(uint64_t timestamp_ns,
+                              HashedIndexMapping* remapping = nullptr);
 
   void addPoint(const traits::Pos& point,
                 const traits::VertexTraits& traits,
@@ -104,7 +105,7 @@ class DeltaCompression {
   void removeBlockObservations(const LongIndexSet& to_remove);
 
   void addActiveFaces();
-  void addActiveVertices();
+  void addActiveVertices(HashedIndexMapping* remapping = nullptr);
   void updateAndAddArchivedFaces();
 
   void archiveBlockFaces(const BlockInfo& block_info,
@@ -128,8 +129,6 @@ class DeltaCompression {
   std::vector<traits::Face> archived_faces_;
 
   MeshDelta::TrackingInfo tracking_info_;
-  size_t num_archived_vertices_;
-  size_t num_archived_faces_;
 };
 
 }  // namespace kimera_pgmo

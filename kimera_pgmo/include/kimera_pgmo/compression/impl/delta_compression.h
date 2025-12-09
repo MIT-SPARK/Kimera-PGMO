@@ -1,6 +1,7 @@
 #pragma once
 #include "kimera_pgmo/compression/delta_compression.h"
 #include "kimera_pgmo/mesh_traits.h"
+#include "kimera_pgmo/utils/logging.h"
 
 namespace kimera_pgmo {
 
@@ -21,15 +22,15 @@ MeshDelta::Ptr DeltaCompression::update(const MeshBlocksT& mesh,
       block_iter = block_info_map_.insert({block_index, {timestamp_ns}}).first;
     }
 
-    IndexMapping* block_remap = nullptr;
-    if (remapping) {
-      block_remap = &(remapping->insert({block_index, {}}).first->second);
-    }
-
     auto& block_info = block_iter->second;
     block_info.update_time_ns = timestamp_ns;
     block_info.sequence_number = tracking_info_.sequence_number;
     block_info.faces.clear();
+
+    IndexMapping* block_remap = nullptr;
+    if (remapping) {
+      block_remap = &(remapping->insert({block_index, {}}).first->second);
+    }
 
     const auto num_vertices = traits::num_vertices(block);
     spatial_hash::LongIndexSet curr_voxels;
@@ -40,6 +41,9 @@ MeshDelta::Ptr DeltaCompression::update(const MeshBlocksT& mesh,
       const auto pos = traits::get_vertex(block, i, &traits);
       addPoint(pos, traits, local_remapping, curr_voxels);
       if (block_remap) {
+        SPARK_LOG(DEBUG) << "Remapping " << i << " -> " << local_remapping.back()
+                         << " with r-value of "
+                         << static_cast<int>(traits.color.value()[0]);
         block_remap->insert({i, local_remapping.back()});
       }
     }
@@ -59,7 +63,7 @@ MeshDelta::Ptr DeltaCompression::update(const MeshBlocksT& mesh,
     block_info.vertices = curr_voxels;
   }
 
-  return computeDelta(timestamp_ns);
+  return computeDelta(timestamp_ns, remapping);
 }
 
 }  // namespace kimera_pgmo

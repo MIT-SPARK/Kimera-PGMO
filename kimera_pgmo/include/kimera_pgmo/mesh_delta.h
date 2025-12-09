@@ -21,8 +21,6 @@ class MeshDelta {
     uint16_t sequence_number = 0;
     size_t prev_active_vertices = 0;
     size_t prev_active_faces = 0;
-
-    TrackingInfo& with_last_vertex_size(size_t last_vertex_size);
   } const info;
 
   explicit MeshDelta(const TrackingInfo& info);
@@ -36,6 +34,7 @@ class MeshDelta {
   size_t getNumActiveVertices() const;
   size_t getNumArchivedVertices() const;
   size_t getNumFaces() const;
+  size_t getNumActiveFaces() const;
   size_t getNumArchivedFaces() const;
 
   const Vertex& getVertex(size_t index) const;
