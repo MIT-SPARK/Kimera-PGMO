@@ -46,12 +46,9 @@ inline bool allVerticesBelow(const traits::Face& face, size_t archive_threshold)
 }
 
 inline void markBoundaryVertices(const traits::Face& face,
-                                 const size_t num_archived,
                                  std::unordered_set<size_t>& pending) {
-  if ((pending.count(face[0]) || face[0] < num_archived) &&
-      (pending.count(face[1]) || face[1] < num_archived) &&
-      (pending.count(face[2]) || face[2] < num_archived)) {
-    // face points to vertices that are either archived or not archived
+  if (pending.count(face[0]) && pending.count(face[1]) && pending.count(face[2])) {
+    // face points to vertices that are either archived or boundary
     return;
   }
 
@@ -335,18 +332,16 @@ void DeltaCompression::archiveBlocks(const BlockFilter& to_archive) {
     }
   }
 
-  // TODO(nathan) check that this can be removed
   // Mark vertices that can be archived by checking pending faces for archive
-  const auto boundary_threshold = 0;
   for (const auto& idx : to_erase) {
     const auto& block_info = block_info_map_[idx];
     for (const auto& face : block_info.faces) {
-      markBoundaryVertices(face, boundary_threshold, pending_vertices);
+      markBoundaryVertices(face, pending_vertices);
     }
   }
 
   for (const auto& face : archived_faces_) {
-    markBoundaryVertices(face, boundary_threshold, pending_vertices);
+    markBoundaryVertices(face, pending_vertices);
   }
 
   // Sweep archived vertices
