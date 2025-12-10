@@ -9,6 +9,29 @@ inline traits::Face offsetFace(const traits::Face& face, size_t offset) {
   return {face[0] + offset, face[1] + offset, face[2] + offset};
 }
 
+template <typename Vertices, typename Faces>
+MeshDelta::Ptr MeshDelta::fromMesh(const Vertices& vertices, const Faces& faces) {
+  auto delta = std::make_shared<MeshDelta>();
+  const auto num_vertices = traits::num_vertices(vertices);
+  for (size_t i = 0; i < num_vertices; ++i) {
+    traits::VertexTraits traits;
+    const auto pos = traits::get_vertex(vertices, i, &traits);
+    delta->addVertex(pos, &traits);
+  }
+
+  const auto num_faces = traits::num_faces(faces);
+  for (size_t i = 0; i < num_faces; ++i) {
+    delta->face_updates_.push_back(traits::get_face(faces, i));
+  }
+
+  return delta;
+}
+
+template <typename Mesh>
+MeshDelta::Ptr MeshDelta::fromMesh(const Mesh& mesh) {
+  return fromMesh(mesh, mesh);
+}
+
 template <template <typename T> typename ContainerT>
 void MeshDelta::updateIndices(ContainerT<size_t>& indices, size_t num_archived) const {
   auto iter = indices.begin();
@@ -53,6 +76,21 @@ ContainerT<size_t> MeshDelta::remapIndices(const ContainerT<size_t>& indices,
   }
 
   return to_return;
+}
+
+template <typename Mesh>
+size_t MeshDelta::updateMesh(Mesh& mesh, const Eigen::Isometry3f* transform) const {
+  // dispatch for types implementing faces and vertices adl api
+  return updateMesh(mesh, mesh, transform);
+}
+
+template <typename Vertices, typename Faces>
+size_t MeshDelta::updateMesh(Vertices& vertices,
+                             Faces& faces,
+                             const Eigen::Isometry3f* transform) const {
+  const auto offset = updateVertices<Vertices>(vertices, transform);
+  updateFaces<Faces>(faces, offset);
+  return offset + num_archived_vertices_;
 }
 
 template <typename Vertices>
@@ -101,43 +139,6 @@ void MeshDelta::updateFaces(Faces& faces, size_t vertex_offset) const {
     traits::set_face(faces, face_idx, offsetFace(face, vertex_offset));
     ++face_idx;
   }
-}
-
-template <typename Vertices, typename Faces>
-void MeshDelta::updateMesh(Vertices& vertices,
-                           Faces& faces,
-                           const Eigen::Isometry3f* transform) const {
-  const auto offset = updateVertices<Vertices>(vertices, transform);
-  updateFaces<Faces>(faces, offset);
-}
-
-template <typename Mesh>
-void MeshDelta::updateMesh(Mesh& mesh, const Eigen::Isometry3f* transform) const {
-  // dispatch for types implementing faces and vertices adl api
-  updateMesh(mesh, mesh, transform);
-}
-
-template <typename Vertices, typename Faces>
-MeshDelta::Ptr MeshDelta::fromMesh(const Vertices& vertices, const Faces& faces) {
-  auto delta = std::make_shared<MeshDelta>();
-  const auto num_vertices = traits::num_vertices(vertices);
-  for (size_t i = 0; i < num_vertices; ++i) {
-    traits::VertexTraits traits;
-    const auto pos = traits::get_vertex(vertices, i, &traits);
-    delta->addVertex(pos, &traits);
-  }
-
-  const auto num_faces = traits::num_faces(faces);
-  for (size_t i = 0; i < num_faces; ++i) {
-    delta->face_updates_.push_back(traits::get_face(faces, i));
-  }
-
-  return delta;
-}
-
-template <typename Mesh>
-MeshDelta::Ptr MeshDelta::fromMesh(const Mesh& mesh) {
-  return fromMesh(mesh, mesh);
 }
 
 }  // namespace kimera_pgmo
