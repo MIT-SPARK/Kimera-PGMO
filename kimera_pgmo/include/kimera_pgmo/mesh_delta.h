@@ -1,4 +1,5 @@
 #pragma once
+#include <list>
 #include <map>
 #include <memory>
 #include <vector>
@@ -39,8 +40,11 @@ class MeshDelta {
   const Vertex& getVertex(size_t index) const;
   const Face& getFace(size_t index) const;
 
-  size_t getLocalIndex(size_t index) const;
-  size_t getGlobalIndex(size_t index) const;
+  template <template <typename T> typename ContainerT>
+  void updateIndices(ContainerT<size_t>& indices, size_t num_archived) const;
+
+  template <template <typename T> typename ContainerT>
+  ContainerT<size_t> remapIndices(const ContainerT<size_t>&, size_t num_archived) const;
 
   template <typename Mesh>
   static MeshDelta::Ptr fromMesh(const Mesh& mesh);

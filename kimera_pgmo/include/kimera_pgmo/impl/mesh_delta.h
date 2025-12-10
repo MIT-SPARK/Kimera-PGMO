@@ -9,9 +9,55 @@ inline traits::Face offsetFace(const traits::Face& face, size_t offset) {
   return {face[0] + offset, face[1] + offset, face[2] + offset};
 }
 
+template <template <typename T> typename ContainerT>
+void MeshDelta::updateIndices(ContainerT<size_t>& indices, size_t num_archived) const {
+  auto iter = indices.begin();
+  while (iter != indices.end()) {
+    if (*iter < num_archived) {
+      ++iter;
+      continue;
+    }
+
+    // TODO(nathan) this offset might not be correct
+    const auto local_idx = *iter - num_archived;
+    auto remap = prev_to_curr_.find(local_idx);
+    if (remap == prev_to_curr_.end()) {
+      // deleted vertices won't be in remapping
+      iter = indices.erase(iter);
+      continue;
+    }
+
+    *iter = remap->second + num_archived;
+    ++iter;
+  }
+}
+
+template <template <typename T> typename ContainerT>
+ContainerT<size_t> MeshDelta::remapIndices(const ContainerT<size_t>& indices,
+                                           size_t num_archived) const {
+  ContainerT<size_t> to_return;
+  for (const auto global_idx : indices) {
+    if (global_idx < num_archived) {
+      to_return.push_back(global_idx);
+      continue;
+    }
+
+    const auto local_idx = global_idx - num_archived;
+    auto remap = prev_to_curr_.find(local_idx);
+    if (remap == prev_to_curr_.end()) {
+      // deleted vertices won't be in remapping
+      continue;
+    }
+
+    to_return.push_back(remap->second + num_archived);
+  }
+
+  return to_return;
+}
+
 template <typename Vertices>
 size_t MeshDelta::updateVertices(Vertices& vertices,
-                               const Eigen::Isometry3f* transform) const {
+                                 const Eigen::Isometry3f* transform) const {
   const auto curr_size = traits::num_vertices(vertices);
   if (curr_size < info.prev_active_vertices) {
     throw std::logic_error("Invalid target vertices!");
