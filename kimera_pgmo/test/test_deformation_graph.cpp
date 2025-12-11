@@ -82,7 +82,7 @@ void MeshToEdgesAndNodes(const pcl::PolygonMesh& mesh,
   std::iota(std::begin(mesh_indices), std::end(mesh_indices), 0);
 
   Graph graph_struct;
-  std::vector<Edge> graph_mesh_edges =
+  const auto graph_mesh_edges =
       graph_struct.addPointsAndSurfaces(mesh_indices, mesh.polygons);
 
   for (auto i : mesh_indices) {
@@ -91,9 +91,8 @@ void MeshToEdgesAndNodes(const pcl::PolygonMesh& mesh,
     node_stamps->insert({gtsam::Symbol(prefix, i), 0});
   }
 
-  for (auto e : graph_mesh_edges) {
-    mesh_edges->push_back(std::pair<gtsam::Key, gtsam::Key>(
-        gtsam::Symbol(prefix, e.first), gtsam::Symbol(prefix, e.second)));
+  for (const auto& [v1, v2] : graph_mesh_edges) {
+    mesh_edges->push_back({gtsam::Symbol(prefix, v1), gtsam::Symbol(prefix, v2)});
   }
 }
 
@@ -357,7 +356,7 @@ TEST(TestDeformationGraph, updateMesh) {
   DeformationEdgeFactor factor = *cast_factor<DeformationEdgeFactor>(factors->at(0));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor.measurement()));
 
-  Vertices new_node_valences{0, 2};
+  std::vector<uint64_t> new_node_valences{0, 2};
   graph.processNewNode(gtsam::Symbol('a', 0),
                        gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
                        false);
@@ -375,7 +374,7 @@ TEST(TestDeformationGraph, updateMesh) {
   EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor6.front());
   EXPECT_EQ(gtsam::Symbol('v', 0).key(), factor6.back());
 
-  Vertices new_node_valences_2{2};
+  std::vector<uint64_t> new_node_valences_2{2};
   graph.processNewNode(gtsam::Symbol('a', 1),
                        gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
                        false);
@@ -410,7 +409,7 @@ TEST(TestDeformationGraph, addNodeMeasurements) {
     simple_mesh_inds.push_back(-1);
   }
 
-  Vertices new_node_valences{0, 2};
+  std::vector<uint64_t> new_node_valences{0, 2};
   graph.processNewNode(gtsam::Symbol('a', 0),
                        gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)),
                        false);
@@ -466,7 +465,7 @@ TEST(TestDeformationGraph, removePriorsWithPrefix) {
     simple_mesh_inds.push_back(-1);
   }
 
-  Vertices new_node_valences{0, 2};
+  std::vector<uint64_t> new_node_valences{0, 2};
   graph.processNewNode(gtsam::Symbol('a', 0),
                        gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)),
                        false);
@@ -535,7 +534,7 @@ TEST(TestDeformationGraph, processNewBetween) {
   std::vector<int> original_mesh_inds;
   SetUpOriginalMesh(original_mesh, &original_mesh_stamps, &original_mesh_inds);
 
-  Vertices new_node_valences{0, 2};
+  std::vector<uint64_t> new_node_valences{0, 2};
   graph.processNewNode(
       gtsam::Symbol('a', 0), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), true);
   graph.processNewNode(gtsam::Symbol('a', 1),
@@ -587,7 +586,7 @@ TEST(TestDeformationGraph, processNewBetween) {
                           gtsam::Symbol('a', 2),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)));
 
-  Vertices new_node_valences_2{2};
+  std::vector<uint64_t> new_node_valences_2{2};
   graph.processNodeValence(gtsam::Symbol('a', 2), new_node_valences_2, 'v');
 
   OptimizeOnce(graph);
@@ -623,7 +622,7 @@ TEST(TestDeformationGraph, addTemporary) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
 
-  Vertices new_node_valences{0, 2};
+  std::vector<uint64_t> new_node_valences{0, 2};
   graph.processNewNode(
       gtsam::Symbol('a', 0), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), true);
   graph.processNewNode(gtsam::Symbol('a', 1),
@@ -641,7 +640,7 @@ TEST(TestDeformationGraph, addTemporary) {
                           gtsam::Symbol('a', 2),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)));
 
-  Vertices new_node_valences_2{2};
+  std::vector<uint64_t> new_node_valences_2{2};
   graph.processNodeValence(gtsam::Symbol('a', 2), new_node_valences_2, 'v');
 
   // Check added factors
@@ -666,7 +665,7 @@ TEST(TestDeformationGraph, addTemporary) {
   graph.processNewTempBetween(gtsam::Symbol('p', 0),
                               gtsam::Symbol('p', 1),
                               gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 1)));
-  Vertices temp_node_valences{1, 2};
+  std::vector<uint64_t> temp_node_valences{1, 2};
   graph.processNodeValence(gtsam::Symbol('p', 0), temp_node_valences, 'v', 1e-4, true);
 
   // Check added factors
@@ -691,7 +690,7 @@ TEST(TestDeformationGraph, addTemporary) {
 
   // Re-ad temporary nodes and edges
   graph.processNewTempNode(gtsam::Symbol('p', 0), gtsam::Pose3(), false);
-  Vertices temp_node_valences_2{0, 1, 2};
+  std::vector<uint64_t> temp_node_valences_2{0, 1, 2};
   graph.processNodeValence(
       gtsam::Symbol('p', 0), temp_node_valences_2, 'v', 1e-4, true);
 
@@ -790,7 +789,7 @@ TEST(TestDeformationGraph, saveAndLoad) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
 
-  Vertices new_node_valences{0, 2};
+  std::vector<uint64_t> new_node_valences{0, 2};
   graph.processNewNode(
       gtsam::Symbol('a', 0), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), true);
   graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
@@ -809,7 +808,7 @@ TEST(TestDeformationGraph, saveAndLoad) {
                           gtsam::Symbol('a', 2),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)));
 
-  Vertices new_node_valences_2{2};
+  std::vector<uint64_t> new_node_valences_2{2};
   graph.processNodeValence(gtsam::Symbol('a', 2), new_node_valences_2, 'v');
 
   // Add temporary nodes and edges
@@ -820,7 +819,7 @@ TEST(TestDeformationGraph, saveAndLoad) {
   graph.processNewTempBetween(gtsam::Symbol('p', 0),
                               gtsam::Symbol('p', 1),
                               gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 1)));
-  Vertices temp_node_valences{1, 2};
+  std::vector<uint64_t> temp_node_valences{1, 2};
   graph.processNodeValence(gtsam::Symbol('p', 0), temp_node_valences, 'v', 1e-4, true);
 
   auto values = graph.getValues();
@@ -933,7 +932,7 @@ TEST(TestDeformationGraph, processPoseMeshGraph) {
   std::vector<int> original_mesh_inds;
   SetUpOriginalMesh(original_mesh, &original_mesh_stamps, &original_mesh_inds);
 
-  Vertices new_node_valences{0, 2};
+  std::vector<uint64_t> new_node_valences{0, 2};
   graph.processNewNode(
       gtsam::Symbol('a', 0), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), true);
   graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');

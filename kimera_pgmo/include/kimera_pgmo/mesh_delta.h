@@ -11,11 +11,7 @@ class MeshDelta {
  public:
   using Ptr = std::unique_ptr<MeshDelta>;
   using Face = traits::Face;
-  struct Vertex {
-    traits::Pos pos = traits::Pos::Zero();
-    traits::VertexTraits traits;
-  };
-
+  using Vertex = traits::Vertex;
   struct TrackingInfo {
     uint16_t sequence_number = 0;
     size_t prev_active_vertices = 0;

@@ -13,7 +13,8 @@
 #include <pose_graph_tools/pose_graph.h>
 
 #include "kimera_pgmo/deformation_graph.h"
-#include "utils/logging.h"
+#include "kimera_pgmo/utils/common_functions.h"
+#include "kimera_pgmo/utils/logging.h"
 
 namespace kimera_pgmo {
 
@@ -41,9 +42,8 @@ class DeformationEdgeFactorToPose4DoF
                                   gtsam::Key node2_key,
                                   const gtsam::Point3& measurement,
                                   gtsam::SharedNoiseModel model)
-      : gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose4DoF>(model,
-                                                                node1_key,
-                                                                node2_key),
+      : gtsam::NoiseModelFactor2<gtsam::Pose3, gtsam::Pose4DoF>(
+            model, node1_key, node2_key),
         measurement_(measurement) {}
 
   virtual ~DeformationEdgeFactorToPose4DoF() {}
@@ -100,9 +100,8 @@ class DeformationEdgeFactorFromPose4DoF
                                     gtsam::Key node2_key,
                                     const gtsam::Point3& measurement,
                                     gtsam::SharedNoiseModel model)
-      : gtsam::NoiseModelFactor2<gtsam::Pose4DoF, gtsam::Pose3>(model,
-                                                                node1_key,
-                                                                node2_key),
+      : gtsam::NoiseModelFactor2<gtsam::Pose4DoF, gtsam::Pose3>(
+            model, node1_key, node2_key),
         measurement_(measurement) {}
 
   virtual ~DeformationEdgeFactorFromPose4DoF() {}

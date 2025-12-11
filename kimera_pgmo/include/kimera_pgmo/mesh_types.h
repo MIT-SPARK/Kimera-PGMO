@@ -62,6 +62,11 @@ struct VertexTraits {
   Timestamp first_seen_stamp = 0;
 };
 
+struct Vertex {
+  traits::Pos pos = traits::Pos::Zero();
+  traits::VertexTraits traits;
+};
+
 }  // namespace traits
 
 using IndexMapping = std::unordered_map<size_t, size_t>;

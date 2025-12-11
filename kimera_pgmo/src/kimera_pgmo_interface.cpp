@@ -189,8 +189,8 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
   for (const auto& pg_edge : msg.edges) {
     // Get edge information
     const gtsam::Pose3 measure(pg_edge.pose.matrix());
-    const Vertex& prev_node = pg_edge.key_from;
-    const Vertex& current_node = pg_edge.key_to;
+    const auto& prev_node = pg_edge.key_from;
+    const auto& current_node = pg_edge.key_to;
 
     size_t robot_from = pg_edge.robot_from;
     size_t robot_to = pg_edge.robot_to;

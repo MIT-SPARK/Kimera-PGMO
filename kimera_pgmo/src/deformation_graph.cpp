@@ -14,11 +14,10 @@
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/common/io.h>
 
-#include <algorithm>
 #include <cmath>
-#include <numeric>
 
 #include "kimera_pgmo/pcl_mesh_traits.h"
+#include "kimera_pgmo/utils/common_functions.h"
 
 using pcl::PolygonMesh;
 
@@ -144,12 +143,12 @@ void DeformationGraph::processMeshGraph(const pose_graph_tools::PoseGraph& mesh_
 }
 
 void DeformationGraph::processNodeValence(const gtsam::Key& key,
-                                          const Vertices& valences,
+                                          const std::vector<uint64_t>& valences,
                                           const char& valence_prefix,
                                           double variance,
                                           bool temp) {
   // Add the consistency factors
-  for (Vertex v : valences) {
+  for (const auto& v : valences) {
     const gtsam::Symbol vertex(valence_prefix, v);
 
     gtsam::Pose3 node_pose;
@@ -190,20 +189,20 @@ bool DeformationGraph::checkNodeValence(const gtsam::Key& key,
 
 void DeformationGraph::processBetweenAsMeshConnections(
     const gtsam::Pose3& w_T_source,
-    const Vertices& source,
+    const std::vector<uint64_t>& source,
     const gtsam::Pose3& w_T_dest,
-    const Vertices& dest,
+    const std::vector<uint64_t>& dest,
     const gtsam::Pose3& source_T_dest,
     const char& source_prefix,
     const char& dest_prefix,
     double variance,
     bool temp,
     bool known_inliers) {
-  for (const Vertex& s : source) {
+  for (const auto& s : source) {
     const gtsam::Symbol vertex_s(source_prefix, s);
     auto w_T_s = gtsam::Pose3(gtsam::Rot3(), vertex_positions_[source_prefix].at(s));
     auto s_T_source = w_T_s.between(w_T_source);
-    for (const Vertex& d : dest) {
+    for (const auto& d : dest) {
       const gtsam::Symbol vertex_d(dest_prefix, d);
       // Do not add edge to self
       if (vertex_s == vertex_d) {
@@ -623,7 +622,7 @@ void DeformationGraph::processNewTempNodesValences(const NodeValenceInfoList& in
     }
 
     // Add the consistency factors
-    for (Vertex v : factor.valence) {
+    for (const auto v : factor.valence) {
       const gtsam::Symbol vertex(factor.valence_prefix, v);
 
       gtsam::Pose3 node_pose;
@@ -1049,7 +1048,9 @@ void DeformationGraph::clearMeshNodesOnly() {
   // Remove factors involving mesh vertices
   auto new_factors = std::make_shared<gtsam::NonlinearFactorGraph>();
   for (const auto& factor : *nfg_) {
-    if (!factor) { continue; }
+    if (!factor) {
+      continue;
+    }
 
     bool involves_mesh = false;
     for (const auto& key : factor->keys()) {
@@ -1070,7 +1071,9 @@ void DeformationGraph::clearMeshNodesOnly() {
   gtsam::NonlinearFactorGraph new_temp_factors;
   for (size_t i = 0; i < temp_nfg_->size(); ++i) {
     auto factor = (*temp_nfg_)[i];
-    if (!factor) { continue; }
+    if (!factor) {
+      continue;
+    }
 
     bool involves_mesh = false;
     for (const auto& key : factor->keys()) {

@@ -15,16 +15,8 @@ uint64[] previous_indices
 # remapping information (current index)
 uint64[] current_indices
 
-# vertex positions
-geometry_msgs/Point[] vertex_updates
-# vertex colors (optional)
-std_msgs/ColorRGBA[] color_updates
-# vertex stamps (optional)
-uint64[] stamp_updates
-# vertex labels (optional)
-uint32[] label_updates
-# vertex first seen stamps (optional)
-uint64[] first_seen_stamp_updates
+# vertices
+kimera_pgmo_msgs/Vertex[] vertex_updates
 
 # active face indices
 kimera_pgmo_msgs/TriangleIndices[] face_updates

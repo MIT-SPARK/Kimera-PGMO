@@ -15,13 +15,13 @@
 #include <pcl/point_types.h>
 #include <pose_graph_tools/pose_graph.h>
 
+#include <cstdint>
 #include <map>
 #include <unordered_map>
 #include <vector>
 
 #include "kimera_pgmo/mesh_deformation.h"
 #include "kimera_pgmo/pcl_mesh_traits.h"
-#include "kimera_pgmo/utils/common_functions.h"
 #include "kimera_pgmo/utils/common_structs.h"
 #include "kimera_pgmo/utils/logging.h"
 #include "kimera_pgmo/utils/range_generator.h"
@@ -44,7 +44,7 @@ struct NodeValenceInfo {
   char valence_prefix;
   gtsam::Key key;
   gtsam::Pose3 pose;
-  Vertices valence;
+  std::vector<size_t> valence;
 };
 
 using NodeValenceInfoList = std::vector<NodeValenceInfo>;
@@ -254,7 +254,7 @@ class DeformationGraph {
    *  - variance: covariance of the deformation graph edges
    */
   void processNodeValence(const gtsam::Key& key,
-                          const Vertices& valences,
+                          const std::vector<uint64_t>& valences,
                           const char& valence_prefix,
                           double variance = 1e-4,
                           bool temp = false);
@@ -286,9 +286,9 @@ class DeformationGraph {
    *  - variance: covariance of the deformation graph edges
    */
   void processBetweenAsMeshConnections(const gtsam::Pose3& source_pose,
-                                       const Vertices& source,
+                                       const std::vector<uint64_t>& source,
                                        const gtsam::Pose3& dest_pose,
-                                       const Vertices& dest,
+                                       const std::vector<uint64_t>& dest,
                                        const gtsam::Pose3& source_T_dest,
                                        const char& source_prefix,
                                        const char& dest_prefix,
