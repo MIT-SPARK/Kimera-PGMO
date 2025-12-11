@@ -197,6 +197,7 @@ class KimeraPgmoInterface {
   bool optimizeFullMesh(size_t robot_id,
                         const pcl::PolygonMesh& input_mesh,
                         const std::vector<Timestamp>& mesh_vertex_stamps,
+                        const std::vector<int>& mesh_vertex_graph_inds,
                         pcl::PolygonMesh& optimized_mesh,
                         bool do_optimize);
 

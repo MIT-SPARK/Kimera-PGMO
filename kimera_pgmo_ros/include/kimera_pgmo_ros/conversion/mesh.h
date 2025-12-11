@@ -40,43 +40,7 @@ void fillMsg(size_t robot_id,
              const FacesT& faces,
              Mesh& msg,
              const OptHeader& header = std::nullopt,
-             const IndexMapping* graph_indices = nullptr);
-
-template <typename MeshT>
-void fillMsg(size_t robot_id,
-             const MeshT& mesh,
-             Mesh& msg,
-             const OptHeader& header = std::nullopt,
              const IndexMapping* graph_indices = nullptr) {
-  fillMsg(robot_id, mesh, mesh, msg, header, graph_indices);
-}
-
-template <typename Vertices, typename Faces>
-Mesh::UniquePtr toMsg(size_t robot_id,
-                      const Vertices& vertices,
-                      const Faces& faces,
-                      const OptHeader& header = std::nullopt,
-                      const IndexMapping* graph_indices = nullptr) {
-  auto msg = std::make_unique<Mesh>();
-  fillMsg(robot_id, vertices, faces, *msg, header, graph_indices);
-  return msg;
-}
-
-template <typename MeshT>
-Mesh::UniquePtr toMsg(size_t robot_id,
-                      const MeshT& mesh,
-                      const OptHeader& header = std::nullopt,
-                      const IndexMapping* graph_indices = nullptr) {
-  return toMsg(robot_id, mesh, mesh, header, graph_indices);
-}
-
-template <typename Vertices, typename Faces>
-void fillMsg(size_t robot_id,
-             const Vertices& vertices,
-             const Faces& faces,
-             kimera_pgmo_msgs::msg::Mesh& msg,
-             const std::optional<std_msgs::msg::Header>& header,
-             const IndexMapping* graph_indices) {
   // a little inefficient, but easier than manually clearing everything
   msg = kimera_pgmo_msgs::msg::Mesh();
   msg.ns = std::to_string(robot_id);
@@ -106,24 +70,18 @@ void fillMsg(size_t robot_id,
   }
 
   if (graph_indices) {
-    msg.graph_indices = *graph_indices;
+    msg.graph_indices = std::vector<int>(graph_indices->size(), -1);
+    for (const auto& [idx, graph_idx] : *graph_indices) {
+      msg.graph_indices.at(idx) = graph_idx;
+    }
   }
 }
 
-template <typename Vertices, typename Faces>
-void fillFromMsg(const kimera_pgmo_msgs::msg::Mesh& msg,
-                 Vertices& vertices,
-                 Faces& faces);
-
-template <typename Mesh>
-void fillFromMsg(const kimera_pgmo_msgs::msg::Mesh& msg, Mesh& mesh) {
-  fillFromMsg(msg, mesh, mesh);
-}
-
-template <typename Vertices, typename Faces>
-void fillFromMsg(const kimera_pgmo_msgs::msg::Mesh& msg,
-                 Vertices& vertices,
-                 Faces& faces) {
+template <typename VerticesT, typename FacesT>
+void fillFromMsg(const Mesh& msg,
+                 VerticesT& vertices,
+                 FacesT& faces,
+                 std::vector<int>* graph_indices = nullptr) {
   const auto num_vertices = msg.vertices.size();
   if (num_vertices == 0) {
     return;
@@ -140,6 +98,45 @@ void fillFromMsg(const kimera_pgmo_msgs::msg::Mesh& msg,
   for (size_t i = 0; i < num_faces; ++i) {
     traits::set_face(faces, i, from_ros(msg.triangles[i]));
   }
+
+  if (graph_indices) {
+    *graph_indices = msg.graph_indices;
+  }
+}
+
+template <typename MeshT>
+void fillMsg(size_t robot_id,
+             const MeshT& mesh,
+             Mesh& msg,
+             const OptHeader& header = std::nullopt,
+             const IndexMapping* graph_indices = nullptr) {
+  fillMsg(robot_id, mesh, mesh, msg, header, graph_indices);
+}
+
+template <typename Vertices, typename Faces>
+Mesh::UniquePtr toMsg(size_t robot_id,
+                      const Vertices& vertices,
+                      const Faces& faces,
+                      const OptHeader& header = std::nullopt,
+                      const IndexMapping* graph_indices = nullptr) {
+  auto msg = std::make_unique<Mesh>();
+  fillMsg(robot_id, vertices, faces, *msg, header, graph_indices);
+  return msg;
+}
+
+template <typename MeshT>
+Mesh::UniquePtr toMsg(size_t robot_id,
+                      const MeshT& mesh,
+                      const OptHeader& header = std::nullopt,
+                      const IndexMapping* graph_indices = nullptr) {
+  return toMsg(robot_id, mesh, mesh, header, graph_indices);
+}
+
+template <typename MeshT>
+void fillFromMsg(const Mesh& msg,
+                 MeshT& mesh,
+                 std::vector<int>* graph_indices = nullptr) {
+  fillFromMsg(msg, mesh, mesh, graph_indices);
 }
 
 /*! \brief Convert a mesh to a pgmo mesh msg
@@ -149,10 +146,11 @@ void fillFromMsg(const kimera_pgmo_msgs::msg::Mesh& msg,
  *  - msg: output message
  *  - header: optional header to use
  */
-MeshMsg::UniquePtr toMsg(size_t robot_id,
-                         const pcl::PolygonMesh& mesh,
-                         const std::vector<traits::Timestamp>& stamps,
-                         const std::string& frame_id);
+Mesh::UniquePtr toMsg(size_t robot_id,
+                      const pcl::PolygonMesh& mesh,
+                      const std::vector<traits::Timestamp>& stamps,
+                      const std::string& frame_id,
+                      const IndexMapping* index_mapping = nullptr);
 
 /*! \brief Convert a mesh to a pgmo mesh msg
  *  - robot_id: robot id
@@ -162,13 +160,15 @@ MeshMsg::UniquePtr toMsg(size_t robot_id,
  *  - index_mapping: optional mapping to vertices in the deformation graph
  *  - header: optional header to use
  */
-MeshMsg::UniquePtr toMsg(size_t robot_id,
-                         const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
-                         const std::vector<pcl::Vertices>& faces,
-                         const std::vector<traits::Timestamp>& stamps,
-                         const std::string& frame_id);
+Mesh::UniquePtr toMsg(size_t robot_id,
+                      const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
+                      const std::vector<pcl::Vertices>& faces,
+                      const std::vector<traits::Timestamp>& stamps,
+                      const std::string& frame_id,
+                      const IndexMapping* index_mapping = nullptr);
 
-pcl::PolygonMesh fromMsg(const kimera_pgmo_msgs::msg::Mesh& mesh_msg,
-                         std::vector<traits::Timestamp>* vertex_stamps = nullptr);
+pcl::PolygonMesh fromMsg(const Mesh& mesh_msg,
+                         std::vector<traits::Timestamp>* vertex_stamps = nullptr,
+                         std::vector<int>* vertex_graph_indices = nullptr);
 
 }  // namespace kimera_pgmo::conversions
