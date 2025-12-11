@@ -93,9 +93,8 @@ bool KimeraPgmoInterface::loadGraphAndMesh(size_t robot_id,
                   << "vertices in deformation graph and " << num_loop_closures_
                   << " loop closures.";
 
-  std::vector<int> fake_indices(mesh_vertex_stamps->size(), 0);
   return optimizeFullMesh(
-      robot_id, *mesh, *mesh_vertex_stamps, fake_indices, *optimized_mesh, do_optimize);
+      robot_id, *mesh, *mesh_vertex_stamps, *optimized_mesh, do_optimize);
 }
 
 Path KimeraPgmoInterface::getOptimizedTrajectory(size_t robot_id) const {
@@ -570,7 +569,6 @@ bool KimeraPgmoInterface::optimizeFullMesh(
     size_t robot_id,
     const pcl::PolygonMesh& input_mesh,
     const std::vector<Timestamp>& mesh_vertex_stamps,
-    const std::vector<int> mesh_vertex_graph_inds,
     pcl::PolygonMesh& optimized_mesh,
     bool do_optimize) {
   // check if empty
@@ -584,6 +582,7 @@ bool KimeraPgmoInterface::optimizeFullMesh(
       optimize();
     }
 
+    std::vector<int> mesh_vertex_graph_inds;
     optimized_mesh = deformation_graph_->deformMesh(input_mesh,
                                                     mesh_vertex_stamps,
                                                     mesh_vertex_graph_inds,

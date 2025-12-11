@@ -1,9 +1,7 @@
-# This message encodes Triangle mesh message
-
 std_msgs/Header header
-string ns # namespace of the mesh used to identify the corresponding robot and visual. Separating hierarchical namespaces with '/' is supported (e.g. robot0/mesh123)
-kimera_pgmo_msgs/TriangleIndices[] triangles # list of triangles; the index values refer to positions in vertices (and vertex_normals, if given)
-geometry_msgs/Point[] vertices # the actual vertices that make up the mesh
-builtin_interfaces/Time[] vertex_stamps # time stamps associated to each of the vertices
-int32[] vertex_indices # index of mesh graph vertex associated to each of the vertices
-std_msgs/ColorRGBA[] vertex_colors
+# namespace of the mesh used to identify the corresponding robot and visual. Separating hierarchical namespaces with '/' is supported (e.g. robot0/mesh123)
+string ns
+# the actual vertices that make up the mesh
+kimera_pgmo_msgs/Vertex[] vertices
+# list of triangles; the index values refer to positions in vertices
+kimera_pgmo_msgs/TriangleIndices[] triangles

@@ -24,8 +24,12 @@ find_package(visualization_msgs REQUIRED)
 
 add_library(
   ${PROJECT_NAME}
-  src/conversion/gtsam.cpp src/kimera_pgmo.cpp src/conversion/mesh.cpp
-  src/conversion/mesh_delta.cpp src/mesh_frontend.cpp
+  src/conversion/gtsam.cpp
+  src/kimera_pgmo.cpp
+  src/conversion/mesh.cpp
+  src/conversion/mesh_delta.cpp
+  src/conversion/mesh_types.cpp
+  src/mesh_frontend.cpp
   src/visualization_functions.cpp)
 target_include_directories(
   ${PROJECT_NAME}

@@ -10,8 +10,6 @@
 #include <OgreSceneManager.h>
 #include <OgreSceneNode.h>
 
-#include <stdexcept>
-
 #include <rviz_common/logging.hpp>
 
 #include <Eigen/Dense>
@@ -116,23 +114,23 @@ void MeshVisual::setMessage(const Mesh& mesh) {
         triangle[2] >= mesh.vertices.size()) {
       continue;
     }
+
     mesh_->triangle(triangle[0], triangle[1], triangle[2]);
     Eigen::Vector3f p1;
-    fillVec(mesh.vertices[triangle[0]], p1);
+    fillVec(mesh.vertices[triangle[0]].pos, p1);
     Eigen::Vector3f p2;
-    fillVec(mesh.vertices[triangle[1]], p2);
+    fillVec(mesh.vertices[triangle[1]].pos, p2);
     Eigen::Vector3f p3;
-    fillVec(mesh.vertices[triangle[2]], p3);
+    fillVec(mesh.vertices[triangle[2]].pos, p3);
     Eigen::Vector3f n = ((p2 - p1).cross(p3 - p1)).normalized();
     updateNormal(n, triangle[0], normals);
     updateNormal(n, triangle[1], normals);
     updateNormal(n, triangle[2], normals);
   }
 
-  bool has_colors = mesh.vertices.size() == mesh.vertex_colors.size();
   for (size_t i = 0; i < mesh.vertices.size(); ++i) {
     const auto& p = mesh.vertices[i];
-    mesh_->position(p.x, p.y, p.z);
+    mesh_->position(p.pos.x, p.pos.y, p.pos.z);
     const Eigen::Vector4f n = normals.block<4, 1>(0, i);
     if (n[3] == 0.0f) {
       // not touched by any faces so default normal doesn't matter
@@ -141,9 +139,9 @@ void MeshVisual::setMessage(const Mesh& mesh) {
       mesh_->normal(n.x() / n[3], n.y() / n[3], n.z() / n[3]);
     }
 
-    if (has_colors) {
-      const auto& c = mesh.vertex_colors[i];
-      mesh_->colour(c.r, c.g, c.b, c.a);
+    // TODO(nathan) this is technically guaranteed to be true for all vertices, but...
+    if (p.has_color) {
+      mesh_->colour(p.color.r, p.color.g, p.color.b, p.color.a);
     }
   }
 

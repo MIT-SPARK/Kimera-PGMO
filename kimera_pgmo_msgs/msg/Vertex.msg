@@ -19,4 +19,4 @@ uint32 label 0
 # whether or not the vertex has a first seen timestamp
 bool has_first_seen_stamp false
 # timestamp the vertex was first seen (optional)
-uint64[] first_seen_stamp_updates
+uint64 first_seen_stamp 0

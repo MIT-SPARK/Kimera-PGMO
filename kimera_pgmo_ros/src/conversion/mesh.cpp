@@ -5,32 +5,30 @@
  */
 #include "kimera_pgmo_ros/conversion/mesh.h"
 
+#include <kimera_pgmo/mesh_types.h>
 #include <kimera_pgmo/pcl_mesh_traits.h>
 #include <pcl/conversions.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
+
+#include <rclcpp/time.hpp>
 
 namespace kimera_pgmo::conversions {
 
-using kimera_pgmo_msgs::msg::Mesh;
-using kimera_pgmo_msgs::msg::TriangleIndices;
+using traits::Timestamp;
 
-Mesh::UniquePtr toMsg(size_t robot_id,
-                      const pcl::PolygonMesh& mesh,
-                      const std::vector<Timestamp>& stamps,
-                      const std::string& frame_id,
-                      const IndexMapping* index_mapping) {
+MeshMsg::UniquePtr toMsg(size_t robot_id,
+                         const pcl::PolygonMesh& mesh,
+                         const std::vector<Timestamp>& stamps,
+                         const std::string& frame_id) {
   pcl::PointCloud<pcl::PointXYZRGBA> cloud;
   pcl::fromPCLPointCloud2(mesh.cloud, cloud);
-  return toMsg(robot_id, cloud, mesh.polygons, stamps, frame_id, index_mapping);
+  return toMsg(robot_id, cloud, mesh.polygons, stamps, frame_id);
 }
 
-Mesh::UniquePtr toMsg(size_t robot_id,
-                      const pcl::PointCloud<pcl::PointXYZRGBA>& cloud,
-                      const std::vector<pcl::Vertices>& faces,
-                      const std::vector<Timestamp>& stamps,
-                      const std::string& frame_id,
-                      const IndexMapping* index_mapping) {
+MeshMsg::UniquePtr toMsg(size_t robot_id,
+                         const pcl::PointCloud<pcl::PointXYZRGBA>& cloud,
+                         const std::vector<pcl::Vertices>& faces,
+                         const std::vector<Timestamp>& stamps,
+                         const std::string& frame_id) {
   std_msgs::msg::Header header;
   header.frame_id = frame_id;
   if (!stamps.empty()) {
@@ -38,19 +36,17 @@ Mesh::UniquePtr toMsg(size_t robot_id,
   }
 
   ConstStampedCloud vertices{cloud, stamps};
-  return toMsg(robot_id, vertices, faces, index_mapping, header);
+  return toMsg(robot_id, vertices, faces, header);
 }
 
-pcl::PolygonMesh fromMsg(const Mesh& msg,
-                         std::vector<Timestamp>* vertex_stamps,
-                         std::vector<int>* vertex_graph_indices) {
+pcl::PolygonMesh fromMsg(const MeshMsg& msg, std::vector<Timestamp>* vertex_stamps) {
   pcl::PolygonMesh mesh;
   pcl::PointCloud<pcl::PointXYZRGBA> vertices_cloud;
   if (vertex_stamps) {
     StampedCloud vertices{vertices_cloud, *vertex_stamps};
-    fillFromMsg(msg, vertices, mesh.polygons, vertex_graph_indices);
+    fillFromMsg(msg, vertices, mesh.polygons);
   } else {
-    fillFromMsg(msg, vertices_cloud, mesh.polygons, vertex_graph_indices);
+    fillFromMsg(msg, vertices_cloud, mesh.polygons);
   }
 
   pcl::toPCLPointCloud2(vertices_cloud, mesh.cloud);

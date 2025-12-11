@@ -5,7 +5,7 @@
  */
 
 #pragma once
-#include <pcl/PolygonMesh.h>
+#include <pcl/Vertices.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pose_graph_tools/pose_graph.h>
@@ -87,12 +87,10 @@ class Graph {
   Node max_vertex_ = 0;
 };
 
-using GraphPtr = std::shared_ptr<Graph>;
-
 /*! \brief Publish the factors corresponding to the new edges added to the
  * simplified mesh / deformation graph and also the initial values (positions
  * of the new vertices added to the simplified mesh)
- *  - new_edges: new edges of type Edge (std::pair<Vertex, Vertex>)
+ *  - new_edges: new edges of type Edge (std::pair<Node, Node>)
  *  - new_indices: new vertices of type Vertex
  *  - graph_vertices: deformation graph vertices
  *  - header: current mesh header

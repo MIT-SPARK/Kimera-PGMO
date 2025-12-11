@@ -13,7 +13,6 @@
 #include <pcl/point_types.h>
 
 #include <map>
-#include <string>
 
 namespace kimera_pgmo {
 

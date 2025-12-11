@@ -7,8 +7,6 @@
 
 #include <pcl/conversions.h>
 
-#include <limits>
-
 namespace kimera_pgmo {
 
 pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,

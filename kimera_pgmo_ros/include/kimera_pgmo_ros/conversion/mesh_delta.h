@@ -6,9 +6,7 @@
 
 namespace kimera_pgmo::conversions {
 
-struct mesh_delta {
-  static void to_ros(const MeshDelta& delta, kimera_pgmo_msgs::msg::MeshDelta& msg);
-  MeshDelta::Ptr from_ros(const kimera_pgmo_msgs::msg::MeshDelta& msg);
-};
+void to_ros(const MeshDelta& delta, kimera_pgmo_msgs::msg::MeshDelta& msg);
+MeshDelta::Ptr from_ros(const kimera_pgmo_msgs::msg::MeshDelta& msg);
 
 }  // namespace kimera_pgmo::conversions
