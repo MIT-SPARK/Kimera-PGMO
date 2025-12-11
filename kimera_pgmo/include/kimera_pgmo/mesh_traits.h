@@ -7,42 +7,19 @@
 #pragma once
 #include <pcl/Vertices.h>
 
-#include <Eigen/Dense>
-#include <cstdint>
 #include <type_traits>
 
 #include "kimera_pgmo/mesh_types.h"
+#include <Eigen/Dense>
 
 namespace kimera_pgmo {
 
-struct SimpleMesh {
-  std::vector<traits::Pos> points;
-  std::vector<traits::Timestamp> stamps;
-  std::vector<traits::Face> faces;
-};
+// NOTE(nathan) SimpleMesh used to be here (potentially as a way to let the compilation
+// bottom out if there wasn't an implementation of the mesh traits for a type. Add back
+// if this is still the case)
 
-size_t pgmoNumVertices(const SimpleMesh& mesh);
-
-void pgmoResizeVertices(SimpleMesh& mesh, size_t size);
-
-traits::Pos pgmoGetVertex(const SimpleMesh& mesh,
-                          size_t i,
-                          traits::VertexTraits* traits);
-
-void pgmoSetVertex(SimpleMesh& mesh,
-                   size_t i,
-                   const traits::Pos& pos,
-                   const traits::VertexTraits& traits);
-size_t pgmoNumFaces(const SimpleMesh& mesh);
-
-void pgmoResizeFaces(SimpleMesh& mesh, size_t size);
-
-traits::Face pgmoGetFace(const SimpleMesh& mesh, size_t i);
-
-void pgmoSetFace(SimpleMesh& mesh, size_t i, const traits::Face& face);
-
-uint64_t pgmoGetVertexStamp(const SimpleMesh& mesh, size_t i);
-
+// NOTE(nathan) these traits are required BEFORE the ADL lookup is defined because the
+// container is stl
 size_t pgmoNumFaces(const std::vector<pcl::Vertices>& faces);
 
 traits::Face pgmoGetFace(const std::vector<pcl::Vertices>& faces, size_t i);
@@ -72,6 +49,13 @@ struct vertex_resize_fn {
   constexpr auto operator()(T& vertices, size_t size) const
       -> decltype(pgmoResizeVertices(vertices, size)) {
     return pgmoResizeVertices(vertices, size);
+  }
+};
+
+struct vertex_prop_fn {
+  template <typename T>
+  constexpr auto operator()(const T& v) const -> decltype(pgmoGetVertexProperties(v)) {
+    return pgmoGetVertexProperties(v);
   }
 };
 
@@ -135,6 +119,8 @@ namespace {
 constexpr const auto& pgmoNumVertices = detail::static_const<detail::vertex_size_fn>;
 constexpr const auto& pgmoResizeVertices =
     detail::static_const<detail::vertex_resize_fn>;
+constexpr const auto& pgmoGetVertexProperties =
+    detail::static_const<detail::vertex_prop_fn>;
 constexpr const auto& pgmoGetVertex = detail::static_const<detail::vertex_get_fn>;
 constexpr const auto& pgmoSetVertex = detail::static_const<detail::vertex_set_fn>;
 
@@ -158,6 +144,11 @@ size_t num_vertices(const T& vertices) {
 template <typename T>
 void resize_vertices(T& vertices, size_t size) {
   ::kimera_pgmo::traits::pgmoResizeVertices(vertices, size);
+}
+
+template <typename T>
+VertexProperties get_vertex_properties(const T& vertices) {
+  return ::kimera_pgmo::traits::pgmoGetVertexProperties(vertices);
 }
 
 template <typename T>

@@ -8,7 +8,6 @@
 #include <Eigen/Dense>
 #include <array>
 #include <cstdint>
-#include <optional>
 #include <unordered_map>
 
 namespace kimera_pgmo {
@@ -22,21 +21,27 @@ using Label = uint32_t;
 
 /**
  * @brief Struct to bundle all optional vertex traits to supplement the mandatory
- * position. Custom traits can derive from this struct and will be passed correctly
- * through pgmo.
+ * position. The mesh itself determines which of these are populated.
  * TODO(lschmid): Note that the mesh IO is hard coded to only save these traits
  * currently.
  * TODO(lschmid): Double check that internally traits are passed correctly so they could
  * in the future be truly polymorphic.
  */
 struct VertexTraits {
-  VertexTraits() = default;
-  virtual ~VertexTraits() = default;
+  Color color = {0, 0, 0, 0};
+  Timestamp stamp = 0;
+  Label label = 0;
+  Timestamp first_seen_stamp = 0;
+};
 
-  std::optional<Color> color;
-  std::optional<Timestamp> stamp;
-  std::optional<Label> label;
-  std::optional<Timestamp> first_seen_stamp;
+/**
+ * @brief Struct describing which vertex trait fields are valid
+ */
+struct VertexProperties {
+  bool has_color = false;
+  bool has_stamp = false;
+  bool has_label = false;
+  bool has_first_seen_stamp = false;
 };
 
 }  // namespace traits

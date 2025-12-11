@@ -48,12 +48,31 @@ void IOData::save(const std::string& filename) const {
       stamps_sec.push_back(t_s.count());
       stamps_nsec.push_back(t_ns.count());
     }
+
     output_file.getElement("vertex").addProperty<uint32_t>("secs", stamps_sec);
     output_file.getElement("vertex").addProperty<uint32_t>("nsecs", stamps_nsec);
   }
 
   if (!labels.empty()) {
     output_file.getElement("vertex").addProperty<uint32_t>("label", labels);
+  }
+
+  if (!first_seen_stamps.empty()) {
+    // Write vertex stamps to ply
+    std::vector<uint32_t> stamps_sec;
+    std::vector<uint32_t> stamps_nsec;
+    for (const auto vertex_ns : first_seen_stamps) {
+      auto t = std::chrono::nanoseconds(vertex_ns);
+      auto t_s = std::chrono::duration_cast<std::chrono::seconds>(t);
+      std::chrono::nanoseconds t_ns = t - t_s;
+      stamps_sec.push_back(t_s.count());
+      stamps_nsec.push_back(t_ns.count());
+    }
+
+    output_file.getElement("vertex").addProperty<uint32_t>("first_seen_secs",
+                                                           stamps_sec);
+    output_file.getElement("vertex").addProperty<uint32_t>("first_seen_nsecs",
+                                                           stamps_nsec);
   }
 
   output_file.addElement("face", faces.size());
@@ -92,6 +111,19 @@ IOData::Ptr IOData::load(const std::string& filename) {
 
   try {
     to_return->labels = ply_in.getElement("vertex").getProperty<uint32_t>("label");
+  } catch (...) {
+  }
+
+  try {
+    const auto sec =
+        ply_in.getElement("vertex").getProperty<uint32_t>("first_seen_secs");
+    const auto nsec =
+        ply_in.getElement("vertex").getProperty<uint32_t>("first_seen_nsecs");
+    assert(sec.size() == nsec.size());
+
+    for (size_t i = 0; i < sec.size(); i++) {
+      to_return->first_seen_stamps.push_back(stampFromSec(sec.at(i)) + nsec.at(i));
+    }
   } catch (...) {
   }
 

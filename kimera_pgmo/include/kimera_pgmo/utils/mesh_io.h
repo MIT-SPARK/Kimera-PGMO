@@ -13,6 +13,7 @@
 #include <string>
 
 #include "kimera_pgmo/mesh_traits.h"
+#include "kimera_pgmo/mesh_types.h"
 #include "kimera_pgmo/utils/common_structs.h"
 
 namespace kimera_pgmo {
@@ -28,6 +29,7 @@ struct IOData {
   std::vector<uint8_t> a;
   std::vector<Timestamp> stamps;
   std::vector<uint32_t> labels;
+  std::vector<Timestamp> first_seen_stamps;
   std::vector<std::vector<uint32_t>> faces;
 
   static IOData::Ptr load(const std::string& filename);
@@ -75,29 +77,35 @@ template <typename Vertices, typename Faces>
 void WriteMesh(const std::string& filename,
                const Vertices& vertices,
                const Faces& faces) {
+  const auto props = traits::get_vertex_properties(vertices);
   const auto num_vertices = traits::num_vertices(vertices);
+
   IOData data;
   for (size_t i = 0; i < num_vertices; ++i) {
     traits::VertexTraits traits;
     const auto pos = traits::get_vertex(vertices, i, &traits);
+
     data.x.push_back(pos.x());
     data.y.push_back(pos.y());
     data.z.push_back(pos.z());
 
-    if (traits.color) {
-      const auto& c = *traits.color;
-      data.r.push_back(c[0]);
-      data.g.push_back(c[1]);
-      data.b.push_back(c[2]);
-      data.a.push_back(c[3]);
+    if (props.has_color) {
+      data.r.push_back(traits.color[0]);
+      data.g.push_back(traits.color[1]);
+      data.b.push_back(traits.color[2]);
+      data.a.push_back(traits.color[3]);
     }
 
-    if (traits.stamp) {
-      data.stamps.push_back(*traits.stamp);
+    if (props.has_stamp) {
+      data.stamps.push_back(traits.stamp);
     }
 
-    if (traits.label) {
-      data.labels.push_back(*traits.label);
+    if (props.has_label) {
+      data.labels.push_back(traits.label);
+    }
+
+    if (props.has_first_seen_stamp) {
+      data.first_seen_stamps.push_back(traits.first_seen_stamp);
     }
   }
 
@@ -122,28 +130,32 @@ void ReadMesh(const std::string& filename, Vertices& vertices, Faces& faces) {
 
   const auto& data = *data_ptr;
   const auto num_vertices = data.x.size();
-  const bool has_colors = data.r.size() == num_vertices;
-  const bool has_stamps = data.stamps.size() == num_vertices;
-  const bool has_labels = data.labels.size() == num_vertices;
+  traits::VertexProperties props;
+  props.has_color = data.r.size() == num_vertices;
+  props.has_stamp = data.stamps.size() == num_vertices;
+  props.has_label = data.labels.size() == num_vertices;
+  props.has_first_seen_stamp = data.first_seen_stamps.size() == num_vertices;
 
   traits::resize_vertices(vertices, num_vertices);
   for (size_t i = 0; i < num_vertices; i++) {
     const traits::Pos pos(data.x[i], data.y[i], data.z[i]);
 
     traits::VertexTraits traits;
-    if (has_colors) {
-      traits.color = traits::Color{data.r[i],
-                                   data.g[i],
-                                   data.b[i],
-                                   i < data.a.size() ? data.a[i] : static_cast<uint8_t>(255)};
+    if (props.has_color) {
+      const auto alpha = i < data.a.size() ? data.a[i] : static_cast<uint8_t>(255);
+      traits.color = traits::Color{data.r[i], data.g[i], data.b[i], alpha};
     }
 
-    if (has_stamps) {
+    if (props.has_stamp) {
       traits.stamp = data.stamps[i];
     }
 
-    if (has_labels) {
+    if (props.has_label) {
       traits.label = data.labels[i];
+    }
+
+    if (props.has_first_seen_stamp) {
+      traits.first_seen_stamp = data.first_seen_stamps[i];
     }
 
     traits::set_vertex(vertices, i, pos, traits);

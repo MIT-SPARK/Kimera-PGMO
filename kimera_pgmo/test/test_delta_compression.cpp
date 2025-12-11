@@ -233,8 +233,7 @@ void ExpectedDelta::checkOutput(const MeshDelta& output,
   std::vector<size_t> remapping;
   for (size_t i = 0; i < output.getNumVertices(); ++i) {
     const auto& v = output.getVertex(i);
-    ASSERT_TRUE(v.traits.color);
-    remapping.push_back(v.traits.color->at(0));
+    remapping.push_back(v.traits.color.at(0));
   }
 
   const auto all_output_faces = facesFromDelta(output);
