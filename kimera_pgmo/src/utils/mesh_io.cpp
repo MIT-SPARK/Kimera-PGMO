@@ -103,6 +103,7 @@ IOData::Ptr IOData::load(const std::string& filename) {
     const auto nsec = ply_in.getElement("vertex").getProperty<uint32_t>("nsecs");
     assert(sec.size() == nsec.size());
 
+    to_return->stamps.reserve(sec.size());
     for (size_t i = 0; i < sec.size(); i++) {
       to_return->stamps.push_back(stampFromSec(sec.at(i)) + nsec.at(i));
     }
@@ -121,6 +122,7 @@ IOData::Ptr IOData::load(const std::string& filename) {
         ply_in.getElement("vertex").getProperty<uint32_t>("first_seen_nsecs");
     assert(sec.size() == nsec.size());
 
+    to_return->first_seen_stamps.reserve(sec.size());
     for (size_t i = 0; i < sec.size(); i++) {
       to_return->first_seen_stamps.push_back(stampFromSec(sec.at(i)) + nsec.at(i));
     }
