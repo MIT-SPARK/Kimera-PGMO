@@ -150,8 +150,9 @@ void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh) {
 }
 
 void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh) {
-  std::vector<Timestamp> unused;
-  WriteMeshWithStampsToPly(filename, mesh, unused);
+  pcl::PointCloud<pcl::PointXYZRGBA> cloud;
+  pcl::fromPCLPointCloud2(mesh.cloud, cloud);
+  WriteMesh(filename, cloud, mesh.polygons);
 }
 
 void WriteMeshWithStampsToPly(const std::string& filename,
