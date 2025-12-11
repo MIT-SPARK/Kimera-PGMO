@@ -5,10 +5,11 @@
  * @author Nathan Hughes
  */
 #pragma once
-#include <Eigen/Dense>
 #include <array>
 #include <cstdint>
 #include <unordered_map>
+
+#include <Eigen/Dense>
 
 namespace kimera_pgmo {
 namespace traits {
@@ -20,6 +21,16 @@ using Timestamp = uint64_t;
 using Label = uint32_t;
 
 /**
+ * @brief Struct describing which vertex trait fields are valid
+ */
+struct VertexProperties {
+  bool has_color = false;
+  bool has_stamp = false;
+  bool has_label = false;
+  bool has_first_seen_stamp = false;
+};
+
+/**
  * @brief Struct to bundle all optional vertex traits to supplement the mandatory
  * position. The mesh itself determines which of these are populated.
  * TODO(lschmid): Note that the mesh IO is hard coded to only save these traits
@@ -28,20 +39,11 @@ using Label = uint32_t;
  * in the future be truly polymorphic.
  */
 struct VertexTraits {
+  VertexProperties properties;
   Color color = {0, 0, 0, 0};
   Timestamp stamp = 0;
   Label label = 0;
   Timestamp first_seen_stamp = 0;
-};
-
-/**
- * @brief Struct describing which vertex trait fields are valid
- */
-struct VertexProperties {
-  bool has_color = false;
-  bool has_stamp = false;
-  bool has_label = false;
-  bool has_first_seen_stamp = false;
 };
 
 }  // namespace traits

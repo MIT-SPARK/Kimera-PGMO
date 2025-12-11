@@ -141,24 +141,25 @@ void ReadMesh(const std::string& filename, Vertices& vertices, Faces& faces) {
     const traits::Pos pos(data.x[i], data.y[i], data.z[i]);
 
     traits::VertexTraits traits;
-    if (props.has_color) {
+    traits.properties = props;
+    if (traits.properties.has_color) {
       const auto alpha = i < data.a.size() ? data.a[i] : static_cast<uint8_t>(255);
       traits.color = traits::Color{data.r[i], data.g[i], data.b[i], alpha};
     }
 
-    if (props.has_stamp) {
+    if (traits.properties.has_stamp) {
       traits.stamp = data.stamps[i];
     }
 
-    if (props.has_label) {
+    if (traits.properties.has_label) {
       traits.label = data.labels[i];
     }
 
-    if (props.has_first_seen_stamp) {
+    if (traits.properties.has_first_seen_stamp) {
       traits.first_seen_stamp = data.first_seen_stamps[i];
     }
 
-    traits::set_vertex(vertices, i, pos, traits);
+    traits::set_vertex(vertices, i, pos, &traits);
   }
 
   traits::resize_faces(faces, data.faces.size());

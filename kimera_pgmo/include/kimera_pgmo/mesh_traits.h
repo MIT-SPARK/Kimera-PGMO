@@ -61,16 +61,17 @@ struct vertex_prop_fn {
 
 struct vertex_get_fn {
   template <typename T>
-  constexpr auto operator()(const T& v, size_t i, traits::VertexTraits* t) const
-      -> decltype(pgmoGetVertex(v, i, t)) {
+  constexpr auto operator()(const T& v,
+                            size_t i,
+                            VertexTraits* t) const -> decltype(pgmoGetVertex(v, i, t)) {
     return pgmoGetVertex(v, i, t);
   }
 };
 
 struct vertex_set_fn {
   template <typename T>
-  constexpr auto operator()(T& v, size_t i, const Pos& p, const traits::VertexTraits& t)
-      const -> decltype(pgmoSetVertex(v, i, p, t)) {
+  constexpr auto operator()(T& v, size_t i, const Pos& p, const VertexTraits* t) const
+      -> decltype(pgmoSetVertex(v, i, p, t)) {
     return pgmoSetVertex(v, i, p, t);
   }
 };
@@ -152,7 +153,11 @@ VertexProperties get_vertex_properties(const T& vertices) {
 }
 
 template <typename T>
-Pos get_vertex(const T& vertices, size_t i, traits::VertexTraits* traits = nullptr) {
+Pos get_vertex(const T& vertices, size_t i, VertexTraits* traits = nullptr) {
+  if (traits) {
+    traits->properties = ::kimera_pgmo::traits::pgmoGetVertexProperties(vertices);
+  }
+
   return ::kimera_pgmo::traits::pgmoGetVertex(vertices, i, traits);
 }
 
@@ -160,7 +165,7 @@ template <typename T>
 void set_vertex(T& vertices,
                 size_t i,
                 const Pos& pos,
-                const traits::VertexTraits& traits = {}) {
+                const VertexTraits* traits = nullptr) {
   ::kimera_pgmo::traits::pgmoSetVertex(vertices, i, pos, traits);
 }
 

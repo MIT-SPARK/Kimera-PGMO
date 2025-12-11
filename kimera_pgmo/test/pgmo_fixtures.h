@@ -15,13 +15,16 @@
 namespace kimera_pgmo::test {
 
 struct MeshBlock : spatial_hash::Block {
-  MeshBlock(const float block_size, const BlockIndex &index);
+  MeshBlock(const float block_size, const BlockIndex& index);
   std::vector<pcl::PointXYZRGBA> vertices;
 };
 
 size_t pgmoNumFaces(const MeshBlock& mesh);
 size_t pgmoNumVertices(const MeshBlock& mesh);
-traits::Pos pgmoGetVertex(const MeshBlock& mesh, size_t i, traits::VertexTraits* traits);
+traits::VertexProperties pgmoGetVertexProperties(const MeshBlock& mesh);
+traits::Pos pgmoGetVertex(const MeshBlock& mesh,
+                          size_t i,
+                          traits::VertexTraits* traits);
 traits::Face pgmoGetFace(const MeshBlock& mesh, size_t i);
 
 using MeshLayer = spatial_hash::BlockLayer<MeshBlock>;
@@ -33,13 +36,13 @@ using MeshLayer = spatial_hash::BlockLayer<MeshBlock>;
  */
 class OrderedBlockMeshInterface : public MeshInterface {
  public:
-  OrderedBlockMeshInterface(const std::shared_ptr<MeshLayer> &mesh,
-                            const BlockIndices &blocks);
+  OrderedBlockMeshInterface(const std::shared_ptr<MeshLayer>& mesh,
+                            const BlockIndices& blocks);
   virtual ~OrderedBlockMeshInterface() = default;
 
-  const BlockIndices &blockIndices() const override;
+  const BlockIndices& blockIndices() const override;
 
-  void markBlockActive(const BlockIndex &block) const override;
+  void markBlockActive(const BlockIndex& block) const override;
 
   size_t activeBlockSize() const override;
 
@@ -61,7 +64,7 @@ struct BlockConfig {
   std::vector<FaceCoordinates> faces;
   static uint8_t point_index;
 
-  void addBlock(MeshLayer &layer) const;
+  void addBlock(MeshLayer& layer) const;
   void fillBlock(MeshBlock& block) const;
 
   static void resetIndex();

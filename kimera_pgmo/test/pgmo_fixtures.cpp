@@ -20,6 +20,10 @@ size_t pgmoNumFaces(const MeshBlock& mesh) { return mesh.vertices.size() / 3; }
 
 size_t pgmoNumVertices(const MeshBlock& mesh) { return mesh.vertices.size(); }
 
+traits::VertexProperties pgmoGetVertexProperties(const MeshBlock& mesh) {
+  return {true, false, false, false};
+}
+
 traits::Pos pgmoGetVertex(const MeshBlock& mesh,
                           size_t i,
                           traits::VertexTraits* traits) {

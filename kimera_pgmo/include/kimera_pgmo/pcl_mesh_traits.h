@@ -34,75 +34,68 @@ PgmoProps pgmoGetVertexProperties(const PointCloud<T>& cloud) {
 }
 
 template <typename T, std::enable_if_t<!traits::has_color_v<T>, bool> = true>
-void pclToPgmoColor(const T&, PgmoTraits&) {}
+void setPgmoColorFromPcl(const T&, PgmoTraits&) {}
 
 template <typename T, std::enable_if_t<!traits::has_color_v<T>, bool> = true>
-void pgmoToPclColor(const PgmoTraits&, T&) {}
+void setPclColorFromPgmo(const PgmoTraits&, T&) {}
 
 template <typename T, std::enable_if_t<!traits::has_label_v<T>, bool> = true>
-void pclToPgmoLabel(const T&, PgmoTraits&) {}
+void setPgmoLabelFromPcl(const T&, PgmoTraits&) {}
 
 template <typename T, std::enable_if_t<!traits::has_label_v<T>, bool> = true>
-void pgmoToPclLabel(const PgmoTraits&, T&) {}
+void setPclLabelFromPgmo(const PgmoTraits&, T&) {}
 
 template <typename T, std::enable_if_t<traits::has_color_v<T>, bool> = true>
-void pclToPgmoColor(const T& p, PgmoTraits& traits) {
+void setPgmoColorFromPcl(const T& p, PgmoTraits& traits) {
   traits.color = {{p.r, p.g, p.b, p.a}};
 }
 
 template <typename T, std::enable_if_t<traits::has_color_v<T>, bool> = true>
-void pgmoToPclColor(const PgmoTraits& traits, T& p) {
-  p.r = traits.color[0];
-  p.g = traits.color[1];
-  p.b = traits.color[2];
-  p.a = traits.color[3];
+void setPclColorFromPgmo(const PgmoTraits& traits, T& p) {
+  if (traits.properties.has_color) {
+    p.r = traits.color[0];
+    p.g = traits.color[1];
+    p.b = traits.color[2];
+    p.a = traits.color[3];
+  }
 }
 
 template <typename T, std::enable_if_t<traits::has_label_v<T>, bool> = true>
-void pclToPgmoLabel(const T& p, PgmoTraits& traits) {
+void setPgmoLabelFromPcl(const T& p, PgmoTraits& traits) {
   traits.label = p.label;
 }
 
 template <typename T, std::enable_if_t<traits::has_label_v<T>, bool> = true>
-void pgmoToPclLabel(const PgmoTraits& traits, T& p) {
-  p.label = traits.label;
+void setPclLabelFromPgmo(const PgmoTraits& traits, T& p) {
+  if (traits.properties.has_label) {
+    p.label = traits.label;
+  }
 }
 
 template <typename T>
 PgmoPos pgmoGetVertex(const PointCloud<T>& cloud, size_t i, PgmoTraits* traits) {
   const auto& p = cloud.at(i);
   if (traits) {
-    pclToPgmoColor<T>(p, *traits);
-    pclToPgmoLabel<T>(p, *traits);
+    setPgmoColorFromPcl<T>(p, *traits);
+    setPgmoLabelFromPcl<T>(p, *traits);
   }
 
   return {p.x, p.y, p.z};
 }
 
-template <typename T, std::enable_if_t<!traits::has_color_v<T>, bool> = true>
+template <typename T>
 void pgmoSetVertex(PointCloud<T>& cloud,
                    size_t i,
                    const PgmoPos& pos,
-                   const PgmoTraits&) {
+                   const PgmoTraits* traits) {
   auto& p = cloud.at(i);
   p.x = pos.x();
   p.y = pos.y();
   p.z = pos.z();
-}
-
-template <typename T, std::enable_if_t<traits::has_color_v<T>, bool> = true>
-void pgmoSetVertex(PointCloud<T>& cloud,
-                   size_t i,
-                   const PgmoPos& pos,
-                   const PgmoTraits& traits) {
-  auto& p = cloud.at(i);
-  p.x = pos.x();
-  p.y = pos.y();
-  p.z = pos.z();
-
-  // TODO(nathan) think about field validity
-  pgmoToPclColor(traits, p);
-  pgmoToPclLabel(traits, p);
+  if (traits) {
+    setPclColorFromPgmo(*traits, p);
+    setPclLabelFromPgmo(*traits, p);
+  }
 }
 
 }  // namespace pcl
@@ -173,9 +166,11 @@ template <typename T>
 void pgmoSetVertex(StampedCloud<T>& cloud,
                    size_t i,
                    const traits::Pos& pos,
-                   const traits::VertexTraits& traits) {
+                   const traits::VertexTraits* traits) {
   pgmoSetVertex(cloud.points, i, pos, traits);
-  cloud.stamps.at(i) = traits.stamp;
+  if (traits and traits->properties.has_stamp) {
+    cloud.stamps.at(i) = traits->stamp;
+  }
 }
 
 template <typename T>

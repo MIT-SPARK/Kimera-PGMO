@@ -23,6 +23,7 @@ struct TestMesh {
 
 traits::VertexTraits makeTraits(uint8_t r, uint8_t g, uint8_t b) {
   traits::VertexTraits traits;
+  traits.properties.has_color = true;
   traits.color = {r, g, b, 255};
   return traits;
 }

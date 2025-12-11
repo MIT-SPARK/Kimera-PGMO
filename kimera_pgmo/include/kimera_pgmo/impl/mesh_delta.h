@@ -112,7 +112,7 @@ size_t MeshDelta::updateVertices(Vertices& vertices,
       pos = *transform * p.pos;
     }
 
-    traits::set_vertex(vertices, start_idx + i, pos, p.traits);
+    traits::set_vertex(vertices, start_idx + i, pos, &p.traits);
   }
 
   return start_idx;
