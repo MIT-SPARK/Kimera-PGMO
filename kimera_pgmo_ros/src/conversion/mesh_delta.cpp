@@ -6,8 +6,10 @@
  */
 
 #include "kimera_pgmo_ros/conversion/mesh_delta.h"
+#include <kimera_pgmo/mesh_types.h>
 
-#include <numeric>
+#include <cstdint>
+#include <bitset>
 
 #include <rclcpp/time.hpp>
 
@@ -16,14 +18,29 @@ namespace rclcpp {
 using DeltaPgmo = kimera_pgmo::MeshDelta;
 using DeltaMsg = kimera_pgmo_msgs::msg::MeshDelta;
 
+uint8_t traitsToFieldStatus(const kimera_pgmo::traits::VertexTraits& traits) {
+  std::bitset<4> valid;
+  valid[0] = traits.color.has_value();
+  valid[1] = traits.stamp.has_value();
+  valid[2] = traits.label.has_value();
+  valid[3] = traits.first_seen_stamp.has_value();
+  // this is safe even though bitset returns a wider value than uint8
+  return valid.to_ulong();
+}
+
 void TypeAdapter<DeltaPgmo, DeltaMsg>::convert_to_ros_message(const custom_type& delta,
                                                               ros_message_type& msg) {
   msg.header.stamp = rclcpp::Time(delta.timestamp_ns);
-  msg.vertex_start = delta.vertex_start;
-  msg.face_start = delta.face_start;
-  msg.sequence_number = delta.sequence_number;
+  msg.sequence_number = delta.info.sequence_number;
+  msg.prev_active_vertices = delta.info.prev_active_vertices;
+  msg.prev_active_faces = delta.info.prev_active_faces;
 
-  // Convert vertices
+  msg.num_archived_vertices = delta.getNumArchivedVertices();
+  for (const auto& [prev, curr] : delta.prev_to_curr()) {
+    msg.previous_indices.push_back(prev);
+    msg.current_indices.push_back(curr);
+  }
+
   const auto& vertices = *delta.vertex_updates;
   msg.vertex_updates.resize(vertices.size());
   msg.vertex_updates_colors.resize(vertices.size());
@@ -48,33 +65,22 @@ void TypeAdapter<DeltaPgmo, DeltaMsg>::convert_to_ros_message(const custom_type&
     msg.semantic_updates = delta.semantic_updates;
   }
 
-  msg.deleted_indices.resize(delta.deleted_indices.size());
-  std::copy(delta.deleted_indices.begin(),
-            delta.deleted_indices.end(),
-            msg.deleted_indices.begin());
-
-  msg.face_updates.resize(delta.face_updates.size());
-  msg.face_archive_updates.resize(delta.face_archive_updates.size());
-  for (size_t i = 0; i < delta.face_updates.size(); i++) {
-    kimera_pgmo_msgs::msg::TriangleIndices face;
-    face.vertex_indices[0] = delta.face_updates[i].v1;
-    face.vertex_indices[1] = delta.face_updates[i].v2;
-    face.vertex_indices[2] = delta.face_updates[i].v3;
-    msg.face_updates[i] = face;
+  msg.face_updates.reserve(delta.face_updates().size());
+  for (const auto& delta_face : delta.face_updates()) {
+    auto& face = msg.face_updates.emplace_back();
+    face.vertex_indices[0] = delta_face[0];
+    face.vertex_indices[1] = delta_face[1];
+    face.vertex_indices[2] = delta_face[2];
   }
 
-  for (size_t i = 0; i < delta.face_archive_updates.size(); i++) {
-    kimera_pgmo_msgs::msg::TriangleIndices face;
-    face.vertex_indices[0] = delta.face_archive_updates[i].v1;
-    face.vertex_indices[1] = delta.face_archive_updates[i].v2;
-    face.vertex_indices[2] = delta.face_archive_updates[i].v3;
-    msg.face_archive_updates[i] = face;
+  msg.face_archive_updates.reserve(delta.face_archive_updates().size());
+  for (const auto& delta_face : delta.face_archive_updates()) {
+    auto& face = msg.face_archive_updates.emplace_back();
+    face.vertex_indices[0] = delta_face[0];
+    face.vertex_indices[1] = delta_face[1];
+    face.vertex_indices[2] = delta_face[2];
   }
 
-  for (const auto& prev_curr : delta.prev_to_curr) {
-    msg.prev_indices.push_back(prev_curr.first);
-    msg.curr_indices.push_back(prev_curr.second);
-  }
 }
 
 void TypeAdapter<DeltaPgmo, DeltaMsg>::convert_to_custom(const ros_message_type& msg,

@@ -75,6 +75,8 @@ const std::map<size_t, size_t>& MeshDelta::prev_to_curr() const {
   return prev_to_curr_;
 }
 
+std::map<size_t, size_t>& MeshDelta::prev_to_curr() { return prev_to_curr_; }
+
 size_t pgmoNumVertices(const MeshDelta& delta) { return delta.getNumVertices(); }
 
 traits::Pos pgmoGetVertex(const MeshDelta& delta,

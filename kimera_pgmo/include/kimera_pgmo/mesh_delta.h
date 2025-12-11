@@ -69,6 +69,7 @@ class MeshDelta {
   const std::vector<Face>& face_updates() const;
   const std::vector<Face>& face_archive_updates() const;
   const std::map<size_t, size_t>& prev_to_curr() const;
+  std::map<size_t, size_t>& prev_to_curr();
 
   traits::Timestamp timestamp_ns = 0;
 
@@ -76,11 +77,11 @@ class MeshDelta {
   friend class DeltaCompression;
 
   size_t num_archived_vertices_ = 0;
+  std::map<size_t, size_t> prev_to_curr_;
 
   std::vector<Vertex> vertex_updates_;
   std::vector<Face> face_updates_;
   std::vector<Face> face_archive_updates_;
-  std::map<size_t, size_t> prev_to_curr_;
 };
 
 // vertex traits
