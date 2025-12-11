@@ -102,10 +102,10 @@ MeshDelta::Ptr DeltaCompression::computeDelta(uint64_t timestamp_ns,
   if (archive_delta_) {
     // we need to cache the amount of pending vertices we've already copied
     prev_num_pending = archive_delta_->getNumActiveVertices();
-    delta_ = archive_delta_;
-    archive_delta_.reset();
+    delta_ = std::move(archive_delta_);
+    archive_delta_.reset(); // technically not needed
   } else {
-    delta_ = std::make_shared<MeshDelta>(tracking_info_);
+    delta_ = std::make_unique<MeshDelta>(tracking_info_);
   }
 
   // Applies any pending vertices that may be left over from old archival passes or from
@@ -144,7 +144,7 @@ MeshDelta::Ptr DeltaCompression::computeDelta(uint64_t timestamp_ns,
 
   delta_->timestamp_ns = timestamp_ns;
   SPARK_LOG(DEBUG) << "Finished update with " << summarizeDelta(*delta_);
-  return delta_;
+  return std::move(delta_);
 }
 
 void DeltaCompression::addPoint(const traits::Pos& pos,

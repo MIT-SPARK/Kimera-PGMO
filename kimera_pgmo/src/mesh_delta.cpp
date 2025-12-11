@@ -22,6 +22,7 @@ size_t MeshDelta::addVertex(const traits::Pos& pos,
     ++num_archived_vertices_;
   }
 
+  vertex_properties_ |= traits.properties;
   vertex_updates_.push_back({pos, traits});
   return index;
 }
@@ -77,7 +78,15 @@ const std::map<size_t, size_t>& MeshDelta::prev_to_curr() const {
 
 std::map<size_t, size_t>& MeshDelta::prev_to_curr() { return prev_to_curr_; }
 
+const traits::VertexProperties& MeshDelta::vertex_properties() const {
+  return vertex_properties_;
+}
+
 size_t pgmoNumVertices(const MeshDelta& delta) { return delta.getNumVertices(); }
+
+traits::VertexProperties pgmoGetVertexProperties(const MeshDelta& delta) {
+  return delta.vertex_properties();
+}
 
 traits::Pos pgmoGetVertex(const MeshDelta& delta,
                           size_t i,

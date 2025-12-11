@@ -11,7 +11,7 @@ inline traits::Face offsetFace(const traits::Face& face, size_t offset) {
 
 template <typename Vertices, typename Faces>
 MeshDelta::Ptr MeshDelta::fromMesh(const Vertices& vertices, const Faces& faces) {
-  auto delta = std::make_shared<MeshDelta>();
+  auto delta = std::make_unique<MeshDelta>(MeshDelta::TrackingInfo{0, 0, 0});
   const auto num_vertices = traits::num_vertices(vertices);
   for (size_t i = 0; i < num_vertices; ++i) {
     traits::VertexTraits traits;

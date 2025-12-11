@@ -6,32 +6,55 @@
  */
 
 #include "kimera_pgmo_ros/conversion/mesh_delta.h"
+
+#include <kimera_pgmo/mesh_delta.h>
 #include <kimera_pgmo/mesh_types.h>
 
 #include <cstdint>
-#include <bitset>
+#include <memory>
 
 #include <rclcpp/time.hpp>
+#include <std_msgs/msg/color_rgba.hpp>
 
-namespace rclcpp {
+#include "kimera_pgmo_msgs/msg/mesh_delta.hpp"
+#include "std_msgs/msg/color_rgba.hpp"
 
-using DeltaPgmo = kimera_pgmo::MeshDelta;
-using DeltaMsg = kimera_pgmo_msgs::msg::MeshDelta;
+namespace kimera_pgmo::conversions {
+namespace {
 
-uint8_t traitsToFieldStatus(const kimera_pgmo::traits::VertexTraits& traits) {
-  std::bitset<4> valid;
-  valid[0] = traits.color.has_value();
-  valid[1] = traits.stamp.has_value();
-  valid[2] = traits.label.has_value();
-  valid[3] = traits.first_seen_stamp.has_value();
-  // this is safe even though bitset returns a wider value than uint8
-  return valid.to_ulong();
+void pointFromPgmo(const kimera_pgmo::traits::Pos& pos,
+                   geometry_msgs::msg::Point& msg) {
+  msg.x = pos.x();
+  msg.y = pos.y();
+  msg.z = pos.z();
 }
 
-void TypeAdapter<DeltaPgmo, DeltaMsg>::convert_to_ros_message(const custom_type& delta,
-                                                              ros_message_type& msg) {
+void colorFromPgmo(const kimera_pgmo::traits::Color& color,
+                   std_msgs::msg::ColorRGBA& msg) {
+  static constexpr float color_conv_factor = 1.0f / std::numeric_limits<uint8_t>::max();
+  msg.r = color_conv_factor * static_cast<float>(color[0]);
+  msg.g = color_conv_factor * static_cast<float>(color[1]);
+  msg.b = color_conv_factor * static_cast<float>(color[2]);
+  msg.a = color_conv_factor * static_cast<float>(color[3]);
+}
+
+traits::Pos pointFromRos(const geometry_msgs::msg::Point& msg) {
+  return traits::Pos(msg.x, msg.y, msg.z);
+}
+
+traits::Color colorFromRos(const std_msgs::msg::ColorRGBA& msg) {
+  static constexpr float color_conv_factor = std::numeric_limits<uint8_t>::max();
+  return {static_cast<uint8_t>(color_conv_factor * msg.r),
+          static_cast<uint8_t>(color_conv_factor * msg.g),
+          static_cast<uint8_t>(color_conv_factor * msg.b),
+          static_cast<uint8_t>(color_conv_factor * msg.a)};
+}
+
+}  // namespace
+
+void mesh_delta::to_ros(const MeshDelta& delta, kimera_pgmo_msgs::msg::MeshDelta& msg) {
   msg.header.stamp = rclcpp::Time(delta.timestamp_ns);
-  msg.sequence_number = delta.info.sequence_number;
+  msg.seq_number = delta.info.sequence_number;
   msg.prev_active_vertices = delta.info.prev_active_vertices;
   msg.prev_active_faces = delta.info.prev_active_faces;
 
@@ -41,28 +64,43 @@ void TypeAdapter<DeltaPgmo, DeltaMsg>::convert_to_ros_message(const custom_type&
     msg.current_indices.push_back(curr);
   }
 
-  const auto& vertices = *delta.vertex_updates;
-  msg.vertex_updates.resize(vertices.size());
-  msg.vertex_updates_colors.resize(vertices.size());
-  for (size_t i = 0; i < vertices.size(); i++) {
-    geometry_msgs::msg::Point vertex_p;
-    vertex_p.x = vertices[i].x;
-    vertex_p.y = vertices[i].y;
-    vertex_p.z = vertices[i].z;
-    msg.vertex_updates[i] = vertex_p;
-    // Point color
-    std_msgs::msg::ColorRGBA vertex_c;
-    constexpr float color_conv_factor = 1.0f / std::numeric_limits<uint8_t>::max();
-    vertex_c.r = color_conv_factor * static_cast<float>(vertices[i].r);
-    vertex_c.g = color_conv_factor * static_cast<float>(vertices[i].g);
-    vertex_c.b = color_conv_factor * static_cast<float>(vertices[i].b);
-    vertex_c.a = color_conv_factor * static_cast<float>(vertices[i].a);
-    msg.vertex_updates_colors[i] = vertex_c;
+  const auto props = delta.vertex_properties();
+  const auto num_vertices = delta.getNumVertices();
+  msg.vertex_updates.resize(num_vertices);
+  if (props.has_color) {
+    msg.color_updates.resize(num_vertices);
   }
 
-  msg.stamp_updates = delta.stamp_updates;
-  if (delta.hasSemantics()) {
-    msg.semantic_updates = delta.semantic_updates;
+  if (props.has_stamp) {
+    msg.stamp_updates.resize(num_vertices);
+  }
+
+  if (props.has_label) {
+    msg.label_updates.resize(num_vertices);
+  }
+
+  if (props.has_first_seen_stamp) {
+    msg.first_seen_stamp_updates.resize(num_vertices);
+  }
+
+  for (size_t i = 0; i < num_vertices; i++) {
+    const auto& p = delta.getVertex(i);
+    pointFromPgmo(p.pos, msg.vertex_updates[i]);
+    if (props.has_color) {
+      colorFromPgmo(p.traits.color, msg.color_updates[i]);
+    }
+
+    if (props.has_stamp) {  // Point color
+      msg.stamp_updates[i] = p.traits.stamp;
+    }
+
+    if (props.has_label) {
+      msg.label_updates[i] = p.traits.label;
+    }
+
+    if (props.has_first_seen_stamp) {
+      msg.first_seen_stamp_updates[i] = p.traits.first_seen_stamp;
+    }
   }
 
   msg.face_updates.reserve(delta.face_updates().size());
@@ -80,52 +118,58 @@ void TypeAdapter<DeltaPgmo, DeltaMsg>::convert_to_ros_message(const custom_type&
     face.vertex_indices[1] = delta_face[1];
     face.vertex_indices[2] = delta_face[2];
   }
-
 }
 
-void TypeAdapter<DeltaPgmo, DeltaMsg>::convert_to_custom(const ros_message_type& msg,
-                                                         custom_type& delta) {
-  delta = DeltaPgmo(msg.vertex_start, msg.face_start);
-  delta.sequence_number = msg.sequence_number;
-  delta.stamp_updates = msg.stamp_updates;
-  delta.semantic_updates = msg.semantic_updates;
-  delta.timestamp_ns = rclcpp::Time(msg.header.stamp).nanoseconds();
+MeshDelta::Ptr mesh_delta::from_ros(const kimera_pgmo_msgs::msg::MeshDelta& msg) {
+  auto delta = std::make_unique<MeshDelta>(MeshDelta::TrackingInfo{
+      msg.seq_number, msg.prev_active_vertices, msg.prev_active_faces});
+  delta->timestamp_ns = rclcpp::Time(msg.header.stamp).nanoseconds();
 
-  assert(msg.vertex_updates.size() == msg.vertex_updates_colors.size());
+  traits::VertexProperties props;
+  props.has_color = msg.vertex_updates.size() == msg.color_updates.size();
+  props.has_stamp = msg.vertex_updates.size() == msg.stamp_updates.size();
+  props.has_label = msg.vertex_updates.size() == msg.label_updates.size();
+  props.has_first_seen_stamp =
+      msg.vertex_updates.size() == msg.first_seen_stamp_updates.size();
 
-  delta.vertex_updates.reset(new pcl::PointCloud<pcl::PointXYZRGBA>());
-  delta.vertex_updates->resize(msg.vertex_updates.size());
-  constexpr float color_conv_factor = 1.0f * std::numeric_limits<uint8_t>::max();
-  for (size_t i = 0; i < msg.vertex_updates.size(); i++) {
-    pcl::PointXYZRGBA v;
-    v.x = msg.vertex_updates[i].x;
-    v.y = msg.vertex_updates[i].y;
-    v.z = msg.vertex_updates[i].z;
-    v.r = static_cast<uint8_t>(color_conv_factor * msg.vertex_updates_colors[i].r);
-    v.g = static_cast<uint8_t>(color_conv_factor * msg.vertex_updates_colors[i].g);
-    v.b = static_cast<uint8_t>(color_conv_factor * msg.vertex_updates_colors[i].b);
-    v.a = static_cast<uint8_t>(color_conv_factor * msg.vertex_updates_colors[i].a);
-    (*delta.vertex_updates)[i] = v;
-  }
-
-  delta.deleted_indices =
-      std::set<size_t>(msg.deleted_indices.begin(), msg.deleted_indices.end());
-
-  std::transform(msg.prev_indices.begin(),
-                 msg.prev_indices.end(),
-                 msg.curr_indices.begin(),
-                 std::inserter(delta.prev_to_curr, delta.prev_to_curr.end()),
+  auto& prev_to_curr = delta->prev_to_curr();
+  std::transform(msg.previous_indices.begin(),
+                 msg.previous_indices.end(),
+                 msg.current_indices.begin(),
+                 std::inserter(prev_to_curr, prev_to_curr.end()),
                  [](size_t prev, size_t curr) { return std::make_pair(prev, curr); });
+
+  for (size_t i = 0; i < msg.vertex_updates.size(); i++) {
+    traits::Pos pos = pointFromRos(msg.vertex_updates[i]);
+    traits::VertexTraits traits;
+    traits.properties = props;
+    if (traits.properties.has_color) {
+      traits.color = colorFromRos(msg.color_updates[i]);
+    }
+    if (traits.properties.has_stamp) {
+      traits.stamp = msg.stamp_updates[i];
+    }
+    if (traits.properties.has_label) {
+      traits.label = msg.label_updates[i];
+    }
+    if (traits.properties.has_first_seen_stamp) {
+      traits.first_seen_stamp = msg.first_seen_stamp_updates[i];
+    }
+
+    delta->addVertex(pos, traits, i < msg.num_archived_vertices);
+  }
 
   for (size_t i = 0; i < msg.face_updates.size(); i++) {
     const auto& triangle = msg.face_updates[i].vertex_indices;
-    delta.face_updates.emplace_back(triangle[0], triangle[1], triangle[2]);
+    delta->addFace({triangle[0], triangle[1], triangle[2]});
   }
 
   for (size_t i = 0; i < msg.face_archive_updates.size(); i++) {
     const auto& triangle = msg.face_archive_updates[i].vertex_indices;
-    delta.face_archive_updates.emplace_back(triangle[0], triangle[1], triangle[2]);
+    delta->addFace({triangle[0], triangle[1], triangle[2]}, true);
   }
+
+  return delta;
 }
 
-}  // namespace rclcpp
+}  // namespace kimera_pgmo::conversions

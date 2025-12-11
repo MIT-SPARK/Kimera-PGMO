@@ -9,7 +9,7 @@ namespace kimera_pgmo {
 
 class MeshDelta {
  public:
-  using Ptr = std::shared_ptr<MeshDelta>;
+  using Ptr = std::unique_ptr<MeshDelta>;
   using Face = traits::Face;
   struct Vertex {
     traits::Pos pos = traits::Pos::Zero();
@@ -70,6 +70,7 @@ class MeshDelta {
   const std::vector<Face>& face_archive_updates() const;
   const std::map<size_t, size_t>& prev_to_curr() const;
   std::map<size_t, size_t>& prev_to_curr();
+  const traits::VertexProperties& vertex_properties() const;
 
   traits::Timestamp timestamp_ns = 0;
 
@@ -78,6 +79,7 @@ class MeshDelta {
 
   size_t num_archived_vertices_ = 0;
   std::map<size_t, size_t> prev_to_curr_;
+  traits::VertexProperties vertex_properties_;
 
   std::vector<Vertex> vertex_updates_;
   std::vector<Face> face_updates_;
@@ -86,6 +88,7 @@ class MeshDelta {
 
 // vertex traits
 size_t pgmoNumVertices(const MeshDelta& delta);
+traits::VertexProperties pgmoGetVertexProperties(const MeshDelta& delta);
 traits::Pos pgmoGetVertex(const MeshDelta& delta,
                           size_t i,
                           traits::VertexTraits* traits);
