@@ -5,3 +5,5 @@ string ns
 kimera_pgmo_msgs/Vertex[] vertices
 # list of triangles; the index values refer to positions in vertices
 kimera_pgmo_msgs/TriangleIndices[] triangles
+# optional control point indices for every vertex
+uint64[] graph_indices

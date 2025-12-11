@@ -6,6 +6,7 @@
 #pragma once
 
 #include <kimera_pgmo/mesh_traits.h>
+#include <kimera_pgmo/mesh_types.h>
 #include <kimera_pgmo/utils/logging.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/point_cloud.h>
@@ -22,7 +23,7 @@
 
 namespace kimera_pgmo::conversions {
 
-using MeshMsg = kimera_pgmo_msgs::msg::Mesh;
+using kimera_pgmo_msgs::msg::Mesh;
 using OptHeader = std::optional<std_msgs::msg::Header>;
 // TODO(lschmid): Clean up interfaces here and unify with ros_conversion.
 
@@ -33,36 +34,40 @@ using OptHeader = std::optional<std_msgs::msg::Header>;
  *  - msg: output message
  *  - header: optional header to use
  */
-template <typename Vertices, typename Faces>
+template <typename VerticesT, typename FacesT>
 void fillMsg(size_t robot_id,
-             const Vertices& vertices,
-             const Faces& faces,
-             MeshMsg& msg,
-             const OptHeader& header = std::nullopt);
+             const VerticesT& vertices,
+             const FacesT& faces,
+             Mesh& msg,
+             const OptHeader& header = std::nullopt,
+             const IndexMapping* graph_indices = nullptr);
 
-template <typename Mesh>
+template <typename MeshT>
 void fillMsg(size_t robot_id,
-             const Mesh& mesh,
-             MeshMsg& msg,
-             const OptHeader& header = std::nullopt) {
-  fillMsg(robot_id, mesh, mesh, msg, header);
+             const MeshT& mesh,
+             Mesh& msg,
+             const OptHeader& header = std::nullopt,
+             const IndexMapping* graph_indices = nullptr) {
+  fillMsg(robot_id, mesh, mesh, msg, header, graph_indices);
 }
 
 template <typename Vertices, typename Faces>
-MeshMsg::UniquePtr toMsg(size_t robot_id,
-                         const Vertices& vertices,
-                         const Faces& faces,
-                         const OptHeader& header = std::nullopt) {
-  auto msg = std::make_unique<MeshMsg>();
-  fillMsg(robot_id, vertices, faces, *msg, header);
+Mesh::UniquePtr toMsg(size_t robot_id,
+                      const Vertices& vertices,
+                      const Faces& faces,
+                      const OptHeader& header = std::nullopt,
+                      const IndexMapping* graph_indices = nullptr) {
+  auto msg = std::make_unique<Mesh>();
+  fillMsg(robot_id, vertices, faces, *msg, header, graph_indices);
   return msg;
 }
 
-template <typename Mesh>
-MeshMsg::UniquePtr toMsg(size_t robot_id,
-                         const Mesh& mesh,
-                         const OptHeader& header = std::nullopt) {
-  return toMsg(robot_id, mesh, mesh, header);
+template <typename MeshT>
+Mesh::UniquePtr toMsg(size_t robot_id,
+                      const MeshT& mesh,
+                      const OptHeader& header = std::nullopt,
+                      const IndexMapping* graph_indices = nullptr) {
+  return toMsg(robot_id, mesh, mesh, header, graph_indices);
 }
 
 template <typename Vertices, typename Faces>
@@ -70,7 +75,8 @@ void fillMsg(size_t robot_id,
              const Vertices& vertices,
              const Faces& faces,
              kimera_pgmo_msgs::msg::Mesh& msg,
-             const std::optional<std_msgs::msg::Header>& header) {
+             const std::optional<std_msgs::msg::Header>& header,
+             const IndexMapping* graph_indices) {
   // a little inefficient, but easier than manually clearing everything
   msg = kimera_pgmo_msgs::msg::Mesh();
   msg.ns = std::to_string(robot_id);
@@ -97,6 +103,10 @@ void fillMsg(size_t robot_id,
   for (size_t i = 0; i < num_faces; i++) {
     const auto face = traits::get_face(faces, i);
     to_ros(face, msg.triangles[i]);
+  }
+
+  if (graph_indices) {
+    msg.graph_indices = *graph_indices;
   }
 }
 
