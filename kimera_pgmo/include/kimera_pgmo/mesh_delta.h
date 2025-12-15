@@ -3,6 +3,7 @@
 #include <memory>
 #include <set>
 #include <vector>
+#include <optional>
 
 #include "kimera_pgmo/mesh_types.h"
 
@@ -12,6 +13,18 @@ struct MeshOffsetInfo {
   size_t archived_vertices = 0;
   size_t prev_archived_vertices = 0;
   size_t archived_faces = 0;
+
+  size_t toGlobal(size_t local_idx) const;
+  size_t toLocal(size_t global_idx) const;
+
+  struct RemapInfo {
+    size_t min_index = std::numeric_limits<size_t>::max();
+    size_t max_index = 0;
+    bool all_archived = false;
+    std::set<size_t> deleted_indices;
+
+    void addIndex(size_t idx);
+  };
 };
 
 class MeshDelta {
@@ -53,32 +66,25 @@ class MeshDelta {
    * @note Most useful for containers with an in-place erase method
    * @param indices Indices to remap
    * @param offsets Offset information from applying the current mesh delta
-   * @param is_archived Optional output as to whether all indices are archived after
-   * remap
-   * @param deleted_inidces Optional output as to which entries in the indices were
+   * @param info Optional tracking info for remapping
    * deleted
    */
   template <template <typename T> typename ContainerT>
   void updateIndices(ContainerT<size_t>& indices,
                      const MeshOffsetInfo& offsets,
-                     bool* is_archived = nullptr,
-                     std::set<size_t>* deleted_indices = nullptr) const;
+                     MeshOffsetInfo::RemapInfo* info = nullptr) const;
 
   /**
    * @brief Remap vertex indices from a previous mesh
    * @note Most useful for containers without an in-place erase method
    * @param indices Indices to remap
    * @param offsets Offset information from applying the current mesh delta
-   * @param is_archived Optional output as to whether all indices are archived after
-   * remap
-   * @param deleted_indices Optional output as to which entries in the indices were
-   * deleted
+   * @param info Optional tracking info for remapping
    */
   template <template <typename T> typename ContainerT>
   ContainerT<size_t> remapIndices(const ContainerT<size_t>&,
                                   const MeshOffsetInfo& offsets,
-                                  bool* is_archived = nullptr,
-                                  std::set<size_t>* deleted_indices = nullptr) const;
+                                  MeshOffsetInfo::RemapInfo* info = nullptr) const;
 
   template <typename Mesh>
   MeshOffsetInfo updateMesh(Mesh& mesh,
@@ -95,6 +101,8 @@ class MeshDelta {
 
   template <typename Faces>
   void updateFaces(Faces& faces, size_t vertex_offset) const;
+
+  std::optional<size_t> remapIndex(const MeshOffsetInfo& offsets, size_t index) const;
 
   const std::vector<Face>& face_updates() const;
   const std::vector<Face>& face_archive_updates() const;

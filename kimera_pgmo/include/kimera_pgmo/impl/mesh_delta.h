@@ -35,81 +35,63 @@ MeshDelta::Ptr MeshDelta::fromMesh(const Mesh& mesh) {
 template <template <typename T> typename ContainerT>
 void MeshDelta::updateIndices(ContainerT<size_t>& indices,
                               const MeshOffsetInfo& offset,
-                              bool* is_archived,
-                              std::set<size_t>* deleted) const {
-  if (is_archived) {
-    *is_archived = true;
-  }
-
+                              MeshOffsetInfo::RemapInfo* info) const {
   size_t index = 0;
   auto iter = indices.begin();
   while (iter != indices.end()) {
-    if (*iter < offset.prev_archived_vertices) {
-      ++iter;
-      ++index;
-      continue;
-    }
-
-    const auto local_idx = *iter - offset.prev_archived_vertices;
-    auto remap = prev_to_curr_.find(local_idx);
-    if (remap == prev_to_curr_.end()) {
-      // deleted vertices won't be in remapping
+    const auto remapped = remapIndex(offset, *iter);
+    if (!remapped) {
       iter = indices.erase(iter);
-      if (deleted) {
-        deleted->insert(index);
+      if (info) {
+        info->deleted_indices.insert(index);
       }
 
       ++index;
       continue;
     }
 
-    *iter = remap->second + offset.prev_archived_vertices;
-    if (is_archived && *iter >= offset.archived_vertices) {
-      *is_archived = false;
+    *iter = *remapped;
+    if (info) {
+      info->addIndex(*iter);
     }
 
     ++iter;
     ++index;
+  }
+
+  if (info) {
+    info->all_archived = info->max_index < offset.archived_vertices;
   }
 }
 
 template <template <typename T> typename ContainerT>
 ContainerT<size_t> MeshDelta::remapIndices(const ContainerT<size_t>& indices,
                                            const MeshOffsetInfo& offset,
-                                           bool* is_archived,
-                                           std::set<size_t>* deleted) const {
-  if (is_archived) {
-    *is_archived = true;
-  }
-
+                                           MeshOffsetInfo::RemapInfo* info) const {
   size_t index = 0;
   ContainerT<size_t> to_return;
   for (const auto global_idx : indices) {
-    if (global_idx < offset.prev_archived_vertices) {
-      to_return.push_back(global_idx);
-      ++index;
-      continue;
-    }
-
-    const auto local_idx = global_idx - offset.prev_archived_vertices;
-    auto remap = prev_to_curr_.find(local_idx);
-    if (remap == prev_to_curr_.end()) {
-      // deleted vertices won't be in remapping
-      if (deleted) {
-        deleted->insert(index);
+    const auto remapped = remapIndex(offset, global_idx);
+    if (!remapped) {
+      if (info) {
+        info->deleted_indices.insert(index);
       }
 
       ++index;
       continue;
     }
 
-    const auto new_idx = remap->second + offset.prev_archived_vertices;
+    const auto new_idx = remapped.value();
     to_return.push_back(new_idx);
-    if (is_archived && new_idx >= offset.archived_vertices) {
-      *is_archived = false;
+    if (info) {
+      info->addIndex(new_idx);
     }
 
     ++index;
+  }
+
+  if (info) {
+    info->all_archived = info->max_index < offset.archived_vertices;
   }
 
   return to_return;

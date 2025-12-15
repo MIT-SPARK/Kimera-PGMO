@@ -12,6 +12,19 @@ namespace kimera_pgmo {
 
 using TrackingInfo = MeshDelta::TrackingInfo;
 
+size_t MeshOffsetInfo::toGlobal(size_t local_idx) const {
+  return local_idx + archived_vertices;
+}
+
+size_t MeshOffsetInfo::toLocal(size_t global_idx) const {
+  return global_idx - archived_vertices;
+}
+
+void MeshOffsetInfo::RemapInfo::addIndex(size_t idx) {
+  min_index = std::min(min_index, idx);
+  max_index = std::max(max_index, idx);
+}
+
 MeshDelta::MeshDelta(const TrackingInfo& info) : info(info) {}
 
 size_t MeshDelta::addVertex(const traits::Pos& pos,
@@ -62,6 +75,21 @@ const MeshDelta::Face& MeshDelta::getFace(size_t i) const {
 
   i -= face_archive_updates_.size();
   return face_updates_.at(i);
+}
+
+std::optional<size_t> MeshDelta::remapIndex(const MeshOffsetInfo& offsets,
+                                            size_t index) const {
+  if (index < offsets.prev_archived_vertices) {
+    return index;
+  }
+
+  const auto local_idx = offsets.toLocal(index);
+  auto remap = prev_to_curr_.find(local_idx);
+  if (remap == prev_to_curr_.end()) {
+    return std::nullopt;
+  }
+
+  return offsets.toGlobal(remap->second);
 }
 
 const std::vector<MeshDelta::Face>& MeshDelta::face_updates() const {
