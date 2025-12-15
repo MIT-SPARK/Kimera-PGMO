@@ -33,64 +33,102 @@ MeshDelta::Ptr MeshDelta::fromMesh(const Mesh& mesh) {
 }
 
 template <template <typename T> typename ContainerT>
-void MeshDelta::updateIndices(ContainerT<size_t>& indices, size_t num_archived) const {
+void MeshDelta::updateIndices(ContainerT<size_t>& indices,
+                              const MeshOffsetInfo& offset,
+                              bool* is_archived,
+                              std::set<size_t>* deleted) const {
+  if (is_archived) {
+    *is_archived = true;
+  }
+
+  size_t index = 0;
   auto iter = indices.begin();
   while (iter != indices.end()) {
-    if (*iter < num_archived) {
+    if (*iter < offset.prev_archived_vertices) {
       ++iter;
+      ++index;
       continue;
     }
 
-    // TODO(nathan) this offset might not be correct
-    const auto local_idx = *iter - num_archived;
+    const auto local_idx = *iter - offset.prev_archived_vertices;
     auto remap = prev_to_curr_.find(local_idx);
     if (remap == prev_to_curr_.end()) {
       // deleted vertices won't be in remapping
       iter = indices.erase(iter);
+      if (deleted) {
+        deleted->insert(index);
+      }
+
+      ++index;
       continue;
     }
 
-    *iter = remap->second + num_archived;
+    *iter = remap->second + offset.prev_archived_vertices;
+    if (is_archived && *iter >= offset.archived_vertices) {
+      *is_archived = false;
+    }
+
     ++iter;
+    ++index;
   }
 }
 
 template <template <typename T> typename ContainerT>
 ContainerT<size_t> MeshDelta::remapIndices(const ContainerT<size_t>& indices,
-                                           size_t num_archived) const {
+                                           const MeshOffsetInfo& offset,
+                                           bool* is_archived,
+                                           std::set<size_t>* deleted) const {
+  if (is_archived) {
+    *is_archived = true;
+  }
+
+  size_t index = 0;
   ContainerT<size_t> to_return;
   for (const auto global_idx : indices) {
-    if (global_idx < num_archived) {
+    if (global_idx < offset.prev_archived_vertices) {
       to_return.push_back(global_idx);
+      ++index;
       continue;
     }
 
-    const auto local_idx = global_idx - num_archived;
+    const auto local_idx = global_idx - offset.prev_archived_vertices;
     auto remap = prev_to_curr_.find(local_idx);
     if (remap == prev_to_curr_.end()) {
       // deleted vertices won't be in remapping
+      if (deleted) {
+        deleted->insert(index);
+      }
+
+      ++index;
       continue;
     }
 
-    to_return.push_back(remap->second + num_archived);
+    const auto new_idx = remap->second + offset.prev_archived_vertices;
+    to_return.push_back(new_idx);
+    if (is_archived && new_idx >= offset.archived_vertices) {
+      *is_archived = false;
+    }
+
+    ++index;
   }
 
   return to_return;
 }
 
 template <typename Mesh>
-size_t MeshDelta::updateMesh(Mesh& mesh, const Eigen::Isometry3f* transform) const {
+MeshOffsetInfo MeshDelta::updateMesh(Mesh& mesh,
+                                     const Eigen::Isometry3f* transform) const {
   // dispatch for types implementing faces and vertices adl api
   return updateMesh(mesh, mesh, transform);
 }
 
 template <typename Vertices, typename Faces>
-size_t MeshDelta::updateMesh(Vertices& vertices,
-                             Faces& faces,
-                             const Eigen::Isometry3f* transform) const {
+MeshOffsetInfo MeshDelta::updateMesh(Vertices& vertices,
+                                     Faces& faces,
+                                     const Eigen::Isometry3f* transform) const {
   const auto offset = updateVertices<Vertices>(vertices, transform);
   updateFaces<Faces>(faces, offset);
-  return offset + num_archived_vertices_;
+  return {offset + num_archived_vertices_, offset, 0};
 }
 
 template <typename Vertices>

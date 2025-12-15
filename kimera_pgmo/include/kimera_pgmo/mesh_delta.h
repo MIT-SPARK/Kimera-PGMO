@@ -1,11 +1,18 @@
 #pragma once
 #include <map>
 #include <memory>
+#include <set>
 #include <vector>
 
 #include "kimera_pgmo/mesh_types.h"
 
 namespace kimera_pgmo {
+
+struct MeshOffsetInfo {
+  size_t archived_vertices = 0;
+  size_t prev_archived_vertices = 0;
+  size_t archived_faces = 0;
+};
 
 class MeshDelta {
  public:
@@ -41,19 +48,46 @@ class MeshDelta {
   template <typename Vertices, typename Faces>
   static MeshDelta::Ptr fromMesh(const Vertices& vertices, const Faces& faces);
 
+  /**
+   * @brief Remap vertex indices from a previous mesh (in-place)
+   * @note Most useful for containers with an in-place erase method
+   * @param indices Indices to remap
+   * @param offsets Offset information from applying the current mesh delta
+   * @param is_archived Optional output as to whether all indices are archived after
+   * remap
+   * @param deleted_inidces Optional output as to which entries in the indices were
+   * deleted
+   */
   template <template <typename T> typename ContainerT>
-  void updateIndices(ContainerT<size_t>& indices, size_t num_archived) const;
+  void updateIndices(ContainerT<size_t>& indices,
+                     const MeshOffsetInfo& offsets,
+                     bool* is_archived = nullptr,
+                     std::set<size_t>* deleted_indices = nullptr) const;
 
+  /**
+   * @brief Remap vertex indices from a previous mesh
+   * @note Most useful for containers without an in-place erase method
+   * @param indices Indices to remap
+   * @param offsets Offset information from applying the current mesh delta
+   * @param is_archived Optional output as to whether all indices are archived after
+   * remap
+   * @param deleted_indices Optional output as to which entries in the indices were
+   * deleted
+   */
   template <template <typename T> typename ContainerT>
-  ContainerT<size_t> remapIndices(const ContainerT<size_t>&, size_t num_archived) const;
+  ContainerT<size_t> remapIndices(const ContainerT<size_t>&,
+                                  const MeshOffsetInfo& offsets,
+                                  bool* is_archived = nullptr,
+                                  std::set<size_t>* deleted_indices = nullptr) const;
 
   template <typename Mesh>
-  size_t updateMesh(Mesh& mesh, const Eigen::Isometry3f* transform = nullptr) const;
+  MeshOffsetInfo updateMesh(Mesh& mesh,
+                            const Eigen::Isometry3f* transform = nullptr) const;
 
   template <typename Vertices, typename Faces>
-  size_t updateMesh(Vertices& vertices,
-                    Faces& faces,
-                    const Eigen::Isometry3f* transform = nullptr) const;
+  MeshOffsetInfo updateMesh(Vertices& vertices,
+                            Faces& faces,
+                            const Eigen::Isometry3f* transform = nullptr) const;
 
   template <typename Vertices>
   size_t updateVertices(Vertices& vertices,
