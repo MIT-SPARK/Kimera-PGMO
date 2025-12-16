@@ -17,8 +17,8 @@ namespace kimera_pgmo {
 
 struct TestMesh {
   pcl::PointCloud<pcl::PointXYZRGBA> vertices;
-  std::vector<pcl::Vertices> faces;
   std::vector<traits::Timestamp> stamps;
+  std::vector<traits::Face> faces;
 };
 
 traits::VertexTraits makeTraits(uint8_t r, uint8_t g, uint8_t b) {
@@ -40,11 +40,16 @@ TEST(MeshDelta, updateSimple) {
   TestMesh result;
   StampedCloud<pcl::PointXYZRGBA> vertex_wrapper(result.vertices, result.stamps);
   delta1.updateMesh(vertex_wrapper, result.faces);
-  EXPECT_EQ(result.stamps.size(), result.vertices.size());
-  EXPECT_EQ(result.vertices.size(), 4u);
-  EXPECT_EQ(result.faces.size(), 2u);
-  for (size_t i = 0; i < result.vertices.size(); ++i) {
-    EXPECT_EQ(static_cast<size_t>(result.vertices[i].r), i);
+
+  {  // test scope
+    EXPECT_EQ(result.stamps.size(), result.vertices.size());
+    EXPECT_EQ(result.vertices.size(), 4u);
+    for (size_t i = 0; i < result.vertices.size(); ++i) {
+      EXPECT_EQ(static_cast<size_t>(result.vertices[i].r), i);
+    }
+
+    const std::vector<traits::Face> expected_faces{{0, 1, 2}, {1, 2, 3}};
+    EXPECT_EQ(result.faces, expected_faces);
   }
 
   // Fake archival of 2 vertices and 1 face
@@ -58,11 +63,17 @@ TEST(MeshDelta, updateSimple) {
   delta2.prev_to_curr() = {{0, 0}, {1, 1}};
 
   delta2.updateMesh(vertex_wrapper, result.faces);
-  EXPECT_EQ(result.stamps.size(), result.vertices.size());
-  EXPECT_EQ(result.vertices.size(), 6u);
-  EXPECT_EQ(result.faces.size(), 3u);
-  for (size_t i = 0; i < result.vertices.size(); ++i) {
-    EXPECT_EQ(static_cast<size_t>(result.vertices[i].r), i);
+
+  {  // test scope
+    EXPECT_EQ(result.stamps.size(), result.vertices.size());
+    EXPECT_EQ(result.vertices.size(), 6u);
+    EXPECT_EQ(result.faces.size(), 3u);
+    for (size_t i = 0; i < result.vertices.size(); ++i) {
+      EXPECT_EQ(static_cast<size_t>(result.vertices[i].r), i);
+    }
+
+    const std::vector<traits::Face> expected_faces{{0, 1, 2}, {2, 3, 4}, {3, 4, 5}};
+    EXPECT_EQ(result.faces, expected_faces);
   }
 }
 
