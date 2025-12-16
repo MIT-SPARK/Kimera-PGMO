@@ -109,8 +109,12 @@ MeshOffsetInfo MeshDelta::updateMesh(Vertices& vertices,
                                      Faces& faces,
                                      const Eigen::Isometry3f* transform) const {
   const auto offset = updateVertices<Vertices>(vertices, transform);
-  updateFaces<Faces>(faces, offset);
-  return {offset + num_archived_vertices_, offset, 0};
+  const auto face_offset = updateFaces<Faces>(faces, offset);
+  return {
+      offset + num_archived_vertices_,
+      offset,
+      face_offset + face_archive_updates_.size(),
+  };
 }
 
 template <typename Vertices>
@@ -139,7 +143,7 @@ size_t MeshDelta::updateVertices(Vertices& vertices,
 }
 
 template <typename Faces>
-void MeshDelta::updateFaces(Faces& faces, size_t vertex_offset) const {
+size_t MeshDelta::updateFaces(Faces& faces, size_t vertex_offset) const {
   const auto curr_size = traits::num_faces(faces);
   if (curr_size < info.prev_active_faces) {
     throw std::logic_error("Invalid target vertices!");
@@ -150,22 +154,39 @@ void MeshDelta::updateFaces(Faces& faces, size_t vertex_offset) const {
   traits::resize_faces(faces, total_faces);
   for (size_t i = 0; i < start_idx; ++i) {
     auto prev_face = traits::get_face(faces, i);
-    if (prev_face[0] >= vertex_offset) {
-      prev_face[0] = prev_to_curr_.at(prev_face[0] - vertex_offset);
-    }
+    try {
+      if (prev_face[0] >= vertex_offset) {
+        prev_face[0] = prev_to_curr_.at(prev_face[0] - vertex_offset) + vertex_offset;
+      }
 
-    if (prev_face[1] >= vertex_offset) {
-      prev_face[1] = prev_to_curr_.at(prev_face[1] - vertex_offset);
-    }
+      if (prev_face[1] >= vertex_offset) {
+        prev_face[1] = prev_to_curr_.at(prev_face[1] - vertex_offset) + vertex_offset;
+      }
 
-    if (prev_face[2] >= vertex_offset) {
-      prev_face[2] = prev_to_curr_.at(prev_face[2] - vertex_offset);
+      if (prev_face[2] >= vertex_offset) {
+        prev_face[2] = prev_to_curr_.at(prev_face[2] - vertex_offset) + vertex_offset;
+      }
+    } catch (const std::out_of_range& e) {
+      std::stringstream ss;
+      ss << "failed to remap previous face " << i << " (" << prev_face[0] << ", "
+         << prev_face[1] << ", " << prev_face[2] << ") with vertex offset "
+         << vertex_offset << " and remapping: {";
+      auto iter = prev_to_curr_.begin();
+      while (iter != prev_to_curr_.end()) {
+        ss << iter->first << ": " << iter->second;
+        ++iter;
+        if (iter != prev_to_curr_.end()) {
+          ss << ", ";
+        }
+      }
+      ss << "}";
+      throw std::runtime_error(ss.str());
     }
 
     traits::set_face(faces, i, prev_face);
   }
 
-  size_t face_idx = 0;
+  size_t face_idx = start_idx;
   for (const auto& face : face_archive_updates_) {
     traits::set_face(faces, face_idx, offsetFace(face, vertex_offset));
     ++face_idx;
@@ -175,6 +196,8 @@ void MeshDelta::updateFaces(Faces& faces, size_t vertex_offset) const {
     traits::set_face(faces, face_idx, offsetFace(face, vertex_offset));
     ++face_idx;
   }
+
+  return start_idx;
 }
 
 }  // namespace kimera_pgmo

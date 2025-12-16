@@ -82,7 +82,7 @@ class MeshDelta {
                         const Eigen::Isometry3f* transform = nullptr) const;
 
   template <typename Faces>
-  void updateFaces(Faces& faces, size_t vertex_offset) const;
+  size_t updateFaces(Faces& faces, size_t vertex_offset) const;
 
   std::optional<size_t> remapIndex(const MeshOffsetInfo& offsets, size_t index) const;
 
@@ -95,8 +95,6 @@ class MeshDelta {
   traits::Timestamp timestamp_ns = 0;
 
  protected:
-  friend class DeltaCompression;
-
   size_t num_archived_vertices_ = 0;
   std::map<size_t, size_t> prev_to_curr_;
   traits::VertexProperties vertex_properties_;

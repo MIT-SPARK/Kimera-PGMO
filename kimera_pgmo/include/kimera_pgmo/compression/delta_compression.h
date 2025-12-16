@@ -121,7 +121,9 @@ class DeltaCompression {
   MeshDelta::Ptr delta_;
   MeshDelta::Ptr archive_delta_;
 
+  size_t prev_archived_vertices_ = 0;
   std::vector<size_t> active_remapping_;
+  std::map<size_t, size_t> prev_to_curr_;
   BlockInfoMap block_info_map_;
   VoxelInfoMap vertices_map_;
 
