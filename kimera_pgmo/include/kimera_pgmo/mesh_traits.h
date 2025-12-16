@@ -5,7 +5,6 @@
  * @author Nathan Hughes
  */
 #pragma once
-#include <pcl/Vertices.h>
 
 #include <type_traits>
 
@@ -20,13 +19,13 @@ namespace kimera_pgmo {
 
 // NOTE(nathan) these traits are required BEFORE the ADL lookup is defined because the
 // container is stl
-size_t pgmoNumFaces(const std::vector<pcl::Vertices>& faces);
+size_t pgmoNumFaces(const std::vector<traits::Face>& faces);
 
-traits::Face pgmoGetFace(const std::vector<pcl::Vertices>& faces, size_t i);
+traits::Face pgmoGetFace(const std::vector<traits::Face>& faces, size_t i);
 
-void pgmoResizeFaces(std::vector<pcl::Vertices>& faces, size_t size);
+void pgmoResizeFaces(std::vector<traits::Face>& faces, size_t size);
 
-void pgmoSetFace(std::vector<pcl::Vertices>& faces, size_t i, const traits::Face& face);
+void pgmoSetFace(std::vector<traits::Face>& faces, size_t i, const traits::Face& face);
 
 namespace traits {
 namespace detail {

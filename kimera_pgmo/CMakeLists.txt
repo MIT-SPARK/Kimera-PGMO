@@ -46,12 +46,13 @@ add_library(
   src/optimizer/kimera_rpgo_optimizer.cpp
   src/deformation_graph.cpp
   src/deformation_graph_io.cpp
+  src/kimera_pgmo_interface.cpp
   src/mesh_deformation.cpp
   src/mesh_delta.cpp
   src/mesh_frontend_interface.cpp
   src/mesh_offset_info.cpp
   src/mesh_traits.cpp
-  src/kimera_pgmo_interface.cpp
+  src/pcl_mesh_traits.cpp
   src/sparse_keyframe.cpp)
 target_include_directories(
   ${PROJECT_NAME}

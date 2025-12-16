@@ -5,12 +5,30 @@
  * @author Nathan Hughes
  */
 #pragma once
+#include <pcl/Vertices.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 
 #include <type_traits>
 
+#include "kimera_pgmo/mesh_traits.h"  // IWYU pragma: keep
 #include "kimera_pgmo/mesh_types.h"
+
+namespace kimera_pgmo::traits {
+
+template <>
+size_t num_faces(const std::vector<pcl::Vertices>& faces);
+
+template <>
+Face get_face(const std::vector<pcl::Vertices>& faces, size_t i);
+
+template <>
+void resize_faces(std::vector<pcl::Vertices>& faces, size_t size);
+
+template <>
+void set_face(std::vector<pcl::Vertices>& faces, size_t i, const Face& face);
+
+}  // namespace kimera_pgmo::traits
 
 namespace pcl {
 
