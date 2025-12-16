@@ -76,7 +76,8 @@ class Graph {
    * as graph vertices and sides of the new surfaces as bidirectional edges
    */
   std::vector<Edge> addPointsAndSurfaces(const std::vector<size_t>& vertices,
-                                         const std::vector<pcl::Vertices>& polygons);
+                                         const std::vector<pcl::Vertices>& polygons,
+                                         bool bidirectional = true);
 
   //! \brief Print graph (with optional header
   void print(std::string header) const;

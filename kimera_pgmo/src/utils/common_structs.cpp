@@ -15,8 +15,9 @@
 namespace kimera_pgmo {
 
 using pose_graph_tools::PoseGraph;
+using PclFaces = std::vector<pcl::Vertices>;
+using GraphEdges = std::vector<Graph::Edge>;
 
-// Timestamps
 Timestamp stampFromSec(double sec) {
   auto t = std::chrono::duration<double>(sec);
   return std::chrono::duration_cast<std::chrono::nanoseconds>(t).count();
@@ -27,7 +28,6 @@ double stampToSec(Timestamp stamp) {
   return std::chrono::duration<double>(t).count();
 }
 
-//// Graph Class
 std::vector<Graph::Edge> Graph::getEdges() const {
   std::vector<Edge> edges;
   for (const auto& [v1, connections] : edges_) {
@@ -82,8 +82,9 @@ bool Graph::addEdge(const Edge& e, bool check) {
   return false;
 }
 
-std::vector<Graph::Edge> Graph::addPointsAndSurfaces(
-    const std::vector<size_t>& vertices, const std::vector<pcl::Vertices>& polygons) {
+GraphEdges Graph::addPointsAndSurfaces(const std::vector<size_t>& vertices,
+                                       const PclFaces& polygons,
+                                       bool bidirectional) {
   // return the new edges
   for (const auto& v : vertices) {
     addVertex(v);
@@ -96,6 +97,10 @@ std::vector<Graph::Edge> Graph::addPointsAndSurfaces(
       Edge e1(polygon.vertices[i], polygon.vertices[i_next]);
       if (addEdge(e1, true)) {
         new_edges.push_back(e1);
+      }
+
+      if (!bidirectional) {
+        continue;
       }
 
       Edge e2(polygon.vertices[i_next], polygon.vertices[i]);

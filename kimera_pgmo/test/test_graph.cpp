@@ -50,7 +50,7 @@ TEST(TestGraph, addEdge) {
   std::iota(new_nodes.begin(), new_nodes.end(), 0);
 
   Graph new_graph;
-  new_graph.addPointsAndSurfaces(new_nodes, mesh.polygons);
+  new_graph.addPointsAndSurfaces(new_nodes, mesh.polygons, false);
 
   new_graph.addEdge({3, 1});
   new_graph.addEdge({3, 4});
