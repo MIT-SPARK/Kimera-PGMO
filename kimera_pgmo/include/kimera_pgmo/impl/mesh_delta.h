@@ -148,6 +148,22 @@ void MeshDelta::updateFaces(Faces& faces, size_t vertex_offset) const {
   const auto start_idx = curr_size - info.prev_active_faces;
   const size_t total_faces = start_idx + getNumFaces();
   traits::resize_faces(faces, total_faces);
+  for (size_t i = 0; i < start_idx; ++i) {
+    auto prev_face = traits::get_face(faces, i);
+    if (prev_face[0] >= vertex_offset) {
+      prev_face[0] = prev_to_curr_.at(prev_face[0] - vertex_offset);
+    }
+
+    if (prev_face[1] >= vertex_offset) {
+      prev_face[1] = prev_to_curr_.at(prev_face[1] - vertex_offset);
+    }
+
+    if (prev_face[2] >= vertex_offset) {
+      prev_face[2] = prev_to_curr_.at(prev_face[2] - vertex_offset);
+    }
+
+    traits::set_face(faces, i, prev_face);
+  }
 
   size_t face_idx = 0;
   for (const auto& face : face_archive_updates_) {
