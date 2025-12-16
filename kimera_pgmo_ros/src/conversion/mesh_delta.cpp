@@ -7,7 +7,7 @@
 
 #include "kimera_pgmo_ros/conversion/mesh_delta.h"
 
-#include <memory>
+#include <kimera_pgmo/mesh_delta.h>
 
 #include <rclcpp/time.hpp>
 
