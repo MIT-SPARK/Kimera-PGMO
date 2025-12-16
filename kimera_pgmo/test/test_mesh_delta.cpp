@@ -55,6 +55,7 @@ TEST(MeshDelta, updateSimple) {
   delta2.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(5, 0, 0));
   delta2.addFace({0, 1, 2});
   delta2.addFace({1, 2, 3});
+  delta2.prev_to_curr() = {{0, 0}, {1, 1}};
 
   delta2.updateMesh(vertex_wrapper, result.faces);
   EXPECT_EQ(result.stamps.size(), result.vertices.size());
