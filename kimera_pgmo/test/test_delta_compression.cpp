@@ -434,15 +434,15 @@ CompressionTestConfiguration test_configurations[] = {
            {{3, 4, 5}, {12, 13, 14}, {9, 10, 11}},
            {9, 10, 11, 12, 13, 14}}},
          {{101s, 103s, {block1_empty, block2_empty}},
-          {{6, 9, 3, 0, 0},  //  6/2 unique, remove 9/3
+          {{6, 9, 3, 3, 1},  //  6/2 unique, remove 9/3
            {{3, 4, 5}, {12, 13, 14}},
            {}}},
          {{std::nullopt, 104s, {block1_v1}},
-          {{9, 3, 1, 0, 0},  // 6/2 unique, archive 3/1, 3/1 pending
+          {{9, 3, 1, 3, 1},  // 6/2 unique, archive 3/1, 3/1 pending
            {{12, 13, 14}, {18, 19, 20}, {21, 22, 23}},
            {18, 19, 20, 18, 19, 20, 21, 22, 23}}},
          {{std::nullopt, 105s, {block1_v1}},
-          {{9, 9, 3, 0, 0},  // 6/2 unique, archive 3/1, 3/1 pending
+          {{9, 9, 3, 3, 1},  // 6/2 unique, archive 3/1, 3/1 pending
            {{12, 13, 14}, {27, 28, 29}, {30, 31, 32}},
            {27, 28, 29, 27, 28, 29, 30, 31, 32}}},
      }},
@@ -458,19 +458,19 @@ CompressionTestConfiguration test_configurations[] = {
            {{3, 4, 5}, {12, 13, 14}, {9, 10, 11}},
            {9, 10, 11, 12, 13, 14}}},
          {{101s, 103s, {block1_empty, block2_v1}},
-          {{9, 9, 3, 0, 0},  // 9/3 unique, remove 9/3
+          {{9, 9, 3, 3, 1},  // 9/3 unique, remove 9/3
            {{3, 4, 5}, {18, 19, 20}, {15, 16, 17}, {18, 19, 20}},
            {15, 16, 17, 18, 19, 20}}},
          {{std::nullopt, 104s, {block2_v1}},
-          {{6, 6, 3, 0, 0},  // 3/2 unique, archive 3/1, pending 3/1
+          {{6, 6, 3, 3, 1},  // 3/2 unique, archive 3/1, pending 3/1
            {{24, 25, 26}, {21, 22, 23}, {24, 25, 26}},
            {21, 22, 23, 24, 25, 26}}},
          {{std::nullopt, 105s, {block1_v1, block2_v1}},
-          {{9, 6, 3, 0, 0},  // 6/2 unique, pending 3/1
+          {{9, 6, 3, 3, 1},  // 6/2 unique, pending 3/1
            {{39, 40, 41}, {30, 31, 32}, {36, 37, 38}, {39, 40, 41}},
            {30, 31, 32, 30, 31, 32, 39, 40, 41, 36, 37, 38, 39, 40, 41}}},
          {{std::nullopt, 106s, {block1_empty, block2_empty}},
-          {{3, 9, 4, 0, 0},  // 6/2 unique, pending 3/1
+          {{3, 9, 4, 3, 1},  // 6/2 unique, pending 3/1
            {{39, 40, 41}},
            {}}},
      }},
@@ -486,11 +486,11 @@ CompressionTestConfiguration test_configurations[] = {
            {{0, 1, 2}, {9, 10, 5}, {6, 7, 8}, {9, 10, 11}},
            {6, 7, 8, 9, 10, 11}}},
          {{101s, 103s, {block1_empty, block2_v2}},
-          {{10, 10, 4, 0, 0},  // 10/4 unique, replace all
+          {{10, 10, 4, 3, 1},  // 10/4 unique, replace all
            {{0, 1, 2}, {15, 16, 5}, {12, 13, 14}, {15, 16, 17}},
            {12, 13, 14, 15, 16, 17}}},
          {{std::nullopt, 104s, {block2_empty}},
-          {{3, 7, 3, 0, 0},  // 3/1 pending, remove 7/3
+          {{3, 7, 3, 3, 1},  // 3/1 pending, remove 7/3
            {{15, 16, 5}},
            {}}},
      }},
@@ -510,11 +510,11 @@ CompressionTestConfiguration test_configurations[] = {
            {{0, 1, 2}, {18, 19, 8}, {6, 7, 8}, {15, 16, 17}, {18, 19, 20}},
            {15, 16, 17, 18, 19, 20}}},
          {{std::nullopt, 104s, {block2_empty}},
-          {{5, 9, 3, 0, 0},  // 3/1 unique, previous 12/5, archive 3/2
+          {{5, 9, 3, 3, 2},  // 3/1 unique, previous 12/5, archive 3/2
            {{18, 19, 8}},
            {}}},
          {{std::nullopt, 105s, {block2_empty}},
-          {{5, 5, 1, 0, 0},  // 3/1 unique, previous 3/1
+          {{5, 5, 1, 3, 2},  // 3/1 unique, previous 3/1
            {{18, 19, 8}},
            {}}},
      }},
