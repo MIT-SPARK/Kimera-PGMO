@@ -13,6 +13,7 @@
 
 #include "kimera_pgmo/compression/delta_compression.h"
 #include "kimera_pgmo/mesh_delta.h"
+#include "kimera_pgmo/mesh_traits.h"  // IWYU pragma: keep
 #include "pgmo_fixtures.h"
 
 namespace kimera_pgmo {
@@ -187,6 +188,10 @@ struct ExpectedState {
   size_t prev_active_vertices;
   // Expected number of active faces in the last delta
   size_t prev_active_faces;
+  // Expected total archived vertices
+  size_t archived_vertices;
+  // Expected total archived faces
+  size_t archived_faces;
 };
 
 struct ExpectedDelta {
@@ -205,6 +210,10 @@ struct ExpectedDelta {
                    const std::vector<size_t>& output_indices) const;
 
   void checkTriangles(const Faces& result, const std::vector<size_t>& remapping) const;
+
+  void checkMesh(const MeshOffsetInfo& offsets,
+                 const std::vector<traits::Vertex>& vertices,
+                 const std::vector<traits::Face>& faces) const;
 };
 
 struct CompressionTestConfiguration {
@@ -285,6 +294,14 @@ void ExpectedDelta::checkTriangles(const Faces& result,
   }
 }
 
+void ExpectedDelta::checkMesh(const MeshOffsetInfo& offsets,
+                              const std::vector<traits::Vertex>& /* vertices */,
+                              const std::vector<traits::Face>& /* faces */) const {
+  EXPECT_EQ(state.archived_vertices, offsets.archived_vertices);
+  EXPECT_EQ(state.archived_faces, offsets.archived_faces);
+  // TODO(nathan) think about checking vertices
+}
+
 namespace {
 
 using namespace std::chrono_literals;
@@ -361,11 +378,11 @@ CompressionTestConfiguration test_configurations[] = {
      1.0e-3,
      {
          {{std::nullopt, 100s, {block1_v1}},
-          {{6, 0, 0},  // 6 unique vertices
+          {{6, 0, 0, 0, 0},  // 6 unique vertices
            {{3, 4, 5}, {6, 7, 8}},
            {3, 4, 5, 3, 4, 5, 6, 7, 8}}},
          {{std::nullopt, 101s, {block1_empty}},
-          {{0, 6, 2},  // empty -> clear 6 vertices and 2 faces
+          {{0, 6, 2, 0, 0},  // empty -> clear 6 vertices and 2 faces
            {},
            {}}},
      }},
@@ -373,15 +390,15 @@ CompressionTestConfiguration test_configurations[] = {
      1.0e-3,
      {
          {{std::nullopt, 100s, {block1_v1}},
-          {{6, 0, 0},  // b1 has 6 vertices
+          {{6, 0, 0, 0, 0},  // b1 has 6 vertices
            {{3, 4, 5}, {6, 7, 8}},
            {3, 4, 5, 3, 4, 5, 6, 7, 8}}},
          {{101s, 102s, {block1_empty}},
-          {{6, 6, 2},  // replacing previous 6 with archived 6
+          {{6, 6, 2, 6, 2},  // replacing previous 6 with archived 6
            {{3, 4, 5}, {6, 7, 8}},
            {}}},
          {{std::nullopt, 103s, {block1_v1}},
-          {{6, 0, 0},  // new 6 vertices + archival
+          {{6, 0, 0, 6, 2},  // new 6 vertices + archival
            {{12, 13, 14}, {15, 16, 17}},
            {12, 13, 14, 12, 13, 14, 15, 16, 17}}},
      }},
@@ -389,19 +406,19 @@ CompressionTestConfiguration test_configurations[] = {
      1.0e-3,
      {
          {{std::nullopt, 100s, {block1_v1, block2_v1}},
-          {{9, 0, 0},  // 9 unique vertices (and 3 faces)
+          {{9, 0, 0, 0, 0},  // 9 unique vertices (and 3 faces)
            {{3, 4, 5}, {12, 13, 14}, {9, 10, 11}},
            {3, 4, 5, 3, 4, 5, 12, 13, 14, 9, 10, 11, 12, 13, 14}}},
          {{std::nullopt, 101s, {block1_empty, block2_v1}},
-          {{6, 9, 3},  // 6 unique vertices, clear 9/3 previous
+          {{6, 9, 3, 0, 0},  // 6 unique vertices, clear 9/3 previous
            {{15, 16, 17}, {18, 19, 20}},
            {15, 16, 17, 18, 19, 20}}},
          {{std::nullopt, 102s, {block1_v1, block2_v1}},
-          {{9, 6, 2},  // 9/3 unique, clear 6/2 previous
+          {{9, 6, 2, 0, 0},  // 9/3 unique, clear 6/2 previous
            {{24, 25, 26}, {33, 34, 35}, {30, 31, 32}},
            {24, 25, 26, 24, 25, 26, 33, 34, 35, 30, 31, 32, 33, 34, 35}}},
          {{std::nullopt, 103s, {block1_v1, block2_empty}},
-          {{6, 9, 3},  // 6/2 unique, clear 9/3 previous
+          {{6, 9, 3, 0, 0},  // 6/2 unique, clear 9/3 previous
            {{39, 40, 41}, {42, 43, 44}},
            {39, 40, 41, 39, 40, 41, 42, 43, 44}}},
      }},
@@ -409,23 +426,23 @@ CompressionTestConfiguration test_configurations[] = {
      1.0e-3,
      {
          {{std::nullopt, 100s, {block1_v1}},
-          {{6, 0, 0},  // 6/2 unique
+          {{6, 0, 0, 0, 0},  // 6/2 unique
            {{3, 4, 5}, {6, 7, 8}},
            {3, 4, 5, 3, 4, 5, 6, 7, 8}}},
          {{std::nullopt, 102s, {block2_v1}},
-          {{9, 6, 2},  // 9/3 unique, remove 6/2
+          {{9, 6, 2, 0, 0},  // 9/3 unique, remove 6/2
            {{3, 4, 5}, {12, 13, 14}, {9, 10, 11}},
            {9, 10, 11, 12, 13, 14}}},
          {{101s, 103s, {block1_empty, block2_empty}},
-          {{6, 9, 3},  //  6/2 unique, remove 9/3
+          {{6, 9, 3, 0, 0},  //  6/2 unique, remove 9/3
            {{3, 4, 5}, {12, 13, 14}},
            {}}},
          {{std::nullopt, 104s, {block1_v1}},
-          {{9, 3, 1},  // 6/2 unique, archive 3/1, 3/1 pending
+          {{9, 3, 1, 0, 0},  // 6/2 unique, archive 3/1, 3/1 pending
            {{12, 13, 14}, {18, 19, 20}, {21, 22, 23}},
            {18, 19, 20, 18, 19, 20, 21, 22, 23}}},
          {{std::nullopt, 105s, {block1_v1}},
-          {{9, 9, 3},  // 6/2 unique, archive 3/1, 3/1 pending
+          {{9, 9, 3, 0, 0},  // 6/2 unique, archive 3/1, 3/1 pending
            {{12, 13, 14}, {27, 28, 29}, {30, 31, 32}},
            {27, 28, 29, 27, 28, 29, 30, 31, 32}}},
      }},
@@ -433,27 +450,27 @@ CompressionTestConfiguration test_configurations[] = {
      1.0e-3,
      {
          {{std::nullopt, 100s, {block1_v1}},
-          {{6, 0, 0},  // 6/2 unique
+          {{6, 0, 0, 0, 0},  // 6/2 unique
            {{3, 4, 5}, {6, 7, 8}},
            {3, 4, 5, 3, 4, 5, 6, 7, 8}}},
          {{std::nullopt, 102s, {block2_v1}},
-          {{9, 6, 2},  // 9/3 unique, remove 6/2
+          {{9, 6, 2, 0, 0},  // 9/3 unique, remove 6/2
            {{3, 4, 5}, {12, 13, 14}, {9, 10, 11}},
            {9, 10, 11, 12, 13, 14}}},
          {{101s, 103s, {block1_empty, block2_v1}},
-          {{9, 9, 3},  // 9/3 unique, remove 9/3
+          {{9, 9, 3, 0, 0},  // 9/3 unique, remove 9/3
            {{3, 4, 5}, {18, 19, 20}, {15, 16, 17}, {18, 19, 20}},
            {15, 16, 17, 18, 19, 20}}},
          {{std::nullopt, 104s, {block2_v1}},
-          {{6, 6, 3},  // 3/2 unique, archive 3/1, pending 3/1
+          {{6, 6, 3, 0, 0},  // 3/2 unique, archive 3/1, pending 3/1
            {{24, 25, 26}, {21, 22, 23}, {24, 25, 26}},
            {21, 22, 23, 24, 25, 26}}},
          {{std::nullopt, 105s, {block1_v1, block2_v1}},
-          {{9, 6, 3},  // 6/2 unique, pending 3/1
+          {{9, 6, 3, 0, 0},  // 6/2 unique, pending 3/1
            {{39, 40, 41}, {30, 31, 32}, {36, 37, 38}, {39, 40, 41}},
            {30, 31, 32, 30, 31, 32, 39, 40, 41, 36, 37, 38, 39, 40, 41}}},
          {{std::nullopt, 106s, {block1_empty, block2_empty}},
-          {{3, 9, 4},  // 6/2 unique, pending 3/1
+          {{3, 9, 4, 0, 0},  // 6/2 unique, pending 3/1
            {{39, 40, 41}},
            {}}},
      }},
@@ -461,19 +478,19 @@ CompressionTestConfiguration test_configurations[] = {
      1.0e-3,
      {
          {{std::nullopt, 100s, {block1_v2}},
-          {{6, 0, 0},  // 6/2 unique
+          {{6, 0, 0, 0, 0},  // 6/2 unique
            {{0, 1, 2}, {3, 4, 5}},
            {0, 1, 2, 3, 4, 5}}},
          {{std::nullopt, 102s, {block2_v2}},
-          {{10, 6, 2},  // 10/4 unique
+          {{10, 6, 2, 0, 0},  // 10/4 unique
            {{0, 1, 2}, {9, 10, 5}, {6, 7, 8}, {9, 10, 11}},
            {6, 7, 8, 9, 10, 11}}},
          {{101s, 103s, {block1_empty, block2_v2}},
-          {{10, 10, 4},  // 10/4 unique, replace all
+          {{10, 10, 4, 0, 0},  // 10/4 unique, replace all
            {{0, 1, 2}, {15, 16, 5}, {12, 13, 14}, {15, 16, 17}},
            {12, 13, 14, 15, 16, 17}}},
          {{std::nullopt, 104s, {block2_empty}},
-          {{3, 7, 3},  // 3/1 pending, remove 7/3
+          {{3, 7, 3, 0, 0},  // 3/1 pending, remove 7/3
            {{15, 16, 5}},
            {}}},
      }},
@@ -481,23 +498,23 @@ CompressionTestConfiguration test_configurations[] = {
      1.0e-3,
      {
          {{std::nullopt, 100s, {block1_v3}},
-          {{8, 0, 0},  // 8/3 unique
+          {{8, 0, 0, 0, 0},  // 8/3 unique
            {{0, 1, 2}, {3, 4, 8}, {6, 7, 8}},
            {0, 1, 2, 3, 4, 8, 6, 7, 8}}},
          {{std::nullopt, 102s, {block2_v2}},
-          {{12, 8, 3},  // 12/5 unique, previous 8/3
+          {{12, 8, 3, 0, 0},  // 12/5 unique, previous 8/3
            {{0, 1, 2}, {12, 13, 8}, {6, 7, 8}, {9, 10, 11}, {12, 13, 14}},
            {9, 10, 11, 12, 13, 14}}},
          {{101s, 103s, {block1_empty, block2_v2}},
-          {{12, 12, 5},  // 12/5 unique, previous 12/5
+          {{12, 12, 5, 3, 2},  // 12/5 unique, previous 12/5
            {{0, 1, 2}, {18, 19, 8}, {6, 7, 8}, {15, 16, 17}, {18, 19, 20}},
            {15, 16, 17, 18, 19, 20}}},
          {{std::nullopt, 104s, {block2_empty}},
-          {{5, 9, 3},  // 3/1 unique, previous 12/5, archive 3/2
+          {{5, 9, 3, 0, 0},  // 3/1 unique, previous 12/5, archive 3/2
            {{18, 19, 8}},
            {}}},
          {{std::nullopt, 105s, {block2_empty}},
-          {{5, 5, 1},  // 3/1 unique, previous 3/1
+          {{5, 5, 1, 0, 0},  // 3/1 unique, previous 3/1
            {{18, 19, 8}},
            {}}},
      }},
@@ -505,11 +522,11 @@ CompressionTestConfiguration test_configurations[] = {
      1.0e-3,
      {
          {{std::nullopt, 100s, {block1_v1}},
-          {{6, 0, 0},  // 6/2 unique
+          {{6, 0, 0, 0, 0},  // 6/2 unique
            {{3, 4, 5}, {6, 7, 8}},
            {3, 4, 5, 3, 4, 5, 6, 7, 8}}},
          {{std::nullopt, 100s, {block2_v1}},
-          {{9, 6, 2},  // 9/3 unique, 6/2 prev
+          {{9, 6, 2, 0, 0},  // 9/3 unique, 6/2 prev
            {{3, 4, 5}, {9, 10, 11}, {12, 13, 14}},
            {9, 10, 11, 12, 13, 14}}},
      }},
@@ -570,6 +587,8 @@ TEST_P(DeltaCompressionFixture, CompressionCorrect) {
   // reset absoulte index count for vertices
   ::kimera_pgmo::test::BlockConfig::resetIndex();
 
+  std::vector<traits::Face> result_faces;
+  std::vector<traits::Vertex> result_vertices;
   for (const auto& [input, expected] : config.inputs) {
     if (input.prune_time_ns) {
       compression.archiveBlocksByTime(input.prune_time_ns->count());
@@ -585,6 +604,9 @@ TEST_P(DeltaCompressionFixture, CompressionCorrect) {
     SCOPED_TRACE(input);
     const auto result_indices = flattenRemapping(input.blocks, remapping);
     expected.checkOutput(*output, result_indices);
+
+    const auto offsets = output->updateMesh(result_vertices, result_faces);
+    expected.checkMesh(offsets, result_vertices, result_faces);
   }
 }
 

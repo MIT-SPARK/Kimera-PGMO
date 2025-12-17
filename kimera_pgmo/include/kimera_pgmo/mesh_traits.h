@@ -13,12 +13,23 @@
 
 namespace kimera_pgmo {
 
-// NOTE(nathan) SimpleMesh used to be here (potentially as a way to let the compilation
-// bottom out if there wasn't an implementation of the mesh traits for a type. Add back
-// if this is still the case)
-
 // NOTE(nathan) these traits are required BEFORE the ADL lookup is defined because the
 // container is stl
+size_t pgmoNumVertices(const std::vector<traits::Vertex>& vertices);
+
+traits::Pos pgmoGetVertex(const std::vector<traits::Vertex>& vertices,
+                          size_t i,
+                          traits::VertexTraits* traits = nullptr);
+
+traits::VertexProperties pgmoGetVertexProperties(const std::vector<traits::Vertex>& v);
+
+void pgmoResizeVertices(std::vector<traits::Vertex>& vertices, size_t size);
+
+void pgmoSetVertex(std::vector<traits::Vertex>& vertices,
+                   size_t i,
+                   const traits::Pos& pos,
+                   const traits::VertexTraits* traits = nullptr);
+
 size_t pgmoNumFaces(const std::vector<traits::Face>& faces);
 
 traits::Face pgmoGetFace(const std::vector<traits::Face>& faces, size_t i);
