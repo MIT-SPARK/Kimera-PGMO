@@ -154,33 +154,16 @@ size_t MeshDelta::updateFaces(Faces& faces, size_t vertex_offset) const {
   traits::resize_faces(faces, total_faces);
   for (size_t i = 0; i < start_idx; ++i) {
     auto prev_face = traits::get_face(faces, i);
-    try {
-      if (prev_face[0] >= vertex_offset) {
-        prev_face[0] = prev_to_curr_.at(prev_face[0] - vertex_offset) + vertex_offset;
-      }
+    if (prev_face[0] >= vertex_offset) {
+      prev_face[0] = prev_to_curr_.at(prev_face[0] - vertex_offset) + vertex_offset;
+    }
 
-      if (prev_face[1] >= vertex_offset) {
-        prev_face[1] = prev_to_curr_.at(prev_face[1] - vertex_offset) + vertex_offset;
-      }
+    if (prev_face[1] >= vertex_offset) {
+      prev_face[1] = prev_to_curr_.at(prev_face[1] - vertex_offset) + vertex_offset;
+    }
 
-      if (prev_face[2] >= vertex_offset) {
-        prev_face[2] = prev_to_curr_.at(prev_face[2] - vertex_offset) + vertex_offset;
-      }
-    } catch (const std::out_of_range& e) {
-      std::stringstream ss;
-      ss << "failed to remap previous face " << i << " (" << prev_face[0] << ", "
-         << prev_face[1] << ", " << prev_face[2] << ") with vertex offset "
-         << vertex_offset << " and remapping: {";
-      auto iter = prev_to_curr_.begin();
-      while (iter != prev_to_curr_.end()) {
-        ss << iter->first << ": " << iter->second;
-        ++iter;
-        if (iter != prev_to_curr_.end()) {
-          ss << ", ";
-        }
-      }
-      ss << "}";
-      throw std::runtime_error(ss.str());
+    if (prev_face[2] >= vertex_offset) {
+      prev_face[2] = prev_to_curr_.at(prev_face[2] - vertex_offset) + vertex_offset;
     }
 
     traits::set_face(faces, i, prev_face);

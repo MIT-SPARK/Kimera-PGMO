@@ -144,9 +144,9 @@ MeshDelta::Ptr DeltaCompression::computeDelta(uint64_t timestamp_ns,
   }
 
   // prev_to_curr_ is a mapping from the vertex index in the previous delta to the
-  // current one. This means that previous indices in the remapping start from the number
-  // of previously archived vertices. This is not ideal (downstream usage cares about
-  // the remapping relative to the start of the previously active vertices), so we
+  // current one. This means that previous indices in the remapping start from the
+  // number of previously archived vertices. This is not ideal (downstream usage cares
+  // about the remapping relative to the start of the previously active vertices), so we
   // remove the offset here before providing it to the delta
   auto& delta_remap = delta_->prev_to_curr();
   for (const auto& [prev, curr] : prev_to_curr_) {
@@ -436,10 +436,12 @@ void DeltaCompression::archiveBlockFaces(const BlockInfo& block_info,
 }
 
 void DeltaCompression::updateAndAddArchivedFaces() {
+  // we want to touch anything that is only pointing to archived or pending vertices
+  const auto archive_threshold =
+      delta_->getNumArchivedVertices() + archived_vertices_.size();
+
   // note that we only need to check for duplicates per each "type" of face
   RedundancyChecker checker;
-  const auto archive_threshold = delta_->getNumArchivedVertices();
-
   auto iter = archived_faces_.begin();
   while (iter != archived_faces_.end()) {
     auto& face = *iter;
@@ -460,6 +462,7 @@ void DeltaCompression::updateAndAddArchivedFaces() {
       continue;
     }
 
+    // TODO(nathan) assert no face bridges active and archived
     const bool can_archive = allVerticesBelow(face, archive_threshold);
     checker.add(face);
     delta_->addFace(face, can_archive);
