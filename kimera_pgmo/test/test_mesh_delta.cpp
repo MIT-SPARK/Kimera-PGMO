@@ -39,7 +39,9 @@ TEST(MeshDelta, updateSimple) {
 
   TestMesh result;
   StampedCloud<pcl::PointXYZRGBA> vertex_wrapper(result.vertices, result.stamps);
-  delta1.updateMesh(vertex_wrapper, result.faces);
+
+  MeshOffsetInfo offsets;
+  delta1.updateMesh(vertex_wrapper, result.faces, offsets);
 
   {  // test scope
     EXPECT_EQ(result.stamps.size(), result.vertices.size());
@@ -62,7 +64,7 @@ TEST(MeshDelta, updateSimple) {
   delta2.addFace({1, 2, 3});
   delta2.prev_to_curr() = {{0, 0}, {1, 1}};
 
-  delta2.updateMesh(vertex_wrapper, result.faces);
+  delta2.updateMesh(vertex_wrapper, result.faces, offsets);
 
   {  // test scope
     EXPECT_EQ(result.stamps.size(), result.vertices.size());

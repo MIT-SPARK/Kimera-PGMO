@@ -9,6 +9,19 @@ inline traits::Face offsetFace(const traits::Face& face, size_t offset) {
   return {face[0] + offset, face[1] + offset, face[2] + offset};
 }
 
+inline bool allVerticesBelow(const traits::Face& face, size_t archive_threshold) {
+  return face[0] < archive_threshold && face[1] < archive_threshold &&
+         face[2] < archive_threshold;
+}
+
+inline traits::Face remapFace(const traits::Face& face,
+                              size_t offset,
+                              const std::map<size_t, size_t>& remap) {
+  return {face[0] >= offset ? remap.at(face[0] - offset) + offset : face[0],
+          face[1] >= offset ? remap.at(face[1] - offset) + offset : face[1],
+          face[2] >= offset ? remap.at(face[2] - offset) + offset : face[2]};
+}
+
 template <typename Vertices, typename Faces>
 MeshDelta::Ptr MeshDelta::fromMesh(const Vertices& vertices, const Faces& faces) {
   auto delta = std::make_unique<MeshDelta>(MeshDelta::TrackingInfo{0, 0, 0});
@@ -98,22 +111,24 @@ ContainerT<size_t> MeshDelta::remapIndices(const ContainerT<size_t>& indices,
 }
 
 template <typename Mesh>
-MeshOffsetInfo MeshDelta::updateMesh(Mesh& mesh,
-                                     const Eigen::Isometry3f* transform) const {
+void MeshDelta::updateMesh(Mesh& mesh,
+                           MeshOffsetInfo& offsets,
+                           const Eigen::Isometry3f* transform) const {
   // dispatch for types implementing faces and vertices adl api
-  return updateMesh(mesh, mesh, transform);
+  updateMesh(mesh, mesh, offsets, transform);
 }
 
 template <typename Vertices, typename Faces>
-MeshOffsetInfo MeshDelta::updateMesh(Vertices& vertices,
-                                     Faces& faces,
-                                     const Eigen::Isometry3f* transform) const {
-  const auto offset = updateVertices<Vertices>(vertices, transform);
-  const auto face_offset = updateFaces<Faces>(faces, offset);
-  return {
-      offset + num_archived_vertices_,
-      offset,
-      face_offset + face_archive_updates_.size(),
+void MeshDelta::updateMesh(Vertices& vertices,
+                           Faces& faces,
+                           MeshOffsetInfo& offsets,
+                           const Eigen::Isometry3f* transform) const {
+  const auto vertex_offset = updateVertices<Vertices>(vertices, transform);
+  const auto archived_faces = updateFaces<Faces>(faces, offsets, vertex_offset);
+  offsets = {
+      vertex_offset + num_archived_vertices_,
+      vertex_offset,
+      archived_faces,
   };
 }
 
@@ -143,44 +158,73 @@ size_t MeshDelta::updateVertices(Vertices& vertices,
 }
 
 template <typename Faces>
-size_t MeshDelta::updateFaces(Faces& faces, size_t vertex_offset) const {
+size_t MeshDelta::updateFaces(Faces& faces,
+                              const MeshOffsetInfo& prev_offsets,
+                              size_t vertex_offset) const {
   const auto curr_size = traits::num_faces(faces);
   if (curr_size < info.prev_active_faces) {
     throw std::logic_error("Invalid target vertices!");
   }
 
+  const size_t archived_threshold = vertex_offset + num_archived_vertices_;
   const auto start_idx = curr_size - info.prev_active_faces;
   const size_t total_faces = start_idx + getNumFaces();
   traits::resize_faces(faces, total_faces);
-  for (size_t i = 0; i < start_idx; ++i) {
-    auto prev_face = traits::get_face(faces, i);
-    if (prev_face[0] >= vertex_offset) {
-      prev_face[0] = prev_to_curr_.at(prev_face[0] - vertex_offset) + vertex_offset;
+
+  // we first remap and sort any face between the last archived face offset and
+  // the current insertion point for any active face (start_idx)
+  size_t pending_start = prev_offsets.archived_faces;
+  for (size_t i = pending_start; i < start_idx; ++i) {
+    const auto f_p = traits::get_face(faces, i);
+    const auto f_n = remapFace(f_p, vertex_offset, prev_to_curr_);
+    if (!allVerticesBelow(f_n, archived_threshold)) {
+      traits::set_face(faces, i, f_n);
+      continue;
     }
 
-    if (prev_face[1] >= vertex_offset) {
-      prev_face[1] = prev_to_curr_.at(prev_face[1] - vertex_offset) + vertex_offset;
+    if (i != pending_start) {
+      // swap previously processed pending face with current face if pending faces exist
+      // between this index and the last archived face
+      traits::set_face(faces, i, traits::get_face(faces, pending_start));
     }
 
-    if (prev_face[2] >= vertex_offset) {
-      prev_face[2] = prev_to_curr_.at(prev_face[2] - vertex_offset) + vertex_offset;
-    }
-
-    traits::set_face(faces, i, prev_face);
+    // move fully archived face to end of archived faces and move the pending band
+    // forward one
+    traits::set_face(faces, pending_start, f_n);
+    ++pending_start;
   }
 
+  // we sort any newly "archived face" into pending and fully-archived faces by
+  // inserting them at the end of the archived band or the pending band
   size_t face_idx = start_idx;
   for (const auto& face : face_archive_updates_) {
-    traits::set_face(faces, face_idx, offsetFace(face, vertex_offset));
+    const auto f_n = offsetFace(face, vertex_offset);
+    if (!allVerticesBelow(f_n, archived_threshold)) {
+      // put pending face at end of pending band
+      traits::set_face(faces, face_idx, offsetFace(face, vertex_offset));
+      ++face_idx;
+      continue;
+    }
+
+    if (face_idx != pending_start) {
+      // swap previously processed pending face with current face if pending faces exist
+      // between this index and the last archived face
+      traits::set_face(faces, face_idx, traits::get_face(faces, pending_start));
+    }
+
+    traits::set_face(faces, pending_start, f_n);
+    ++pending_start;
     ++face_idx;
   }
 
+  // at this point, face_idx should be the end of the pending band, and anything active
+  // gets inserted after
   for (const auto& face : face_updates_) {
     traits::set_face(faces, face_idx, offsetFace(face, vertex_offset));
     ++face_idx;
   }
 
-  return start_idx;
+  return pending_start;
 }
 
 }  // namespace kimera_pgmo

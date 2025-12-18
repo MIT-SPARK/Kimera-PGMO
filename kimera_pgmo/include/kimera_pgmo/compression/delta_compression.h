@@ -109,8 +109,7 @@ class DeltaCompression {
   void updateAndAddArchivedFaces();
 
   void archiveBlockFaces(const BlockInfo& block_info,
-                         RedundancyChecker& checker,
-                         std::vector<traits::Face>& pending_faces);
+                         RedundancyChecker& checker);
 
   void addPendingVertices(MeshDelta& delta, size_t start_index = 0);
 

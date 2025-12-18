@@ -49,7 +49,6 @@ class MeshDelta {
    * @param indices Indices to remap
    * @param offsets Offset information from applying the current mesh delta
    * @param info Optional tracking info for remapping
-   * deleted
    */
   template <template <typename T> typename ContainerT>
   void updateIndices(ContainerT<size_t>& indices,
@@ -69,20 +68,24 @@ class MeshDelta {
                                   MeshOffsetInfo::RemapInfo* info = nullptr) const;
 
   template <typename Mesh>
-  MeshOffsetInfo updateMesh(Mesh& mesh,
-                            const Eigen::Isometry3f* transform = nullptr) const;
+  void updateMesh(Mesh& mesh,
+                  MeshOffsetInfo& offsets,
+                  const Eigen::Isometry3f* transform = nullptr) const;
 
   template <typename Vertices, typename Faces>
-  MeshOffsetInfo updateMesh(Vertices& vertices,
-                            Faces& faces,
-                            const Eigen::Isometry3f* transform = nullptr) const;
+  void updateMesh(Vertices& vertices,
+                  Faces& faces,
+                  MeshOffsetInfo& offsets,
+                  const Eigen::Isometry3f* transform = nullptr) const;
 
   template <typename Vertices>
   size_t updateVertices(Vertices& vertices,
                         const Eigen::Isometry3f* transform = nullptr) const;
 
   template <typename Faces>
-  size_t updateFaces(Faces& faces, size_t vertex_offset) const;
+  size_t updateFaces(Faces& faces,
+                     const MeshOffsetInfo& prev_offests,
+                     size_t vertex_offset) const;
 
   std::optional<size_t> remapIndex(const MeshOffsetInfo& offsets, size_t index) const;
 

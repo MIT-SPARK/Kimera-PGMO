@@ -8,6 +8,7 @@ struct MeshOffsetInfo {
   size_t archived_vertices = 0;
   size_t prev_archived_vertices = 0;
   size_t archived_faces = 0;
+  size_t pending_faces = 0;
 
   size_t toGlobal(size_t local_idx) const;
   size_t toLocal(size_t global_idx) const;

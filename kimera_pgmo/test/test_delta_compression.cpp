@@ -587,6 +587,7 @@ TEST_P(DeltaCompressionFixture, CompressionCorrect) {
   // reset absoulte index count for vertices
   ::kimera_pgmo::test::BlockConfig::resetIndex();
 
+  MeshOffsetInfo offsets;
   std::vector<traits::Face> result_faces;
   std::vector<traits::Vertex> result_vertices;
   for (const auto& [input, expected] : config.inputs) {
@@ -605,7 +606,7 @@ TEST_P(DeltaCompressionFixture, CompressionCorrect) {
     const auto result_indices = flattenRemapping(input.blocks, remapping);
     expected.checkOutput(*output, result_indices);
 
-    const auto offsets = output->updateMesh(result_vertices, result_faces);
+    output->updateMesh(result_vertices, result_faces, offsets);
     expected.checkMesh(offsets, result_vertices, result_faces);
   }
 }
