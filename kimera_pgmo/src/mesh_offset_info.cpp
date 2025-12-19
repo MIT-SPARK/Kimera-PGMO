@@ -3,11 +3,11 @@
 namespace kimera_pgmo {
 
 size_t MeshOffsetInfo::toGlobal(size_t local_idx) const {
-  return local_idx + archived_vertices;
+  return local_idx + prev_archived_vertices;
 }
 
 size_t MeshOffsetInfo::toLocal(size_t global_idx) const {
-  return global_idx - archived_vertices;
+  return global_idx - prev_archived_vertices;
 }
 
 void MeshOffsetInfo::RemapInfo::addIndex(size_t idx) {
