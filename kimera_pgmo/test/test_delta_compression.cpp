@@ -434,15 +434,15 @@ CompressionTestConfiguration test_configurations[] = {
            {{3, 4, 5}, {12, 13, 14}, {9, 10, 11}},
            {9, 10, 11, 12, 13, 14}}},
          {{101s, 103s, {block1_empty, block2_empty}},
-          {{6, 9, 3, 3, 2},  //  6/2 unique, remove 9/3
+          {{6, 9, 3, 3, 1},  //  6/2 unique, remove 9/3
            {{3, 4, 5}, {12, 13, 14}},
            {}}},
          {{std::nullopt, 104s, {block1_v1}},
-          {{9, 3, 0, 3, 2},  // 6/2 unique, archive 3/1, 3/1 pending
+          {{9, 3, 0, 3, 1},  // 6/2 unique, archive 3/1, 3/1 pending
            {{18, 19, 20}, {21, 22, 23}},
            {18, 19, 20, 18, 19, 20, 21, 22, 23}}},
          {{std::nullopt, 105s, {block1_v1}},
-          {{9, 9, 2, 3, 2},  // 6/2 unique, archive 3/1, 3/1 pending
+          {{9, 9, 2, 3, 1},  // 6/2 unique, archive 3/1, 3/1 pending
            {{27, 28, 29}, {30, 31, 32}},
            {27, 28, 29, 27, 28, 29, 30, 31, 32}}},
      }},
@@ -470,7 +470,7 @@ CompressionTestConfiguration test_configurations[] = {
            {{39, 40, 41}, {30, 31, 32}, {36, 37, 38}, {39, 40, 41}},
            {30, 31, 32, 30, 31, 32, 39, 40, 41, 36, 37, 38, 39, 40, 41}}},
          {{std::nullopt, 106s, {block1_empty, block2_empty}},
-          {{3, 9, 4, 3, 2},  // 6/2 unique, pending 3/1
+          {{3, 9, 4, 3, 1},  // 6/2 unique, pending 3/1
            {{39, 40, 41}},
            {}}},
      }},
@@ -490,7 +490,7 @@ CompressionTestConfiguration test_configurations[] = {
            {{0, 1, 2}, {15, 16, 5}, {12, 13, 14}, {15, 16, 17}},
            {12, 13, 14, 15, 16, 17}}},
          {{std::nullopt, 104s, {block2_empty}},
-          {{3, 7, 3, 3, 2},  // 3/1 pending, remove 7/3
+          {{3, 7, 3, 3, 1},  // 3/1 pending, remove 7/3
            {{15, 16, 5}},
            {}}},
      }},
@@ -506,15 +506,15 @@ CompressionTestConfiguration test_configurations[] = {
            {{0, 1, 2}, {12, 13, 8}, {6, 7, 8}, {9, 10, 11}, {12, 13, 14}},
            {9, 10, 11, 12, 13, 14}}},
          {{101s, 103s, {block1_empty, block2_v2}},
-          {{12, 12, 5, 3, 2},  // 12/5 unique, previous 12/5
+          {{12, 12, 5, 3, 1},  // 12/5 unique, previous 12/5
            {{0, 1, 2}, {18, 19, 8}, {6, 7, 8}, {15, 16, 17}, {18, 19, 20}},
            {15, 16, 17, 18, 19, 20}}},
          {{std::nullopt, 104s, {block2_empty}},
-          {{5, 9, 3, 3, 3},  // 3/1 unique, previous 12/5, archive 3/2
+          {{5, 9, 3, 3, 1},  // 3/1 unique, previous 12/5, archive 3/2
            {{18, 19, 8}},
            {}}},
          {{std::nullopt, 105s, {block2_empty}},
-          {{5, 5, 0, 3, 3},  // 3/1 unique, previous 3/1
+          {{5, 5, 0, 3, 1},  // 3/1 unique, previous 3/1
            {},
            {}}},
      }},
