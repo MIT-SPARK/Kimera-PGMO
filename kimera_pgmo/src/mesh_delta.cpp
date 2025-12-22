@@ -35,6 +35,18 @@ void MeshDelta::addFace(const Face& face, bool archive) {
   }
 }
 
+const MeshDelta::Vertex& MeshDelta::getVertex(size_t i) const {
+  return vertex_updates_.at(i);
+}
+
+const MeshDelta::Face& MeshDelta::getFace(size_t i) const {
+  if (i < face_archive_updates_.size()) {
+    return face_archive_updates_[i];
+  }
+
+  return face_updates_.at(i - face_archive_updates_.size());
+}
+
 size_t MeshDelta::getNumVertices() const { return vertex_updates_.size(); }
 
 size_t MeshDelta::getNumActiveVertices() const {
@@ -50,19 +62,6 @@ size_t MeshDelta::getNumFaces() const {
 size_t MeshDelta::getNumActiveFaces() const { return face_updates_.size(); }
 
 size_t MeshDelta::getNumArchivedFaces() const { return face_archive_updates_.size(); }
-
-const MeshDelta::Vertex& MeshDelta::getVertex(size_t i) const {
-  return vertex_updates_.at(i);
-}
-
-const MeshDelta::Face& MeshDelta::getFace(size_t i) const {
-  if (i < face_archive_updates_.size()) {
-    return face_archive_updates_[i];
-  }
-
-  i -= face_archive_updates_.size();
-  return face_updates_.at(i);
-}
 
 std::optional<size_t> MeshDelta::remapIndex(const MeshOffsetInfo& offsets,
                                             size_t index) const {

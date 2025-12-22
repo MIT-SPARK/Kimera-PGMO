@@ -27,15 +27,15 @@ class MeshDelta {
                    bool archive = false);
   void addFace(const traits::Face& face, bool archive = false);
 
+  const Vertex& getVertex(size_t index) const;
+  const Face& getFace(size_t index) const;
+
   size_t getNumVertices() const;
   size_t getNumActiveVertices() const;
   size_t getNumArchivedVertices() const;
   size_t getNumFaces() const;
   size_t getNumActiveFaces() const;
   size_t getNumArchivedFaces() const;
-
-  const Vertex& getVertex(size_t index) const;
-  const Face& getFace(size_t index) const;
 
   template <typename Mesh>
   static MeshDelta::Ptr fromMesh(const Mesh& mesh);
