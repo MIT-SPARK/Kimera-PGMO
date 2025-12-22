@@ -10,7 +10,6 @@ add_executable(
   test_${PROJECT_NAME}
   pgmo_fixtures.cpp
   pgmo_unit_tests.cpp
-  test_common_functions.cpp
   test_common_structs.cpp
   test_deformation_edge_factor.cpp
   test_deformation_graph.cpp
@@ -21,6 +20,7 @@ add_executable(
   test_mesh_frontend_interface.cpp
   test_mesh_io.cpp
   test_octree_compression.cpp
+  test_pcl_utilities.cpp
   test_redundancy_checker.cpp
   test_traits.cpp
   test_block_compression.cpp)

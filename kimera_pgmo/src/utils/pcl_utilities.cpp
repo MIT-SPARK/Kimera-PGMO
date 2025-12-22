@@ -3,7 +3,7 @@
  * @brief  Some common functions used in library
  * @author Yun Chang
  */
-#include "kimera_pgmo/utils/common_functions.h"
+#include "kimera_pgmo/utils/pcl_utilities.h"
 
 #include <pcl/conversions.h>
 

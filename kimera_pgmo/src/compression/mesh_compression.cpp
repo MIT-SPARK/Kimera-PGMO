@@ -8,10 +8,9 @@
 #include <pcl/conversions.h>
 
 #include <algorithm>
-#include <iterator>
 #include <utility>
 
-#include "kimera_pgmo/utils/common_functions.h"
+#include "kimera_pgmo/utils/pcl_utilities.h"
 #include "kimera_pgmo/utils/logging.h"
 
 namespace kimera_pgmo {

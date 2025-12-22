@@ -38,10 +38,10 @@ add_library(
   src/compression/mesh_compression.cpp
   src/compression/octree_compression.cpp
   src/compression/redundancy_checker.cpp
-  src/utils/common_functions.cpp
   src/utils/common_structs.cpp
   src/utils/logging.cpp
   src/utils/mesh_io.cpp
+  src/utils/pcl_utilities.cpp
   src/utils/range_generator.cpp
   src/optimizer/kimera_rpgo_optimizer.cpp
   src/deformation_graph.cpp

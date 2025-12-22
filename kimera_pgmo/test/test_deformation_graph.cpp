@@ -9,15 +9,14 @@
 #include <pcl/conversions.h>
 
 #include "kimera_pgmo/deformation_graph.h"
-#include "kimera_pgmo/utils/common_functions.h"
 #include "kimera_pgmo/utils/common_structs.h"
 #include "kimera_pgmo/utils/mesh_io.h"
 #include "pgmo_fixtures.h"
 #include "test_config.h"
 
 namespace kimera_pgmo {
-
 namespace {
+
 template <typename T, typename Ptr>
 const T* cast_factor(const Ptr& ptr, bool should_throw = false) {
   if (!ptr) {
@@ -34,6 +33,12 @@ const T* cast_factor(const Ptr& ptr, bool should_throw = false) {
 
   return cast;
 }
+
+template <typename PointT>
+gtsam::Point3 PclToGtsam(const PointT& p) {
+  return gtsam::Point3(p.x, p.y, p.z);
+}
+
 }  // namespace
 
 pcl::PolygonMesh createMeshTriangle() {
@@ -973,4 +978,5 @@ TEST(TestDeformationGraph, processPoseMeshGraph) {
               new_values->at<gtsam::Pose3>(key_value.key).matrix());
   }
 }
+
 }  // namespace kimera_pgmo
