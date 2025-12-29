@@ -67,8 +67,6 @@ class DeltaCompression {
    */
   explicit DeltaCompression(double resolution);
 
-  virtual ~DeltaCompression() = default;
-
   /**
    * @brief Integrate a new mesh update into the compressor
    * @param mesh Newest mesh to integrate
@@ -113,6 +111,8 @@ class DeltaCompression {
 
   void addPendingVertices(MeshDelta& delta, size_t start_index = 0);
 
+  void addIndexRemap(size_t prev, size_t curr);
+
  protected:
   double resolution_;
   double index_scale_;
@@ -122,7 +122,6 @@ class DeltaCompression {
 
   size_t prev_archived_vertices_ = 0;
   std::vector<size_t> active_remapping_;
-  std::map<size_t, size_t> prev_to_curr_;
   BlockInfoMap block_info_map_;
   VoxelInfoMap vertices_map_;
 

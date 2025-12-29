@@ -5,9 +5,16 @@
 
 namespace kimera_pgmo {
 
+template <typename Mesh>
+MeshDelta::Ptr MeshDelta::fromMesh(const Mesh& mesh, const TrackingInfo* info) {
+  return fromMesh(mesh, mesh, info);
+}
+
 template <typename Vertices, typename Faces>
-MeshDelta::Ptr MeshDelta::fromMesh(const Vertices& vertices, const Faces& faces) {
-  auto delta = std::make_unique<MeshDelta>(MeshDelta::TrackingInfo{0, 0, 0});
+MeshDelta::Ptr MeshDelta::fromMesh(const Vertices& vertices,
+                                   const Faces& faces,
+                                   const TrackingInfo* info) {
+  auto delta = std::make_unique<MeshDelta>(info ? *info : MeshDelta::TrackingInfo{});
   const auto num_vertices = traits::num_vertices(vertices);
   for (size_t i = 0; i < num_vertices; ++i) {
     traits::VertexTraits traits;
@@ -21,76 +28,6 @@ MeshDelta::Ptr MeshDelta::fromMesh(const Vertices& vertices, const Faces& faces)
   }
 
   return delta;
-}
-
-template <typename Mesh>
-MeshDelta::Ptr MeshDelta::fromMesh(const Mesh& mesh) {
-  return fromMesh(mesh, mesh);
-}
-
-template <template <typename T> typename ContainerT>
-void MeshDelta::updateIndices(ContainerT<size_t>& indices,
-                              const MeshOffsetInfo& offset,
-                              MeshOffsetInfo::RemapInfo* info) const {
-  size_t index = 0;
-  auto iter = indices.begin();
-  while (iter != indices.end()) {
-    const auto remapped = offset.remapGlobalVertex(offset, *iter);
-    if (!remapped) {
-      iter = indices.erase(iter);
-      if (info) {
-        info->deleted_indices.insert(index);
-      }
-
-      ++index;
-      continue;
-    }
-
-    *iter = *remapped;
-    if (info) {
-      info->addIndex(*iter);
-    }
-
-    ++iter;
-    ++index;
-  }
-
-  if (info) {
-    info->all_archived = info->max_index < offset.archived_vertices;
-  }
-}
-
-template <template <typename T> typename ContainerT>
-ContainerT<size_t> MeshDelta::remapIndices(const ContainerT<size_t>& indices,
-                                           const MeshOffsetInfo& offset,
-                                           MeshOffsetInfo::RemapInfo* info) const {
-  size_t index = 0;
-  ContainerT<size_t> to_return;
-  for (const auto global_idx : indices) {
-    const auto remapped = remapIndex(offset, global_idx);
-    if (!remapped) {
-      if (info) {
-        info->deleted_indices.insert(index);
-      }
-
-      ++index;
-      continue;
-    }
-
-    const auto new_idx = remapped.value();
-    to_return.push_back(new_idx);
-    if (info) {
-      info->addIndex(new_idx);
-    }
-
-    ++index;
-  }
-
-  if (info) {
-    info->all_archived = info->max_index < offset.archived_vertices;
-  }
-
-  return to_return;
 }
 
 template <typename Mesh>
@@ -158,10 +95,13 @@ size_t MeshDelta::updateFaces(Faces& faces,
   // the current insertion point for any active face (start_idx)
   size_t pending_start = prev_offsets.archived_faces;
   for (size_t i = pending_start; i < start_idx; ++i) {
-    const auto f_p = traits::get_face(faces, i);
-    const auto f_n = remapFace(f_p, vertex_offset, prev_to_curr_);
-    if (!allVerticesBelow(f_n, archived_threshold)) {
-      traits::set_face(faces, i, f_n);
+    auto f_p = traits::get_face(faces, i);
+    if (info.prev_to_curr) {
+      f_p = remapFace(f_p, vertex_offset, *info.prev_to_curr);
+    }
+
+    if (!allVerticesBelow(f_p, archived_threshold)) {
+      traits::set_face(faces, i, f_p);
       continue;
     }
 
@@ -173,7 +113,7 @@ size_t MeshDelta::updateFaces(Faces& faces,
 
     // move fully archived face to end of archived faces and move the pending band
     // forward one
-    traits::set_face(faces, pending_start, f_n);
+    traits::set_face(faces, pending_start, f_p);
     ++pending_start;
   }
 

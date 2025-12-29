@@ -4,6 +4,13 @@
 
 namespace kimera_pgmo {
 
+using IndexVec = std::vector<size_t>;
+
+void MeshOffsetInfo::RemapStats::addIndex(size_t idx) {
+  min_index = std::min(min_index, idx);
+  max_index = std::max(max_index, idx);
+}
+
 size_t MeshOffsetInfo::toGlobalVertex(size_t local_idx) const {
   return local_idx + prev_archived_vertices;
 }
@@ -17,24 +24,84 @@ size_t MeshOffsetInfo::toLocalVertex(size_t global_idx) const {
   return global_idx - prev_archived_vertices;
 }
 
-std::optional<size_t> MeshOffsetInfo::remapGlobalVertex(const Remap& remap,
-                                                        size_t index) const {
+std::optional<size_t> MeshOffsetInfo::remapGlobalVertex(size_t index) const {
+  if (!prev_to_curr_) {
+    // no remapping -> no need to do work
+    return index;
+  }
+
   if (index < prev_archived_vertices) {
     return index;
   }
 
   const auto local_idx = toLocalVertex(index);
-  auto iter = remap.find(local_idx);
-  if (iter == remap.end()) {
+  auto iter = prev_to_curr_->find(local_idx);
+  if (iter == prev_to_curr_->end()) {
     return std::nullopt;
   }
 
   return toGlobalVertex(iter->second);
 }
 
-void MeshOffsetInfo::RemapInfo::addIndex(size_t idx) {
-  min_index = std::min(min_index, idx);
-  max_index = std::max(max_index, idx);
+void MeshOffsetInfo::remapVertexIndices(std::list<size_t>& indices,
+                                        RemapStats* info) const {
+  size_t index = 0;
+  auto iter = indices.begin();
+  while (iter != indices.end()) {
+    const auto remapped = remapGlobalVertex(*iter);
+    if (!remapped) {
+      iter = indices.erase(iter);
+      if (info) {
+        info->deleted_indices.insert(index);
+      }
+
+      ++index;
+      continue;
+    }
+
+    *iter = *remapped;
+    if (info) {
+      info->addIndex(*iter);
+    }
+
+    ++iter;
+    ++index;
+  }
+
+  if (info) {
+    info->all_archived = info->max_index < archived_vertices;
+  }
+}
+
+IndexVec MeshOffsetInfo::remapVertexIndices(const IndexVec& indices,
+                                            RemapStats* info) const {
+  size_t index = 0;
+  IndexVec to_return;
+  for (const auto global_idx : indices) {
+    const auto remapped = remapGlobalVertex(global_idx);
+    if (!remapped) {
+      if (info) {
+        info->deleted_indices.insert(index);
+      }
+
+      ++index;
+      continue;
+    }
+
+    const auto new_idx = remapped.value();
+    to_return.push_back(new_idx);
+    if (info) {
+      info->addIndex(new_idx);
+    }
+
+    ++index;
+  }
+
+  if (info) {
+    info->all_archived = info->max_index < archived_vertices;
+  }
+
+  return to_return;
 }
 
 }  // namespace kimera_pgmo

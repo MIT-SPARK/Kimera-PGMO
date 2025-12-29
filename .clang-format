@@ -24,8 +24,12 @@ IncludeCategories:
     Priority:        3
     SortPriority:    0
     CaseSensitive:   false
+  - Regex:           '^<Eigen/.*>'
+    Priority:        3
+    SortPriority:    0
+    CaseSensitive:   false
   - Regex:           '.*'
-    Priority:        4
+    Priority:        5
     SortPriority:    0
     CaseSensitive:   false
 ---

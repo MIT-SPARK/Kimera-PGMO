@@ -92,17 +92,35 @@ inline traits::Face offsetFace(const traits::Face& face, size_t offset) {
   return {face[0] + offset, face[1] + offset, face[2] + offset};
 }
 
-//! Check if a face has indices below a threshold
-inline bool allVerticesBelow(const traits::Face& face, size_t threshold) {
-  return face[0] < threshold && face[1] < threshold && face[2] < threshold;
-}
-
+//! Remap all indices above an offset in a face
 inline traits::Face remapFace(const traits::Face& face,
                               size_t offset,
                               const std::map<size_t, size_t>& remap) {
   return {face[0] >= offset ? remap.at(face[0] - offset) + offset : face[0],
           face[1] >= offset ? remap.at(face[1] - offset) + offset : face[1],
           face[2] >= offset ? remap.at(face[2] - offset) + offset : face[2]};
+}
+
+//! Check if a face is degenerate or not
+inline bool faceIsValid(const traits::Face& face) {
+  return face[0] != face[1] && face[0] != face[2] && face[1] != face[2];
+}
+
+//! Check if a face has indices below a threshold
+inline bool allVerticesBelow(const traits::Face& face, size_t threshold) {
+  return face[0] < threshold && face[1] < threshold && face[2] < threshold;
+}
+
+//! Check that a condition holds for all indices in the face
+inline bool checkFaceAll(const traits::Face& face,
+                         const std::function<bool(size_t)>& check) {
+  return check(face[0]) && check(face[1]) && check(face[2]);
+}
+
+//! Check that a condition holds for any index in the face
+inline bool checkFaceAny(const traits::Face& face,
+                         const std::function<bool(size_t)>& check) {
+  return check(face[0]) || check(face[1]) || check(face[2]);
 }
 
 }  // namespace kimera_pgmo

@@ -63,21 +63,6 @@ size_t MeshDelta::getNumActiveFaces() const { return face_updates_.size(); }
 
 size_t MeshDelta::getNumArchivedFaces() const { return face_archive_updates_.size(); }
 
-std::optional<size_t> MeshDelta::remapIndex(const MeshOffsetInfo& offsets,
-                                            size_t index) const {
-  if (index < offsets.prev_archived_vertices) {
-    return index;
-  }
-
-  const auto local_idx = offsets.toLocalVertex(index);
-  auto remap = prev_to_curr_.find(local_idx);
-  if (remap == prev_to_curr_.end()) {
-    return std::nullopt;
-  }
-
-  return offsets.toGlobalVertex(remap->second);
-}
-
 const std::vector<MeshDelta::Face>& MeshDelta::face_updates() const {
   return face_updates_;
 }
@@ -85,12 +70,6 @@ const std::vector<MeshDelta::Face>& MeshDelta::face_updates() const {
 const std::vector<MeshDelta::Face>& MeshDelta::face_archive_updates() const {
   return face_archive_updates_;
 }
-
-const std::map<size_t, size_t>& MeshDelta::prev_to_curr() const {
-  return prev_to_curr_;
-}
-
-std::map<size_t, size_t>& MeshDelta::prev_to_curr() { return prev_to_curr_; }
 
 const traits::VertexProperties& MeshDelta::vertex_properties() const {
   return vertex_properties_;

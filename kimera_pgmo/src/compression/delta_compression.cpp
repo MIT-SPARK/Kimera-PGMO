@@ -8,6 +8,7 @@
 
 #include "kimera_pgmo/hashing.h"
 #include "kimera_pgmo/utils/logging.h"
+#include "kimera_pgmo/utils/common_functions.h"
 
 namespace kimera_pgmo {
 
@@ -32,6 +33,7 @@ inline size_t getRemappedIndex(const std::map<size_t, size_t>& remapping,
   return getRemappedIndex(remapping, original);
 }
 
+// TODO(nathan) drop in favor of common functions
 inline traits::Face getRemappedFace(const std::map<size_t, size_t>& remapping,
                                     const traits::Face& original,
                                     size_t threshold = 0) {
@@ -51,15 +53,6 @@ inline void markBoundaryVertices(const traits::Face& face,
   pending.erase(face[0]);
   pending.erase(face[1]);
   pending.erase(face[2]);
-}
-
-inline bool faceIsValid(const traits::Face& face) {
-  return face[0] != face[1] && face[0] != face[2] && face[1] != face[2];
-}
-
-inline bool checkFaceAll(const traits::Face& face,
-                         const std::function<bool(size_t)>& check) {
-  return check(face[0]) && check(face[1]) && check(face[2]);
 }
 
 std::string summarizeDelta(const MeshDelta& delta) {
@@ -143,12 +136,9 @@ MeshDelta::Ptr DeltaCompression::computeDelta(uint64_t timestamp_ns,
   // number of previously archived vertices. This is not ideal (downstream usage cares
   // about the remapping relative to the start of the previously active vertices), so we
   // remove the offset here before providing it to the delta
-  auto& delta_remap = delta_->prev_to_curr();
-  for (const auto& [prev, curr] : prev_to_curr_) {
-    delta_remap[prev - prev_archived_vertices_] = curr;
-  }
+  // delta_remap[prev - prev_archived_vertices_] = curr;
 
-  prev_to_curr_.clear();
+  tracking_info_.prev_to_curr = std::make_shared<std::map<size_t, size_t>>();
   prev_archived_vertices_ = delta_->getNumArchivedVertices();
 
   SPARK_LOG(DEBUG) << "Finished update with " << summarizeDelta(*delta_);
@@ -226,13 +216,13 @@ void DeltaCompression::addActiveVertices(HashedIndexMapping* remapping) {
     const auto new_idx = delta_->addVertex(info.pos, info.traits);
     if (info.sequence_number != tracking_info_.sequence_number) {
       // if we haven't seen this vertex in this pass, add to prev_to_curr_ map
-      prev_to_curr_[info.mesh_index] = new_idx;
+      addIndexRemap(info.mesh_index, new_idx);
     } else {
       if (!info.is_new) {
         // we use the active remapping slot as temporary variable to cache
         // the index in the previous delta
         const size_t prev_mesh_index = active_remapping_[info.mesh_index];
-        prev_to_curr_[prev_mesh_index] = new_idx;
+        addIndexRemap(prev_mesh_index, new_idx);
       } else {
         info.is_new = false;
       }
@@ -361,7 +351,7 @@ void DeltaCompression::archiveBlocks(const BlockFilter& to_archive) {
 
     // add newly archived vertex to mesh delta
     const auto new_index = archive_delta_->addVertex(info.pos, info.traits, true);
-    prev_to_curr_[info.mesh_index] = new_index;
+    addIndexRemap(info.mesh_index, new_index);
     // "delete" vertex by swapping to end and decreasing size
     std::swap(archived_vertices_[i], archived_vertices_[boundary - 1]);
     boundary -= 1;
@@ -459,9 +449,13 @@ void DeltaCompression::addPendingVertices(MeshDelta& delta, size_t start_index) 
   for (size_t i = start_index; i < archived_vertices_.size(); ++i) {
     auto& info = archived_vertices_[i];
     const auto new_index = delta.addVertex(info.pos, info.traits);
-    prev_to_curr_[info.mesh_index] = new_index;
+    addIndexRemap(info.mesh_index, new_index);
     info.mesh_index = new_index;
   }
+}
+
+void DeltaCompression::addIndexRemap(size_t prev, size_t curr) {
+  (*tracking_info_.prev_to_curr)[prev - prev_archived_vertices_] = curr;
 }
 
 }  // namespace kimera_pgmo
