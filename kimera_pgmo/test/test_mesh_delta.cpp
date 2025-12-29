@@ -28,6 +28,63 @@ traits::VertexTraits makeTraits(uint8_t r, uint8_t g, uint8_t b) {
   return traits;
 }
 
+TEST(MeshDelta, AddVertexCorrect) {
+  MeshDelta delta({0, 0, 0});
+
+  EXPECT_EQ(delta.addVertex(traits::Pos(1.0, 0.0, 0.0), {}, true), 0u);
+  EXPECT_EQ(delta.getNumVertices(), 1u);
+  EXPECT_EQ(delta.getNumActiveVertices(), 0u);
+  EXPECT_EQ(delta.getNumArchivedVertices(), 1u);
+
+  EXPECT_EQ(delta.addVertex(traits::Pos(2.0, 0.0, 0.0), {}, true), 1u);
+  EXPECT_EQ(delta.getNumVertices(), 2u);
+  EXPECT_EQ(delta.getNumActiveVertices(), 0u);
+  EXPECT_EQ(delta.getNumArchivedVertices(), 2u);
+
+  EXPECT_EQ(delta.addVertex(traits::Pos(3.0, 0.0, 0.0), {}, false), 2u);
+  EXPECT_EQ(delta.getNumVertices(), 3u);
+  EXPECT_EQ(delta.getNumActiveVertices(), 1u);
+  EXPECT_EQ(delta.getNumArchivedVertices(), 2u);
+
+  EXPECT_EQ(delta.addVertex(traits::Pos(4.0, 0.0, 0.0), {}), 3u);
+  EXPECT_EQ(delta.getNumVertices(), 4u);
+  EXPECT_EQ(delta.getNumActiveVertices(), 2u);
+  EXPECT_EQ(delta.getNumArchivedVertices(), 2u);
+
+  for (size_t i = 0; i < 4; ++i) {
+    EXPECT_EQ(delta.getVertex(i).pos.x(), i + 1);
+  }
+}
+
+TEST(MeshDelta, AddFacesCorrect) {
+  MeshDelta delta({0, 0, 0});
+
+  delta.addFace({1, 2, 3}, false);
+  EXPECT_EQ(delta.getNumFaces(), 1u);
+  EXPECT_EQ(delta.getNumActiveFaces(), 1u);
+  EXPECT_EQ(delta.getNumArchivedFaces(), 0u);
+
+  delta.addFace({2, 3, 4}, false);
+  EXPECT_EQ(delta.getNumFaces(), 2u);
+  EXPECT_EQ(delta.getNumActiveFaces(), 2u);
+  EXPECT_EQ(delta.getNumArchivedFaces(), 0u);
+
+  delta.addFace({3, 4, 5}, true);
+  EXPECT_EQ(delta.getNumFaces(), 3u);
+  EXPECT_EQ(delta.getNumActiveFaces(), 2u);
+  EXPECT_EQ(delta.getNumArchivedFaces(), 1u);
+
+  delta.addFace({4, 5, 6}, true);
+  EXPECT_EQ(delta.getNumFaces(), 4u);
+  EXPECT_EQ(delta.getNumActiveFaces(), 2u);
+  EXPECT_EQ(delta.getNumArchivedFaces(), 2u);
+
+  EXPECT_EQ(delta.getFace(0)[0], 3u);
+  EXPECT_EQ(delta.getFace(1)[0], 4u);
+  EXPECT_EQ(delta.getFace(2)[0], 1u);
+  EXPECT_EQ(delta.getFace(3)[0], 2u);
+}
+
 TEST(MeshDelta, updateSimple) {
   MeshDelta delta1({0, 0, 0});
   delta1.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(0, 0, 0));
@@ -77,24 +134,6 @@ TEST(MeshDelta, updateSimple) {
     const std::vector<traits::Face> expected_faces{{0, 1, 2}, {2, 3, 4}, {3, 4, 5}};
     EXPECT_EQ(result.faces, expected_faces);
   }
-}
-
-TEST(MeshDelta, archiveVerticesCorrect) {
-  MeshDelta delta({0, 0, 0});
-  EXPECT_EQ(delta.addVertex(traits::Pos(1.0, 2.0, 3.0), {}, true), 0u);
-  EXPECT_EQ(delta.addVertex(traits::Pos(1.0, 2.0, 3.0), {}, true), 1u);
-  EXPECT_EQ(delta.addVertex(traits::Pos(1.0, 2.0, 3.0), {}, false), 2u);
-  EXPECT_EQ(delta.addVertex(traits::Pos(1.0, 2.0, 3.0), {}), 3u);
-  EXPECT_EQ(delta.getNumArchivedVertices(), 2u);
-}
-
-TEST(MeshDelta, archiveFacesCorrect) {
-  MeshDelta delta({0, 0, 0});
-  delta.addFace({0, 1, 2}, true);
-  delta.addFace({1, 2, 3}, true);
-  delta.addFace({0, 1, 2}, false);
-  delta.addFace({1, 2, 3}, false);
-  EXPECT_EQ(delta.getNumArchivedFaces(), 2u);
 }
 
 }  // namespace kimera_pgmo

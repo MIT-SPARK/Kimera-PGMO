@@ -1,11 +1,11 @@
 #pragma once
 #include <map>
 #include <memory>
-#include <optional>
 #include <vector>
 
 #include "kimera_pgmo/mesh_offset_info.h"
 #include "kimera_pgmo/mesh_types.h"
+#include <Eigen/Geometry>
 
 namespace kimera_pgmo {
 
@@ -86,8 +86,6 @@ class MeshDelta {
   size_t updateFaces(Faces& faces,
                      const MeshOffsetInfo& prev_offests,
                      size_t vertex_offset) const;
-
-  std::optional<size_t> remapIndex(const MeshOffsetInfo& offsets, size_t index) const;
 
   const std::vector<Face>& face_updates() const;
   const std::vector<Face>& face_archive_updates() const;

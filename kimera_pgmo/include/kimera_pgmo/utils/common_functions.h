@@ -10,6 +10,8 @@
 
 #include <map>
 
+#include "kimera_pgmo/mesh_types.h"
+
 namespace kimera_pgmo {
 
 const std::map<size_t, char> robot_id_to_prefix = {
@@ -83,6 +85,24 @@ inline char GetVertexPrefix(size_t robot_id) {
  */
 inline bool IsMeshVertex(gtsam::Key key) {
   return vertex_prefix_to_id.count(gtsam::Symbol(key).chr()) > 0;
+}
+
+//! Reindex a face by a static offset
+inline traits::Face offsetFace(const traits::Face& face, size_t offset) {
+  return {face[0] + offset, face[1] + offset, face[2] + offset};
+}
+
+//! Check if a face has indices below a threshold
+inline bool allVerticesBelow(const traits::Face& face, size_t threshold) {
+  return face[0] < threshold && face[1] < threshold && face[2] < threshold;
+}
+
+inline traits::Face remapFace(const traits::Face& face,
+                              size_t offset,
+                              const std::map<size_t, size_t>& remap) {
+  return {face[0] >= offset ? remap.at(face[0] - offset) + offset : face[0],
+          face[1] >= offset ? remap.at(face[1] - offset) + offset : face[1],
+          face[2] >= offset ? remap.at(face[2] - offset) + offset : face[2]};
 }
 
 }  // namespace kimera_pgmo

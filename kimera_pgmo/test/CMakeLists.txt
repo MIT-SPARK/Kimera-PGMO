@@ -19,6 +19,7 @@ add_executable(
   test_mesh_delta.cpp
   test_mesh_frontend_interface.cpp
   test_mesh_io.cpp
+  test_mesh_offset_info.cpp
   test_octree_compression.cpp
   test_pcl_utilities.cpp
   test_redundancy_checker.cpp

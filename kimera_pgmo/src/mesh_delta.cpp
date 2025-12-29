@@ -69,13 +69,13 @@ std::optional<size_t> MeshDelta::remapIndex(const MeshOffsetInfo& offsets,
     return index;
   }
 
-  const auto local_idx = offsets.toLocal(index);
+  const auto local_idx = offsets.toLocalVertex(index);
   auto remap = prev_to_curr_.find(local_idx);
   if (remap == prev_to_curr_.end()) {
     return std::nullopt;
   }
 
-  return offsets.toGlobal(remap->second);
+  return offsets.toGlobalVertex(remap->second);
 }
 
 const std::vector<MeshDelta::Face>& MeshDelta::face_updates() const {

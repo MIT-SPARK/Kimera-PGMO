@@ -1,26 +1,9 @@
 #pragma once
 #include "kimera_pgmo/mesh_delta.h"
 #include "kimera_pgmo/mesh_traits.h"
-#include <Eigen/Geometry>
+#include "kimera_pgmo/utils/common_functions.h"
 
 namespace kimera_pgmo {
-
-inline traits::Face offsetFace(const traits::Face& face, size_t offset) {
-  return {face[0] + offset, face[1] + offset, face[2] + offset};
-}
-
-inline bool allVerticesBelow(const traits::Face& face, size_t archive_threshold) {
-  return face[0] < archive_threshold && face[1] < archive_threshold &&
-         face[2] < archive_threshold;
-}
-
-inline traits::Face remapFace(const traits::Face& face,
-                              size_t offset,
-                              const std::map<size_t, size_t>& remap) {
-  return {face[0] >= offset ? remap.at(face[0] - offset) + offset : face[0],
-          face[1] >= offset ? remap.at(face[1] - offset) + offset : face[1],
-          face[2] >= offset ? remap.at(face[2] - offset) + offset : face[2]};
-}
 
 template <typename Vertices, typename Faces>
 MeshDelta::Ptr MeshDelta::fromMesh(const Vertices& vertices, const Faces& faces) {
@@ -52,7 +35,7 @@ void MeshDelta::updateIndices(ContainerT<size_t>& indices,
   size_t index = 0;
   auto iter = indices.begin();
   while (iter != indices.end()) {
-    const auto remapped = remapIndex(offset, *iter);
+    const auto remapped = offset.remapGlobalVertex(offset, *iter);
     if (!remapped) {
       iter = indices.erase(iter);
       if (info) {
