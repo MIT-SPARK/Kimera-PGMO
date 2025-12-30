@@ -72,16 +72,18 @@ size_t MeshDelta::getNumActiveFaces() const { return face_updates_.size(); }
 
 size_t MeshDelta::getNumArchivedFaces() const { return face_archive_updates_.size(); }
 
-const std::vector<MeshDelta::Face>& MeshDelta::face_updates() const {
-  return face_updates_;
-}
-
-const std::vector<MeshDelta::Face>& MeshDelta::face_archive_updates() const {
-  return face_archive_updates_;
+const std::vector<traits::Vertex>& MeshDelta::vertices() const {
+  return vertex_updates_;
 }
 
 const traits::VertexProperties& MeshDelta::vertex_properties() const {
   return vertex_properties_;
+}
+
+const std::vector<MeshDelta::Face>& MeshDelta::faces() const { return face_updates_; }
+
+const std::vector<MeshDelta::Face>& MeshDelta::archived_faces() const {
+  return face_archive_updates_;
 }
 
 size_t pgmoNumVertices(const MeshDelta& delta) { return delta.getNumVertices(); }

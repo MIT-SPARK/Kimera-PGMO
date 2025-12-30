@@ -118,12 +118,14 @@ class MeshDelta {
                      const MeshOffsetInfo& prev_offests,
                      size_t vertex_offset) const;
 
-  //! Get the active faces of the delta
-  const std::vector<Face>& face_updates() const;
-  //! Get the archived faces of the delta
-  const std::vector<Face>& face_archive_updates() const;
+  //! Get the vertices of the delta
+  const std::vector<Vertex>& vertices() const;
   //! Get the valid vertex properties that the delta has
   const traits::VertexProperties& vertex_properties() const;
+  //! Get the active faces of the delta
+  const std::vector<Face>& faces() const;
+  //! Get the archived faces of the delta
+  const std::vector<Face>& archived_faces() const;
 
   //! Last updated timestamp of the mesh delta
   traits::Timestamp timestamp_ns = 0;

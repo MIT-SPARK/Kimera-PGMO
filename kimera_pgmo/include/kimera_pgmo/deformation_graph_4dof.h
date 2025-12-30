@@ -7,12 +7,8 @@
 #include <gtsam/nonlinear/Values.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <kimera_rpgo/utils/pose_4dof.h>
-#include <pcl/PolygonMesh.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-#include <pose_graph_tools/pose_graph.h>
 
-#include "kimera_pgmo/deformation_graph.h"
+#include "kimera_pgmo/deformation_edge_factor.h"
 #include "kimera_pgmo/utils/common_functions.h"
 #include "kimera_pgmo/utils/logging.h"
 

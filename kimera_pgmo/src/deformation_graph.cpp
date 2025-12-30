@@ -17,9 +17,8 @@
 #include <cmath>
 
 #include "kimera_pgmo/pcl_mesh_traits.h"
+#include "kimera_pgmo/deformation_edge_factor.h"
 #include "kimera_pgmo/utils/common_functions.h"
-
-using pcl::PolygonMesh;
 
 namespace kimera_pgmo {
 

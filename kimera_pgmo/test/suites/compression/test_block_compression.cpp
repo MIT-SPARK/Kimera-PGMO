@@ -4,11 +4,11 @@
  * @author Yun Chang
  */
 
+#include <gtest/gtest.h>
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/conversions.h>
 
-#include "gtest/gtest.h"
 #include "kimera_pgmo/compression/block_compression.h"
 #include "kimera_pgmo/utils/pcl_mesh_interface.h"
 #include "pgmo_fixtures.h"

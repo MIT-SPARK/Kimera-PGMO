@@ -49,6 +49,7 @@ void MeshDelta::updateMesh(Vertices& vertices,
       vertex_offset + num_archived_vertices_,
       vertex_offset,
       archived_faces,
+      info.prev_to_curr,
   };
 }
 

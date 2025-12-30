@@ -5,7 +5,7 @@
 namespace kimera_pgmo {
 
 TEST(MeshOffsetInfo, LocalGlobalCorrect) {
-  MeshOffsetInfo offsets{5, 2, 10, 5};
+  MeshOffsetInfo offsets{5, 2, 10};
   EXPECT_EQ(offsets.toGlobalVertex(0), 2u);
   EXPECT_EQ(offsets.toLocalVertex(2), 0u);
 

@@ -14,6 +14,7 @@
 #include "kimera_pgmo/compression/mesh_compression.h"
 #include "kimera_pgmo/hashing.h"
 #include "kimera_pgmo/utils/common_structs.h"
+#include "kimera_pgmo/utils/graph.h"
 
 namespace kimera_pgmo {
 

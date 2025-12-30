@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <pcl/Vertices.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <spatial_hash/hash.h>
@@ -13,8 +14,6 @@
 #include <Eigen/Dense>
 #include <map>
 #include <memory>
-#include <mutex>
-#include <unordered_map>
 #include <vector>
 
 #include "kimera_pgmo/utils/common_structs.h"

@@ -12,17 +12,36 @@
 #include <pose_graph_tools/pose_graph.h>
 
 #include <map>
-#include <queue>
 #include <string>
 
 #include "kimera_pgmo/deformation_graph.h"
 #include "kimera_pgmo/optimizer/kimera_rpgo_optimizer.h"
 #include "kimera_pgmo/optimizer/optimizer_interface.h"
-#include "kimera_pgmo/utils/common_functions.h"
+
 namespace kimera_pgmo {
 
 using Path = std::vector<gtsam::Pose3>;
 using PathPtr = std::shared_ptr<Path>;
+
+enum class ProcessPoseGraphStatus {
+  EMPTY,
+  INVALID,
+  MISSING,
+  UNKNOWN,
+  DUPLICATE,
+  SUCCESS,
+  LC_MISSING_NODES,
+  MESH_DISCONNECTED
+};
+
+enum class ProcessMeshGraphStatus {
+  EMPTY,
+  INVALID,
+  UNKNOWN,
+  DUPLICATE,
+  SUCCESS,
+  WAITING
+};
 
 enum class RunMode {
   FULL = 0u,                // Optimize mesh and pose graph

@@ -3,14 +3,14 @@
  * @brief  Unit-tests for the graph structure
  * @author Yun Chang
  */
+#include <gtest/gtest.h>
 #include <pcl/PolygonMesh.h>
 #include <pcl/conversions.h>
 #include <pcl/point_types.h>
 
 #include <numeric>
 
-#include "gtest/gtest.h"
-#include "kimera_pgmo/utils/common_structs.h"
+#include "kimera_pgmo/utils/graph.h"
 #include "pgmo_fixtures.h"
 
 namespace kimera_pgmo {

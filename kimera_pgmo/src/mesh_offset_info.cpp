@@ -14,12 +14,10 @@ void MeshOffsetInfo::RemapStats::addIndex(size_t idx) {
 MeshOffsetInfo::MeshOffsetInfo(size_t archived_vertices,
                                size_t prev_archived_vertices,
                                size_t archived_faces,
-                               size_t pending_faces,
                                const std::shared_ptr<const Remap>& prev_to_curr)
     : archived_vertices(archived_vertices),
       prev_archived_vertices(prev_archived_vertices),
       archived_faces(archived_faces),
-      pending_faces(pending_faces),
       prev_to_curr_(prev_to_curr) {}
 
 size_t MeshOffsetInfo::toGlobalVertex(size_t local_idx) const {

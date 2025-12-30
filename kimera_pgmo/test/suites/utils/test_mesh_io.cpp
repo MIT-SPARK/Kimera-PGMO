@@ -4,9 +4,9 @@
  * @author Yun Chang
  */
 
+#include <gtest/gtest.h>
 #include <pcl/conversions.h>
 
-#include "gtest/gtest.h"
 #include "kimera_pgmo/utils/mesh_io.h"
 #include "test_config.h"
 
@@ -47,7 +47,7 @@ TEST(TestMeshIO, readWritePly) {
     EXPECT_EQ(cloud.points[i].a, read_cloud.points[i].a);
     // TODO(yun) this is not working here. Though verified that it works in
     // normal operations
-     EXPECT_EQ(vertex_stamps[i], read_stamps[i]);
+    EXPECT_EQ(vertex_stamps[i], read_stamps[i]);
   }
 
   ASSERT_EQ(original_mesh->polygons.size(), read_mesh->polygons.size());

@@ -1,4 +1,5 @@
-#include "gtest/gtest.h"
+#include <gtest/gtest.h>
+
 #include "kimera_pgmo/compression/redundancy_checker.h"
 
 namespace kimera_pgmo {
@@ -21,6 +22,5 @@ TEST(RedundancyChecker, DuplicatesCorrect) {
   EXPECT_FALSE(checker.check({0, 1, 2}));
   checker.add({1, 2, 3});
 }
-
 
 }  // namespace kimera_pgmo

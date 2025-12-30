@@ -1,13 +1,8 @@
+#include <gtest/gtest.h>
 #include <gtsam/base/numericalDerivative.h>
-#include <gtsam/geometry/Pose3.h>
 #include <gtsam/inference/Symbol.h>
-#include <gtsam/nonlinear/NonlinearFactor.h>
-#include <gtsam/nonlinear/NonlinearFactorGraph.h>
-#include <gtsam/nonlinear/Values.h>
 
-#include "gtest/gtest.h"
-#include "kimera_pgmo/deformation_graph.h"
-#include "test_config.h"
+#include "kimera_pgmo/deformation_edge_factor.h"
 
 using gtsam::Point3;
 using gtsam::Pose3;

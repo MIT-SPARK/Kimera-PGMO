@@ -11,10 +11,6 @@
 #include "kimera_pgmo/utils/logging.h"
 
 namespace kimera_pgmo {
-
-using spatial_hash::BlockIndex;
-using spatial_hash::BlockIndices;
-
 namespace {
 
 inline void markBoundaryVertices(const traits::Face& face,
@@ -105,13 +101,6 @@ MeshDelta::Ptr DeltaCompression::computeDelta(uint64_t timestamp_ns,
     // old block with the same sequence number as the current one is newly observed.
     tracking_info_.sequence_number = 1;
   }
-
-  // prev_to_curr_ is a mapping from the vertex index in the previous delta to the
-  // current one. This means that previous indices in the remapping start from the
-  // number of previously archived vertices. This is not ideal (downstream usage cares
-  // about the remapping relative to the start of the previously active vertices), so we
-  // remove the offset here before providing it to the delta
-  // delta_remap[prev - prev_archived_vertices_] = curr;
 
   tracking_info_.prev_to_curr = std::make_shared<std::map<size_t, size_t>>();
   prev_archived_vertices_ = delta_->getNumArchivedVertices();
@@ -406,7 +395,6 @@ void DeltaCompression::updateAndAddArchivedFaces() {
       continue;
     }
 
-    // TODO(nathan) assert no face bridges active and archived
     const bool can_archive = allVerticesBelow(face, archive_threshold);
     checker.add(face);
     delta_->addFace(face, can_archive);
@@ -430,10 +418,14 @@ void DeltaCompression::addPendingVertices(MeshDelta& delta, size_t start_index) 
 }
 
 void DeltaCompression::addIndexRemap(size_t prev, size_t curr) {
+  // Downstream usage cares about the remapping relative to the start of the previously
+  // active vertices, so we remove the offset here when populating the remapping
   (*tracking_info_.prev_to_curr)[prev - prev_archived_vertices_] = curr;
 }
 
 bool DeltaCompression::indexInRemap(size_t index) const {
+  // We maintain the remapping relative to the start of the previously active vertices,
+  // so we remove the offset when checking for the presence of the remapped index
   if (index < prev_archived_vertices_) {
     return false;
   }
@@ -442,6 +434,8 @@ bool DeltaCompression::indexInRemap(size_t index) const {
 }
 
 size_t DeltaCompression::remapIndex(size_t index) const {
+  // We maintain the remapping relative to the start of the previously active vertices,
+  // so we remove the offset when getting the remapped index
   return tracking_info_.prev_to_curr->at(index - prev_archived_vertices_);
 }
 

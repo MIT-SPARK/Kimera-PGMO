@@ -31,7 +31,6 @@ struct MeshOffsetInfo {
   MeshOffsetInfo(size_t archived_vertices = 0,
                  size_t prev_archived_vertices = 0,
                  size_t archived_faces = 0,
-                 size_t pending_faces = 0,
                  const std::shared_ptr<const Remap>& prev_to_curr = nullptr);
 
   //! Total number of archived vertices in the mesh
@@ -40,8 +39,6 @@ struct MeshOffsetInfo {
   size_t prev_archived_vertices = 0;
   //! Total number of archived faces in the mesh
   size_t archived_faces = 0;
-  //! Total number of pending faces in the mesh
-  size_t pending_faces = 0;
 
   //! Convert local (delta) index to global (mesh) index
   size_t toGlobalVertex(size_t local_idx) const;
