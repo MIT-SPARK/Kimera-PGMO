@@ -123,4 +123,10 @@ inline bool checkFaceAny(const traits::Face& face,
   return check(face[0]) || check(face[1]) || check(face[2]);
 }
 
+//! apply arbitrary function to face
+inline traits::Face applyToFace(const traits::Face& face,
+                                const std::function<size_t(size_t)>& func) {
+  return {func(face[0]), func(face[1]), func(face[2])};
+}
+
 }  // namespace kimera_pgmo

@@ -113,6 +113,10 @@ class DeltaCompression {
 
   void addIndexRemap(size_t prev, size_t curr);
 
+  bool indexInRemap(size_t index) const;
+
+  size_t remapIndex(size_t index) const;
+
  protected:
   double resolution_;
   double index_scale_;

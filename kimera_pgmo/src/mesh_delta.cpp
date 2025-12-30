@@ -12,6 +12,15 @@ namespace kimera_pgmo {
 
 using TrackingInfo = MeshDelta::TrackingInfo;
 
+TrackingInfo TrackingInfo::with_remap(uint16_t sequence_number,
+                                      size_t prev_active_vertices,
+                                      size_t prev_active_faces,
+                                      const std::map<size_t, size_t>& remap) {
+  TrackingInfo info{sequence_number, prev_active_vertices, prev_active_faces};
+  info.prev_to_curr = std::make_shared<std::map<size_t, size_t>>(remap);
+  return info;
+}
+
 MeshDelta::MeshDelta(const TrackingInfo& info) : info(info) {}
 
 size_t MeshDelta::addVertex(const traits::Pos& pos,

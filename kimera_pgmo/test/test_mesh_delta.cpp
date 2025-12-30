@@ -112,6 +112,7 @@ TEST(MeshDelta, updateSimple) {
   }
 
   // Fake archival of 2 vertices and 1 face
+  const auto info = MeshDelta::TrackingInfo::with_remap(1, 2, 1, {{0, 0}, {1, 1}});
   MeshDelta delta2({1, 2, 1});
   delta2.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(2, 0, 0));
   delta2.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(3, 0, 0));
@@ -119,7 +120,6 @@ TEST(MeshDelta, updateSimple) {
   delta2.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(5, 0, 0));
   delta2.addFace({0, 1, 2});
   delta2.addFace({1, 2, 3});
-  delta2.prev_to_curr() = {{0, 0}, {1, 1}};
 
   delta2.updateMesh(vertex_wrapper, result.faces, offsets);
 

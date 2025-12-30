@@ -7,8 +7,8 @@
 #include "kimera_pgmo/compression/delta_compression.h"
 
 #include "kimera_pgmo/hashing.h"
-#include "kimera_pgmo/utils/logging.h"
 #include "kimera_pgmo/utils/common_functions.h"
+#include "kimera_pgmo/utils/logging.h"
 
 namespace kimera_pgmo {
 
@@ -16,31 +16,6 @@ using spatial_hash::BlockIndex;
 using spatial_hash::BlockIndices;
 
 namespace {
-
-inline size_t getRemappedIndex(const std::map<size_t, size_t>& remapping,
-                               size_t original) {
-  const auto iter = remapping.find(original);
-  return iter == remapping.end() ? original : iter->second;
-}
-
-inline size_t getRemappedIndex(const std::map<size_t, size_t>& remapping,
-                               size_t original,
-                               size_t threshold) {
-  if (original < threshold) {
-    return original;
-  }
-
-  return getRemappedIndex(remapping, original);
-}
-
-// TODO(nathan) drop in favor of common functions
-inline traits::Face getRemappedFace(const std::map<size_t, size_t>& remapping,
-                                    const traits::Face& original,
-                                    size_t threshold = 0) {
-  return {getRemappedIndex(remapping, original[0], threshold),
-          getRemappedIndex(remapping, original[1], threshold),
-          getRemappedIndex(remapping, original[2], threshold)};
-}
 
 inline void markBoundaryVertices(const traits::Face& face,
                                  std::unordered_set<size_t>& pending) {
@@ -271,9 +246,9 @@ void DeltaCompression::addActiveFaces() {
         face[1] = active_remapping_[face[1]];
         face[2] = active_remapping_[face[2]];
       } else {
-        face[0] = prev_to_curr_.at(face[0]);
-        face[1] = prev_to_curr_.at(face[1]);
-        face[2] = prev_to_curr_.at(face[2]);
+        face[0] = remapIndex(face[0]);
+        face[1] = remapIndex(face[1]);
+        face[2] = remapIndex(face[2]);
       }
 
       if (!faceIsValid(face)) {
@@ -380,7 +355,7 @@ void DeltaCompression::archiveBlockFaces(const BlockInfo& block_info,
   // be in the remapping
   for (const auto& face : block_info.faces) {
     const auto can_archive =
-        checkFaceAll(face, [&](auto v) { return prev_to_curr_.count(v); });
+        checkFaceAll(face, [this](auto v) { return indexInRemap(v); });
     if (!can_archive) {
       // push any face touching active vertices to be archived later
       // we don't remap here as we can't tell whether an index was remapped here or not
@@ -390,17 +365,17 @@ void DeltaCompression::archiveBlockFaces(const BlockInfo& block_info,
     }
 
     // remap face to respect newly archived vertices
-    const auto new_face = getRemappedFace(prev_to_curr_, face);
-    if (!faceIsValid(new_face)) {
+    const auto f_n = applyToFace(face, [this](auto idx) { return remapIndex(idx); });
+    if (!faceIsValid(f_n)) {
       continue;
     }
 
-    if (!checker.check(new_face)) {
+    if (!checker.check(f_n)) {
       continue;
     }
 
-    checker.add(new_face);
-    archive_delta_->addFace(new_face, true);
+    checker.add(f_n);
+    archive_delta_->addFace(f_n, true);
   }
 }
 
@@ -414,9 +389,9 @@ void DeltaCompression::updateAndAddArchivedFaces() {
   auto iter = archived_faces_.begin();
   while (iter != archived_faces_.end()) {
     auto& face = *iter;
-    face[0] = getRemappedIndex(prev_to_curr_, face[0]);
-    face[1] = getRemappedIndex(prev_to_curr_, face[1]);
-    face[2] = getRemappedIndex(prev_to_curr_, face[2]);
+    face[0] = remapIndex(face[0]);
+    face[1] = remapIndex(face[1]);
+    face[2] = remapIndex(face[2]);
     if (!faceIsValid(face)) {
       iter = archived_faces_.erase(iter);
       continue;
@@ -456,6 +431,18 @@ void DeltaCompression::addPendingVertices(MeshDelta& delta, size_t start_index) 
 
 void DeltaCompression::addIndexRemap(size_t prev, size_t curr) {
   (*tracking_info_.prev_to_curr)[prev - prev_archived_vertices_] = curr;
+}
+
+bool DeltaCompression::indexInRemap(size_t index) const {
+  if (index < prev_archived_vertices_) {
+    return false;
+  }
+
+  return tracking_info_.prev_to_curr->count(index - prev_archived_vertices_);
+}
+
+size_t DeltaCompression::remapIndex(size_t index) const {
+  return tracking_info_.prev_to_curr->at(index - prev_archived_vertices_);
 }
 
 }  // namespace kimera_pgmo

@@ -13,19 +13,19 @@ TEST(MeshOffsetInfo, LocalGlobalCorrect) {
 }
 
 TEST(MeshOffsetInfo, RemapTrackingCorrect) {
-  MeshOffsetInfo::RemapInfo info;
+  MeshOffsetInfo::RemapStats stats;
 
-  info.addIndex(5);
-  EXPECT_EQ(info.min_index, 5u);
-  EXPECT_EQ(info.max_index, 5u);
+  stats.addIndex(5);
+  EXPECT_EQ(stats.min_index, 5u);
+  EXPECT_EQ(stats.max_index, 5u);
 
-  info.addIndex(10);
-  EXPECT_EQ(info.min_index, 5u);
-  EXPECT_EQ(info.max_index, 10u);
+  stats.addIndex(10);
+  EXPECT_EQ(stats.min_index, 5u);
+  EXPECT_EQ(stats.max_index, 10u);
 
-  info.addIndex(3);
-  EXPECT_EQ(info.min_index, 3u);
-  EXPECT_EQ(info.max_index, 10u);
+  stats.addIndex(3);
+  EXPECT_EQ(stats.min_index, 3u);
+  EXPECT_EQ(stats.max_index, 10u);
 }
 
 }  // namespace kimera_pgmo

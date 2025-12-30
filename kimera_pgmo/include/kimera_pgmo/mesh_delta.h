@@ -26,6 +26,11 @@ class MeshDelta {
     size_t prev_active_faces = 0;
     //! Mapping between previous delta active indices and current delta
     std::shared_ptr<std::map<size_t, size_t>> prev_to_curr = nullptr;
+
+    static TrackingInfo with_remap(uint16_t sequence_number,
+                                   size_t prev_active_vertices,
+                                   size_t prev_active_faces,
+                                   const std::map<size_t, size_t>& remap = {});
   } const info;
 
   //! Construct a mesh delta from tracking information
