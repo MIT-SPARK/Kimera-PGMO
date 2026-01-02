@@ -304,7 +304,23 @@ void ExpectedDelta::checkMesh(const MeshOffsetInfo& offsets,
   EXPECT_EQ(state.archived_faces, offsets.archived_faces);
 
   std::list<size_t> prev_indices(state.prev_active_vertices);
-  std::iota(prev_indices.begin(), prev_indices.end(), state.archived_vertices);
+  std::iota(prev_indices.begin(), prev_indices.end(), offsets.prev_archived_vertices);
+
+  {
+    std::stringstream ss;
+    ss << "[";
+    auto iter = prev_indices.begin();
+    while (iter != prev_indices.end()) {
+      ss << *iter;
+      ++iter;
+      if (iter != prev_indices.end()) {
+        ss << ", ";
+      }
+    }
+    ss << "]";
+
+    std::cout << "Checking previosuly active vertices: " << ss.str() << std::endl;
+  }
 
   MeshOffsetInfo::RemapStats stats;
   offsets.remapVertexIndices(prev_indices, &stats);

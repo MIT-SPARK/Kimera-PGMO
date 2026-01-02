@@ -36,14 +36,14 @@ void to_ros(const MeshDelta& delta, kimera_pgmo_msgs::msg::MeshDelta& msg) {
     to_ros(delta.getVertex(i), msg.vertex_updates[i]);
   }
 
-  msg.face_updates.reserve(delta.face_updates().size());
-  for (const auto& delta_face : delta.face_updates()) {
+  msg.face_updates.reserve(delta.faces().size());
+  for (const auto& delta_face : delta.faces()) {
     auto& face = msg.face_updates.emplace_back();
     to_ros(delta_face, face);
   }
 
-  msg.face_archive_updates.reserve(delta.face_archive_updates().size());
-  for (const auto& delta_face : delta.face_archive_updates()) {
+  msg.face_archive_updates.reserve(delta.archived_faces().size());
+  for (const auto& delta_face : delta.archived_faces()) {
     auto& face = msg.face_archive_updates.emplace_back();
     to_ros(delta_face, face);
   }
