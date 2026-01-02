@@ -2,8 +2,6 @@
 
 #include <stdexcept>
 
-#include "kimera_pgmo/utils/logging.h"
-
 namespace kimera_pgmo {
 
 using IndexVec = std::vector<size_t>;
@@ -37,9 +35,7 @@ size_t MeshOffsetInfo::toLocalVertex(size_t global_idx) const {
 
 std::optional<size_t> MeshOffsetInfo::remapGlobalVertex(size_t index) const {
   if (!prev_to_curr_) {
-    // no remapping -> no need to do work
-    SPARK_LOG(DEBUG) << "No remapping when trying to remap " << index;
-    return index;
+    throw std::logic_error("no remapping set when remapping " + std::to_string(index));
   }
 
   if (index < prev_archived_vertices) {

@@ -29,22 +29,11 @@ struct VertexProperties {
   bool has_label = false;
   bool has_first_seen_stamp = false;
 
-  VertexProperties& operator|=(const VertexProperties& other) {
-    has_color |= other.has_color;
-    has_stamp |= other.has_stamp;
-    has_label |= other.has_label;
-    has_first_seen_stamp |= other.has_first_seen_stamp;
-    return *this;
-  }
-
-  VertexProperties& operator&=(const VertexProperties& other) {
-    has_color &= other.has_color;
-    has_stamp &= other.has_stamp;
-    has_label &= other.has_label;
-    has_first_seen_stamp &= other.has_first_seen_stamp;
-    return *this;
-  }
+  VertexProperties& operator|=(const VertexProperties& other);
+  VertexProperties& operator&=(const VertexProperties& other);
 };
+
+bool operator==(const VertexProperties& lhs, const VertexProperties& rhs);
 
 /**
  * @brief Struct to bundle all optional vertex traits to supplement the mandatory
@@ -61,6 +50,8 @@ struct VertexTraits {
   Label label = 0;
   Timestamp first_seen_stamp = 0;
 };
+
+bool operator==(const VertexTraits& lhs, const VertexTraits& rhs);
 
 struct Vertex {
   traits::Pos pos = traits::Pos::Zero();

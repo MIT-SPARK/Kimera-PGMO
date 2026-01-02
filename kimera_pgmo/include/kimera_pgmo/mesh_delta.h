@@ -118,8 +118,6 @@ class MeshDelta {
                      const MeshOffsetInfo& prev_offests,
                      size_t vertex_offset) const;
 
-  //! Get the vertices of the delta
-  const std::vector<Vertex>& vertices() const;
   //! Get the valid vertex properties that the delta has
   const traits::VertexProperties& vertex_properties() const;
   //! Get the active faces of the delta

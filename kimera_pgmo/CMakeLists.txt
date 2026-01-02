@@ -53,6 +53,7 @@ add_library(
   src/mesh_frontend_interface.cpp
   src/mesh_offset_info.cpp
   src/mesh_traits.cpp
+  src/mesh_types.cpp
   src/pcl_mesh_traits.cpp
   src/sparse_keyframe.cpp)
 target_include_directories(

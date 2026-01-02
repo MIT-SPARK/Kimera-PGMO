@@ -623,7 +623,7 @@ CompressionTestConfiguration test_configurations[] = {
 
 }  // namespace
 
-TEST(DeltaCompression, vertexInfoCorrect) {
+TEST(DeltaCompression, VertexInfoCorrect) {
   // base info should have a ref count of 0
   VertexInfo info;
   EXPECT_TRUE(info.notObserved());
@@ -656,6 +656,16 @@ TEST(DeltaCompression, vertexInfoCorrect) {
   info.removeObservation();
   EXPECT_FALSE(info.notObserved());
   EXPECT_TRUE(info.shouldArchive());
+}
+
+TEST(DeltaCompression, InvalidFacesCorrect) {
+  DeltaCompression compression(2.0);
+  auto mesh = createMesh({block1_v1});
+  const auto output = compression.update(mesh, 0);
+
+  ASSERT_TRUE(output);
+  EXPECT_EQ(output->getNumVertices(), 1);
+  EXPECT_EQ(output->getNumFaces(), 0);
 }
 
 struct DeltaCompressionFixture

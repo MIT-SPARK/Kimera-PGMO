@@ -53,10 +53,22 @@ TEST(MeshOffsetInfo, RemapVertexCorrect) {
   std::map<size_t, size_t> remap{{0, 2}, {1, 1}, {2, 0}, {4, 3}, {5, 5}, {6, 4}};
   const auto offsets = makeOffsets(8, 5, 2, remap);
   std::vector<std::optional<size_t>> expected{7, 6, 5, std::nullopt, 8, 10, 9};
+
+  // archived indices don't get remapped
+  for (size_t i = 0; i < 5; ++i) {
+    const auto result = offsets.remapGlobalVertex(i);
+    const std::optional<size_t> expected(i);
+    EXPECT_EQ(result, expected) << "i: " << i;
+  }
+
+  // unarchived indices get remapped
   for (size_t i = 5; i < 12; ++i) {
     const auto result = offsets.remapGlobalVertex(i);
     EXPECT_EQ(result, expected[i - 5]) << "i: " << i;
   }
+
+  const auto no_remap_offsets = makeOffsets(8, 5, 2);
+  EXPECT_THROW({ no_remap_offsets.remapGlobalVertex(2); }, std::logic_error);
 }
 
 TEST(MeshOffsetInfo, RemapIndicesVectorCorrect) {

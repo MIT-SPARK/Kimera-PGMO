@@ -54,6 +54,20 @@ TEST(MeshDelta, AddVertexCorrect) {
   for (size_t i = 0; i < 4; ++i) {
     EXPECT_EQ(delta.getVertex(i).pos.x(), i + 1);
   }
+
+  traits::VertexProperties expected_props{false, false, false, false};
+  EXPECT_EQ(delta.vertex_properties(), expected_props);
+
+  traits::Pos p(5.0, 0.0, 0.0);
+  const auto expected = makeTraits(1, 2, 3);
+  delta.addVertex(p, expected, false);
+
+  traits::VertexTraits result;
+  EXPECT_EQ(traits::get_vertex(delta, 4, &result), p);
+  EXPECT_EQ(result, expected);
+
+  expected_props = {true, false, false, false};
+  EXPECT_EQ(traits::get_vertex_properties(delta), expected_props);
 }
 
 TEST(MeshDelta, AddFacesCorrect) {

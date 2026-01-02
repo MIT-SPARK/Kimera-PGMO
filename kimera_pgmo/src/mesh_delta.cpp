@@ -72,10 +72,6 @@ size_t MeshDelta::getNumActiveFaces() const { return face_updates_.size(); }
 
 size_t MeshDelta::getNumArchivedFaces() const { return face_archive_updates_.size(); }
 
-const std::vector<traits::Vertex>& MeshDelta::vertices() const {
-  return vertex_updates_;
-}
-
 const traits::VertexProperties& MeshDelta::vertex_properties() const {
   return vertex_properties_;
 }
