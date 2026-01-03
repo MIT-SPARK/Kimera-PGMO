@@ -303,37 +303,26 @@ void ExpectedDelta::checkMesh(const MeshOffsetInfo& offsets,
   EXPECT_EQ(state.archived_vertices, offsets.archived_vertices);
   EXPECT_EQ(state.archived_faces, offsets.archived_faces);
 
-  std::list<size_t> prev_indices(state.prev_active_vertices);
+  // we want to map the original index in the last delta to the new index
+  // the original indices are in [prev_archived, prev_remapped + prev_archived)
+  ASSERT_LE(offsets.prev_archived_vertices, prev_vertices.size());
+  const auto prev_remapped = prev_vertices.size() - offsets.prev_archived_vertices;
+  std::list<size_t> prev_indices(prev_remapped);
   std::iota(prev_indices.begin(), prev_indices.end(), offsets.prev_archived_vertices);
-
-  {
-    std::stringstream ss;
-    ss << "[";
-    auto iter = prev_indices.begin();
-    while (iter != prev_indices.end()) {
-      ss << *iter;
-      ++iter;
-      if (iter != prev_indices.end()) {
-        ss << ", ";
-      }
-    }
-    ss << "]";
-
-    std::cout << "Checking previosuly active vertices: " << ss.str() << std::endl;
-  }
 
   MeshOffsetInfo::RemapStats stats;
   offsets.remapVertexIndices(prev_indices, &stats);
 
   auto iter = prev_indices.begin();
   std::map<size_t, size_t> result_remap;
-  for (size_t i = 0; i < state.prev_active_vertices; ++i) {
+  for (size_t i = 0; i < prev_remapped; ++i) {
     if (stats.deleted_indices.count(i)) {
       continue;
     }
 
+    // we associate any previous index with the new one if it wasn't deleted
     ASSERT_NE(iter, prev_indices.end());
-    result_remap[i] = *iter;
+    result_remap[i + offsets.prev_archived_vertices] = *iter;
     ++iter;
   }
 
@@ -675,13 +664,14 @@ TEST(DeltaCompression, VertexInfoCorrect) {
 }
 
 TEST(DeltaCompression, InvalidFacesCorrect) {
+  // 2m resolution means every vertex collapses to the same vertex
   DeltaCompression compression(2.0);
   auto mesh = createMesh({block1_v1});
   const auto output = compression.update(mesh, 0);
 
   ASSERT_TRUE(output);
   EXPECT_EQ(output->getNumVertices(), 1);
-  EXPECT_EQ(output->getNumFaces(), 0);
+  EXPECT_EQ(output->getNumFaces(), 0);  // all faces should be dropped as invalid
 }
 
 struct DeltaCompressionFixture
