@@ -1,11 +1,11 @@
 #include "happly.h"
 
-#include <chrono>
 #include <iostream>
-#include <random>
 #include <string>
+#include <chrono>
+#include <random>
 
-#include <gtest/gtest.h>
+#include "gtest/gtest.h"
 
 using std::cout;
 using std::endl;
@@ -483,7 +483,7 @@ TEST(TypedListReadWriteTest, ReadWriteCharBinary) {
       {3}, {3, 0, 11, -128, 127}, {}, {}, {3, 11},
   };
   std::cout << "size: " << testData.size() << std::endl;
-  for (auto& v : testData) {
+  for(auto& v : testData) {
     std::cout << "sub size: " << v.size() << std::endl;
   }
   plyOut.getElement("test_elem").addListProperty<char>("test_data", testData);
