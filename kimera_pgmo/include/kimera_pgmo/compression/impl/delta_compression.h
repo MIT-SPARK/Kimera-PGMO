@@ -4,7 +4,7 @@
 
 namespace kimera_pgmo {
 
-template <typename MeshBlocksT>
+template <typename MeshBlocksT, typename MergeT>
 MeshDelta::Ptr DeltaCompression::update(const MeshBlocksT& mesh,
                                         uint64_t timestamp_ns,
                                         HashedIndexMapping* remapping) {
@@ -38,7 +38,7 @@ MeshDelta::Ptr DeltaCompression::update(const MeshBlocksT& mesh,
     for (size_t i = 0; i < num_vertices; ++i) {
       traits::VertexTraits traits;
       const auto pos = traits::get_vertex(block, i, &traits);
-      addPoint(pos, traits, local_remapping, curr_voxels);
+      addPoint<MergeT>(pos, traits, local_remapping, curr_voxels);
       if (block_remap) {
         block_remap->insert({i, local_remapping.back()});
       }
@@ -60,6 +60,42 @@ MeshDelta::Ptr DeltaCompression::update(const MeshBlocksT& mesh,
   }
 
   return computeDelta(timestamp_ns, remapping);
+}
+
+template <typename MergeT>
+void DeltaCompression::addPoint(const traits::Pos& pos,
+                                const traits::VertexTraits& traits,
+                                std::vector<size_t>& face_map,
+                                spatial_hash::LongIndexSet& curr_voxels) {
+  constexpr static const MergeT merger;
+  // do voxel hashing at compression size to determine remapping to previous compressed
+  // vertex (if it exists)
+  const spatial_hash::LongIndex vertex_index(std::round(pos.x() * index_scale_),
+                                             std::round(pos.y() * index_scale_),
+                                             std::round(pos.z() * index_scale_));
+
+  auto info_iter = vertices_map_.find(vertex_index);
+  if (info_iter == vertices_map_.end()) {
+    // update is forced by sequence number defaulting to -1
+    info_iter = vertices_map_.insert({vertex_index, {}}).first;
+  }
+
+  auto& info = info_iter->second;
+  merger(pos, traits, info);
+  if (info.sequence_number != tracking_info_.sequence_number) {
+    const size_t prev_index = info.mesh_index;
+    info.mesh_index = active_remapping_.size();
+    active_remapping_.push_back(prev_index);  // cache previous index
+
+    // mark vertex observed this pass
+    info.sequence_number = tracking_info_.sequence_number;
+  }
+
+  face_map.push_back(info.mesh_index);
+  if (!curr_voxels.count(vertex_index)) {
+    info.addObservation();  // add one observation per block
+    curr_voxels.insert(vertex_index);
+  }
 }
 
 }  // namespace kimera_pgmo

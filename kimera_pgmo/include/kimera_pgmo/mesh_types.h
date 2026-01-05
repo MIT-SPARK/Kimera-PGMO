@@ -48,7 +48,7 @@ struct VertexTraits {
   Color color = {0, 0, 0, 0};
   Timestamp stamp = 0;
   Label label = 0;
-  Timestamp first_seen_stamp = 0;
+  Timestamp first_seen_stamp = std::numeric_limits<Timestamp>::max();
 };
 
 bool operator==(const VertexTraits& lhs, const VertexTraits& rhs);

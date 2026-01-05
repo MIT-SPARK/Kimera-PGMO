@@ -18,6 +18,29 @@
 #include "pgmo_fixtures.h"
 
 namespace kimera_pgmo {
+
+struct TestMesh {
+  std::vector<traits::Vertex> points;
+} mesh;
+
+size_t pgmoNumVertices(const TestMesh& mesh) {
+  return ::kimera_pgmo::pgmoNumVertices(mesh.points);
+}
+
+traits::VertexProperties pgmoGetVertexProperties(const TestMesh& mesh) {
+  return ::kimera_pgmo::pgmoGetVertexProperties(mesh.points);
+}
+
+traits::Pos pgmoGetVertex(const TestMesh& mesh,
+                          size_t i,
+                          traits::VertexTraits* traits = nullptr) {
+  return ::kimera_pgmo::pgmoGetVertex(mesh.points, i, traits);
+}
+
+size_t pgmoNumFaces(const TestMesh& faces) { return 0; }
+
+traits::Face pgmoGetFace(const TestMesh& faces, size_t i) { return {}; }
+
 namespace {
 
 using ::kimera_pgmo::test::MeshBlock;
@@ -661,6 +684,62 @@ TEST(DeltaCompression, VertexInfoCorrect) {
   info.removeObservation();
   EXPECT_FALSE(info.notObserved());
   EXPECT_TRUE(info.shouldArchive());
+}
+
+TEST(DeltaCompression, MergeOperatorCorrect) {
+  const auto make_traits = [](traits::Timestamp first, traits::Timestamp last) {
+    return traits::VertexTraits{
+        {true, true, false, true}, {1, 2, 3, 4}, last, 0, first};
+  };
+
+  VertexInfo info;
+  DefaultVertexUpdate{}(traits::Pos(1, 2, 3), make_traits(1, 2), info);
+  EXPECT_TRUE(info.traits.properties.has_color);
+  EXPECT_TRUE(info.traits.properties.has_stamp);
+  EXPECT_TRUE(info.traits.properties.has_first_seen_stamp);
+  EXPECT_EQ(info.traits.first_seen_stamp, 1u);
+  EXPECT_EQ(info.traits.stamp, 2u);
+
+  DefaultVertexUpdate{}(traits::Pos(1, 2, 3), make_traits(3, 4), info);
+  EXPECT_EQ(info.traits.first_seen_stamp, 1u);
+  EXPECT_EQ(info.traits.stamp, 4u);
+
+  DefaultVertexUpdate{}(traits::Pos(1, 2, 3), make_traits(0, 3), info);
+  EXPECT_EQ(info.traits.first_seen_stamp, 0u);
+  EXPECT_EQ(info.traits.stamp, 4u);
+}
+
+TEST(DeltaCompression, UpdateWithMergeCorrect) {
+  const auto make_traits =
+      [](traits::Timestamp first, traits::Timestamp last, traits::Label label = 0) {
+        return traits::VertexTraits{
+            {true, true, label > 0, true}, {1, 2, 3, 4}, last, label, first};
+      };
+
+  mesh.points.push_back({traits::Pos(1, 2, 3), make_traits(1, 2)});
+  mesh.points.push_back({traits::Pos(1, 2, 3), make_traits(3, 4, 5)});
+  mesh.points.push_back({traits::Pos(1, 2, 3), make_traits(0, 3)});
+
+  std::vector<std::pair<BlockIndex, TestMesh>> blocks{{{0, 0, 0}, mesh}};
+  DeltaCompression compression(2.0);
+  const auto delta = compression.update(blocks, 0);
+  ASSERT_TRUE(delta);
+  ASSERT_EQ(delta->getNumVertices(), 1);
+  const auto& v = delta->getVertex(0);
+  EXPECT_EQ(v.pos.x(), 1.0);
+  EXPECT_EQ(v.pos.y(), 2.0);
+  EXPECT_EQ(v.pos.z(), 3.0);
+  EXPECT_TRUE(v.traits.properties.has_color);
+  EXPECT_TRUE(v.traits.properties.has_stamp);
+  EXPECT_TRUE(v.traits.properties.has_label);
+  EXPECT_TRUE(v.traits.properties.has_first_seen_stamp);
+  EXPECT_EQ(v.traits.color[0], 1);
+  EXPECT_EQ(v.traits.color[1], 2);
+  EXPECT_EQ(v.traits.color[2], 3);
+  EXPECT_EQ(v.traits.color[3], 4);
+  EXPECT_EQ(v.traits.stamp, 4);
+  EXPECT_EQ(v.traits.label, 5);
+  EXPECT_EQ(v.traits.first_seen_stamp, 0);
 }
 
 TEST(DeltaCompression, InvalidFacesCorrect) {

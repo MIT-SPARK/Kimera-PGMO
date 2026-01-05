@@ -55,6 +55,12 @@ struct BlockInfo {
   std::vector<traits::Face> faces = {};
 };
 
+struct DefaultVertexUpdate {
+  void operator()(const traits::Pos& pos,
+                  const traits::VertexTraits& traits,
+                  VertexInfo& info) const;
+};
+
 class DeltaCompression {
  public:
   using VoxelInfoMap = LongIndexMap<VertexInfo>;
@@ -73,7 +79,7 @@ class DeltaCompression {
    * @param timestamp_ns Timestamp the mesh was generated at
    * @param remapping Optional output remapping between input mesh and integrated mesh
    */
-  template <typename MeshBlocksT>
+  template <typename MeshBlocksT, typename MergeT = DefaultVertexUpdate>
   MeshDelta::Ptr update(const MeshBlocksT& mesh,
                         uint64_t timestamp_ns,
                         HashedIndexMapping* remapping = nullptr);
@@ -95,6 +101,7 @@ class DeltaCompression {
   MeshDelta::Ptr computeDelta(uint64_t timestamp_ns,
                               HashedIndexMapping* remapping = nullptr);
 
+  template <typename MergeT>
   void addPoint(const traits::Pos& point,
                 const traits::VertexTraits& traits,
                 std::vector<size_t>& face_map,

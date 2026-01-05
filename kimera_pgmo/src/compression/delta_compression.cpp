@@ -50,6 +50,29 @@ bool VertexInfo::notObserved() const { return !needs_archive && active_refs <= 0
 
 bool VertexInfo::shouldArchive() const { return needs_archive && active_refs <= 0; }
 
+void DefaultVertexUpdate::operator()(const traits::Pos& pos,
+                                     const traits::VertexTraits& traits,
+                                     VertexInfo& info) const {
+  info.pos = pos;
+  info.traits.properties |= traits.properties;
+  if (traits.properties.has_color) {
+    info.traits.color = traits.color;
+  }
+
+  if (traits.properties.has_stamp) {
+    info.traits.stamp = std::max(info.traits.stamp, traits.stamp);
+  }
+
+  if (traits.properties.has_label) {
+    info.traits.label = traits.label;
+  }
+
+  if (traits.properties.has_first_seen_stamp) {
+    info.traits.first_seen_stamp =
+        std::min(info.traits.first_seen_stamp, traits.first_seen_stamp);
+  }
+}
+
 DeltaCompression::DeltaCompression(double resolution)
     : resolution_(resolution), index_scale_(1.0 / resolution), tracking_info_({1}) {}
 
@@ -107,42 +130,6 @@ MeshDelta::Ptr DeltaCompression::computeDelta(uint64_t timestamp_ns,
 
   SPARK_LOG(DEBUG) << "Finished update with " << summarizeDelta(*delta_);
   return std::move(delta_);
-}
-
-void DeltaCompression::addPoint(const traits::Pos& pos,
-                                const traits::VertexTraits& traits,
-                                std::vector<size_t>& face_map,
-                                spatial_hash::LongIndexSet& curr_voxels) {
-  // do voxel hashing at compression size to determine remapping to previous compressed
-  // vertex (if it exists)
-  const spatial_hash::LongIndex vertex_index(std::round(pos.x() * index_scale_),
-                                             std::round(pos.y() * index_scale_),
-                                             std::round(pos.z() * index_scale_));
-
-  auto info_iter = vertices_map_.find(vertex_index);
-  if (info_iter == vertices_map_.end()) {
-    // update is forced by sequence number defaulting to -1
-    info_iter = vertices_map_.insert({vertex_index, {}}).first;
-  }
-
-  auto& info = info_iter->second;
-  // TODO(nathan) fix update
-  info.pos = pos;
-  info.traits = traits;
-  if (info.sequence_number != tracking_info_.sequence_number) {
-    const size_t prev_index = info.mesh_index;
-    info.mesh_index = active_remapping_.size();
-    active_remapping_.push_back(prev_index);  // cache previous index
-
-    // mark vertex observed this pass
-    info.sequence_number = tracking_info_.sequence_number;
-  }
-
-  face_map.push_back(info.mesh_index);
-  if (!curr_voxels.count(vertex_index)) {
-    info.addObservation();  // add one observation per block
-    curr_voxels.insert(vertex_index);
-  }
 }
 
 void DeltaCompression::removeBlockObservations(const LongIndexSet& to_remove) {
