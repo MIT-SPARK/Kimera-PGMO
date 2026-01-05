@@ -13,20 +13,6 @@ namespace kimera_pgmo {
 struct MeshOffsetInfo {
   using Remap = std::map<size_t, size_t>;
 
-  //! Statistics about remapped indices
-  struct RemapStats {
-    //! Minimum global index after remap
-    size_t min_index = std::numeric_limits<size_t>::max();
-    //! Maximum global index after remap
-    size_t max_index = 0;
-    //! Whether or not all indices are archived
-    bool all_archived = false;
-    //! Which indices (in the remapped container) were deleted
-    std::set<size_t> deleted_indices;
-
-    void addIndex(size_t idx);
-  };
-
   //! Construct the mesh offset info
   MeshOffsetInfo(size_t archived_vertices = 0,
                  size_t prev_archived_vertices = 0,
@@ -52,6 +38,20 @@ struct MeshOffsetInfo {
    * @return Remapped global index if vertex was not delted
    */
   std::optional<size_t> remapGlobalVertex(size_t global_idx) const;
+
+  //! Statistics about remapped indices
+  struct RemapStats {
+    //! Minimum global index after remap
+    size_t min_index = std::numeric_limits<size_t>::max();
+    //! Maximum global index after remap
+    size_t max_index = 0;
+    //! Whether or not all indices are archived
+    bool all_archived = false;
+    //! Which indices (in the remapped container) were deleted
+    std::set<size_t> deleted_indices;
+
+    void addIndex(size_t idx);
+  };
 
   /**
    * @brief Remap vertex indices from a previous mesh (in-place)

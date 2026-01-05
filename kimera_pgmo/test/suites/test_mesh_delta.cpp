@@ -14,11 +14,24 @@
 #include "kimera_pgmo/pcl_mesh_traits.h"
 
 namespace kimera_pgmo {
+namespace {
 
 struct TestMesh {
   pcl::PointCloud<pcl::PointXYZRGBA> vertices;
   std::vector<traits::Timestamp> stamps;
   std::vector<traits::Face> faces;
+
+  void addVertex(size_t offset) {
+    auto& p = vertices.emplace_back();
+    p.x = 1.0 + offset;
+    p.y = 2.0 + offset;
+    p.z = 3.0 + offset;
+    p.r = 4 + static_cast<uint8_t>(offset);
+    p.r = 5 + static_cast<uint8_t>(offset);
+    p.r = 6 + static_cast<uint8_t>(offset);
+    p.r = 7 + static_cast<uint8_t>(offset);
+    stamps.push_back(8 + offset);
+  }
 };
 
 traits::VertexTraits makeTraits(uint8_t r, uint8_t g, uint8_t b) {
@@ -27,6 +40,29 @@ traits::VertexTraits makeTraits(uint8_t r, uint8_t g, uint8_t b) {
   traits.color = {r, g, b, 255};
   return traits;
 }
+
+void addVertexToDelta(MeshDelta& delta, size_t offset) {
+  traits::VertexTraits traits;
+  traits.properties.has_color = true;
+  traits.properties.has_stamp = true;
+  traits.color = {static_cast<uint8_t>(4 + offset),
+                  static_cast<uint8_t>(5 + offset),
+                  static_cast<uint8_t>(6 + offset),
+                  static_cast<uint8_t>(7 + offset)};
+  traits.stamp = 8 + offset;
+  delta.addVertex(traits::Pos(1.0 + offset, 2.0 + offset, 3.0 + offset), traits);
+}
+
+std::vector<size_t> getOffsets(const pcl::PointCloud<pcl::PointXYZRGBA>& cloud) {
+  std::vector<size_t> offsets;
+  for (const auto& p : cloud) {
+    offsets.push_back(static_cast<size_t>(p.x - 1.0));
+  }
+
+  return offsets;
+}
+
+}  // namespace
 
 TEST(MeshDelta, AddVertexCorrect) {
   MeshDelta delta({0, 0, 0});
@@ -99,7 +135,7 @@ TEST(MeshDelta, AddFacesCorrect) {
   EXPECT_EQ(delta.getFace(3)[0], 2u);
 }
 
-TEST(MeshDelta, updateSimple) {
+TEST(MeshDelta, UpdateSimple) {
   MeshDelta delta1({0, 0, 0});
   delta1.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(0, 0, 0));
   delta1.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(1, 0, 0));
@@ -127,7 +163,7 @@ TEST(MeshDelta, updateSimple) {
 
   // Fake archival of 2 vertices and 1 face
   const auto info = MeshDelta::TrackingInfo::with_remap(1, 2, 1, {{0, 0}, {1, 1}});
-  MeshDelta delta2({1, 2, 1});
+  MeshDelta delta2(info);
   delta2.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(2, 0, 0));
   delta2.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(3, 0, 0));
   delta2.addVertex(traits::Pos(1.0, 2.0, 3.0), makeTraits(4, 0, 0));
@@ -146,6 +182,66 @@ TEST(MeshDelta, updateSimple) {
     }
 
     const std::vector<traits::Face> expected_faces{{0, 1, 2}, {2, 3, 4}, {3, 4, 5}};
+    EXPECT_EQ(result.faces, expected_faces);
+  }
+}
+
+TEST(MeshDelta, UpdateWithPendingFaces) {
+  TestMesh result;
+  result.addVertex(0);
+  result.addVertex(1);
+  result.addVertex(2);
+  result.addVertex(3);
+  result.faces.push_back({0, 1, 2});
+  result.faces.push_back({1, 2, 3});
+
+  // one face archived, one face pending
+  MeshOffsetInfo offsets{3, 0, 1};
+  StampedCloud<pcl::PointXYZRGBA> vertex_wrapper(result.vertices, result.stamps);
+
+  {  // add a new face that will be archived
+    const auto info = MeshDelta::TrackingInfo::with_remap(0, 1, 0, {{0, 3}});
+    MeshDelta delta(info);
+    addVertexToDelta(delta, 4);
+    addVertexToDelta(delta, 5);
+    addVertexToDelta(delta, 6);
+    addVertexToDelta(delta, 3);
+    delta.addFace({0, 1, 2});
+    delta.updateMesh(vertex_wrapper, result.faces, offsets);
+  }
+
+  {  // test scope
+    EXPECT_EQ(result.stamps.size(), result.vertices.size());
+    EXPECT_EQ(result.vertices.size(), 7u);
+    EXPECT_EQ(result.faces.size(), 3u);
+
+    const std::vector<size_t> expected_offsets{0, 1, 2, 4, 5, 6, 3};
+    EXPECT_EQ(getOffsets(result.vertices), expected_offsets);
+    const std::vector<traits::Face> expected_faces{{0, 1, 2}, {1, 2, 6}, {3, 4, 5}};
+    EXPECT_EQ(result.faces, expected_faces);
+  }
+
+  {  // archive everything but 3
+    const auto info = MeshDelta::TrackingInfo::with_remap(0, 1, 0, {{0, 1}});
+    MeshDelta delta(info);
+    addVertexToDelta(delta, 7);
+    addVertexToDelta(delta, 3);
+    addVertexToDelta(delta, 8);
+    addVertexToDelta(delta, 9);
+    delta.addFace({1, 2, 3});
+    delta.addFace({0, 1, 2});
+    delta.updateMesh(vertex_wrapper, result.faces, offsets);
+  }
+
+  {  // test scope
+    EXPECT_EQ(result.stamps.size(), result.vertices.size());
+    EXPECT_EQ(result.vertices.size(), 10u);
+    EXPECT_EQ(result.faces.size(), 5u);
+
+    const std::vector<size_t> expected_offsets{0, 1, 2, 4, 5, 6, 7, 3, 8, 9};
+    EXPECT_EQ(getOffsets(result.vertices), expected_offsets);
+    const std::vector<traits::Face> expected_faces{
+        {0, 1, 2}, {3, 4, 5}, {1, 2, 7}, {7, 8, 9}, {6, 7, 8}};
     EXPECT_EQ(result.faces, expected_faces);
   }
 }
