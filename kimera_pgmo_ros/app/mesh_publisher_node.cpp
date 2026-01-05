@@ -70,22 +70,29 @@ void MeshPublisherNode::reload(const std_srvs::srv::Empty::Request::SharedPtr&,
 
 void MeshPublisherNode::publishMesh() {
   RCLCPP_INFO_STREAM(get_logger(), "Loading mesh from: " << config.mesh_filepath);
-  pcl::PolygonMesh mesh;
-  std::vector<Timestamp> stamps;
-  ReadMeshWithStampsFromPly(config.mesh_filepath, mesh, &stamps);
-  const auto num_vertices = mesh.cloud.height * mesh.cloud.width;
-  RCLCPP_INFO_STREAM(get_logger(),
-                     "Loaded mesh with " << num_vertices << " vertices, "
-                                         << mesh.polygons.size() << " faces, and "
-                                         << stamps.size() << " timestamps");
+  std::vector<traits::Vertex> vertices;
+  std::vector<traits::Face> faces;
+  ReadMesh(config.mesh_filepath, vertices, faces);
 
-  auto msg = conversions::toMsg(config.robot_id, mesh, stamps, config.mesh_frame);
+  const auto props = traits::get_vertex_properties(vertices);
+  std::stringstream ss;
+  ss << "Loaded mesh with " << vertices.size() << " vertices and " << faces.size()
+     << " faces";
+  ss << std::boolalpha << " (properties: "
+     << "has_color=" << props.has_color << ", has_stamp=" << props.has_stamp
+     << ", has_label=" << props.has_label
+     << ", has_first_seen_stamp=" << props.has_first_seen_stamp << ")";
+  RCLCPP_INFO_STREAM(get_logger(), ss.str());
+
+  std_msgs::msg::Header header;
+  header.frame_id = config.mesh_frame;
+  header.stamp = get_clock()->now();
+  auto msg = conversions::toMsg(config.robot_id, vertices, faces, header);
   if (!msg) {
     RCLCPP_ERROR(get_logger(), "Unable to convert mesh!");
     return;
   }
 
-  msg->header.stamp = get_clock()->now();
   pub_->publish(std::move(msg));
 }
 

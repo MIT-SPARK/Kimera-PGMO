@@ -9,7 +9,7 @@
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/conversions.h>
 
-#include <filesystem>
+#include <numeric>
 
 #include "kimera_pgmo_ros/conversion/mesh.h"
 
@@ -76,13 +76,17 @@ void fillMesh(pcl::PolygonMesh& mesh, double scale = 1.0) {
 
 }  // namespace
 
-TEST(TestMeshConversion, PCLtoMeshMsg) {
+TEST(MeshConversion, PCLtoMeshMsg) {
   pcl::PolygonMeshPtr mesh(new pcl::PolygonMesh());
   fillMesh(*mesh);
 
   // Convert to triangle mesh msg
   std::vector<Timestamp> orig_stamps;
-  const auto msg = conversions::toMsg(0, *mesh, orig_stamps, "world");
+  auto msg = conversions::toMsg(0, *mesh, orig_stamps, "world");
+  EXPECT_FALSE(msg);
+  orig_stamps.resize(5);
+  std::iota(orig_stamps.begin(), orig_stamps.end(), 0);
+  msg = conversions::toMsg(0, *mesh, orig_stamps, "world");
   ASSERT_TRUE(msg);
 
   // Convert back

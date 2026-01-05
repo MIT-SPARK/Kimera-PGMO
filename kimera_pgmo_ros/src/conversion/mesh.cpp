@@ -31,6 +31,12 @@ Mesh::UniquePtr toMsg(size_t robot_id,
                       const std::vector<Timestamp>& stamps,
                       const std::string& frame_id,
                       const IndexMapping* graph_indices) {
+  if (cloud.size() != stamps.size()) {
+    SPARK_LOG(ERROR) << "Vertices and timestamps disagree: points=" << cloud.size()
+                     << " != stamps=" << stamps.size();
+    return nullptr;
+  }
+
   std_msgs::msg::Header header;
   header.frame_id = frame_id;
   if (!stamps.empty()) {
