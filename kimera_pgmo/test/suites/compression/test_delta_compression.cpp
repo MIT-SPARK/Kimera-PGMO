@@ -279,9 +279,9 @@ void ExpectedDelta::checkTriangles(const Faces& result,
     absolute_faces.push_back(aface);
 
     const auto found_match = faceInFaces(aface, expected_triangles);
-    EXPECT_TRUE(found_match) << "result face " << " (r: " << toString(rface)
-                             << ", a: " << toString(aface) << ", i: " << i
-                             << ") has no match in expected: "
+    EXPECT_TRUE(found_match) << "result face "
+                             << " (r: " << toString(rface) << ", a: " << toString(aface)
+                             << ", i: " << i << ") has no match in expected: "
                              << toString(expected_triangles) << " with remapping "
                              << toString(remapping);
   }

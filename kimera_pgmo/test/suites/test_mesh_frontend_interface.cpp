@@ -147,8 +147,10 @@ class MeshFrontendTest : public ::testing::Test {
   MeshFrontendTest() {
     config.robot_id = 0;
     config.time_horizon = 1.0;
-    config.full_compression_method = MeshFrontendInterface::FullCompressionMethod::OCTREE;
-    config.graph_compression_method = MeshFrontendInterface::GraphCompressionMethod::OCTREE;
+    config.full_compression_method =
+        MeshFrontendInterface::FullCompressionMethod::OCTREE;
+    config.graph_compression_method =
+        MeshFrontendInterface::GraphCompressionMethod::OCTREE;
     config.d_graph_resolution = 0.5;
     config.mesh_resolution = 0.05;
   }

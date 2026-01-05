@@ -101,7 +101,7 @@ void MeshFrontendInterface::update(const MeshInterface& mesh, double time_s) {
       &MeshFrontendInterface::updateGraph, this, mesh.clone(), time_s);
 
   latest_blocks_ = mesh.blockIndices();
-  
+
   full_thread.join();
   graph_thread.join();
 

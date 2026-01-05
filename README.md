@@ -90,7 +90,7 @@ rosservice call /kimera_pgmo/save_trajectory
 ```
 the mesh will be saved to ouput_folder/mesh_pgmo.ply and trajectory will be saved to output_folder/traj_pgmo.csv (see launch file)
 
-You can also save the underlying deformation graph to output_folder/pgmo.dgrf 
+You can also save the underlying deformation graph to output_folder/pgmo.dgrf
 ```bash
 rosservice call /kimera_pgmo/save_dgrf
 ```

@@ -8,8 +8,9 @@
 
 #include <type_traits>
 
-#include "kimera_pgmo/mesh_types.h"
 #include <Eigen/Dense>
+
+#include "kimera_pgmo/mesh_types.h"
 
 namespace kimera_pgmo {
 
@@ -71,9 +72,8 @@ struct vertex_prop_fn {
 
 struct vertex_get_fn {
   template <typename T>
-  constexpr auto operator()(const T& v,
-                            size_t i,
-                            VertexTraits* t) const -> decltype(pgmoGetVertex(v, i, t)) {
+  constexpr auto operator()(const T& v, size_t i, VertexTraits* t) const
+      -> decltype(pgmoGetVertex(v, i, t)) {
     return pgmoGetVertex(v, i, t);
   }
 };
@@ -108,17 +108,16 @@ struct face_get_fn {
 
 struct face_set_fn {
   template <typename T>
-  constexpr auto operator()(T& f,
-                            size_t i,
-                            const Face& t) const -> decltype(pgmoSetFace(f, i, t)) {
+  constexpr auto operator()(T& f, size_t i, const Face& t) const
+      -> decltype(pgmoSetFace(f, i, t)) {
     return pgmoSetFace(f, i, t);
   }
 };
 
 struct vertex_stamp_fn {
   template <typename T>
-  constexpr auto operator()(const T& v,
-                            size_t i) const -> decltype(pgmoGetVertexStamp(v, i)) {
+  constexpr auto operator()(const T& v, size_t i) const
+      -> decltype(pgmoGetVertexStamp(v, i)) {
     return pgmoGetVertexStamp(v, i);
   }
 };

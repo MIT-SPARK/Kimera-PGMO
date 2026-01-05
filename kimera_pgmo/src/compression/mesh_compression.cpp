@@ -10,8 +10,8 @@
 #include <algorithm>
 #include <utility>
 
-#include "kimera_pgmo/utils/pcl_utilities.h"
 #include "kimera_pgmo/utils/logging.h"
+#include "kimera_pgmo/utils/pcl_utilities.h"
 
 namespace kimera_pgmo {
 

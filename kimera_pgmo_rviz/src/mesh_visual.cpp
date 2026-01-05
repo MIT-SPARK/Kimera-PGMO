@@ -10,9 +10,8 @@
 #include <OgreSceneManager.h>
 #include <OgreSceneNode.h>
 
-#include <rviz_common/logging.hpp>
-
 #include <Eigen/Dense>
+#include <rviz_common/logging.hpp>
 
 namespace kimera_pgmo {
 

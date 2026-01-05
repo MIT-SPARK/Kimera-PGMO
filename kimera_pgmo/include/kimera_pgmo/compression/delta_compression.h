@@ -106,8 +106,7 @@ class DeltaCompression {
   void addActiveVertices(HashedIndexMapping* remapping = nullptr);
   void updateAndAddArchivedFaces();
 
-  void archiveBlockFaces(const BlockInfo& block_info,
-                         RedundancyChecker& checker);
+  void archiveBlockFaces(const BlockInfo& block_info, RedundancyChecker& checker);
 
   void addPendingVertices(MeshDelta& delta, size_t start_index = 0);
 
