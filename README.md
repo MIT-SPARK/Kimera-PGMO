@@ -23,41 +23,32 @@ If you find this library helpful or use it in your projects, please cite:
 > :warning: **Warning** <br>
 > The ROS2 version of this package is in active development and is not guaranteed to build, run or have documentation. You have been warned!
 
-## Dependencies 
-In addition to PCL, OpenCV, and GTSAM, Kimera-PGMO is designed as part of Kimera, so the following Kimera packages and their dependencies are needed:
+## Dependencies
 
-[Kimera-RPGO](https://github.com/MIT-SPARK/Kimera-RPGO)
-
-[pose_graph_tools](https://github.com/MIT-SPARK/pose_graph_tools)
-
-[Kimera-Semantics](https://github.com/MIT-SPARK/Kimera-Semantics)
-
-For the immediate dependencies, check out the rosinstall files. 
-
+For the immediate dependencies, check out the vcstool file:
 ```bash
-cd ~/catkin_ws/src
-wstool merge Kimera-PGMO/install/kimera_pgmo_ssh.rosinstall
-wstool update
-catkin build kimera_pgmo
+cd ~/colcon_ws/src
+vcs import . < Kimera-PGMO/install/packages.yaml
+colcon build --packages-up-to kimera_pgmo_ros
 ```
 
-## Parameters 
+## Parameters
 
 #### Mesh Frontend
-- `horizon` is the compressor horizon. We are currently using an geometric octree based mesh simplification technique, vertices that is outside the horizon will no longer be in the octree allowing a new vertex to be places near it. 
+- `horizon` is the compressor horizon. We are currently using an geometric octree based mesh simplification technique, vertices that is outside the horizon will no longer be in the octree allowing a new vertex to be places near it.
 - `output_mesh_resolution` resolution of the full mesh. Set to less than the Kimera-Semantics / Voxblox voxel size if you don't want any simplification on the full mesh.
 - `graph_comppression_method` sets the compression method to extract simplified mesh for deformation graph. Recommended: `1`.
 - `full_compression_method` sets the compression method for the full mesh. Recommended: `2`.
-- `robot_id` can be just set to the default `0` if running single robot. This is really only important for the multirobot case. 
-- `d_graph_resolution` resolution of the simplified mesh to be added to the deformation graph. 
-- `log_path` path to the folder to save the mesh-frontend log file. 
-- `log_output` toggle to log timing and statistics. 
+- `robot_id` can be just set to the default `0` if running single robot. This is really only important for the multirobot case.
+- `d_graph_resolution` resolution of the simplified mesh to be added to the deformation graph.
+- `log_path` path to the folder to save the mesh-frontend log file.
+- `log_output` toggle to log timing and statistics.
 
 #### Kimera PGMO
-- `output_prefix` path to the folder to save the log file and the optimized mesh and trajectory files. 
-- `robot_id` can be just set to the default `0` if running single robot. This is really only important for the distributed multirobot case. 
+- `output_prefix` path to the folder to save the log file and the optimized mesh and trajectory files.
+- `robot_id` can be just set to the default `0` if running single robot. This is really only important for the distributed multirobot case.
 - `run_mode` toggles the different modes. Set to 0 to receive pose graph and mesh and perform simultaneous pose graph and mesh optimization. Set to 1 to optimize the mesh and subscribe to an optimized trajectory.
-- `log_output` log timing statistics. 
+- `log_output` log timing statistics.
 - `rpgo/` sets various pose graph optimization parameters. See example config.
 - `add_initial_prior` adds a prior factor on first node.
 - `covariance/` sets the covariance. See example config.
@@ -66,7 +57,7 @@ catkin build kimera_pgmo
 
 ### Single robot Kimera
 
-#### Tesse UHumans2 dataset 
+#### Tesse UHumans2 dataset
 In one terminal, launch Kimera-VIO-ROS with stereo dense:
 ```bash
 roslaunch kimera_vio_ros kimera_vio_ros_uhumans2.launch
@@ -79,21 +70,21 @@ Launch Kimera-Semantics:
 ```basg
 roslaunch kimera_semantics_ros kimera_semantics_uHumans2.launch
 ```
-For visualization, an rviz configuration is provided: 
+For visualization, an rviz configuration is provided:
 ```bash
 rviz -d $(rospack find kimera_pgmo)/rviz/uHumans2.rviz
 ```
-Finally play the rosbag. 
+Finally play the rosbag.
 ```bash
 rosbag play some_bag.bag --clock --pause
 ```
 
-To save the mesh, do 
+To save the mesh, do
 ```bash
 rosservice call /kimera_pgmo/save_mesh
 ```
 
-and to save optimized trajectory, do 
+and to save optimized trajectory, do
 ```bash
 rosservice call /kimera_pgmo/save_trajectory
 ```
@@ -118,22 +109,22 @@ And load mesh and deformation graph:
 rosservice call /kimera_pgmo/load_graph_mesh '{robot_id: 0, dgrf_file: /home/yunchang/catkin_ws/src/kimera_pgmo/kimera_pgmo/log/pgmo.dgrf, ply_file: /home/yunchang/catkin_ws/src/kimera_pgmo/kimera_pgmo/log/mesh_pgmo.ply}'
 ```
 
-## Developer notes 
+## Developer notes
 
-### Running the Unit-tests: 
+### Running the Unit-tests:
 ```bash
 roscd kimera_pgmo
 catkin run_tests --no-deps --this
 catkin_test_results ~/catkin_ws/build/kimera_pgmo/
 ```
-You can also run individual tests for example: 
+You can also run individual tests for example:
 ```bash
 rostest kimera_pgmo test_mesh_frontend.test --text
 ```
-Or 
+Or
 ```bash
 rosrun kimera_pgmo kimera_pgmo-test_deformation_graph
 ```
 
 ### Misc Note
-One thing to note if a developer is working with GTSAM and want to add other factors into the system is that here we specify different prefixes for different types of nodes in the deformation graph, take a look at `utils/common_functions.h` for reference. By prefix we mean the key character as described [here](https://borg.cc.gatech.edu/sites/edu.borg/html/a00244.html). 
+One thing to note if a developer is working with GTSAM and want to add other factors into the system is that here we specify different prefixes for different types of nodes in the deformation graph, take a look at `utils/common_functions.h` for reference. By prefix we mean the key character as described [here](https://borg.cc.gatech.edu/sites/edu.borg/html/a00244.html).
