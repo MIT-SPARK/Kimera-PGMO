@@ -56,7 +56,8 @@ struct BlockInfo {
 };
 
 struct DefaultVertexUpdate {
-  void operator()(const traits::Pos& pos,
+  void operator()(uint64_t timestamp_ns,
+                  const traits::Pos& pos,
                   const traits::VertexTraits& traits,
                   VertexInfo& info) const;
 };
@@ -102,7 +103,8 @@ class DeltaCompression {
                               HashedIndexMapping* remapping = nullptr);
 
   template <typename MergeT>
-  void addPoint(const traits::Pos& point,
+  void addPoint(uint64_t timestamp_ns,
+                const traits::Pos& point,
                 const traits::VertexTraits& traits,
                 std::vector<size_t>& face_map,
                 LongIndexSet& curr_voxels);

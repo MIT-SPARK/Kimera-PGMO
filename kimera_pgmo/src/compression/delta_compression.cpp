@@ -50,26 +50,26 @@ bool VertexInfo::notObserved() const { return !needs_archive && active_refs <= 0
 
 bool VertexInfo::shouldArchive() const { return needs_archive && active_refs <= 0; }
 
-void DefaultVertexUpdate::operator()(const traits::Pos& pos,
+void DefaultVertexUpdate::operator()(uint64_t timestamp_ns,
+                                     const traits::Pos& pos,
                                      const traits::VertexTraits& traits,
                                      VertexInfo& info) const {
   info.pos = pos;
   info.traits.properties |= traits.properties;
+  info.traits.properties.has_stamp = true;
+  info.traits.properties.has_first_seen_stamp = true;
+  info.traits.stamp = std::max(
+      info.traits.stamp, traits.properties.has_stamp ? traits.stamp : timestamp_ns);
+  info.traits.first_seen_stamp = std::min(
+      info.traits.first_seen_stamp,
+      traits.properties.has_first_seen_stamp ? traits.first_seen_stamp : timestamp_ns);
+
   if (traits.properties.has_color) {
     info.traits.color = traits.color;
   }
 
-  if (traits.properties.has_stamp) {
-    info.traits.stamp = std::max(info.traits.stamp, traits.stamp);
-  }
-
   if (traits.properties.has_label) {
     info.traits.label = traits.label;
-  }
-
-  if (traits.properties.has_first_seen_stamp) {
-    info.traits.first_seen_stamp =
-        std::min(info.traits.first_seen_stamp, traits.first_seen_stamp);
   }
 }
 

@@ -38,7 +38,7 @@ MeshDelta::Ptr DeltaCompression::update(const MeshBlocksT& mesh,
     for (size_t i = 0; i < num_vertices; ++i) {
       traits::VertexTraits traits;
       const auto pos = traits::get_vertex(block, i, &traits);
-      addPoint<MergeT>(pos, traits, local_remapping, curr_voxels);
+      addPoint<MergeT>(timestamp_ns, pos, traits, local_remapping, curr_voxels);
       if (block_remap) {
         block_remap->insert({i, local_remapping.back()});
       }
@@ -63,7 +63,8 @@ MeshDelta::Ptr DeltaCompression::update(const MeshBlocksT& mesh,
 }
 
 template <typename MergeT>
-void DeltaCompression::addPoint(const traits::Pos& pos,
+void DeltaCompression::addPoint(uint64_t timestamp,
+                                const traits::Pos& pos,
                                 const traits::VertexTraits& traits,
                                 std::vector<size_t>& face_map,
                                 spatial_hash::LongIndexSet& curr_voxels) {
@@ -81,7 +82,7 @@ void DeltaCompression::addPoint(const traits::Pos& pos,
   }
 
   auto& info = info_iter->second;
-  merger(pos, traits, info);
+  merger(timestamp, pos, traits, info);
   if (info.sequence_number != tracking_info_.sequence_number) {
     const size_t prev_index = info.mesh_index;
     info.mesh_index = active_remapping_.size();

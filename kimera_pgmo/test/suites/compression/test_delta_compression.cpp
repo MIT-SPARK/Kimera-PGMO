@@ -693,18 +693,18 @@ TEST(DeltaCompression, MergeOperatorCorrect) {
   };
 
   VertexInfo info;
-  DefaultVertexUpdate{}(traits::Pos(1, 2, 3), make_traits(1, 2), info);
+  DefaultVertexUpdate{}(0, traits::Pos(1, 2, 3), make_traits(1, 2), info);
   EXPECT_TRUE(info.traits.properties.has_color);
   EXPECT_TRUE(info.traits.properties.has_stamp);
   EXPECT_TRUE(info.traits.properties.has_first_seen_stamp);
   EXPECT_EQ(info.traits.first_seen_stamp, 1u);
   EXPECT_EQ(info.traits.stamp, 2u);
 
-  DefaultVertexUpdate{}(traits::Pos(1, 2, 3), make_traits(3, 4), info);
+  DefaultVertexUpdate{}(0, traits::Pos(1, 2, 3), make_traits(3, 4), info);
   EXPECT_EQ(info.traits.first_seen_stamp, 1u);
   EXPECT_EQ(info.traits.stamp, 4u);
 
-  DefaultVertexUpdate{}(traits::Pos(1, 2, 3), make_traits(0, 3), info);
+  DefaultVertexUpdate{}(0, traits::Pos(1, 2, 3), make_traits(0, 3), info);
   EXPECT_EQ(info.traits.first_seen_stamp, 0u);
   EXPECT_EQ(info.traits.stamp, 4u);
 }
