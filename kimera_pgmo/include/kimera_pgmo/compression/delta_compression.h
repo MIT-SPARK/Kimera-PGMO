@@ -5,6 +5,8 @@
  * @author Nathan Hughes
  */
 #pragma once
+#include <spatial_hash/grid.h>
+
 #include <cstdint>
 
 #include "kimera_pgmo/compression/redundancy_checker.h"
@@ -126,8 +128,7 @@ class DeltaCompression {
   size_t remapIndex(size_t index) const;
 
  protected:
-  double resolution_;
-  double index_scale_;
+  const spatial_hash::Grid<spatial_hash::LongIndex> grid_;
 
   MeshDelta::Ptr delta_;
   MeshDelta::Ptr archive_delta_;

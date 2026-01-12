@@ -45,8 +45,6 @@ TEST(TestMeshIO, readWritePly) {
     EXPECT_EQ(cloud.points[i].g, read_cloud.points[i].g);
     EXPECT_EQ(cloud.points[i].b, read_cloud.points[i].b);
     EXPECT_EQ(cloud.points[i].a, read_cloud.points[i].a);
-    // TODO(yun) this is not working here. Though verified that it works in
-    // normal operations
     EXPECT_EQ(vertex_stamps[i], read_stamps[i]);
   }
 

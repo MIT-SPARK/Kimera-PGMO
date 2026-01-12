@@ -74,7 +74,7 @@ void DefaultVertexUpdate::operator()(uint64_t timestamp_ns,
 }
 
 DeltaCompression::DeltaCompression(double resolution)
-    : resolution_(resolution), index_scale_(1.0 / resolution), tracking_info_({1}) {}
+    : grid_(resolution), tracking_info_({1}) {}
 
 MeshDelta::Ptr DeltaCompression::computeDelta(uint64_t timestamp_ns,
                                               HashedIndexMapping* remapping) {

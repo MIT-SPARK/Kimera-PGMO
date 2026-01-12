@@ -69,12 +69,9 @@ void DeltaCompression::addPoint(uint64_t timestamp,
                                 std::vector<size_t>& face_map,
                                 spatial_hash::LongIndexSet& curr_voxels) {
   constexpr static const MergeT merger;
-  // do voxel hashing at compression size to determine remapping to previous compressed
-  // vertex (if it exists)
-  const spatial_hash::LongIndex vertex_index(std::round(pos.x() * index_scale_),
-                                             std::round(pos.y() * index_scale_),
-                                             std::round(pos.z() * index_scale_));
 
+  // hash vertex at compression size to map to compressed vertex (if it exists)
+  const auto vertex_index = grid_.toIndex(pos);
   auto info_iter = vertices_map_.find(vertex_index);
   if (info_iter == vertices_map_.end()) {
     // update is forced by sequence number defaulting to -1
