@@ -24,7 +24,7 @@ endif()
 
 find_package(PCL REQUIRED COMPONENTS common geometry kdtree octree)
 
-if (CLEAR_WARNING_SUPPRESSION)
+if(CLEAR_WARNING_SUPPRESSION)
   unset(CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
 endif()
 
@@ -38,20 +38,23 @@ add_library(
   src/compression/mesh_compression.cpp
   src/compression/octree_compression.cpp
   src/compression/redundancy_checker.cpp
-  src/compression/voxel_clearing_compression.cpp
-  src/utils/common_functions.cpp
   src/utils/common_structs.cpp
+  src/utils/graph.cpp
   src/utils/logging.cpp
   src/utils/mesh_io.cpp
+  src/utils/pcl_utilities.cpp
   src/utils/range_generator.cpp
   src/optimizer/kimera_rpgo_optimizer.cpp
   src/deformation_graph.cpp
   src/deformation_graph_io.cpp
+  src/kimera_pgmo_interface.cpp
   src/mesh_deformation.cpp
   src/mesh_delta.cpp
   src/mesh_frontend_interface.cpp
+  src/mesh_offset_info.cpp
   src/mesh_traits.cpp
-  src/kimera_pgmo_interface.cpp
+  src/mesh_types.cpp
+  src/pcl_mesh_traits.cpp
   src/sparse_keyframe.cpp)
 target_include_directories(
   ${PROJECT_NAME}
@@ -66,8 +69,7 @@ target_link_libraries(
          gtsam
          pose_graph_tools::pose_graph_tools
          spatial_hash::spatial_hash
-         config_utilities::config_utilities
-)
+         config_utilities::config_utilities)
 set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
 add_library(kimera_pgmo::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 

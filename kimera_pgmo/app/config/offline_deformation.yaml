@@ -7,4 +7,3 @@ optimizer:
     inlier_probability: 0.9
     mu_step: 1.6
     max_iterations: 100
-

@@ -5,23 +5,23 @@
  * @author Nathan Hughes
  */
 #pragma once
+#include <spatial_hash/grid.h>
+
+#include <cstdint>
+
+#include "kimera_pgmo/compression/redundancy_checker.h"
 #include "kimera_pgmo/hashing.h"
 #include "kimera_pgmo/mesh_delta.h"
-#include "kimera_pgmo/utils/common_structs.h"
-#include "kimera_pgmo/utils/mesh_interface.h"
+#include "kimera_pgmo/mesh_types.h"
 
 namespace kimera_pgmo {
 
-struct RedunancyChecker;
-
 //! @brief Tracking info for every vertex
 struct VertexInfo {
-  //! @brief Last timestamp vertex was updated
-  uint64_t timestamp_ns;
-  //! @brief Current vertex position and color
-  pcl::PointXYZRGBA point;
-  //! @brief Current vertex semantic label
-  std::optional<uint32_t> label;
+  //! @brief Position of vertex
+  traits::Pos pos = traits::Pos::Zero();
+  //! @brief Traits of vertex
+  traits::VertexTraits traits;
   //! @brief Current vertex index in integrated mesh
   size_t mesh_index;
   //! @brief Was the vertex newly observed this pass
@@ -47,14 +47,21 @@ struct VertexInfo {
 
 //! @brief Tracking struct for every block in the spatial grid used by the compression
 struct BlockInfo {
-  //! @brief All vertices belonging to the block
-  spatial_hash::LongIndexSet vertices;
   //! @brief Last time the block was updated
   uint64_t update_time_ns;
-  //! @brief Current flat list of indices
-  std::vector<size_t> indices;
   //! @brief Last integration pass the block was updated
   uint16_t sequence_number = 0;
+  //! @brief All vertices belonging to the block
+  LongIndexSet vertices = {};
+  //! @brief Current faces
+  std::vector<traits::Face> faces = {};
+};
+
+struct DefaultVertexUpdate {
+  void operator()(uint64_t timestamp_ns,
+                  const traits::Pos& pos,
+                  const traits::VertexTraits& traits,
+                  VertexInfo& info) const;
 };
 
 class DeltaCompression {
@@ -62,15 +69,12 @@ class DeltaCompression {
   using VoxelInfoMap = LongIndexMap<VertexInfo>;
   using BlockInfoMap = BlockIndexMap<BlockInfo>;
   using Ptr = std::shared_ptr<DeltaCompression>;
-  using BlockFilter =
-      std::function<bool(const spatial_hash::BlockIndex&, const BlockInfo&)>;
+  using BlockFilter = std::function<bool(const BlockIndex&, const BlockInfo&)>;
 
   /**
    * @brief Construct a mesh compressor at the provided spatial resolution
    */
   explicit DeltaCompression(double resolution);
-
-  virtual ~DeltaCompression() = default;
 
   /**
    * @brief Integrate a new mesh update into the compressor
@@ -78,7 +82,8 @@ class DeltaCompression {
    * @param timestamp_ns Timestamp the mesh was generated at
    * @param remapping Optional output remapping between input mesh and integrated mesh
    */
-  MeshDelta::Ptr update(MeshInterface& mesh,
+  template <typename MeshBlocksT, typename MergeT = DefaultVertexUpdate>
+  MeshDelta::Ptr update(const MeshBlocksT& mesh,
                         uint64_t timestamp_ns,
                         HashedIndexMapping* remapping = nullptr);
 
@@ -96,47 +101,49 @@ class DeltaCompression {
   void archiveBlocks(const BlockFilter& should_archive);
 
  protected:
-  void addPoint(const pcl::PointXYZRGBA& point,
-                std::optional<uint32_t> semantic_label,
-                uint64_t timestamp_ns,
+  MeshDelta::Ptr computeDelta(uint64_t timestamp_ns,
+                              HashedIndexMapping* remapping = nullptr);
+
+  template <typename MergeT>
+  void addPoint(uint64_t timestamp_ns,
+                const traits::Pos& point,
+                const traits::VertexTraits& traits,
                 std::vector<size_t>& face_map,
-                spatial_hash::LongIndexSet& curr_voxels);
+                LongIndexSet& curr_voxels);
 
-  void removeBlockObservations(const spatial_hash::LongIndexSet& to_remove);
+  void removeBlockObservations(const LongIndexSet& to_remove);
 
-  void addActive(uint64_t stamp_ns, HashedIndexMapping* remapping);
-
-  void addActiveFaces(uint64_t timestamp_ns, HashedIndexMapping* remapping);
-
-  void addActiveVertices();
-
+  void addActiveFaces();
+  void addActiveVertices(HashedIndexMapping* remapping = nullptr);
   void updateAndAddArchivedFaces();
 
-  void archiveBlockFaces(const BlockInfo& block_info,
-                         RedunancyChecker& checker,
-                         std::vector<Face>& pending_faces);
-
-  void updateRemapping(MeshInterface& mesh, uint64_t timestamp_ns);
+  void archiveBlockFaces(const BlockInfo& block_info, RedundancyChecker& checker);
 
   void addPendingVertices(MeshDelta& delta, size_t start_index = 0);
 
+  void addIndexRemap(size_t prev, size_t curr);
+
+  bool indexInRemap(size_t index) const;
+
+  size_t remapIndex(size_t index) const;
+
  protected:
-  double resolution_;
-  double index_scale_;
+  const spatial_hash::Grid<spatial_hash::LongIndex> grid_;
 
   MeshDelta::Ptr delta_;
   MeshDelta::Ptr archive_delta_;
 
+  size_t prev_archived_vertices_ = 0;
   std::vector<size_t> active_remapping_;
   BlockInfoMap block_info_map_;
   VoxelInfoMap vertices_map_;
 
   std::vector<VertexInfo> archived_vertices_;
-  std::vector<Face> archived_faces_;
+  std::vector<traits::Face> archived_faces_;
 
-  uint16_t sequence_number_;
-  size_t num_archived_vertices_;
-  size_t num_archived_faces_;
+  MeshDelta::TrackingInfo tracking_info_;
 };
 
 }  // namespace kimera_pgmo
+
+#include "kimera_pgmo/compression/impl/delta_compression.h"  // IWYU pragma: keep

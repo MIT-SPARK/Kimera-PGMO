@@ -12,8 +12,6 @@
 #include <kimera_pgmo/utils/pcl_mesh_interface.h>
 #include <pose_graph_tools_ros/conversions.h>
 
-#include <chrono>
-
 #include "kimera_pgmo_ros/conversion/mesh.h"
 #include "kimera_pgmo_ros/ros_log_sink.h"
 

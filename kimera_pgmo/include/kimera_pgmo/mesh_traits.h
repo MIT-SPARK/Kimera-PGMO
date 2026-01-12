@@ -5,53 +5,39 @@
  * @author Nathan Hughes
  */
 #pragma once
-#include <pcl/Vertices.h>
+
+#include <type_traits>
 
 #include <Eigen/Dense>
-#include <array>
-#include <cstdint>
-#include <optional>
-#include <type_traits>
 
 #include "kimera_pgmo/mesh_types.h"
 
 namespace kimera_pgmo {
 
-struct SimpleMesh {
-  std::vector<traits::Pos> points;
-  std::vector<traits::Timestamp> stamps;
-  std::vector<traits::Face> faces;
-};
+// NOTE(nathan) these traits are required BEFORE the ADL lookup is defined because the
+// container is stl
+size_t pgmoNumVertices(const std::vector<traits::Vertex>& vertices);
 
-size_t pgmoNumVertices(const SimpleMesh& mesh);
-
-void pgmoResizeVertices(SimpleMesh& mesh, size_t size);
-
-traits::Pos pgmoGetVertex(const SimpleMesh& mesh,
+traits::Pos pgmoGetVertex(const std::vector<traits::Vertex>& vertices,
                           size_t i,
-                          traits::VertexTraits* traits);
+                          traits::VertexTraits* traits = nullptr);
 
-void pgmoSetVertex(SimpleMesh& mesh,
+traits::VertexProperties pgmoGetVertexProperties(const std::vector<traits::Vertex>& v);
+
+void pgmoResizeVertices(std::vector<traits::Vertex>& vertices, size_t size);
+
+void pgmoSetVertex(std::vector<traits::Vertex>& vertices,
                    size_t i,
                    const traits::Pos& pos,
-                   const traits::VertexTraits& traits);
-size_t pgmoNumFaces(const SimpleMesh& mesh);
+                   const traits::VertexTraits* traits = nullptr);
 
-void pgmoResizeFaces(SimpleMesh& mesh, size_t size);
+size_t pgmoNumFaces(const std::vector<traits::Face>& faces);
 
-traits::Face pgmoGetFace(const SimpleMesh& mesh, size_t i);
+traits::Face pgmoGetFace(const std::vector<traits::Face>& faces, size_t i);
 
-void pgmoSetFace(SimpleMesh& mesh, size_t i, const traits::Face& face);
+void pgmoResizeFaces(std::vector<traits::Face>& faces, size_t size);
 
-uint64_t pgmoGetVertexStamp(const SimpleMesh& mesh, size_t i);
-
-size_t pgmoNumFaces(const std::vector<pcl::Vertices>& faces);
-
-traits::Face pgmoGetFace(const std::vector<pcl::Vertices>& faces, size_t i);
-
-void pgmoResizeFaces(std::vector<pcl::Vertices>& faces, size_t size);
-
-void pgmoSetFace(std::vector<pcl::Vertices>& faces, size_t i, const traits::Face& face);
+void pgmoSetFace(std::vector<traits::Face>& faces, size_t i, const traits::Face& face);
 
 namespace traits {
 namespace detail {
@@ -77,9 +63,16 @@ struct vertex_resize_fn {
   }
 };
 
+struct vertex_prop_fn {
+  template <typename T>
+  constexpr auto operator()(const T& v) const -> decltype(pgmoGetVertexProperties(v)) {
+    return pgmoGetVertexProperties(v);
+  }
+};
+
 struct vertex_get_fn {
   template <typename T>
-  constexpr auto operator()(const T& v, size_t i, traits::VertexTraits* t) const
+  constexpr auto operator()(const T& v, size_t i, VertexTraits* t) const
       -> decltype(pgmoGetVertex(v, i, t)) {
     return pgmoGetVertex(v, i, t);
   }
@@ -87,8 +80,8 @@ struct vertex_get_fn {
 
 struct vertex_set_fn {
   template <typename T>
-  constexpr auto operator()(T& v, size_t i, const Pos& p, const traits::VertexTraits& t)
-      const -> decltype(pgmoSetVertex(v, i, p, t)) {
+  constexpr auto operator()(T& v, size_t i, const Pos& p, const VertexTraits* t) const
+      -> decltype(pgmoSetVertex(v, i, p, t)) {
     return pgmoSetVertex(v, i, p, t);
   }
 };
@@ -115,17 +108,16 @@ struct face_get_fn {
 
 struct face_set_fn {
   template <typename T>
-  constexpr auto operator()(T& f,
-                            size_t i,
-                            const Face& t) const -> decltype(pgmoSetFace(f, i, t)) {
+  constexpr auto operator()(T& f, size_t i, const Face& t) const
+      -> decltype(pgmoSetFace(f, i, t)) {
     return pgmoSetFace(f, i, t);
   }
 };
 
 struct vertex_stamp_fn {
   template <typename T>
-  constexpr auto operator()(const T& v,
-                            size_t i) const -> decltype(pgmoGetVertexStamp(v, i)) {
+  constexpr auto operator()(const T& v, size_t i) const
+      -> decltype(pgmoGetVertexStamp(v, i)) {
     return pgmoGetVertexStamp(v, i);
   }
 };
@@ -137,6 +129,8 @@ namespace {
 constexpr const auto& pgmoNumVertices = detail::static_const<detail::vertex_size_fn>;
 constexpr const auto& pgmoResizeVertices =
     detail::static_const<detail::vertex_resize_fn>;
+constexpr const auto& pgmoGetVertexProperties =
+    detail::static_const<detail::vertex_prop_fn>;
 constexpr const auto& pgmoGetVertex = detail::static_const<detail::vertex_get_fn>;
 constexpr const auto& pgmoSetVertex = detail::static_const<detail::vertex_set_fn>;
 
@@ -163,7 +157,16 @@ void resize_vertices(T& vertices, size_t size) {
 }
 
 template <typename T>
-Pos get_vertex(const T& vertices, size_t i, traits::VertexTraits* traits = nullptr) {
+VertexProperties get_vertex_properties(const T& vertices) {
+  return ::kimera_pgmo::traits::pgmoGetVertexProperties(vertices);
+}
+
+template <typename T>
+Pos get_vertex(const T& vertices, size_t i, VertexTraits* traits = nullptr) {
+  if (traits) {
+    traits->properties = ::kimera_pgmo::traits::pgmoGetVertexProperties(vertices);
+  }
+
   return ::kimera_pgmo::traits::pgmoGetVertex(vertices, i, traits);
 }
 
@@ -171,7 +174,7 @@ template <typename T>
 void set_vertex(T& vertices,
                 size_t i,
                 const Pos& pos,
-                const traits::VertexTraits& traits = {}) {
+                const VertexTraits* traits = nullptr) {
   ::kimera_pgmo::traits::pgmoSetVertex(vertices, i, pos, traits);
 }
 

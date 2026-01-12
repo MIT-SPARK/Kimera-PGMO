@@ -1,294 +1,159 @@
-/**
- * @file   mesh_delta.h
- * @brief  Struct and functions for updating mesh
- * @author Nathan Hughes
- */
-
 #pragma once
-
-#include <pcl/Vertices.h>
-#include <pcl/pcl_base.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
-
-#include <optional>
-#include <set>
+#include <map>
+#include <memory>
 #include <vector>
 
-#include "kimera_pgmo/mesh_traits.h"
-#include "kimera_pgmo/pcl_mesh_traits.h"
-#include "kimera_pgmo/utils/common_structs.h"
+#include <Eigen/Geometry>
+
+#include "kimera_pgmo/mesh_offset_info.h"
+#include "kimera_pgmo/mesh_types.h"
 
 namespace kimera_pgmo {
 
-struct Face {
-  Face(size_t v1, size_t v2, size_t v3);
-
-  Face(const std::vector<size_t>& indices, size_t i);
-  Face(const traits::Face& face);
-
-  bool valid() const;
-
-  void fill(std::vector<uint32_t>& other) const;
-
-  uint32_t v1;
-  uint32_t v2;
-  uint32_t v3;
-
-  operator std::array<size_t, 3>() const { return {v1, v2, v3}; }
-};
-
-std::ostream& operator<<(std::ostream& out, const Face& face);
-
 class MeshDelta {
  public:
-  using Ptr = std::shared_ptr<MeshDelta>;
+  using Ptr = std::unique_ptr<MeshDelta>;
+  using Face = traits::Face;
+  using Vertex = traits::Vertex;
 
-  MeshDelta();
+  //! Tracking information for the current mesh delta
+  struct TrackingInfo {
+    //! Index of delta in sequence of deltas (used by compression algorithm)
+    uint16_t sequence_number = 0;
+    //! Number of active vertices in the previous delta (used for archival)
+    size_t prev_active_vertices = 0;
+    //! Number of active faces in the previous delta (used for archival)
+    size_t prev_active_faces = 0;
+    //! Mapping between previous delta active indices and current delta
+    std::shared_ptr<std::map<size_t, size_t>> prev_to_curr = nullptr;
 
-  MeshDelta(size_t vertex_start, size_t face_start);
+    static TrackingInfo with_remap(uint16_t sequence_number,
+                                   size_t prev_active_vertices,
+                                   size_t prev_active_faces,
+                                   const std::map<size_t, size_t>& remap = {});
+  } const info;
 
-  MeshDelta(const pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
-            const std::vector<Timestamp>& stamps,
-            const std::vector<pcl::Vertices>& faces,
-            std::optional<std::vector<uint32_t>> semantics = std::nullopt);
+  //! Construct a mesh delta from tracking information
+  explicit MeshDelta(const TrackingInfo& info);
 
-  template <typename Vertices, typename Faces>
-  static MeshDelta::Ptr fromMesh(const Vertices& vertices, const Faces& faces);
+  /**
+   * @brief Construct a delta containing active vertices and faces from a full mesh
+   * @tparam MeshT Mesh type that supports PGMO traits
+   * @param[in] mesh Mesh to encode into the delta
+   * @param[in] info Optional tracking info for the mesh
+   * @return Encoded mesh delta
+   */
+  template <typename MeshT>
+  static MeshDelta::Ptr fromMesh(const MeshT& mesh, const TrackingInfo* info = nullptr);
+
+  /**
+   * @brief Construct a delta containing active vertices and faces from a full mesh
+   * @tparam VerticesT Vertex container that supports PGMO traits
+   * @tparam FacesT Face container that supports PGMO traits
+   * @param[in] vertices Mesh vertices to encode into the delta
+   * @param[in] faces Mesh faces to encode into the delta
+   * @param[in] info Optional tracking info for the mesh
+   * @return Encoded mesh delta
+   */
+  template <typename VerticesT, typename FacesT>
+  static MeshDelta::Ptr fromMesh(const VerticesT& vertices,
+                                 const FacesT& faces,
+                                 const TrackingInfo* info = nullptr);
+
+  /**
+   * @brief Add a new vertex to the mesh delta, optionally archiving it
+   * @note All archived vertices must be added before the active vertices
+   * @param[in] pos Vertex position
+   * @param[in] traits Vertex properties to add
+   * @param[in] archive Whether or not the vertex is archived
+   * @return Local index of the added vertex
+   */
+  size_t addVertex(const traits::Pos& pos,
+                   const traits::VertexTraits& traits,
+                   bool archive = false);
+
+  /**
+   * @brief Add a new face to the mesh delta, optionally archiving it
+   * @param[in] face New face to add
+   * @param[in] archive Whether or not the face is archived
+   */
+  void addFace(const traits::Face& face, bool archive = false);
+
+  //! Get a vertex in the delta by local index
+  const Vertex& getVertex(size_t index) const;
+  //! Get a face in the delta by local index
+  const Face& getFace(size_t index) const;
+
+  //! Get the total number of vertices in the delta
+  size_t getNumVertices() const;
+  //! Get the number of unarchived vertices in the delta
+  size_t getNumActiveVertices() const;
+  //! Get the number of archived vertices in the delta
+  size_t getNumArchivedVertices() const;
+
+  //! Get the total number of faces in the delta
+  size_t getNumFaces() const;
+  //! Get the number of unarchived faces in the delta
+  size_t getNumActiveFaces() const;
+  //! Get the number of archived faces in the delta
+  size_t getNumArchivedFaces() const;
 
   template <typename Mesh>
-  static MeshDelta::Ptr fromMesh(const Mesh& mesh);
-
-  template <typename Vertices>
-  void updateVertices(Vertices& vertices, const Eigen::Isometry3f* = nullptr) const;
-
-  template <typename Faces>
-  void updateFaces(Faces& faces) const;
+  void updateMesh(Mesh& mesh,
+                  MeshOffsetInfo& offsets,
+                  const Eigen::Isometry3f* transform = nullptr) const;
 
   template <typename Vertices, typename Faces>
   void updateMesh(Vertices& vertices,
                   Faces& faces,
+                  MeshOffsetInfo& offsets,
                   const Eigen::Isometry3f* transform = nullptr) const;
 
-  template <typename Mesh>
-  void updateMesh(Mesh& mesh, const Eigen::Isometry3f* transform = nullptr) const;
+  template <typename Vertices>
+  size_t updateVertices(Vertices& vertices,
+                        const Eigen::Isometry3f* transform = nullptr) const;
 
-  void updateVertices(pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
-                      std::vector<Timestamp>* stamps,
-                      std::vector<uint32_t>* semantics = nullptr,
-                      const Eigen::Isometry3f* transform = nullptr) const;
+  template <typename Faces>
+  size_t updateFaces(Faces& faces,
+                     const MeshOffsetInfo& prev_offests,
+                     size_t vertex_offset) const;
 
-  void updateMesh(pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
-                  std::vector<Timestamp>& stamps,
-                  std::vector<pcl::Vertices>& faces,
-                  std::vector<uint32_t>* semantics = nullptr,
-                  const Eigen::Isometry3f* transform = nullptr) const;
+  //! Get the valid vertex properties that the delta has
+  const traits::VertexProperties& vertex_properties() const;
+  //! Get the active faces of the delta
+  const std::vector<Face>& faces() const;
+  //! Get the archived faces of the delta
+  const std::vector<Face>& archived_faces() const;
 
-  void setOffset(std::optional<size_t> vertex_start = std::nullopt,
-                 std::optional<size_t> face_start = std::nullopt);
-
-  size_t addVertex(Timestamp timestamp_ns,
-                   const pcl::PointXYZRGBA& point,
-                   std::optional<uint32_t> semantics = std::nullopt,
-                   bool archive = false);
-
-  void addFace(const Face& face, bool archive = false);
-
-  bool hasSemantics() const;
-
-  size_t getNumArchivedVertices() const;
-
-  size_t getNumArchivedFaces() const;
-
-  size_t getTotalArchivedVertices() const;
-
-  size_t getTotalArchivedFaces() const;
-
-  size_t getTotalVertices() const;
-
-  size_t getTotalFaces() const;
-
-  size_t getLocalIndex(size_t index) const;
-
-  size_t getGlobalIndex(size_t index) const;
-
-  pcl::IndicesPtr getActiveIndices() const;
-
-  void checkFaces(const std::string& name) const;
-
-  void validate(pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
-                std::vector<Timestamp>& stamps,
-                std::vector<pcl::Vertices>& faces,
-                std::vector<uint32_t>* semantics = nullptr) const;
-
-  Timestamp timestamp_ns = 0;
-  size_t vertex_start = 0;
-  size_t face_start = 0;
-  uint16_t sequence_number = 0;
-
-  pcl::PointCloud<pcl::PointXYZRGBA>::Ptr vertex_updates;
-  std::vector<Timestamp> stamp_updates;
-  std::vector<uint32_t> semantic_updates;
-  std::vector<Face> face_updates;
-  std::vector<Face> face_archive_updates;
-  std::map<size_t, size_t> prev_to_curr;
-  std::set<size_t> deleted_indices;
-  std::set<size_t> observed_indices;
-  std::set<size_t> new_indices;
+  //! Last updated timestamp of the mesh delta
+  traits::Timestamp timestamp_ns = 0;
 
  protected:
-  size_t remapIndex(size_t prev) const;
-
   size_t num_archived_vertices_ = 0;
+  traits::VertexProperties vertex_properties_;
+
+  std::vector<Vertex> vertex_updates_;
+  std::vector<Face> face_updates_;
+  std::vector<Face> face_archive_updates_;
 };
 
-std::ostream& operator<<(std::ostream& out, const MeshDelta& delta);
+//! Get the number of vertices in the mesh delta
+size_t pgmoNumVertices(const MeshDelta& delta);
 
-template <typename Vertices>
-void MeshDelta::updateVertices(Vertices& vertices,
-                               const Eigen::Isometry3f* transform) const {
-  const bool use_semantics = hasSemantics();
-  const size_t total_vertices = vertex_start + vertex_updates->size();
-  traits::resize_vertices(vertices, total_vertices);
+//! Get the valid vertex properties in the mesh delta
+traits::VertexProperties pgmoGetVertexProperties(const MeshDelta& delta);
 
-  for (size_t i = 0; i < vertex_updates->size(); ++i) {
-    const size_t idx = i + vertex_start;
-    const auto& p = vertex_updates->at(i);
-    traits::Pos pos;
-    if (transform) {
-      pos = *transform * traits::Pos(p.x, p.y, p.z);
-    } else {
-      pos = traits::Pos(p.x, p.y, p.z);
-    }
-    traits::VertexTraits traits;
-    traits.color = {p.r, p.g, p.b, p.a};
-    traits.stamp = stamp_updates.at(i);
-    if (use_semantics) {
-      traits.label = semantic_updates.at(i);
-    }
-    traits::set_vertex(vertices, idx, pos, traits);
-  }
-}
+//! Get a specific vertex from the mesh delta
+traits::Pos pgmoGetVertex(const MeshDelta& delta,
+                          size_t i,
+                          traits::VertexTraits* traits);
 
-template <typename Faces>
-void MeshDelta::updateFaces(Faces& faces) const {
-  const size_t total_faces =
-      face_start + face_archive_updates.size() + face_updates.size();
-  traits::resize_faces(faces, total_faces);
+//! Get the number of faces in the mesh delta
+size_t pgmoNumFaces(const MeshDelta& delta);
 
-  // TODO(nathan) there is a more elegant way to do this
-  for (size_t i = 0; i < getTotalArchivedFaces(); ++i) {
-    auto face = traits::get_face(faces, i);
-    face[0] = remapIndex(face[0]);
-    face[1] = remapIndex(face[1]);
-    face[2] = remapIndex(face[2]);
-    traits::set_face(faces, i, face);
-  }
-
-  size_t face_idx = face_start;
-  for (const auto& face : face_archive_updates) {
-    traits::set_face(faces, face_idx, {{face.v1, face.v2, face.v3}});
-    ++face_idx;
-  }
-
-  for (const auto& face : face_updates) {
-    traits::set_face(faces, face_idx, {{face.v1, face.v2, face.v3}});
-    ++face_idx;
-  }
-}
-
-template <typename Vertices, typename Faces>
-void MeshDelta::updateMesh(Vertices& vertices,
-                           Faces& faces,
-                           const Eigen::Isometry3f* transform) const {
-  updateVertices<Vertices>(vertices, transform);
-  updateFaces<Faces>(faces);
-}
-
-template <typename Mesh>
-void MeshDelta::updateMesh(Mesh& mesh, const Eigen::Isometry3f* transform) const {
-  // dispatch for types implementing faces and vertices adl api
-  updateMesh(mesh, mesh, transform);
-}
-
-template <typename Vertices, typename Faces>
-MeshDelta::Ptr MeshDelta::fromMesh(const Vertices& vertices, const Faces& faces) {
-  auto delta = std::make_shared<MeshDelta>(0, 0);
-
-  const auto num_vertices = traits::num_vertices(vertices);
-  for (size_t i = 0; i < num_vertices; ++i) {
-    traits::VertexTraits traits;
-    const auto pos = traits::get_vertex(vertices, i, &traits);
-    auto& point = delta->vertex_updates->emplace_back();
-    point.x = pos.x();
-    point.y = pos.y();
-    point.z = pos.z();
-    if (traits.color) {
-      const auto& c = *traits.color;
-      point.r = c[0];
-      point.g = c[1];
-      point.b = c[2];
-      point.a = c[3];
-    }
-
-    if (traits.stamp) {
-      delta->stamp_updates.push_back(*traits.stamp);
-    }
-
-    if (traits.label) {
-      delta->semantic_updates.push_back(*traits.label);
-    }
-  }
-
-  const auto num_faces = traits::num_faces(faces);
-  for (size_t i = 0; i < num_faces; ++i) {
-    delta->face_updates.push_back(traits::get_face(faces, i));
-  }
-
-  return delta;
-}
-
-template <typename Mesh>
-MeshDelta::Ptr MeshDelta::fromMesh(const Mesh& mesh) {
-  return fromMesh(mesh, mesh);
-}
-
-inline size_t pgmoNumVertices(const MeshDelta& delta) {
-  return delta.vertex_updates ? delta.vertex_updates->size() : 0;
-}
-
-inline traits::Pos pgmoGetVertex(const MeshDelta& delta,
-                                 size_t i,
-                                 traits::VertexTraits* traits) {
-  const auto& point = delta.vertex_updates->at(i);
-  traits::Pos pos(point.x, point.y, point.z);
-  if (!traits) {
-    return pos;
-  }
-
-  traits->color = {point.r, point.g, point.b, point.a};
-  if (i < delta.stamp_updates.size()) {
-    traits->stamp = delta.stamp_updates[i];
-  }
-
-  if (i < delta.semantic_updates.size()) {
-    traits->label = delta.semantic_updates[i];
-  }
-
-  return pos;
-}
-
-inline size_t pgmoNumFaces(const MeshDelta& delta) {
-  return delta.face_updates.size() + delta.face_archive_updates.size();
-}
-
-inline traits::Face pgmoGetFace(const MeshDelta& delta, size_t i) {
-  if (i < delta.face_archive_updates.size()) {
-    return delta.face_archive_updates[i];
-  }
-
-  i -= delta.face_archive_updates.size();
-  return delta.face_updates.at(i);
-}
+//! Get a specific face from the mesh delta
+traits::Face pgmoGetFace(const MeshDelta& delta, size_t i);
 
 }  // namespace kimera_pgmo
+
+#include "kimera_pgmo/impl/mesh_delta.h"  // IWYU pragma: keep

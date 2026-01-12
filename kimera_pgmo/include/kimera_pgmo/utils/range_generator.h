@@ -4,8 +4,8 @@
  * @author Nathan Hughes
  */
 #pragma once
-#include <iterator>
 #include <cstdint>
+#include <iterator>
 
 namespace kimera_pgmo {
 

@@ -8,60 +8,50 @@
 
 namespace kimera_pgmo {
 
-size_t pgmoNumVertices(const SimpleMesh& mesh) { return mesh.points.size(); }
+using traits::Face;
+using traits::Pos;
+using traits::Vertex;
+using traits::VertexProperties;
+using traits::VertexTraits;
 
-void pgmoResizeVertices(SimpleMesh& mesh,
-                        size_t size,
-                        bool /* has_colors */,
-                        bool /* has_stamps */,
-                        bool /* has_labels */) {
-  mesh.points.resize(size);
+size_t pgmoNumVertices(const std::vector<Vertex>& vertices) { return vertices.size(); }
+
+Pos pgmoGetVertex(const std::vector<Vertex>& vertices, size_t i, VertexTraits* traits) {
+  const auto& v = vertices.at(i);
+  if (traits) {
+    *traits = v.traits;
+  }
+
+  return v.pos;
 }
 
-traits::Pos pgmoGetVertex(const SimpleMesh& mesh,
-                          size_t i,
-                          traits::VertexTraits* /* traits */) {
-  return mesh.points.at(i);
+VertexProperties pgmoGetVertexProperties(const std::vector<Vertex>& vertices) {
+  return vertices.empty() ? VertexProperties{} : vertices.front().traits.properties;
 }
 
-void pgmoSetVertex(SimpleMesh& mesh,
+void pgmoResizeVertices(std::vector<Vertex>& vertices, size_t size) {
+  vertices.resize(size);
+}
+
+void pgmoSetVertex(std::vector<Vertex>& vertices,
                    size_t i,
-                   const traits::Pos& pos,
-                   const traits::VertexTraits& /* traits */) {
-  mesh.points.at(i) = pos;
+                   const Pos& pos,
+                   const VertexTraits* traits) {
+  auto& v = vertices.at(i);
+  v.pos = pos;
+  if (traits) {
+    v.traits = *traits;
+  }
 }
 
-size_t pgmoNumFaces(const SimpleMesh& mesh) { return mesh.faces.size(); }
+size_t pgmoNumFaces(const std::vector<Face>& faces) { return faces.size(); }
 
-void pgmoResizeFaces(SimpleMesh& mesh, size_t size) { mesh.faces.resize(size); }
+Face pgmoGetFace(const std::vector<Face>& faces, size_t i) { return faces.at(i); }
 
-traits::Face pgmoGetFace(const SimpleMesh& mesh, size_t i) { return mesh.faces.at(i); }
+void pgmoResizeFaces(std::vector<Face>& faces, size_t size) { faces.resize(size); }
 
-void pgmoSetFace(SimpleMesh& mesh, size_t i, const traits::Face& face) {
-  mesh.faces.at(i) = face;
-}
-
-size_t pgmoNumFaces(const std::vector<pcl::Vertices>& faces) { return faces.size(); }
-
-traits::Face pgmoGetFace(const std::vector<pcl::Vertices>& faces, size_t i) {
-  const auto& tri = faces.at(i);
-  return {static_cast<size_t>(tri.vertices.at(0)),
-          static_cast<size_t>(tri.vertices.at(1)),
-          static_cast<size_t>(tri.vertices.at(2))};
-}
-
-void pgmoResizeFaces(std::vector<pcl::Vertices>& faces, size_t size) {
-  faces.resize(size);
-}
-
-void pgmoSetFace(std::vector<pcl::Vertices>& faces,
-                 size_t i,
-                 const traits::Face& face) {
-  auto& tri = faces.at(i);
-  tri.vertices.clear();
-  tri.vertices.push_back(face[0]);
-  tri.vertices.push_back(face[1]);
-  tri.vertices.push_back(face[2]);
+void pgmoSetFace(std::vector<Face>& faces, size_t i, const Face& face) {
+  faces.at(i) = face;
 }
 
 }  // namespace kimera_pgmo

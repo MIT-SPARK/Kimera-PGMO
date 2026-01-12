@@ -6,61 +6,33 @@
  */
 #include "kimera_pgmo/compression/delta_compression.h"
 
-#include <iterator>
-
-#include "kimera_pgmo/compression/redundancy_checker.h"
+#include "kimera_pgmo/hashing.h"
 #include "kimera_pgmo/utils/common_functions.h"
 #include "kimera_pgmo/utils/logging.h"
 
 namespace kimera_pgmo {
-
-using spatial_hash::BlockIndex;
-using spatial_hash::BlockIndices;
-
 namespace {
 
-inline size_t addPointToDelta(MeshDelta& delta,
-                              const VertexInfo& info,
-                              bool should_archive = false) {
-  return delta.addVertex(info.timestamp_ns, info.point, info.label, should_archive);
-}
-
-inline size_t getRemappedIndex(const std::map<size_t, size_t>& remapping,
-                               size_t original) {
-  const auto iter = remapping.find(original);
-  // TODO(Yun): technically should always have key in remapping
-  return iter == remapping.end() ? original : iter->second;
-}
-
-inline size_t getRemappedIndex(const std::map<size_t, size_t>& remapping,
-                               size_t original,
-                               size_t threshold) {
-  if (original < threshold) {
-    return original;
-  }
-
-  return getRemappedIndex(remapping, original);
-}
-
-inline bool allVerticesBelow(const Face& face, size_t archive_threshold) {
-  return face.v1 < archive_threshold && face.v2 < archive_threshold &&
-         face.v3 < archive_threshold;
-}
-
-inline void markBoundaryVertices(const Face& face,
-                                 const size_t num_archived,
+inline void markBoundaryVertices(const traits::Face& face,
                                  std::unordered_set<size_t>& pending) {
-  if ((pending.count(face.v1) || face.v1 < num_archived) &&
-      (pending.count(face.v2) || face.v2 < num_archived) &&
-      (pending.count(face.v3) || face.v3 < num_archived)) {
-    // face points to vertices that are either archived or not archived
+  if (pending.count(face[0]) && pending.count(face[1]) && pending.count(face[2])) {
+    // face points to vertices that are either archived or boundary
     return;
   }
 
   // at least one vertex points at an active vertex, don't archive anything yet
-  pending.erase(face.v1);
-  pending.erase(face.v2);
-  pending.erase(face.v3);
+  pending.erase(face[0]);
+  pending.erase(face[1]);
+  pending.erase(face[2]);
+}
+
+std::string summarizeDelta(const MeshDelta& delta) {
+  std::stringstream ss;
+  ss << "delta containing " << delta.getNumVertices() << " vertice(s), "
+     << delta.getNumActiveFaces() << " face(s), and " << delta.getNumArchivedFaces()
+     << " archived face(s) with " << delta.getNumArchivedVertices()
+     << " vertice(s) being archived";
+  return ss.str();
 }
 
 }  // namespace
@@ -78,49 +50,86 @@ bool VertexInfo::notObserved() const { return !needs_archive && active_refs <= 0
 
 bool VertexInfo::shouldArchive() const { return needs_archive && active_refs <= 0; }
 
+void DefaultVertexUpdate::operator()(uint64_t timestamp_ns,
+                                     const traits::Pos& pos,
+                                     const traits::VertexTraits& traits,
+                                     VertexInfo& info) const {
+  info.pos = pos;
+  info.traits.properties |= traits.properties;
+  info.traits.properties.has_stamp = true;
+  info.traits.properties.has_first_seen_stamp = true;
+  info.traits.stamp = std::max(
+      info.traits.stamp, traits.properties.has_stamp ? traits.stamp : timestamp_ns);
+  info.traits.first_seen_stamp = std::min(
+      info.traits.first_seen_stamp,
+      traits.properties.has_first_seen_stamp ? traits.first_seen_stamp : timestamp_ns);
+
+  if (traits.properties.has_color) {
+    info.traits.color = traits.color;
+  }
+
+  if (traits.properties.has_label) {
+    info.traits.label = traits.label;
+  }
+}
+
 DeltaCompression::DeltaCompression(double resolution)
-    : resolution_(resolution),
-      index_scale_(1.0 / resolution),
-      sequence_number_(1),
-      num_archived_vertices_(0),
-      num_archived_faces_(0) {}
+    : grid_(resolution), tracking_info_({1}) {}
 
-void DeltaCompression::addPoint(const pcl::PointXYZRGBA& point,
-                                std::optional<uint32_t> semantic_label,
-                                uint64_t timestamp_ns,
-                                std::vector<size_t>& face_map,
-                                spatial_hash::LongIndexSet& curr_voxels) {
-  // do voxel hashing at compression size to determine remapping to previous compressed
-  // vertex (if it exists)
-  const spatial_hash::LongIndex vertex_index(std::round(point.x * index_scale_),
-                                             std::round(point.y * index_scale_),
-                                             std::round(point.z * index_scale_));
-
-  auto info_iter = vertices_map_.find(vertex_index);
-  if (info_iter == vertices_map_.end()) {
-    // update is forced by sequence number defaulting to -1
-    info_iter = vertices_map_.insert({vertex_index, {}}).first;
+MeshDelta::Ptr DeltaCompression::computeDelta(uint64_t timestamp_ns,
+                                              HashedIndexMapping* remapping) {
+  // Update happens independently of calls to archiveBlocks and archiveBlocksByTime. We
+  // copy over the archive delta if it exists instead of making a new one.
+  size_t prev_num_pending = 0;
+  if (archive_delta_) {
+    // we need to cache the amount of pending vertices we've already copied
+    prev_num_pending = archive_delta_->getNumActiveVertices();
+    delta_ = std::move(archive_delta_);
+    archive_delta_.reset();  // technically not needed
+  } else {
+    delta_ = std::make_unique<MeshDelta>(tracking_info_);
   }
 
-  auto& info = info_iter->second;
-  if (info.sequence_number != sequence_number_) {
-    info.timestamp_ns = timestamp_ns;
-    info.point = point;
-    info.label = semantic_label;
+  // Applies any pending vertices that may be left over from old archival passes or from
+  // removed block observations
+  addPendingVertices(*delta_, prev_num_pending);
 
-    const size_t prev_index = info.mesh_index;
-    info.mesh_index = active_remapping_.size();
-    active_remapping_.push_back(prev_index);  // cache previous index
+  // Add all active vertices and faces to the output mesh delta. This is any
+  // compressed vertex that is the result of one or more blocks that hasn't
+  // been archived and any face from any block that hasn't been archived.
+  // note: this provides an invariant: every face that belongs to a block in
+  // block_info_map_ has the correct indices after this is called and before the next
+  // updateRemapping is called. This means that anyone archiving blocks can directly use
+  // the faces without doing any remapping
+  addActiveVertices(remapping);
+  addActiveFaces();
 
-    // mark vertex observed this pass
-    info.sequence_number = sequence_number_;
+  // Update all partially archived faces with the new remapping. This remaps
+  // previously partially archived faces with any newly archived vertices and also
+  // archives them in the delta if they only point at archived vertices. Note that they
+  // cannot be duplicates of any active faces in the new mesh delta or any fully
+  // archived faces in the cached mesh delta as they must point to at least one vertex
+  // that was archived before this pass that no other active face points to and must
+  // also point to at least one active vertex that was archived this pass.
+  updateAndAddArchivedFaces();
+
+  // Increment the pass number, finalize mesh delta book-keeping, and return the delta
+  delta_->timestamp_ns = timestamp_ns;
+  tracking_info_.prev_active_faces = delta_->getNumActiveFaces();
+  tracking_info_.prev_active_vertices = delta_->getNumActiveVertices();
+  ++tracking_info_.sequence_number;
+  if (tracking_info_.sequence_number == 0) {
+    // Roll-over is rare but 0 would conflict with the initial values for VertexInfo and
+    // BlockInfo. Incorrect things can happen when the sequence number rolls over AND an
+    // old block with the same sequence number as the current one is newly observed.
+    tracking_info_.sequence_number = 1;
   }
 
-  face_map.push_back(info.mesh_index);
-  if (!curr_voxels.count(vertex_index)) {
-    info.addObservation();  // add one observation per block
-    curr_voxels.insert(vertex_index);
-  }
+  tracking_info_.prev_to_curr = std::make_shared<std::map<size_t, size_t>>();
+  prev_archived_vertices_ = delta_->getNumArchivedVertices();
+
+  SPARK_LOG(DEBUG) << "Finished update with " << summarizeDelta(*delta_);
+  return std::move(delta_);
 }
 
 void DeltaCompression::removeBlockObservations(const LongIndexSet& to_remove) {
@@ -136,9 +145,7 @@ void DeltaCompression::removeBlockObservations(const LongIndexSet& to_remove) {
   for (const auto& prev : to_remove) {
     const auto& info = vertices_map_.at(prev);
     info.removeObservation();
-
     if (info.notObserved()) {  // inactive_refs <= 0
-      delta_->deleted_indices.insert(info.mesh_index);
       vertices_map_.erase(prev);
       continue;
     }
@@ -155,35 +162,44 @@ void DeltaCompression::removeBlockObservations(const LongIndexSet& to_remove) {
   }
 }
 
-void DeltaCompression::addActiveVertices() {
+void DeltaCompression::addActiveVertices(HashedIndexMapping* remapping) {
   for (auto& [vertex_idx, info] : vertices_map_) {
-    const auto new_idx = addPointToDelta(*delta_, info);
-    if (info.sequence_number != sequence_number_) {
-      // if we haven't seen this vertex in this pass, add to prev_to_curr map
-      delta_->prev_to_curr[info.mesh_index] = new_idx;
+    const auto new_idx = delta_->addVertex(info.pos, info.traits);
+    if (info.sequence_number != tracking_info_.sequence_number) {
+      // if we haven't seen this vertex in this pass, add to prev_to_curr_ map
+      addIndexRemap(info.mesh_index, new_idx);
     } else {
       if (!info.is_new) {
         // we use the active remapping slot as temporary variable to cache
         // the index in the previous delta
         const size_t prev_mesh_index = active_remapping_[info.mesh_index];
-        delta_->prev_to_curr[prev_mesh_index] = new_idx;
+        addIndexRemap(prev_mesh_index, new_idx);
       } else {
-        delta_->new_indices.insert(new_idx);
         info.is_new = false;
       }
 
       // set to correct delta index for face construction
-      delta_->observed_indices.insert(new_idx);
       active_remapping_[info.mesh_index] = new_idx;
     }
 
     // set mesh index to point to the correct index in the current delta
     info.mesh_index = new_idx;
   }
+
+  if (!remapping) {
+    return;
+  }
+
+  // if we're tracking the remapping for input vertices, we need to update the active
+  // indices to now point to their location in the delta
+  for (auto& [idx, block_remapping] : *remapping) {
+    for (auto& [source_idx, target_idx] : block_remapping) {
+      target_idx = active_remapping_.at(target_idx);
+    }
+  }
 }
 
-void DeltaCompression::addActiveFaces(uint64_t timestamp_ns,
-                                      HashedIndexMapping* remapping) {
+void DeltaCompression::addActiveFaces() {
   // for every current tracked block we
   //   - iterate through every "face" (set of 3 vertex indices)
   //   - if the face is from a block contained in the latest message, grab the new face
@@ -194,41 +210,24 @@ void DeltaCompression::addActiveFaces(uint64_t timestamp_ns,
   //    and the compressed vertex index in the latest delta (as the remapping is now
   //    fixed at this point, but was not when active vertices were being added)
   //  - add the face if it isn't degenerate or redundant
-  const auto& prev_to_curr = delta_->prev_to_curr;
   // note that we only need to check for duplicates per each "type" of face
-  RedunancyChecker checker;
-  for (auto& [idx, block_info] : block_info_map_) {
-    const bool was_updated = block_info.sequence_number == sequence_number_;
-
-    IndexMapping* block_remap = nullptr;
-    if (remapping && was_updated) {
-      block_remap = &(remapping->insert({idx, {}}).first->second);
-    }
-
-    auto& indices = block_info.indices;
-    for (size_t i = 0; i < indices.size(); i += 3) {
+  RedundancyChecker checker;
+  for (auto& [idx, block] : block_info_map_) {
+    const bool was_updated = block.sequence_number == tracking_info_.sequence_number;
+    for (auto& face : block.faces) {
       if (was_updated) {
         // face points to active vertices, so grab actual delta index and add to
         // remapping
-        indices[i] = active_remapping_[indices[i]];
-        indices[i + 1] = active_remapping_[indices[i + 1]];
-        indices[i + 2] = active_remapping_[indices[i + 2]];
+        face[0] = active_remapping_[face[0]];
+        face[1] = active_remapping_[face[1]];
+        face[2] = active_remapping_[face[2]];
       } else {
-        indices[i] = prev_to_curr.at(indices[i]);
-        indices[i + 1] = prev_to_curr.at(indices[i + 1]);
-        indices[i + 2] = prev_to_curr.at(indices[i + 2]);
+        face[0] = remapIndex(face[0]);
+        face[1] = remapIndex(face[1]);
+        face[2] = remapIndex(face[2]);
       }
 
-      if (block_remap) {
-        // block_remap is only valid if remapping is provided and the block was updated
-        // from this compression pass
-        block_remap->insert({i, indices[i]});
-        block_remap->insert({i + 1, indices[i + 1]});
-        block_remap->insert({i + 2, indices[i + 2]});
-      }
-
-      const Face face(indices, i);
-      if (!face.valid()) {
+      if (!faceIsValid(face)) {
         continue;
       }
 
@@ -242,109 +241,6 @@ void DeltaCompression::addActiveFaces(uint64_t timestamp_ns,
   }
 }
 
-MeshDelta::Ptr DeltaCompression::update(MeshInterface& mesh,
-                                        uint64_t timestamp_ns,
-                                        HashedIndexMapping* remapping) {
-  // 1) Update happens independently of calls to archiveBlocks and archiveBlocksByTime.
-  // We copy over the archive delta if it exists instead of making a new one.
-  size_t prev_num_pending = 0;
-  if (archive_delta_) {
-    // we need to cache the amount of pending vertices we've already copied
-    prev_num_pending = archive_delta_->vertex_updates->size() -
-                       archive_delta_->getNumArchivedVertices();
-    delta_ = archive_delta_;
-    archive_delta_.reset();
-  } else {
-    delta_.reset(new MeshDelta(num_archived_vertices_, num_archived_faces_));
-  }
-
-  // 2) Compute the actual compression of the latest mesh, determining the remapping
-  // between vertex indices in the provided mesh to vertices in the compressed mesh.
-  updateRemapping(mesh, timestamp_ns);
-
-  // Applies any pending vertices that may be left over from old archival passes or from
-  // removed block observations
-  addPendingVertices(*delta_, prev_num_pending);
-
-  // 3) Add all active vertices and faces to the output mesh delta. This is any
-  // compressed vertex that is the result of one or more blocks that hasn't
-  // been archived and any face from any block that hasn't been archived.
-  addActive(timestamp_ns, remapping);
-
-  // 4) Update all partially archived faces with the new remapping. This remaps
-  // previously partially archived faces with any newly archived vertices and also
-  // archives them in the delta if they only point at archived vertices. Note that they
-  // cannot be duplicates of any active faces in the new mesh delta or any fully
-  // archived faces in the cached mesh delta as they must point to at least one vertex
-  // that was archived before this pass that no other active face points to and must
-  // also point to at least one active vertex that was archived this pass.
-  updateAndAddArchivedFaces();
-
-  // 5) Increment the pass number, finalize mesh delta book-keeping, and return the new
-  // mesh update.
-  num_archived_vertices_ = delta_->getTotalArchivedVertices();
-  num_archived_faces_ = delta_->getTotalArchivedFaces();
-  delta_->sequence_number = sequence_number_;
-  ++sequence_number_;
-  if (sequence_number_ == 0) {
-    // NOTE(nathan) roll-over is rare but 0 would conflict with the initial values for
-    // VertexInfo and BlockInfo. Incorrect things can happen when the sequence number
-    // rolls over AND an old block with the same sequence number as the current one is
-    // newly observed.
-    sequence_number_ = 1;
-  }
-
-  return delta_;
-}
-
-void DeltaCompression::updateRemapping(MeshInterface& mesh, uint64_t stamp_ns) {
-  // For every block in the latest input mesh:
-  //   - initialize book-keeping for previously unobserved blocks
-  //   - add all vertices from the block into the compression (this increases ref
-  //   counts)
-  //   - remove any previous observations from the block if the block isn't new (this
-  //     decreases ref counts to be correct)
-  active_remapping_.clear();
-  for (const auto& block_index : mesh.blockIndices()) {
-    bool is_block_new = false;
-    auto block_iter = block_info_map_.find(block_index);
-    if (block_iter == block_info_map_.end()) {
-      is_block_new = true;
-      block_iter = block_info_map_.insert({block_index, {{}, stamp_ns, {}}}).first;
-    }
-
-    auto& block_info = block_iter->second;
-    block_info.update_time_ns = stamp_ns;
-    block_info.sequence_number = sequence_number_;
-    block_info.indices.clear();
-
-    spatial_hash::LongIndexSet curr_voxels;
-    mesh.markBlockActive(block_index);
-    for (size_t i = 0; i < mesh.activeBlockSize(); ++i) {
-      addPoint(mesh.getActiveVertex(i),
-               mesh.hasSemantics() ? mesh.getActiveSemantics(i) : std::nullopt,
-               stamp_ns,
-               block_info.indices,
-               curr_voxels);
-    }
-
-    if (!is_block_new) {
-      removeBlockObservations(block_info.vertices);
-    }
-
-    block_info.vertices = curr_voxels;
-  }
-}
-
-void DeltaCompression::addActive(uint64_t stamp_ns, HashedIndexMapping* remapping) {
-  addActiveVertices();
-  // note: this provides an invariant: every face that belongs to a block in
-  // block_info_map_ has the correct indices after this is called and before the next
-  // updateRemapping is called. This means that anyone archiving blocks can directly use
-  // the faces without doing any remapping
-  addActiveFaces(stamp_ns, remapping);
-}
-
 void DeltaCompression::archiveBlocksByTime(uint64_t earliest_time_ns) {
   archiveBlocks([earliest_time_ns](const auto&, const auto& info) {
     return info.update_time_ns <= earliest_time_ns;
@@ -352,18 +248,18 @@ void DeltaCompression::archiveBlocksByTime(uint64_t earliest_time_ns) {
 }
 
 void DeltaCompression::archiveBlocks(const BlockFilter& to_archive) {
-  // 0. Only reset archive delta if necessary (to allow for multiple archive calls)
+  // Only reset archive delta if necessary (to allow for multiple archive calls)
   if (!archive_delta_) {
-    archive_delta_.reset(new MeshDelta(num_archived_vertices_, num_archived_faces_));
+    archive_delta_.reset(new MeshDelta(tracking_info_));
   }
 
-  // 1(a). Populate current archived indices
+  // Populate current archived indices
   std::unordered_set<size_t> pending_vertices;
   for (const auto& pending : archived_vertices_) {
     pending_vertices.insert(pending.mesh_index);
   }
 
-  // 1(b). Add newly archived vertices to archival candidates (and mark archived blocks)
+  // Add newly archived vertices to archival candidates (and mark archived blocks)
   spatial_hash::BlockIndices to_erase;
   for (const auto& [idx, block_info] : block_info_map_) {
     if (!to_archive(idx, block_info)) {
@@ -384,20 +280,19 @@ void DeltaCompression::archiveBlocks(const BlockFilter& to_archive) {
     }
   }
 
-  // 2. Mark vertices that can be archived by checking pending faces for archive
+  // Mark vertices that can be archived by checking pending faces for archive
   for (const auto& idx : to_erase) {
     const auto& block_info = block_info_map_[idx];
-    for (size_t i = 0; i < block_info.indices.size(); i += 3) {
-      const Face face(block_info.indices, i);
-      markBoundaryVertices(face, num_archived_vertices_, pending_vertices);
+    for (const auto& face : block_info.faces) {
+      markBoundaryVertices(face, pending_vertices);
     }
   }
 
   for (const auto& face : archived_faces_) {
-    markBoundaryVertices(face, num_archived_vertices_, pending_vertices);
+    markBoundaryVertices(face, pending_vertices);
   }
 
-  // 3. Sweep archived vertices
+  // Sweep archived vertices
   size_t boundary = archived_vertices_.size();
   for (size_t i = 0; i < boundary; ++i) {
     const auto& info = archived_vertices_[i];
@@ -406,114 +301,74 @@ void DeltaCompression::archiveBlocks(const BlockFilter& to_archive) {
     }
 
     // add newly archived vertex to mesh delta
-    const auto new_index = addPointToDelta(*archive_delta_, info, true);
-    archive_delta_->prev_to_curr[info.mesh_index] = new_index;
+    const auto new_index = archive_delta_->addVertex(info.pos, info.traits, true);
+    addIndexRemap(info.mesh_index, new_index);
     // "delete" vertex by swapping to end and decreasing size
     std::swap(archived_vertices_[i], archived_vertices_[boundary - 1]);
     boundary -= 1;
     i -= 1;
   }
 
-  // 4. Add boundary vertices to delta (allows archiving of faces pointing to pending or
+  // Add boundary vertices to delta (allows archiving of faces pointing to pending or
   // archived vertices)
   archived_vertices_.resize(boundary);
   addPendingVertices(*archive_delta_);
 
-  // 5. Sweep archived faces
-  RedunancyChecker checker;
-  std::vector<Face> pending_faces;
+  // Sweep archived faces
+  RedundancyChecker checker;
   for (const auto& idx : to_erase) {
-    archiveBlockFaces(block_info_map_.at(idx), checker, pending_faces);
+    archiveBlockFaces(block_info_map_.at(idx), checker);
     block_info_map_.erase(idx);
   }
 
-  archive_delta_->face_archive_updates.insert(
-      archive_delta_->face_archive_updates.end(),
-      pending_faces.begin(),
-      pending_faces.end());
-  SPARK_LOG(DEBUG) << "Finished archive with delta containing "
-                   << archive_delta_->vertex_updates->size() << " vertice(s), "
-                   << archive_delta_->face_updates.size() << " face(s), and "
-                   << archive_delta_->face_archive_updates.size()
-                   << " archived face(s) with "
-                   << archive_delta_->getNumArchivedVertices()
-                   << " vertice(s) being archived";
+  SPARK_LOG(DEBUG) << "Finished archive with " << summarizeDelta(*archive_delta_);
 }
 
 void DeltaCompression::archiveBlockFaces(const BlockInfo& block_info,
-                                         RedunancyChecker& checker,
-                                         std::vector<Face>& pending_faces) {
-  // We want to archive any face that points to an archived vertex or a pending vertex,
-  // so we use the total vertices in the archive delta (which contains the new archived
-  // vertices and the new pending vertices)
-  const auto archive_threshold = archive_delta_->getTotalVertices();
-  const auto pending_threshold = archive_delta_->getTotalArchivedVertices();
-
-  // this remapping points from the previous active index to the current archival index
-  // of all vertices archived from the block being archived. Any active vertex (or
-  // previously archived vertex) will not be in the remapping
-  const auto& indices = block_info.indices;
-  const auto& prev_to_curr = archive_delta_->prev_to_curr;
-  for (size_t i = 0; i + 2 < indices.size(); i += 3) {
-    Face face(indices, i);
-
-    // prev_to_curr.count(idx) checks that the vertex was added to
-    // the archive delta, so this condition is saying that vertex index from the
-    // previous update was not archived in this archival pass or a previous one.
-    bool v1_can_archive =
-        prev_to_curr.count(face.v1) || face.v1 < num_archived_vertices_;
-    bool v2_can_archive =
-        prev_to_curr.count(face.v2) || face.v2 < num_archived_vertices_;
-    bool v3_can_archive =
-        prev_to_curr.count(face.v3) || face.v3 < num_archived_vertices_;
-    if (!v1_can_archive || !v2_can_archive || !v3_can_archive) {
-      // push any face that we can't deal with currently to be considered for archival
-      // later. Crucially, we don't remap any face indices here as we can't
-      // distinguish whether an index was remapped here or not
+                                         RedundancyChecker& checker) {
+  // prev_to_curr_ points from the previous active index to the current archival index
+  // of all vertices archived from the block being archived. Any active vertex will not
+  // be in the remapping
+  for (const auto& face : block_info.faces) {
+    const auto can_archive =
+        checkFaceAll(face, [this](auto v) { return indexInRemap(v); });
+    if (!can_archive) {
+      // push any face touching active vertices to be archived later
+      // we don't remap here as we can't tell whether an index was remapped here or not
+      // when adding partially active faces into the delta
       archived_faces_.push_back(face);
       continue;
     }
 
     // remap face to respect newly archived vertices
-    face.v1 = getRemappedIndex(prev_to_curr, face.v1, num_archived_vertices_);
-    face.v2 = getRemappedIndex(prev_to_curr, face.v2, num_archived_vertices_);
-    face.v3 = getRemappedIndex(prev_to_curr, face.v3, num_archived_vertices_);
-    if (!face.valid()) {
+    const auto f_n = applyToFace(face, [this](auto idx) { return remapIndex(idx); });
+    if (!faceIsValid(f_n)) {
       continue;
     }
 
-    if (!allVerticesBelow(face, archive_threshold)) {
-      archived_faces_.push_back(face);
+    if (!checker.check(f_n)) {
       continue;
     }
 
-    if (!checker.check(face)) {
-      continue;
-    }
-
-    checker.add(face);
-    const auto fully_archived = allVerticesBelow(face, pending_threshold);
-    if (fully_archived) {
-      archive_delta_->addFace(face, true);
-    } else {
-      pending_faces.push_back(face);
-    }
+    checker.add(f_n);
+    archive_delta_->addFace(f_n, true);
   }
 }
 
 void DeltaCompression::updateAndAddArchivedFaces() {
-  // note that we only need to check for duplicates per each "type" of face
-  RedunancyChecker checker;
-  const auto& prev_to_curr = delta_->prev_to_curr;
-  const auto archive_threshold = delta_->getTotalArchivedVertices();
+  // we want to touch anything that is only pointing to archived or pending vertices
+  const auto archive_threshold =
+      delta_->getNumArchivedVertices() + archived_vertices_.size();
 
+  // note that we only need to check for duplicates per each "type" of face
+  RedundancyChecker checker;
   auto iter = archived_faces_.begin();
   while (iter != archived_faces_.end()) {
     auto& face = *iter;
-    face.v1 = getRemappedIndex(prev_to_curr, face.v1, num_archived_vertices_);
-    face.v2 = getRemappedIndex(prev_to_curr, face.v2, num_archived_vertices_);
-    face.v3 = getRemappedIndex(prev_to_curr, face.v3, num_archived_vertices_);
-    if (!face.valid()) {
+    face[0] = remapIndex(face[0]);
+    face[1] = remapIndex(face[1]);
+    face[2] = remapIndex(face[2]);
+    if (!faceIsValid(face)) {
       iter = archived_faces_.erase(iter);
       continue;
     }
@@ -543,10 +398,32 @@ void DeltaCompression::addPendingVertices(MeshDelta& delta, size_t start_index) 
   // changes every pass until they are actually fully archived
   for (size_t i = start_index; i < archived_vertices_.size(); ++i) {
     auto& info = archived_vertices_[i];
-    const auto new_index = addPointToDelta(delta, info);
-    delta.prev_to_curr[info.mesh_index] = new_index;
+    const auto new_index = delta.addVertex(info.pos, info.traits);
+    addIndexRemap(info.mesh_index, new_index);
     info.mesh_index = new_index;
   }
+}
+
+void DeltaCompression::addIndexRemap(size_t prev, size_t curr) {
+  // Downstream usage cares about the remapping relative to the start of the previously
+  // active vertices, so we remove the offset here when populating the remapping
+  (*tracking_info_.prev_to_curr)[prev - prev_archived_vertices_] = curr;
+}
+
+bool DeltaCompression::indexInRemap(size_t index) const {
+  // We maintain the remapping relative to the start of the previously active vertices,
+  // so we remove the offset when checking for the presence of the remapped index
+  if (index < prev_archived_vertices_) {
+    return false;
+  }
+
+  return tracking_info_.prev_to_curr->count(index - prev_archived_vertices_);
+}
+
+size_t DeltaCompression::remapIndex(size_t index) const {
+  // We maintain the remapping relative to the start of the previously active vertices,
+  // so we remove the offset when getting the remapped index
+  return tracking_info_.prev_to_curr->at(index - prev_archived_vertices_);
 }
 
 }  // namespace kimera_pgmo

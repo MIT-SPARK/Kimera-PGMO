@@ -1,42 +1,44 @@
-/**
- * @file   reundancy_checker.h
- * @brief  Struct to check if faces are valid and have no duplicates
- * @author Yun Chang
- * @author Nathan Hughes
- */
-
 #include "kimera_pgmo/compression/redundancy_checker.h"
 
 namespace kimera_pgmo {
+namespace {
 
-bool RedunancyChecker::check(const Face& face) const {
-  const bool present = hasEdge(face.v1, face.v2) && hasEdge(face.v2, face.v3) &&
-                       hasEdge(face.v2, face.v3);
-  return !present;
-}
-
-void RedunancyChecker::add(const Face& face) {
-  addEdge(face.v1, face.v2);
-  addEdge(face.v2, face.v3);
-  addEdge(face.v3, face.v1);
-}
-
-bool RedunancyChecker::hasEdge(size_t source, size_t target) const {
-  const auto iter = A.find(source);
-  if (iter == A.end()) {
-    return false;
+traits::Face reindexFace(const traits::Face& face) {
+  if (face[0] < face[1] && face[0] < face[2]) {
+    // 0 is smallest
+    return {face[0], face[1], face[2]};
   }
 
-  return iter->second.count(target);
-}
-
-void RedunancyChecker::addEdge(size_t source, size_t target) {
-  auto iter = A.find(source);
-  if (iter == A.end()) {
-    iter = A.insert({source, {}}).first;
+  if (face[1] < face[2]) {
+    // 1 is smallest (1 < 2 && 0 > 1 || 0 > 2)
+    // rotate face to start with 1
+    return {face[1], face[2], face[0]};
   }
 
-  iter->second.insert(target);
+  // 2 is smallest (1 > 2 && 0 > 1 || 0 > 2)
+  // rotate face to start with 2
+  return {face[2], face[0], face[1]};
 }
+
+}  // namespace
+
+size_t RedundancyChecker::FaceHash::operator()(const traits::Face& face) const {
+  size_t value = std::hash<size_t>{}(face[0]);
+  // see
+  // https://www.boost.org/doc/libs/latest/libs/container_hash/doc/html/hash.html#notes_hash_combine
+  value ^= std::hash<size_t>{}(face[1]) + 0x9e3779b9 + (value << 6) + (value >> 2);
+  value ^= std::hash<size_t>{}(face[2]) + 0x9e3779b9 + (value << 6) + (value >> 2);
+  return value;
+}
+
+bool RedundancyChecker::check(const traits::Face& face) const {
+  return !seen_.count(reindexFace(face));
+}
+
+void RedundancyChecker::add(const traits::Face& face) {
+  seen_.insert(reindexFace(face));
+}
+
+void RedundancyChecker::clear() { seen_.clear(); }
 
 }  // namespace kimera_pgmo

@@ -10,7 +10,9 @@
 #include <fstream>
 #include <stdexcept>
 
+#include "kimera_pgmo/deformation_edge_factor.h"
 #include "kimera_pgmo/deformation_graph.h"
+#include "kimera_pgmo/utils/common_functions.h"
 
 namespace kimera_pgmo {
 

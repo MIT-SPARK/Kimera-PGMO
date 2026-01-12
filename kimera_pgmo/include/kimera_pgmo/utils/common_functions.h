@@ -6,14 +6,11 @@
 
 #pragma once
 
-#include <gtsam/geometry/Pose3.h>
 #include <gtsam/inference/Symbol.h>
-#include <pcl/PolygonMesh.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
 
 #include <map>
-#include <string>
+
+#include "kimera_pgmo/mesh_types.h"
 
 namespace kimera_pgmo {
 
@@ -90,87 +87,46 @@ inline bool IsMeshVertex(gtsam::Key key) {
   return vertex_prefix_to_id.count(gtsam::Symbol(key).chr()) > 0;
 }
 
-/*! \brief Converts a pcl point to gtsam point3
- *  - point: pcl point
- *  - outputs gtsam point3 position
- */
-template <class point_type>
-inline gtsam::Point3 PclToGtsam(const point_type& point) {
-  return gtsam::Point3(static_cast<double>(point.x),
-                       static_cast<double>(point.y),
-                       static_cast<double>(point.z));
+//! Reindex a face by a static offset
+inline traits::Face offsetFace(const traits::Face& face, size_t offset) {
+  return {face[0] + offset, face[1] + offset, face[2] + offset};
 }
 
-/*! \brief Converts a gtsam point3 to a pcl point
- *  - point: gtsam point3
- *  - outputs pcl point
- */
-template <class point_type>
-inline point_type GtsamToPcl(const gtsam::Point3& point) {
-  return point_type(static_cast<double>(point.x()),
-                    static_cast<double>(point.y()),
-                    static_cast<double>(point.z()));
+//! Remap all indices above an offset in a face
+inline traits::Face remapFace(const traits::Face& face,
+                              size_t offset,
+                              const std::map<size_t, size_t>& remap) {
+  return {face[0] >= offset ? remap.at(face[0] - offset) + offset : face[0],
+          face[1] >= offset ? remap.at(face[1] - offset) + offset : face[1],
+          face[2] >= offset ? remap.at(face[2] - offset) + offset : face[2]};
 }
 
-/*! \brief Combine two meshes into one
- *  - mesh1: partial mesh represented as pcl PolygonMesh
- *  - mesh2: partial mesh represented as pcl PolygonMesh
- *  - check_duplicate_vertices: boolean to check if vertices are duplicated or
- * not
- *  - outputs combined mesh as pcl PolygonMesh
- */
-pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
-                               const pcl::PolygonMesh& mesh2,
-                               bool check_duplicate_vertices = true);
+//! Check if a face is degenerate or not
+inline bool faceIsValid(const traits::Face& face) {
+  return face[0] != face[1] && face[0] != face[2] && face[1] != face[2];
+}
 
-/*! \brief Combine two meshes into one
- *  - mesh1: artial mesh represented as pcl PolygonMesh
- *  - mesh2: partial mesh represented as pcl PolygonMesh
- *  - indices_to_check: check mesh2 vertices against vertices at these indices
- * in mesh1 for duplication
- *  - vertex_indices: indices of the mesh2 vertices in the combined mesh
- *  - outputs combined mesh as pcl PolygonMesh
- */
-pcl::PolygonMesh CombineMeshes(const pcl::PolygonMesh& mesh1,
-                               const pcl::PolygonMesh& mesh2,
-                               const std::vector<size_t>& indices_to_check,
-                               std::vector<size_t>* vertex_indices);
+//! Check if a face has indices below a threshold
+inline bool allVerticesBelow(const traits::Face& face, size_t threshold) {
+  return face[0] < threshold && face[1] < threshold && face[2] < threshold;
+}
 
-/*! \brief Append vertices and faces of one mesh to another
- *  - mesh_vertices: vertices to append to
- *  - mesh_faces: mesh faces to append to
- *  - vertices_to_add: vertices to append
- *  - faces_to_add: faces to add
- */
-void AppendMesh(pcl::PointCloud<pcl::PointXYZRGBA>::Ptr mesh_vertices,
-                std::shared_ptr<std::vector<pcl::Vertices>> mesh_faces,
-                const pcl::PointCloud<pcl::PointXYZRGBA>& vertices_to_add,
-                const std::vector<pcl::Vertices>& faces_to_add);
+//! Check that a condition holds for all indices in the face
+inline bool checkFaceAll(const traits::Face& face,
+                         const std::function<bool(size_t)>& check) {
+  return check(face[0]) && check(face[1]) && check(face[2]);
+}
 
-/*! \brief Check if two polygons are equal to each other
- *  - p1: polygon represented as pcl Vertices
- *  - p2: polygon represented as pcl Vertices
- */
-bool PolygonsEqual(const pcl::Vertices& p1, const pcl::Vertices& p2);
+//! Check that a condition holds for any index in the face
+inline bool checkFaceAny(const traits::Face& face,
+                         const std::function<bool(size_t)>& check) {
+  return check(face[0]) || check(face[1]) || check(face[2]);
+}
 
-/*! \brief Check if a surface exist based on previous tracked adjacent surfaces
- *  - new_surface: new surface to be inserted
- *  - adjacent_surfaces: vertex to adjacent surfaces (should correspond exactly
- * to order of vertices)
- *  returns true if surface exists
- */
-bool SurfaceExists(const pcl::Vertices& new_surface,
-                   const std::map<size_t, std::vector<size_t>>& adjacent_surfaces,
-                   const std::vector<pcl::Vertices>& surfaces);
-
-/*! \brief When adding new mesh surface, check first if exist with a stored
- * index to adjacent surface map, and also update map if surface is new
- *  - new_triangle: new surface to be inserted
- *  - adjacent_surfaces: vertex to adjacent surfaces map
- *  returns true if surface exists
- */
-bool CheckAndUpdateAdjacentSurfaces(
-    const pcl::Vertices& new_triangle,
-    std::shared_ptr<std::map<size_t, std::vector<pcl::Vertices>>> adjacent_surfaces);
+//! apply arbitrary function to face
+inline traits::Face applyToFace(const traits::Face& face,
+                                const std::function<size_t(size_t)>& func) {
+  return {func(face[0]), func(face[1]), func(face[2])};
+}
 
 }  // namespace kimera_pgmo

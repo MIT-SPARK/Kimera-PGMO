@@ -15,7 +15,7 @@ namespace kimera_pgmo {
 
 using namespace conversions;
 
-TEST(TestGtsamConversions, RosPoseToGtsam) {
+TEST(GtsamConversions, RosPoseToGtsam) {
   gtsam::Pose3 gtsam_pose;
   geometry_msgs::msg::Pose ros_pose;
   PoseTypeAdapter::convert_to_custom(ros_pose, gtsam_pose);
@@ -31,7 +31,7 @@ TEST(TestGtsamConversions, RosPoseToGtsam) {
       gtsam_pose));
 }
 
-TEST(TestGtsamConversions, GtsamPoseToRos) {
+TEST(GtsamConversions, GtsamPoseToRos) {
   gtsam::Pose3 gtsam_pose;
   geometry_msgs::msg::Pose ros_pose;
   PoseTypeAdapter::convert_to_ros_message(gtsam_pose, ros_pose);
@@ -55,7 +55,7 @@ TEST(TestGtsamConversions, GtsamPoseToRos) {
 }
 
 // GTSAM graph to ROS
-TEST(TestGtsamConversions, GtsamGraphToRos) {
+TEST(GtsamConversions, GtsamGraphToRos) {
   static const gtsam::SharedNoiseModel& noise =
       gtsam::noiseModel::Isotropic::Variance(6, 0.01);
   gtsam::NonlinearFactorGraph nfg;

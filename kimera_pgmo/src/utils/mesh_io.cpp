@@ -48,12 +48,31 @@ void IOData::save(const std::string& filename) const {
       stamps_sec.push_back(t_s.count());
       stamps_nsec.push_back(t_ns.count());
     }
+
     output_file.getElement("vertex").addProperty<uint32_t>("secs", stamps_sec);
     output_file.getElement("vertex").addProperty<uint32_t>("nsecs", stamps_nsec);
   }
 
   if (!labels.empty()) {
     output_file.getElement("vertex").addProperty<uint32_t>("label", labels);
+  }
+
+  if (!first_seen_stamps.empty()) {
+    // Write vertex stamps to ply
+    std::vector<uint32_t> stamps_sec;
+    std::vector<uint32_t> stamps_nsec;
+    for (const auto vertex_ns : first_seen_stamps) {
+      auto t = std::chrono::nanoseconds(vertex_ns);
+      auto t_s = std::chrono::duration_cast<std::chrono::seconds>(t);
+      std::chrono::nanoseconds t_ns = t - t_s;
+      stamps_sec.push_back(t_s.count());
+      stamps_nsec.push_back(t_ns.count());
+    }
+
+    output_file.getElement("vertex").addProperty<uint32_t>("first_seen_secs",
+                                                           stamps_sec);
+    output_file.getElement("vertex").addProperty<uint32_t>("first_seen_nsecs",
+                                                           stamps_nsec);
   }
 
   output_file.addElement("face", faces.size());
@@ -84,6 +103,7 @@ IOData::Ptr IOData::load(const std::string& filename) {
     const auto nsec = ply_in.getElement("vertex").getProperty<uint32_t>("nsecs");
     assert(sec.size() == nsec.size());
 
+    to_return->stamps.reserve(sec.size());
     for (size_t i = 0; i < sec.size(); i++) {
       to_return->stamps.push_back(stampFromSec(sec.at(i)) + nsec.at(i));
     }
@@ -92,6 +112,20 @@ IOData::Ptr IOData::load(const std::string& filename) {
 
   try {
     to_return->labels = ply_in.getElement("vertex").getProperty<uint32_t>("label");
+  } catch (...) {
+  }
+
+  try {
+    const auto sec =
+        ply_in.getElement("vertex").getProperty<uint32_t>("first_seen_secs");
+    const auto nsec =
+        ply_in.getElement("vertex").getProperty<uint32_t>("first_seen_nsecs");
+    assert(sec.size() == nsec.size());
+
+    to_return->first_seen_stamps.reserve(sec.size());
+    for (size_t i = 0; i < sec.size(); i++) {
+      to_return->first_seen_stamps.push_back(stampFromSec(sec.at(i)) + nsec.at(i));
+    }
   } catch (...) {
   }
 
@@ -116,8 +150,9 @@ void ReadMeshFromPly(const std::string& filename, pcl::PolygonMeshPtr mesh) {
 }
 
 void WriteMeshToPly(const std::string& filename, const pcl::PolygonMesh& mesh) {
-  std::vector<Timestamp> unused;
-  WriteMeshWithStampsToPly(filename, mesh, unused);
+  pcl::PointCloud<pcl::PointXYZRGBA> cloud;
+  pcl::fromPCLPointCloud2(mesh.cloud, cloud);
+  WriteMesh(filename, cloud, mesh.polygons);
 }
 
 void WriteMeshWithStampsToPly(const std::string& filename,

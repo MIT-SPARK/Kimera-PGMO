@@ -15,8 +15,6 @@
 
 #include "kimera_pgmo/compression/block_compression.h"
 #include "kimera_pgmo/compression/octree_compression.h"
-#include "kimera_pgmo/compression/voxel_clearing_compression.h"
-#include "kimera_pgmo/utils/common_functions.h"
 
 namespace kimera_pgmo {
 
@@ -48,8 +46,6 @@ MeshCompressionPtr createFullCompression(FullCompressionMethod method,
       return std::make_shared<OctreeCompression>(resolution);
     case FullCompressionMethod::BLOCK:
       return std::make_shared<BlockCompression>(resolution);
-    case FullCompressionMethod::VOXEL_CLEARING:
-      return std::make_shared<VoxelClearingCompression>(resolution);
     default:
       return nullptr;
   }
@@ -105,7 +101,7 @@ void MeshFrontendInterface::update(const MeshInterface& mesh, double time_s) {
       &MeshFrontendInterface::updateGraph, this, mesh.clone(), time_s);
 
   latest_blocks_ = mesh.blockIndices();
-  
+
   full_thread.join();
   graph_thread.join();
 
@@ -180,7 +176,7 @@ void MeshFrontendInterface::updateGraph(const MeshInterface::Ptr mesh,
   d_graph_compression_->getStoredPolygons(graph_triangles_);
   d_graph_compression_->getTimestamps(graph_stamps_);
 
-  std::vector<Edge> new_edges;
+  std::vector<Graph::Edge> new_edges;
   if (new_indices.size() > 0 && new_triangles.size() > 0) {
     // Add nodes and edges to graph
     new_edges = simplified_mesh_graph_.addPointsAndSurfaces(new_indices, new_triangles);

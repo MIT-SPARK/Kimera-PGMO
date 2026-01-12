@@ -5,15 +5,11 @@
  */
 
 #include <gtest/gtest.h>
-#include <gtsam/inference/Symbol.h>
-#include <gtsam/slam/BetweenFactor.h>
 #include <pcl/PCLPointCloud2.h>
-#include <pcl/PolygonMesh.h>
 #include <pcl/conversions.h>
 
-#include "kimera_pgmo/utils/common_functions.h"
-#include "kimera_pgmo/utils/common_structs.h"
 #include "kimera_pgmo/utils/mesh_io.h"
+#include "kimera_pgmo/utils/pcl_utilities.h"
 #include "test_config.h"
 
 namespace kimera_pgmo {
@@ -44,29 +40,6 @@ TEST(TestCommonFunctions, polygonsEqual) {
   EXPECT_FALSE(PolygonsEqual(p0, p3));
 }
 
-TEST(TestCommonFunctions, pclPointToGtsam) {
-  pcl::PointXYZRGBA point_rgb;
-  point_rgb.x = 1.0;
-  point_rgb.y = 2.0;
-  point_rgb.z = -0.3;
-  point_rgb.r = 22;
-  point_rgb.g = 132;
-  point_rgb.b = 255;
-  point_rgb.a = 255;
-  gtsam::Point3 gtsam_rgb_pt = PclToGtsam<pcl::PointXYZRGBA>(point_rgb);
-
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(point_rgb.x, point_rgb.y, point_rgb.z),
-                                  gtsam_rgb_pt));
-
-  pcl::PointXYZ point;
-  point.x = -1.0;
-  point.y = 20.0;
-  point.z = 0.35;
-  gtsam::Point3 gtsam_pt = PclToGtsam<pcl::PointXYZ>(point);
-
-  EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(point.x, point.y, point.z), gtsam_pt));
-}
-
 // Combine Meshes
 TEST(TestCommonFunctions, combineMeshesNoCheck) {
   pcl::PolygonMeshPtr sphere_mesh(new pcl::PolygonMesh());
@@ -76,9 +49,6 @@ TEST(TestCommonFunctions, combineMeshesNoCheck) {
   pcl::PolygonMesh combined = CombineMeshes(*sphere_mesh, *sphere_mesh, false);
   pcl::PointCloud<pcl::PointXYZ> cloud;
   pcl::fromPCLPointCloud2(combined.cloud, cloud);
-
-  pcl::PointXYZ first_point(0, 0, -127);
-  pcl::PointXYZ last_point(0, 0, 127);
 
   // Check number of surfaces
   EXPECT_EQ(size_t(1680), combined.polygons.size());
@@ -103,9 +73,6 @@ TEST(TestCommonFunctions, combineMeshesCheck) {
   pcl::PolygonMesh combined = CombineMeshes(*sphere_mesh, *sphere_mesh, true);
   pcl::PointCloud<pcl::PointXYZ> cloud;
   pcl::fromPCLPointCloud2(combined.cloud, cloud);
-
-  pcl::PointXYZ first_point(0, 0, -127);
-  pcl::PointXYZ last_point(0, 0, 127);
 
   // Check number of surfaces
   EXPECT_EQ(size_t(840), combined.polygons.size());
@@ -133,9 +100,6 @@ TEST(TestCommonFunctions, combineMeshesIndices) {
       CombineMeshes(*sphere_mesh, *sphere_mesh, ind_to_check, &new_indices);
   pcl::PointCloud<pcl::PointXYZ> cloud;
   pcl::fromPCLPointCloud2(combined.cloud, cloud);
-
-  pcl::PointXYZ first_point(0, 0, -127);
-  pcl::PointXYZ last_point(-1, 26, 124);
 
   // Check number of surfaces
   EXPECT_EQ(size_t(1675), combined.polygons.size());

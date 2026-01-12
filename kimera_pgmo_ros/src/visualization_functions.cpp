@@ -1,5 +1,7 @@
 #include "kimera_pgmo_ros/visualization_functions.h"
 
+#include <kimera_pgmo/utils/common_functions.h>
+
 #include <tf2_eigen/tf2_eigen.hpp>
 
 namespace kimera_pgmo {

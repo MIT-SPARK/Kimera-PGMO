@@ -295,7 +295,6 @@ void KimeraPgmo::optimizedPathCallback(const nav_msgs::msg::Path& msg) {
 
 void KimeraPgmo::fullMeshCallback(const Mesh& msg) {
   auto start = std::chrono::high_resolution_clock::now();
-
   std::vector<int> graph_indices;
   auto mesh = conversions::fromMsg(msg, &mesh_vertex_stamps_, &graph_indices);
 

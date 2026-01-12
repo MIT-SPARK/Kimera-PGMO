@@ -13,13 +13,15 @@ using spatial_hash::BlockIndex;
 using spatial_hash::BlockIndices;
 using spatial_hash::LongIndex;
 using spatial_hash::LongIndexSet;
+
 using LongIndices = std::vector<LongIndex>;
 using BlockIndexSet = std::unordered_set<BlockIndex, spatial_hash::IndexHash>;
+using HashedIndexMapping = spatial_hash::IndexHashMap<IndexMapping>;
+
 template <typename ValueT>
 using BlockIndexMap = spatial_hash::IndexHashMap<ValueT>;
+
 template <typename ValueT>
 using LongIndexMap = spatial_hash::LongIndexHashMap<ValueT>;
-
-using HashedIndexMapping = spatial_hash::IndexHashMap<IndexMapping>;
 
 }  // namespace kimera_pgmo
