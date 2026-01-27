@@ -518,11 +518,12 @@ OptimizeStats KimeraPgmoInterface::optimize() {
   auto inlier_weights = pgo_->getInlierWeights();
   auto temp_inlier_weights = pgo_->getTempInlierWeights();
 
-  size_t index = 0;
   OptimizeStats stats;
   stats.total_factors = factors.size() + temp_factors.size();
   stats.total_values = estimates.size() + temp_estimates.size();
-  for (const auto& factor : factors) {
+
+  for (size_t factor_idx = 0; factor_idx < factors.size(); ++factor_idx) {
+    const auto& factor = factors[factor_idx];
     const auto derived = dynamic_cast<const BetweenFactorT*>(factor.get());
     if (!derived) {
       continue;
@@ -538,11 +539,10 @@ OptimizeStats KimeraPgmoInterface::optimize() {
 
     bool interrobot = k1.chr() != k2.chr();
     bool inlier = true;
-    if (inlier_weights.size() < index && inlier_weights[index] < 0.5) {
+    if (factor_idx < inlier_weights.size() && inlier_weights[factor_idx] < 0.5) {
       inlier = false;
     }
 
-    ++index;
     stats.total_loop_closures += 1;
     stats.inlier_loop_closures += (inlier ? 1 : 0);
     if (interrobot) {
