@@ -251,8 +251,7 @@ void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
                                           double variance,
                                           bool temp,
                                           bool known_inlier) {
-  // Define noise. Hardcoded for now
-  static const gtsam::SharedNoiseModel& noise =
+  const gtsam::SharedNoiseModel noise =
       gtsam::noiseModel::Isotropic::Variance(3, variance);
   // Create deformation edge factor
   const DeformationEdgeFactor new_edge(from_key, to_key, from_pose, to_point, noise);
@@ -277,8 +276,7 @@ void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
                                           double variance,
                                           bool temp,
                                           bool known_inlier) {
-  // Define noise. Hardcoded for now
-  static const gtsam::SharedNoiseModel& noise =
+  const gtsam::SharedNoiseModel noise =
       gtsam::noiseModel::Isotropic::Variance(3, variance);
   // Create deformation edge factor
   const DeformationEdgeFactor new_edge(from_key, to_key, measurement, noise);
@@ -354,6 +352,15 @@ bool DeformationGraph::checkNewBetween(const gtsam::Key& key_from,
   const size_t& from_idx = gtsam::Symbol(key_from).index();
   const size_t& to_idx = gtsam::Symbol(key_to).index();
 
+  // Check if prefixes exist in pg_initial_poses_
+  if (!pg_initial_poses_.count(from_prefix)) {
+    return false;
+  }
+
+  if (!pg_initial_poses_.count(to_prefix)) {
+    return false;
+  }
+
   if (from_idx >= pg_initial_poses_.at(from_prefix).size()) {
     SPARK_LOG(ERROR)
         << "DeformationGraph: when adding new between from key should already exist.";
@@ -392,7 +399,7 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
   gtsam::Vector6 variances;
   variances.head<3>().setConstant(1e-02 * variance);
   variances.tail<3>().setConstant(variance);
-  static const gtsam::SharedNoiseModel& noise =
+  const gtsam::SharedNoiseModel noise =
       gtsam::noiseModel::Diagonal::Variances(variances);
   if (temp) {
     if (known_inlier) {
