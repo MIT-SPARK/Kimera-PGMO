@@ -57,11 +57,11 @@ template <typename Vertices>
 size_t MeshDelta::updateVertices(Vertices& vertices,
                                  const Eigen::Isometry3f* transform) const {
   const auto curr_size = traits::num_vertices(vertices);
-  if (curr_size < info.prev_active_vertices) {
+  if (curr_size && curr_size < info.prev_active_vertices) {
     throw std::logic_error("Invalid target vertices!");
   }
 
-  const auto start_idx = curr_size - info.prev_active_vertices;
+  const auto start_idx = curr_size ? curr_size - info.prev_active_vertices : 0;
   const auto total_vertices = start_idx + vertex_updates_.size();
   traits::resize_vertices(vertices, total_vertices);
 
@@ -83,12 +83,12 @@ size_t MeshDelta::updateFaces(Faces& faces,
                               const MeshOffsetInfo& prev_offsets,
                               size_t vertex_offset) const {
   const auto curr_size = traits::num_faces(faces);
-  if (curr_size < info.prev_active_faces) {
-    throw std::logic_error("Invalid target vertices!");
+  if (curr_size && curr_size < info.prev_active_faces) {
+    throw std::logic_error("Invalid target faces!");
   }
 
   const size_t archived_threshold = vertex_offset + num_archived_vertices_;
-  const auto start_idx = curr_size - info.prev_active_faces;
+  const auto start_idx = curr_size ? curr_size - info.prev_active_faces : 0;
   const size_t total_faces = start_idx + getNumFaces();
   traits::resize_faces(faces, total_faces);
 
