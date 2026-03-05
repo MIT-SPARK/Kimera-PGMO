@@ -10,7 +10,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
 endif()
 
 find_package(ament_cmake REQUIRED)
-find_package(kimera_pgmo_msgs REQUIRED)
+find_package(kimera_pgmo_ros REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rviz_common REQUIRED)
 
@@ -19,11 +19,13 @@ set(CMAKE_AUTOMOC ON)
 add_library(
   ${PROJECT_NAME}
   SHARED
+  src/mesh_delta_display.cpp
   src/mesh_display.cpp
   src/mesh_visual.cpp
   src/tf_event_buffer.cpp
   src/visibility_field.cpp
   src/visuals_map.cpp
+  include/kimera_pgmo_rviz/mesh_delta_display.h
   include/kimera_pgmo_rviz/mesh_display.h
   include/kimera_pgmo_rviz/visibility_field.h)
 target_include_directories(
@@ -31,7 +33,7 @@ target_include_directories(
   PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
          "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>")
 target_link_options(${PROJECT_NAME} PRIVATE -Wl,--no-undefined)
-ament_target_dependencies(${PROJECT_NAME} PUBLIC kimera_pgmo_msgs pluginlib
+ament_target_dependencies(${PROJECT_NAME} PUBLIC kimera_pgmo_ros pluginlib
                           rviz_common)
 
 install(

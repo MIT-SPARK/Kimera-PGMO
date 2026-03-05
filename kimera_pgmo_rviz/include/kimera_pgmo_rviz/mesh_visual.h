@@ -5,10 +5,10 @@
  */
 #pragma once
 #include <Ogre.h>
+#include <kimera_pgmo/mesh_types.h>
 
 #include <atomic>
 #include <string>
-#include <vector>
 
 #include <kimera_pgmo_msgs/msg/mesh.hpp>
 
@@ -27,10 +27,14 @@ class MeshVisual {
   MeshVisual(Ogre::SceneManager* manager,
              Ogre::SceneNode* parent,
              const std::string& ns);
+
   virtual ~MeshVisual();
 
   void setPose(const Ogre::Vector3& parent_t_mesh,
                const Ogre::Quaternion& parent_R_mesh);
+
+  void setMesh(const std::vector<traits::Vertex>& vertices,
+               const std::vector<traits::Face>& faces);
 
   void setMessage(const kimera_pgmo_msgs::msg::Mesh& mesh);
 

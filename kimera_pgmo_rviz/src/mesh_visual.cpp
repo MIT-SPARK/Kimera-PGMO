@@ -69,7 +69,6 @@ MeshVisual::~MeshVisual() {
 }
 
 void MeshVisual::reset() {
-  // TODO(lschmid): WIP, check if needed.
   if (mesh_) {
     mesh_->clear();
   }
@@ -82,6 +81,68 @@ void MeshVisual::setPose(const Ogre::Vector3& parent_t_mesh,
                                << " rot: " << parent_R_mesh);
   node_->setPosition(parent_t_mesh);
   node_->setOrientation(parent_R_mesh);
+}
+
+void MeshVisual::setMesh(const std::vector<traits::Vertex>& vertices,
+                         const std::vector<traits::Face>& faces) {
+  RVIZ_COMMON_LOG_DEBUG_STREAM("Setting mesh with " << vertices.size()
+                                                    << " vertices and " << faces.size()
+                                                    << " faces");
+  RVIZ_COMMON_LOG_DEBUG_STREAM("Names: mesh=" << mesh_name_
+                                              << ", material=" << material_name_);
+
+  reset();
+  if (!mesh_) {
+    mesh_ = manager_->createManualObject(mesh_name_);
+    setCullMode();
+    setLightingMode();
+    node_->attachObject(mesh_);
+  }
+
+  Eigen::Matrix4Xf normals = Eigen::Matrix4Xf::Zero(4, vertices.size());
+  mesh_->estimateVertexCount(vertices.size());
+  mesh_->estimateIndexCount(3 * faces.size());
+  mesh_->setDynamic(false);
+  mesh_->begin(material_name_, Ogre::RenderOperation::OT_TRIANGLE_LIST);
+
+  for (const auto& face : faces) {
+    if (face[0] >= vertices.size() || face[1] >= vertices.size() ||
+        face[2] >= vertices.size()) {
+      continue;
+    }
+
+    mesh_->triangle(face[0], face[1], face[2]);
+
+    // TODO(nathan) do this incrementally and pass in
+    const auto& p1 = vertices[face[0]].pos;
+    const auto& p2 = vertices[face[1]].pos;
+    const auto& p3 = vertices[face[2]].pos;
+    Eigen::Vector3f n = ((p2 - p1).cross(p3 - p1)).normalized();
+    updateNormal(n, face[0], normals);
+    updateNormal(n, face[1], normals);
+    updateNormal(n, face[2], normals);
+  }
+
+  for (size_t i = 0; i < vertices.size(); ++i) {
+    const auto& p = vertices[i];
+    mesh_->position(p.pos.x(), p.pos.y(), p.pos.z());
+    const Eigen::Vector4f n = normals.block<4, 1>(0, i);
+    if (n[3] == 0.0f) {
+      // not touched by any faces so default normal doesn't matter
+      mesh_->normal(0.0, 0.0, 1.0);
+    } else {
+      mesh_->normal(n.x() / n[3], n.y() / n[3], n.z() / n[3]);
+    }
+
+    if (p.traits.properties.has_color) {
+      mesh_->colour(p.traits.color[0] / 255.0f,
+                    p.traits.color[1] / 255.0f,
+                    p.traits.color[2] / 255.0f,
+                    p.traits.color[3] / 255.0f);
+    }
+  }
+
+  mesh_->end();
 }
 
 void MeshVisual::setMessage(const Mesh& mesh) {

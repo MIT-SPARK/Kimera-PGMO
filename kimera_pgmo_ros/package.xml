@@ -18,7 +18,6 @@
   <depend>tf2_ros</depend>
   <depend>visualization_msgs</depend>
   <test_depend>ament_cmake_gtest</test_depend>
-  <exec_depend>kimera_pgmo_rviz</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
