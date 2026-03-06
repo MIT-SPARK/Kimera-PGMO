@@ -12,6 +12,7 @@
 namespace rviz_common::properties {
 class BoolProperty;
 class ColorProperty;
+class FloatProperty;
 }
 
 namespace kimera_pgmo {
@@ -38,6 +39,8 @@ class MeshDeltaDisplay
  private Q_SLOTS:
   void settingsSlot();
 
+  void colorSlot();
+
  private:
   MeshOffsetInfo offsets_;
   std::vector<traits::Face> faces_;
@@ -52,6 +55,9 @@ class MeshDeltaDisplay
   std::unique_ptr<rviz_common::properties::ColorProperty> emissive_;
   std::unique_ptr<rviz_common::properties::ColorProperty> diffuse_;
   std::unique_ptr<rviz_common::properties::ColorProperty> specular_;
+
+  std::unique_ptr<rviz_common::properties::FloatProperty> label_alpha_;
+  std::unique_ptr<rviz_common::properties::ColorProperty> default_color_;
 };
 
 }  // namespace kimera_pgmo

@@ -34,7 +34,9 @@ class MeshVisual {
                const Ogre::Quaternion& parent_R_mesh);
 
   void setMesh(const std::vector<traits::Vertex>& vertices,
-               const std::vector<traits::Face>& faces);
+               const std::vector<traits::Face>& faces,
+               float label_alpha,
+               Ogre::ColourValue default_color);
 
   void setMessage(const kimera_pgmo_msgs::msg::Mesh& mesh);
 
@@ -74,6 +76,8 @@ class MeshVisual {
   Ogre::SceneManager* manager_;
   Ogre::SceneNode* node_;
   Ogre::ManualObject* mesh_;
+
+  std::vector<Ogre::ColourValue> colormap_;
 };
 
 }  // namespace kimera_pgmo

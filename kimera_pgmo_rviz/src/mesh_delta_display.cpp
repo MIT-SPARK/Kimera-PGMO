@@ -11,6 +11,7 @@
 #include <rviz_common/logging.hpp>
 #include <rviz_common/properties/bool_property.hpp>
 #include <rviz_common/properties/color_property.hpp>
+#include <rviz_common/properties/float_property.hpp>
 
 #include "kimera_pgmo_rviz/mesh_visual.h"
 
@@ -18,6 +19,7 @@ namespace kimera_pgmo {
 
 using rviz_common::properties::BoolProperty;
 using rviz_common::properties::ColorProperty;
+using rviz_common::properties::FloatProperty;
 
 MeshDeltaDisplay::MeshDeltaDisplay() {
   visibility_ = std::make_unique<BoolProperty>(
@@ -27,26 +29,40 @@ MeshDeltaDisplay::MeshDeltaDisplay() {
   lighting_ = std::make_unique<BoolProperty>(
       "Enable Lighting", false, "Toggle lighting", this, SLOT(settingsSlot()));
 
+  label_alpha_ = std::make_unique<FloatProperty>("Label Alpha",
+                                                 0.0,
+                                                 "Amount to blend label colors in by",
+                                                 this,
+                                                 SLOT(colorSlot()));
+  label_alpha_->setMin(0.0);
+  label_alpha_->setMax(1.0);
+  default_color_ =
+      std::make_unique<ColorProperty>("Default Color",
+                                      QColor::fromRgbF(0.4, 0.4, 0.4),
+                                      "Default color for labels outside of range",
+                                      this,
+                                      SLOT(colorSlot()));
+
   ambient_ = std::make_unique<ColorProperty>("Ambient",
                                              QColor::fromRgbF(0.9, 0.9, 0.9),
                                              "Ambient lighting parameters",
                                              this,
-                                             SLOT(updateGlobalSettingsSlot()));
+                                             SLOT(settingsSlot()));
   emissive_ = std::make_unique<ColorProperty>("Emissive",
                                               QColor::fromRgbF(0.1, 0.1, 0.1),
                                               "Emissive lighting parameters",
                                               this,
-                                              SLOT(updateGlobalSettingsSlot()));
+                                              SLOT(settingsSlot()));
   diffuse_ = std::make_unique<ColorProperty>("Diffuse",
                                              QColor::fromRgbF(0.05, 0.05, 0.05),
                                              "Diffuse lighting parameter",
                                              this,
-                                             SLOT(updateGlobalSettingsSlot()));
+                                             SLOT(settingsSlot()));
   specular_ = std::make_unique<ColorProperty>("Specular",
                                               QColor::fromRgbF(0.0, 0.0, 0.0),
                                               "Specular lighting parameter",
                                               this,
-                                              SLOT(updateGlobalSettingsSlot()));
+                                              SLOT(settingsSlot()));
 }
 
 MeshDeltaDisplay::~MeshDeltaDisplay() {}
@@ -76,6 +92,15 @@ void MeshDeltaDisplay::settingsSlot() {
                        specular_->getOgreColor());
 }
 
+void MeshDeltaDisplay::colorSlot() {
+  if (!visual_) {
+    return;
+  }
+
+  visual_->setMesh(
+      vertices_, faces_, label_alpha_->getFloat(), default_color_->getOgreColor());
+}
+
 void MeshDeltaDisplay::processMessage(const Msg::ConstSharedPtr msg) {
   if (!msg) {
     return;
@@ -100,7 +125,8 @@ void MeshDeltaDisplay::processMessage(const Msg::ConstSharedPtr msg) {
   }
 
   visual_->setPose(position, orientation);
-  visual_->setMesh(vertices_, faces_);
+  visual_->setMesh(
+      vertices_, faces_, label_alpha_->getFloat(), default_color_->getOgreColor());
 }
 
 }  // namespace kimera_pgmo
