@@ -41,7 +41,7 @@ MeshDisplay::MeshDisplay() {
                                      SLOT(toggleVisibilityAllSloT()));
 
   ambient_ = std::make_unique<ColorProperty>("Ambient",
-                                             QColor::fromRgbF(0.7, 0.7, 0.7),
+                                             QColor::fromRgbF(0.9, 0.9, 0.9),
                                              "Ambient lighting parameters",
                                              this,
                                              SLOT(updateGlobalSettingsSlot()));
@@ -51,7 +51,7 @@ MeshDisplay::MeshDisplay() {
                                               this,
                                               SLOT(updateGlobalSettingsSlot()));
   diffuse_ = std::make_unique<ColorProperty>("Diffuse",
-                                             QColor::fromRgbF(0.2, 0.2, 0.2),
+                                             QColor::fromRgbF(0.05, 0.05, 0.05),
                                              "Diffuse lighting parameter",
                                              this,
                                              SLOT(updateGlobalSettingsSlot()));
