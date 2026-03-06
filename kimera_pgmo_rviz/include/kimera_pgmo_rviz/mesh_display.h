@@ -14,6 +14,7 @@
 
 namespace rviz_common::properties {
 class BoolProperty;
+class ColorProperty;
 }
 
 namespace kimera_pgmo {
@@ -62,6 +63,11 @@ class MeshDisplay : public rviz_common::MessageFilterDisplay<MeshMsg> {
   std::unique_ptr<rviz_common::properties::BoolProperty> lighting_;
   // Property to set visibility for all submaps.
   std::unique_ptr<rviz_common::properties::BoolProperty> toggle_visibility_all_;
+
+  std::unique_ptr<rviz_common::properties::ColorProperty> ambient_;
+  std::unique_ptr<rviz_common::properties::ColorProperty> emissive_;
+  std::unique_ptr<rviz_common::properties::ColorProperty> diffuse_;
+  std::unique_ptr<rviz_common::properties::ColorProperty> specular_;
 
   inline static const std::string kNsSeparator = "/";
 

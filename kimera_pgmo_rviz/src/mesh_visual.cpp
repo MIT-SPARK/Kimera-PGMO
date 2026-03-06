@@ -39,8 +39,10 @@ MeshVisual::MeshVisual(Ogre::SceneManager* manager,
                        Ogre::SceneNode* parent,
                        const std::string& ns)
     : visual_ns_(ns),
-      cull_faces_(false),
-      lighting_enabled_(false),
+      ambient_(0.7, 0.7, 0.7, 0.7),
+      emissive_(0.1, 0.1, 0.1, 0.1),
+      diffuse_(0.2, 0.2, 0.2, 0.2),
+      specular_(0.0, 0.0, 0.0, 0.0),
       manager_(manager),
       node_(nullptr),
       mesh_(nullptr) {
@@ -247,11 +249,25 @@ void MeshVisual::setLightingMode() {
     const auto pass = material.getTechnique(0)->getPass(0);
     pass->setVertexColourTracking(Ogre::TVC_AMBIENT | Ogre::TVC_EMISSIVE |
                                   Ogre::TVC_DIFFUSE | Ogre::TVC_SPECULAR);
+    pass->setAmbient(ambient_);
+    pass->setEmissive(emissive_);
+    pass->setDiffuse(diffuse_);
+    pass->setSpecular(specular_);
   } else {
     material.getTechnique(0)->setLightingEnabled(false);
     const auto pass = material.getTechnique(0)->getPass(0);
     pass->setVertexColourTracking(Ogre::TVC_NONE);
   }
+}
+
+void MeshVisual::setLighting(Ogre::ColourValue ambient,
+                             Ogre::ColourValue emissive,
+                             Ogre::ColourValue diffuse,
+                             Ogre::ColourValue specular) {
+  ambient_ = ambient;
+  emissive_ = emissive;
+  diffuse_ = diffuse;
+  specular_ = specular;
 }
 
 }  // namespace kimera_pgmo

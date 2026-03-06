@@ -11,6 +11,7 @@
 
 namespace rviz_common::properties {
 class BoolProperty;
+class ColorProperty;
 }
 
 namespace kimera_pgmo {
@@ -46,6 +47,11 @@ class MeshDeltaDisplay
   std::unique_ptr<rviz_common::properties::BoolProperty> visibility_;
   std::unique_ptr<rviz_common::properties::BoolProperty> cull_;
   std::unique_ptr<rviz_common::properties::BoolProperty> lighting_;
+
+  std::unique_ptr<rviz_common::properties::ColorProperty> ambient_;
+  std::unique_ptr<rviz_common::properties::ColorProperty> emissive_;
+  std::unique_ptr<rviz_common::properties::ColorProperty> diffuse_;
+  std::unique_ptr<rviz_common::properties::ColorProperty> specular_;
 };
 
 }  // namespace kimera_pgmo

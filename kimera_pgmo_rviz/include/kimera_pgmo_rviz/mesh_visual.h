@@ -42,6 +42,11 @@ class MeshVisual {
   void shouldLight(bool light);
   void setVisible(bool visible);
 
+  void setLighting(Ogre::ColourValue ambient,
+                   Ogre::ColourValue emissive,
+                   Ogre::ColourValue diffuse,
+                   Ogre::ColourValue specular);
+
   bool isVisible() const { return visible_; }
 
   void reset();
@@ -57,9 +62,14 @@ class MeshVisual {
   std::string material_name_;
   const std::string visual_ns_;  // Namespace used to refer to this visual.
 
-  bool cull_faces_;
-  bool lighting_enabled_;
+  bool cull_faces_ = false;
+  bool lighting_enabled_ = false;
   bool visible_ = false;  // Whether the visual should be visible.
+
+  Ogre::ColourValue ambient_;
+  Ogre::ColourValue emissive_;
+  Ogre::ColourValue diffuse_;
+  Ogre::ColourValue specular_;
 
   Ogre::SceneManager* manager_;
   Ogre::SceneNode* node_;

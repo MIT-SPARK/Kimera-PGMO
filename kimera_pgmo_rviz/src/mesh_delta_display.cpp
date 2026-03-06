@@ -10,12 +10,14 @@
 
 #include <rviz_common/logging.hpp>
 #include <rviz_common/properties/bool_property.hpp>
+#include <rviz_common/properties/color_property.hpp>
 
 #include "kimera_pgmo_rviz/mesh_visual.h"
 
 namespace kimera_pgmo {
 
 using rviz_common::properties::BoolProperty;
+using rviz_common::properties::ColorProperty;
 
 MeshDeltaDisplay::MeshDeltaDisplay() {
   visibility_ = std::make_unique<BoolProperty>(
@@ -24,6 +26,27 @@ MeshDeltaDisplay::MeshDeltaDisplay() {
       "Cull Backfaces", true, "Toggle backface culling", this, SLOT(settingsSlot()));
   lighting_ = std::make_unique<BoolProperty>(
       "Enable Lighting", false, "Toggle lighting", this, SLOT(settingsSlot()));
+
+  ambient_ = std::make_unique<ColorProperty>("Ambient",
+                                             QColor::fromRgbF(0.7, 0.7, 0.7),
+                                             "Ambient lighting parameters",
+                                             this,
+                                             SLOT(updateGlobalSettingsSlot()));
+  emissive_ = std::make_unique<ColorProperty>("Emissive",
+                                              QColor::fromRgbF(0.1, 0.1, 0.1),
+                                              "Emissive lighting parameters",
+                                              this,
+                                              SLOT(updateGlobalSettingsSlot()));
+  diffuse_ = std::make_unique<ColorProperty>("Diffuse",
+                                             QColor::fromRgbF(0.2, 0.2, 0.2),
+                                             "Diffuse lighting parameter",
+                                             this,
+                                             SLOT(updateGlobalSettingsSlot()));
+  specular_ = std::make_unique<ColorProperty>("Specular",
+                                              QColor::fromRgbF(0.0, 0.0, 0.0),
+                                              "Specular lighting parameter",
+                                              this,
+                                              SLOT(updateGlobalSettingsSlot()));
 }
 
 MeshDeltaDisplay::~MeshDeltaDisplay() {}
@@ -46,6 +69,11 @@ void MeshDeltaDisplay::settingsSlot() {
   visual_->setVisible(visibility_->getBool());
   visual_->shouldCull(cull_->getBool());
   visual_->shouldLight(lighting_->getBool());
+
+  visual_->setLighting(ambient_->getOgreColor(),
+                       emissive_->getOgreColor(),
+                       diffuse_->getOgreColor(),
+                       specular_->getOgreColor());
 }
 
 void MeshDeltaDisplay::processMessage(const Msg::ConstSharedPtr msg) {
