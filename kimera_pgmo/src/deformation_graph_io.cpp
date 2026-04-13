@@ -167,6 +167,7 @@ void save_factor(json& record, const gtsam::PriorFactor<gtsam::Pose3>& prior) {
 
 bool save_factor(json& record, const gtsam::NonlinearFactor* factor) {
   if (!factor) {
+    std::cout << "Invalid factor!" << std::endl;
     return false;
   }
 
@@ -274,14 +275,14 @@ void DeformationGraph::save(const std::string& filename) const {
   // save the initial positions and timestamps of the mesh vertices
   root["vertices"] = json::object();
   for (const auto& [prefix, vertices] : vertex_positions_) {
-    auto& record = root["vertices"][prefix];
+    auto& record = root["vertices"][std::to_string(prefix)];
     record["pos"] = vertices;
     record["stamps"] = vertex_stamps_.at(prefix);
   }
 
   std::ofstream stream;
   stream.open(filename);
-  stream << std::setw(4) << root << std::endl;
+  stream << root << std::endl;
   stream.close();
 }
 

@@ -839,9 +839,9 @@ TEST(TestDeformationGraph, saveAndLoad) {
 
   EXPECT_EQ(5u, temp_factors->size());
   EXPECT_EQ(2u, temp_values->size());
-  graph.save(std::string(DATASET_PATH) + "/graph.dgrf");
+  graph.save(std::string(DATASET_PATH) + "/graph.json");
   DeformationGraph new_graph;
-  new_graph.load(std::string(DATASET_PATH) + "/graph.dgrf");
+  new_graph.load(std::string(DATASET_PATH) + "/graph.json");
 
   values = new_graph.getValues();
   factors = new_graph.getFactors();

@@ -43,10 +43,24 @@ using EdgeTypeVarianceMap = std::map<pose_graph_tools::PoseGraphEdge::Type, doub
 
 class DeformationGraph {
  public:
+  using Ptr = std::shared_ptr<DeformationGraph>;
+
   /*! \brief Deformation graph class constructor
    */
   DeformationGraph(bool add_init_vertex_prior = false);
   ~DeformationGraph();
+
+  static DeformationGraph::Ptr fromValues(
+      const std::shared_ptr<gtsam::Values>& values,
+      const std::shared_ptr<gtsam::NonlinearFactorGraph>& nfg,
+      const std::shared_ptr<std::set<size_t>>& known_inliers,
+      const std::shared_ptr<gtsam::Values>& temp_values,
+      const std::shared_ptr<gtsam::NonlinearFactorGraph>& temp_nfg,
+      const std::shared_ptr<std::set<size_t>>& temp_known_inliers,
+      const std::map<char, std::vector<gtsam::Pose3>>& initial_poses,
+      const std::unordered_map<gtsam::Key, gtsam::Pose3>& temp_initial_poses,
+      const std::map<char, std::vector<gtsam::Point3>>& vertex_positions,
+      const std::map<char, std::vector<Timestamp>>& vertex_stamps);
 
   inline void setVerboseFlag(bool verbose) { verbose_ = verbose; }
 

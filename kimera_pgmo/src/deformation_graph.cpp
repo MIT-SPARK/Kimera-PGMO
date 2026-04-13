@@ -46,6 +46,31 @@ DeformationGraph::DeformationGraph(bool add_init_vertex_prior)
 
 DeformationGraph::~DeformationGraph() {}
 
+DeformationGraph::Ptr DeformationGraph::fromValues(
+    const std::shared_ptr<gtsam::Values>& values,
+    const std::shared_ptr<gtsam::NonlinearFactorGraph>& nfg,
+    const std::shared_ptr<std::set<size_t>>& known_inliers,
+    const std::shared_ptr<gtsam::Values>& temp_values,
+    const std::shared_ptr<gtsam::NonlinearFactorGraph>& temp_nfg,
+    const std::shared_ptr<std::set<size_t>>& temp_known_inliers,
+    const std::map<char, std::vector<gtsam::Pose3>>& initial_poses,
+    const std::unordered_map<gtsam::Key, gtsam::Pose3>& temp_initial_poses,
+    const std::map<char, std::vector<gtsam::Point3>>& vertex_positions,
+    const std::map<char, std::vector<Timestamp>>& vertex_stamps) {
+  auto graph = std::make_shared<DeformationGraph>();
+  graph->values_ = values;
+  graph->nfg_ = nfg;
+  graph->known_inliers_ = known_inliers;
+  graph->temp_values_ = temp_values;
+  graph->temp_nfg_ = temp_nfg;
+  graph->temp_known_inliers_ = temp_known_inliers;
+  graph->pg_initial_poses_ = initial_poses;
+  graph->temp_pg_initial_poses_ = temp_initial_poses;
+  graph->vertex_positions_ = vertex_positions;
+  graph->vertex_stamps_ = vertex_stamps;
+  return graph;
+}
+
 void DeformationGraph::processPoseGraph(const pose_graph_tools::PoseGraph& pose_graph,
                                         const EdgeTypeVarianceMap& variance_map,
                                         std::map<size_t, size_t> robot_id_remap,
