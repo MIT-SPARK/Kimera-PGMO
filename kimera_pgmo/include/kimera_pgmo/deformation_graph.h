@@ -555,22 +555,16 @@ class DeformationGraph {
    */
   void updateTempValues(const gtsam::Values& updates);
 
-  /*! \brief Update the inlier weights (e.g. GNC results).
-   */
+  //! Update the inlier weights (e.g. GNC results).
   void updateInlierWeights(const std::vector<double>& weights);
 
-  /*! \brief Update the temp inlier weights (e.g. GNC results).
-   */
+  //! Update the temp inlier weights (e.g. GNC results).
   void updateTempInlierWeights(const std::vector<double>& weights);
 
-  /*! \brief Save deformation graph to file
-   * - filename: output file name
-   */
+  //! Save deformation graph to file
   void save(const std::string& filename) const;
 
-  /*! \brief Load deformation graph from file
-   * - filename: input file name
-   */
+  //! Load deformation graph from file
   void load(const std::string& filename,
             bool include_temp = true,
             bool set_robot_id = false,
