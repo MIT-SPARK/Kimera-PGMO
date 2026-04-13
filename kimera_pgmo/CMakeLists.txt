@@ -15,6 +15,7 @@ find_package(GTSAM REQUIRED)
 find_package(kimera_rpgo REQUIRED)
 find_package(pose_graph_tools REQUIRED)
 find_package(spatial_hash REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 set(CLEAR_WARNING_SUPPRESSION OFF)
 if(NOT DEFINED CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
@@ -69,7 +70,8 @@ target_link_libraries(
          gtsam
          pose_graph_tools::pose_graph_tools
          spatial_hash::spatial_hash
-         config_utilities::config_utilities)
+         config_utilities::config_utilities
+  PRIVATE nlohmann_json::nlohmann_json)
 set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
 add_library(kimera_pgmo::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
