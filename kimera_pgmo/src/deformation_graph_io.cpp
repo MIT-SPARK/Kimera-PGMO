@@ -292,11 +292,11 @@ void DeformationGraph::save(const std::string& filename) const {
   stream.close();
 }
 
-DeformationGraph::Ptr DeformationGraph::loadFromFile(const fs::path& filepath,
-                                                     bool include_temp,
-                                                     bool set_id,
-                                                     size_t new_id,
-                                                     bool include_priors) {
+DeformationGraph::Ptr DeformationGraph::load(const fs::path& filepath,
+                                             bool include_temp,
+                                             bool set_id,
+                                             size_t new_id,
+                                             bool include_priors) {
   if (!std::filesystem::exists(filepath)) {
     SPARK_LOG(ERROR) << "Invalid deformation graph file " << filepath;
     return nullptr;

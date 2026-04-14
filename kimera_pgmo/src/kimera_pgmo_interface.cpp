@@ -139,15 +139,14 @@ void KimeraPgmoInterface::resetDeformationGraph() {
 }
 
 void KimeraPgmoInterface::loadDeformationGraphFromFile(const std::string& input) {
-  deformation_graph_ = DeformationGraph::loadFromFile(input);
+  deformation_graph_ = DeformationGraph::load(input);
   num_loop_closures_ = deformation_graph_->getNumLoopclosures();
 }
 
 void KimeraPgmoInterface::loadDeformationGraphFromFile(const std::string& input,
                                                        size_t robot_id,
-                                                       bool include_priors) {
-  deformation_graph_ =
-      DeformationGraph::loadFromFile(input, true, true, robot_id, include_priors);
+                                                       bool priors) {
+  deformation_graph_ = DeformationGraph::load(input, true, true, robot_id, priors);
   num_loop_closures_ = deformation_graph_->getNumLoopclosures();
 }
 
