@@ -257,6 +257,7 @@ void DeformationGraph::save(const std::string& filename) const {
   root["factors"] = json::array();
   save_factor_graph(root["factors"], *nfg_);
   root["known_inliers"] = *known_inliers_;
+  root["inlier_weights"] = *inlier_weights_;
 
   root["temp_values"] = json::array();
   for (const auto& [key, value] : *temp_values_) {
@@ -276,6 +277,10 @@ void DeformationGraph::save(const std::string& filename) const {
     record["pos"] = vertices;
     record["stamps"] = vertex_stamps_.at(prefix);
   }
+
+  root["inlier_weights"] = *inlier_weights_;
+  root["temp_inlier_weights"] = *temp_inlier_weights_;
+  root["adjacency"] = adjacency_map_;
 
   std::ofstream stream;
   stream.open(filename);
@@ -338,6 +343,8 @@ DeformationGraph::Ptr DeformationGraph::loadFromJson(const fs::path& filepath,
   }
 
   data.at("known_inliers").get_to(*graph->known_inliers_);
+  data.at("inlier_weights").get_to(*inlier_weights_);
+  data.at("adjacency").get_to(adjacency_map_);
 
   for (const auto& [prefix, record] : data.at("vertices").items()) {
     char vertex_prefix = prefix.at(0);
@@ -368,6 +375,7 @@ DeformationGraph::Ptr DeformationGraph::loadFromJson(const fs::path& filepath,
     add_factor(factor, *graph->temp_nfg_, set_robot_id, new_robot_id, include_priors);
   }
 
+  root.at("temp_inlier_weights").get_to(*temp_inlier_weights_);
   data.at("temp_known_inliers").get_to(*graph->temp_known_inliers_);
   return graph;
 }
