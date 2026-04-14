@@ -204,6 +204,19 @@ gtsam::SharedNoiseModel load_noise(const json& factor) {
   return gtsam::noiseModel::Gaussian::Information(info);
 }
 
+void add_value(const json& record,
+               gtsam::Values& values,
+               bool set_robot_id,
+               size_t new_robot_id) {
+  auto key = record.at("key").get<gtsam::Key>();
+  if (set_robot_id) {
+    key = rekey(key, new_robot_id);
+  }
+
+  const auto pose = record.at("value").get<gtsam::Pose3>();
+  values.insert(key, pose);
+}
+
 void add_factor(const json& factor,
                 gtsam::NonlinearFactorGraph& graph,
                 bool set_robot_id,
@@ -245,30 +258,13 @@ void add_factor(const json& factor,
 
 void DeformationGraph::save(const std::string& filename) const {
   json root;
-  root["mesh_only"] = add_init_vertex_prior_;
+  root["add_init_vertex_prior"] = add_init_vertex_prior_;
+  root["num_loopclosures"] = num_loopclosures_;
+  root["adjacency"] = adjacency_map_;
 
-  root["values"] = json::array();
-  for (const auto& [key, value] : *values_) {
-    auto& record = root["values"].emplace_back();
-    record["key"] = key;
-    record["value"] = value.cast<gtsam::Pose3>();
-  }
-
-  root["factors"] = json::array();
-  save_factor_graph(root["factors"], *nfg_);
-  root["known_inliers"] = *known_inliers_;
-  root["inlier_weights"] = *inlier_weights_;
-
-  root["temp_values"] = json::array();
-  for (const auto& [key, value] : *temp_values_) {
-    auto& record = root["temp_values"].emplace_back();
-    record["key"] = key;
-    record["value"] = value.cast<gtsam::Pose3>();
-  }
-
-  root["temp_factors"] = json::array();
-  save_factor_graph(root["temp_factors"], *temp_nfg_);
-  root["temp_known_inliers"] = *temp_known_inliers_;
+  root["pg_stamps"] = pg_stamps_;
+  root["pg_initial_poses"] = pg_initial_poses_;
+  root["temp_pg_initial_poses"] = temp_pg_initial_poses_;
 
   // save the initial positions and timestamps of the mesh vertices
   root["vertices"] = json::object();
@@ -278,9 +274,29 @@ void DeformationGraph::save(const std::string& filename) const {
     record["stamps"] = vertex_stamps_.at(prefix);
   }
 
-  root["inlier_weights"] = *inlier_weights_;
-  root["temp_inlier_weights"] = *temp_inlier_weights_;
-  root["adjacency"] = adjacency_map_;
+  root["values"] = json::array();
+  for (const auto& [key, value] : values_) {
+    auto& record = root["values"].emplace_back();
+    record["key"] = key;
+    record["value"] = value.cast<gtsam::Pose3>();
+  }
+
+  root["factors"] = json::array();
+  save_factor_graph(root["factors"], nfg_);
+  root["known_inliers"] = known_inliers_;
+  root["inlier_weights"] = inlier_weights_;
+
+  root["temp_values"] = json::array();
+  for (const auto& [key, value] : temp_values_) {
+    auto& record = root["temp_values"].emplace_back();
+    record["key"] = key;
+    record["value"] = value.cast<gtsam::Pose3>();
+  }
+
+  root["temp_factors"] = json::array();
+  save_factor_graph(root["temp_factors"], temp_nfg_);
+  root["temp_known_inliers"] = temp_known_inliers_;
+  root["temp_inlier_weights"] = temp_inlier_weights_;
 
   std::ofstream stream;
   stream.open(filename);
@@ -317,34 +333,17 @@ DeformationGraph::Ptr DeformationGraph::loadFromJson(const fs::path& filepath,
                                                      bool set_robot_id,
                                                      size_t new_robot_id,
                                                      bool include_priors) {
+  auto graph = std::make_shared<DeformationGraph>();
   std::ifstream f(filepath);
   const auto data = json::parse(f);
-  auto graph = std::make_shared<DeformationGraph>(data.at("mesh_only").get<bool>());
 
-  for (const auto& record : data.at("values")) {
-    auto key = record.at("key").get<gtsam::Key>();
-    if (set_robot_id) {
-      key = rekey(key, new_robot_id);
-    }
-
-    const auto pose = record.at("value").get<gtsam::Pose3>();
-    graph->values_->insert(key, pose);
-    // TODO(nathan) this is different from the initial pose before save
-    char node_prefix = gtsam::Symbol(key).chr();
-    if (graph->pg_initial_poses_.count(node_prefix) == 0) {
-      graph->pg_initial_poses_[node_prefix] = std::vector<gtsam::Pose3>();
-    }
-
-    graph->pg_initial_poses_[node_prefix].push_back(pose);
-  }
-
-  for (const auto& factor : data.at("factors")) {
-    add_factor(factor, *graph->nfg_, set_robot_id, new_robot_id, include_priors);
-  }
-
-  data.at("known_inliers").get_to(*graph->known_inliers_);
-  data.at("inlier_weights").get_to(*graph->inlier_weights_);
+  data.at("add_init_vertex_prior").get_to(graph->add_init_vertex_prior_);
+  data.at("num_loopclosures").get_to(graph->num_loopclosures_);
   data.at("adjacency").get_to(graph->adjacency_map_);
+
+  data.at("pg_stamps").get_to(graph->pg_stamps_);
+  data.at("pg_initial_poses").get_to(graph->pg_initial_poses_);
+  data.at("temp_pg_initial_poses").get_to(graph->temp_pg_initial_poses_);
 
   for (const auto& [prefix, record] : data.at("vertices").items()) {
     char vertex_prefix = prefix.at(0);
@@ -356,27 +355,31 @@ DeformationGraph::Ptr DeformationGraph::loadFromJson(const fs::path& filepath,
     record.at("stamps").get_to(graph->vertex_stamps_[vertex_prefix]);
   }
 
+  for (const auto& record : data.at("values")) {
+    add_value(record, graph->values_, set_robot_id, new_robot_id);
+  }
+
+  for (const auto& factor : data.at("factors")) {
+    add_factor(factor, graph->nfg_, set_robot_id, new_robot_id, include_priors);
+  }
+
+  data.at("known_inliers").get_to(graph->known_inliers_);
+  data.at("inlier_weights").get_to(graph->inlier_weights_);
+
   if (!include_temp) {
     return graph;
   }
 
   for (const auto& record : data.at("temp_values")) {
-    auto key = record.at("key").get<gtsam::Key>();
-    if (set_robot_id) {
-      key = rekey(key, new_robot_id);
-    }
-
-    const auto pose = record.at("value").get<gtsam::Pose3>();
-    graph->temp_values_->insert(key, pose);
-    graph->temp_pg_initial_poses_[key] = pose;
+    add_value(record, graph->temp_values_, set_robot_id, new_robot_id);
   }
 
   for (const auto& factor : data.at("temp_factors")) {
-    add_factor(factor, *graph->temp_nfg_, set_robot_id, new_robot_id, include_priors);
+    add_factor(factor, graph->temp_nfg_, set_robot_id, new_robot_id, include_priors);
   }
 
-  data.at("temp_inlier_weights").get_to(*graph->temp_inlier_weights_);
-  data.at("temp_known_inliers").get_to(*graph->temp_known_inliers_);
+  data.at("temp_inlier_weights").get_to(graph->temp_inlier_weights_);
+  data.at("temp_known_inliers").get_to(graph->temp_known_inliers_);
   return graph;
 }
 
@@ -404,7 +407,7 @@ DeformationGraph::Ptr DeformationGraph::loadFromDgrf(
       }
       gtsam::Pose3 pose(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
       if (tag == "NODE") {
-        graph->values_->insert(gtsam_key, pose);
+        graph->values_.insert(gtsam_key, pose);
         // TODO this is different from the initial pose before save
         char node_prefix = gtsam_key.chr();
         if (graph->pg_initial_poses_.count(node_prefix) == 0) {
@@ -413,7 +416,7 @@ DeformationGraph::Ptr DeformationGraph::loadFromDgrf(
         // Implicit assumption that node is in order
         graph->pg_initial_poses_[node_prefix].push_back(pose);
       } else if (include_temp) {
-        graph->temp_values_->insert(gtsam_key, pose);
+        graph->temp_values_.insert(gtsam_key, pose);
         graph->temp_pg_initial_poses_[gtsam_key] = pose;
       }
     } else if (tag == "BETWEEN" || tag == "BETWEEN_TEMP") {
@@ -438,10 +441,10 @@ DeformationGraph::Ptr DeformationGraph::loadFromDgrf(
       gtsam::Pose3 meas(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
       gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
       if (tag == "BETWEEN") {
-        graph->nfg_->add(
+        graph->nfg_.add(
             gtsam::BetweenFactor<gtsam::Pose3>(gtsam_key1, gtsam_key2, meas, noise));
       } else if (include_temp) {
-        graph->temp_nfg_->add(
+        graph->temp_nfg_.add(
             gtsam::BetweenFactor<gtsam::Pose3>(gtsam_key1, gtsam_key2, meas, noise));
       }
     } else if (tag == "DEDGE" || tag == "DEDGE_TEMP") {
@@ -466,10 +469,10 @@ DeformationGraph::Ptr DeformationGraph::loadFromDgrf(
       gtsam::Point3 measurement(x, y, z);
       gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
       if (tag == "DEDGE") {
-        graph->nfg_->add(
+        graph->nfg_.add(
             DeformationEdgeFactor(gtsam_key1, gtsam_key2, measurement, noise));
       } else if (include_temp) {
-        graph->temp_nfg_->add(
+        graph->temp_nfg_.add(
             DeformationEdgeFactor(gtsam_key1, gtsam_key2, measurement, noise));
       }
     } else if (tag == "PRIOR") {
@@ -494,17 +497,17 @@ DeformationGraph::Ptr DeformationGraph::loadFromDgrf(
 
         gtsam::Pose3 meas(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
         gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
-        graph->nfg_->add(gtsam::PriorFactor<gtsam::Pose3>(gtsam_key, meas, noise));
+        graph->nfg_.add(gtsam::PriorFactor<gtsam::Pose3>(gtsam_key, meas, noise));
       }
     } else if (tag == "KNOWN_INLIERS") {
       size_t idx;
       while (ss >> idx) {
-        graph->known_inliers_->insert(idx);
+        graph->known_inliers_.insert(idx);
       }
     } else if (tag == "TEMP_KNOWN_INLIERS") {
       size_t idx;
       while (ss >> idx) {
-        graph->temp_known_inliers_->insert(idx);
+        graph->temp_known_inliers_.insert(idx);
       }
     } else if (tag == "VERTEX") {
       size_t key;
