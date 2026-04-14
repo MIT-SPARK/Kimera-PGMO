@@ -31,11 +31,10 @@ class OfflineDeformation {
   OfflineDeformation(const OfflineDeformationConfig& config)
       : config_(config),
         pgo_(config.optimizer.create()),
-        deformation_graph_(new DeformationGraph) {
+        deformation_graph_(DeformationGraph::loadFromFile(config.log_path)) {
     LOG(INFO) << "[OfflineDeformation] Initialized with:\n" << config::toString(config);
     pgo_->setLogPath(config.log_path);
-    deformation_graph_->load(config.dgrf_file);
-    LOG(INFO) << "Loaded " << config.dgrf_file;
+    CHECK(deformation_graph_);
   }
 
   void run() {

@@ -54,11 +54,11 @@ class DeformationGraph {
   void save(const std::string& filename) const;
 
   //! Load deformation graph from file
-  static DeformationGraph::Ptr load(const std::filesystem::path& filename,
-                                    bool include_temp = true,
-                                    bool set_robot_id = false,
-                                    size_t new_robot_id = 0,
-                                    bool include_priors = true);
+  static DeformationGraph::Ptr loadFromFile(const std::filesystem::path& filename,
+                                            bool include_temp = true,
+                                            bool set_robot_id = false,
+                                            size_t new_robot_id = 0,
+                                            bool include_priors = true);
 
   /*! \brief Directly add a full pose graph to the deformation graph
    *  - pose_graph: full pose graph
