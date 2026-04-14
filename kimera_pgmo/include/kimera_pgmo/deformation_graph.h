@@ -15,6 +15,7 @@
 #include <pose_graph_tools/pose_graph.h>
 
 #include <cstdint>
+#include <filesystem>
 #include <map>
 #include <unordered_map>
 #include <vector>
@@ -45,24 +46,19 @@ class DeformationGraph {
  public:
   using Ptr = std::shared_ptr<DeformationGraph>;
 
-  /*! \brief Deformation graph class constructor
-   */
   DeformationGraph(bool add_init_vertex_prior = false);
+
   ~DeformationGraph();
 
-  static DeformationGraph::Ptr fromValues(
-      const std::shared_ptr<gtsam::Values>& values,
-      const std::shared_ptr<gtsam::NonlinearFactorGraph>& nfg,
-      const std::shared_ptr<std::set<size_t>>& known_inliers,
-      const std::shared_ptr<gtsam::Values>& temp_values,
-      const std::shared_ptr<gtsam::NonlinearFactorGraph>& temp_nfg,
-      const std::shared_ptr<std::set<size_t>>& temp_known_inliers,
-      const std::map<char, std::vector<gtsam::Pose3>>& initial_poses,
-      const std::unordered_map<gtsam::Key, gtsam::Pose3>& temp_initial_poses,
-      const std::map<char, std::vector<gtsam::Point3>>& vertex_positions,
-      const std::map<char, std::vector<Timestamp>>& vertex_stamps);
+  //! Save deformation graph to file
+  void save(const std::string& filename) const;
 
-  inline void setVerboseFlag(bool verbose) { verbose_ = verbose; }
+  //! Load deformation graph from file
+  static DeformationGraph::Ptr load(const std::filesystem::path& filename,
+                                    bool include_temp = true,
+                                    bool set_robot_id = false,
+                                    size_t new_robot_id = 0,
+                                    bool include_priors = true);
 
   /*! \brief Directly add a full pose graph to the deformation graph
    *  - pose_graph: full pose graph
@@ -575,16 +571,6 @@ class DeformationGraph {
   //! Update the temp inlier weights (e.g. GNC results).
   void updateTempInlierWeights(const std::vector<double>& weights);
 
-  //! Save deformation graph to file
-  void save(const std::string& filename) const;
-
-  //! Load deformation graph from file
-  void load(const std::string& filename,
-            bool include_temp = true,
-            bool set_robot_id = false,
-            size_t new_robot_id = 0,
-            bool include_priors = true);
-
   inline bool hasPrefixPoses(char prefix) const {
     return pg_initial_poses_.count(prefix);
   }
@@ -690,9 +676,20 @@ class DeformationGraph {
 
   bool checkAdjacency(gtsam::Key from, gtsam::Key to) const;
 
+  static DeformationGraph::Ptr loadFromDgrf(const std::filesystem::path& filename,
+                                            bool include_temp,
+                                            bool set_robot_id,
+                                            size_t new_robot_id,
+                                            bool include_priors);
+
+  static DeformationGraph::Ptr loadFromJson(const std::filesystem::path& filename,
+                                            bool include_temp,
+                                            bool set_robot_id,
+                                            size_t new_robot_id,
+                                            bool include_priors);
+
  private:
   bool add_init_vertex_prior_;
-  bool verbose_;
 
   // Keep track of vertices not part of mesh
   // for embedding trajectory, etc.
@@ -731,8 +728,6 @@ class DeformationGraph {
   // Mutex
   std::mutex mutex_;
 };
-
-using DeformationGraphPtr = std::shared_ptr<DeformationGraph>;
 
 template <typename Cloud>
 size_t DeformationGraph::findStartIndex(char prefix,

@@ -103,9 +103,7 @@ void MeshToEdgesAndNodes(const pcl::PolygonMesh& mesh,
   }
 }
 
-void SetUpDeformationGraph(DeformationGraph* graph,
-                           bool add_mesh = true,
-                           bool quiet = true) {
+void SetUpDeformationGraph(DeformationGraph* graph, bool add_mesh = true) {
   if (!add_mesh) {
     return;
   }

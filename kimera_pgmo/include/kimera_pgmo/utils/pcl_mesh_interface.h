@@ -24,7 +24,7 @@ class PclMeshInterface : public MeshInterface {
 
   const BlockIndices& blockIndices() const override { return indices_; }
 
-  void markBlockActive(const BlockIndex& block) const override {}
+  void markBlockActive(const BlockIndex& /* block */) const override {}
 
   size_t activeBlockSize() const override { return 3 * faces_.size(); }
 

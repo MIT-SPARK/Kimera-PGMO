@@ -62,7 +62,7 @@ class OfflineDeformation {
  private:
   OfflineDeformationConfig config_;
   Optimizer::Ptr pgo_;
-  DeformationGraphPtr deformation_graph_;
+  DeformationGraph::Ptr deformation_graph_;
 };
 
 }  // namespace kimera_pgmo

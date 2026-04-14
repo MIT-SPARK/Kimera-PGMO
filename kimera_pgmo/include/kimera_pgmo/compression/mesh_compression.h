@@ -34,13 +34,13 @@ class MeshCompression {
   /*! \brief Get the vertices of the compressed full mesh
    *  - vertices: pointer to vertices of full compressed mesh
    */
-  inline void getVertices(PointCloud::Ptr vertices) { *vertices = all_vertices_; }
+  void getVertices(PointCloud::Ptr vertices) { *vertices = all_vertices_; }
 
   /*! \brief Get the timestamps of the vertices of the full compressed mesh
    *  - vertex_stamps: pointer to timestamps of the vertices of full compressed
    * mesh
    */
-  inline void getTimestamps(std::shared_ptr<std::vector<Timestamp>> vertex_stamps) {
+  void getTimestamps(std::shared_ptr<std::vector<Timestamp>> vertex_stamps) {
     *vertex_stamps = all_vertex_stamps_;
   }
 
@@ -48,14 +48,14 @@ class MeshCompression {
    * for duplication according to resolution)
    *  - vertices: pointer to vertices in octree
    */
-  inline void getActiveVertices(PointCloudXYZ::Ptr vertices) {
+  void getActiveVertices(PointCloudXYZ::Ptr vertices) {
     *vertices = *active_vertices_xyz_;
   }
 
   /*! \brief Get the surfaces of the compressed full mesh
    *  - vertices: pointer to surfaces of full compressed mesh
    */
-  inline void getStoredPolygons(std::shared_ptr<std::vector<pcl::Vertices>> polygons) {
+  void getStoredPolygons(std::shared_ptr<std::vector<pcl::Vertices>> polygons) {
     *polygons = polygons_;
   }
 
@@ -64,14 +64,13 @@ class MeshCompression {
    *  - timestamps: vector of the timestamps indices corresponding to active
    * vertices
    */
-  inline void getActiveVerticesTimestamps(
-      std::shared_ptr<std::vector<double>> timestamps) {
+  void getActiveVerticesTimestamps(std::shared_ptr<std::vector<double>> timestamps) {
     *timestamps = active_vertex_stamps_;
   }
 
-  inline size_t getNumVertices() const { return all_vertices_.size(); }
+  size_t getNumVertices() const { return all_vertices_.size(); }
 
-  inline const std::vector<size_t>& getActiveVerticesIndex() const {
+  const std::vector<size_t>& getActiveVerticesIndex() const {
     return active_vertices_index_;
   }
 
@@ -127,7 +126,7 @@ class MeshCompression {
 
   /*! \brief Archive blocks outside active window
    */
-  virtual void clearArchivedBlocks(const spatial_hash::BlockIndices& blocks) {}
+  virtual void clearArchivedBlocks(const spatial_hash::BlockIndices& /* blocks */) {}
 
  protected:
   double resolution_;

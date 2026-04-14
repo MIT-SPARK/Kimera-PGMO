@@ -33,7 +33,6 @@ using EdgeType = pose_graph_tools::PoseGraphEdge::Type;
 
 DeformationGraph::DeformationGraph(bool add_init_vertex_prior)
     : add_init_vertex_prior_(add_init_vertex_prior),
-      verbose_(true),
       nfg_(new gtsam::NonlinearFactorGraph),
       known_inliers_(new std::set<size_t>),
       values_(new gtsam::Values),
@@ -45,31 +44,6 @@ DeformationGraph::DeformationGraph(bool add_init_vertex_prior)
       recalculate_vertices_(false) {}
 
 DeformationGraph::~DeformationGraph() {}
-
-DeformationGraph::Ptr DeformationGraph::fromValues(
-    const std::shared_ptr<gtsam::Values>& values,
-    const std::shared_ptr<gtsam::NonlinearFactorGraph>& nfg,
-    const std::shared_ptr<std::set<size_t>>& known_inliers,
-    const std::shared_ptr<gtsam::Values>& temp_values,
-    const std::shared_ptr<gtsam::NonlinearFactorGraph>& temp_nfg,
-    const std::shared_ptr<std::set<size_t>>& temp_known_inliers,
-    const std::map<char, std::vector<gtsam::Pose3>>& initial_poses,
-    const std::unordered_map<gtsam::Key, gtsam::Pose3>& temp_initial_poses,
-    const std::map<char, std::vector<gtsam::Point3>>& vertex_positions,
-    const std::map<char, std::vector<Timestamp>>& vertex_stamps) {
-  auto graph = std::make_shared<DeformationGraph>();
-  graph->values_ = values;
-  graph->nfg_ = nfg;
-  graph->known_inliers_ = known_inliers;
-  graph->temp_values_ = temp_values;
-  graph->temp_nfg_ = temp_nfg;
-  graph->temp_known_inliers_ = temp_known_inliers;
-  graph->pg_initial_poses_ = initial_poses;
-  graph->temp_pg_initial_poses_ = temp_initial_poses;
-  graph->vertex_positions_ = vertex_positions;
-  graph->vertex_stamps_ = vertex_stamps;
-  return graph;
-}
 
 void DeformationGraph::processPoseGraph(const pose_graph_tools::PoseGraph& pose_graph,
                                         const EdgeTypeVarianceMap& variance_map,
@@ -830,7 +804,7 @@ bool DeformationGraph::tryConvertFactorToPriorEdge(gtsam::NonlinearFactor* facto
     // If no inlier weights assume no outlier rejection
     edge.type = EdgeType::PRIOR;
   } else {
-    if (factor_idx >= 0 && inlier_weights_->size() > factor_idx &&
+    if (factor_idx >= 0 && inlier_weights_->size() > static_cast<size_t>(factor_idx) &&
         inlier_weights_->at(factor_idx) < 0.5) {
       edge.type = EdgeType::REJECTED_PRIOR;
     } else {
@@ -876,7 +850,8 @@ bool DeformationGraph::tryConvertFactorToBetweenEdge(
       // If no inlier weights assume no outlier rejection
       edge.type = EdgeType::LOOPCLOSE;
     } else {
-      if (factor_idx >= 0 && inlier_weights_->size() > factor_idx &&
+      if (factor_idx >= 0 &&
+          inlier_weights_->size() > static_cast<size_t>(factor_idx) &&
           inlier_weights_->at(factor_idx) < 0.5) {
         edge.type = EdgeType::REJECTED_LOOPCLOSE;
       } else {
@@ -1120,4 +1095,5 @@ void DeformationGraph::clearMeshNodesOnly() {
   }
   temp_nfg_ = std::make_shared<gtsam::NonlinearFactorGraph>(new_temp_factors);
 }
+
 }  // namespace kimera_pgmo

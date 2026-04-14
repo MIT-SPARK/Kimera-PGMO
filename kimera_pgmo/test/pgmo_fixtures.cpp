@@ -20,7 +20,7 @@ size_t pgmoNumFaces(const MeshBlock& mesh) { return mesh.vertices.size() / 3; }
 
 size_t pgmoNumVertices(const MeshBlock& mesh) { return mesh.vertices.size(); }
 
-traits::VertexProperties pgmoGetVertexProperties(const MeshBlock& mesh) {
+traits::VertexProperties pgmoGetVertexProperties(const MeshBlock& /* mesh */) {
   return {true, false, false, false};
 }
 
@@ -35,7 +35,7 @@ traits::Pos pgmoGetVertex(const MeshBlock& mesh,
   return traits::Pos(p.x, p.y, p.z);
 }
 
-traits::Face pgmoGetFace(const MeshBlock& mesh, size_t i) {
+traits::Face pgmoGetFace(const MeshBlock& /* mesh */, size_t i) {
   return {3 * i, 3 * i + 1, 3 * i + 2};
 }
 
