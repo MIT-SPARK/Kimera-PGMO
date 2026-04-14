@@ -12,8 +12,6 @@
 
 #include <chrono>
 #include <cmath>
-#include <limits>
-#include <optional>
 
 #include "kimera_pgmo/utils/common_functions.h"
 #include "kimera_pgmo/utils/mesh_io.h"
@@ -21,7 +19,6 @@
 namespace kimera_pgmo {
 
 using pose_graph_tools::PoseGraph;
-using pose_graph_tools::PoseGraphEdge;
 
 using BetweenFactorT = gtsam::BetweenFactor<gtsam::Pose3>;
 
@@ -126,7 +123,7 @@ const gtsam::Values& KimeraPgmoInterface::getDeformationGraphValues() const {
   return *deformation_graph_->getValues();
 }
 
-DeformationGraphPtr KimeraPgmoInterface::getDeformationGraphPtr() const {
+DeformationGraph::Ptr KimeraPgmoInterface::getDeformationGraphPtr() const {
   return deformation_graph_;
 }
 
@@ -157,7 +154,7 @@ void KimeraPgmoInterface::loadDeformationGraphFromFile(const std::string& input,
 ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
     const PoseGraph& msg,
     const std::vector<size_t>& new_mesh_indices,
-    const std::vector<Timestamp>& new_mesh_index_stamps,
+    const std::vector<Timestamp>& /* new_mesh_index_stamps */,
     Path& initial_trajectory,
     std::vector<Timestamp>& node_timestamps) {
   std::map<Timestamp, gtsam::Key> stamped_nodes;
@@ -420,7 +417,7 @@ bool KimeraPgmoInterface::addMeshMeshConnections(
 
 ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
     const PoseGraph& mesh_graph,
-    const std::vector<Timestamp>& node_timestamps,
+    const std::vector<Timestamp>& /* node_timestamps */,
     std::vector<size_t>& new_mesh_indices,
     std::vector<Timestamp>& new_mesh_index_stamps) {
   if (mesh_graph.edges.empty() || mesh_graph.nodes.empty()) {
@@ -438,7 +435,8 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
 
   // Convert and add edges
   for (const auto& e : mesh_graph.edges) {
-    if (e.robot_from != robot_id || e.robot_to != robot_id) {
+    if (static_cast<size_t>(e.robot_from) != robot_id ||
+        static_cast<size_t>(e.robot_to) != robot_id) {
       SPARK_LOG(WARNING)
           << "processIncrementalMeshGraph: detect different robot ids in single "
              "mesh graph msg.";
@@ -451,7 +449,7 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
 
   // Convert and add nodes
   for (const auto& n : mesh_graph.nodes) {
-    if (n.robot_id != robot_id) {
+    if (static_cast<size_t>(n.robot_id) != robot_id) {
       SPARK_LOG(WARNING)
           << "processIncrementalMeshGraph: detect different robot ids in single "
              "mesh graph msg.";
@@ -634,13 +632,6 @@ bool KimeraPgmoInterface::saveDeformationGraph(const std::string& dgrf_name) con
   deformation_graph_->save(dgrf_name);
   SPARK_LOG(INFO) << "KimeraPgmo: Saved deformation graph to file.";
   return true;
-}
-
-void KimeraPgmoInterface::setVerboseFlag(bool verbose) {
-  verbose_ = verbose;
-  if (deformation_graph_) {
-    deformation_graph_->setVerboseFlag(verbose);
-  }
 }
 
 }  // namespace kimera_pgmo
