@@ -93,6 +93,72 @@ class DeformationGraph {
                         std::map<size_t, size_t> robot_id_remap = {},
                         const Eigen::Isometry3d* const transform = nullptr);
 
+  /*! \brief Add connections from a pose graph node to mesh vertices nodes
+   *  - key: Key of pose graph node
+   *  - valences: The mesh vertices nodes to connect to
+   *  - prefix: the prefixes of the key of the nodes corresponding to mesh
+   * vertices
+   *  - variance: covariance of the deformation graph edges
+   */
+  void processNodeValence(gtsam::Key key,
+                          const std::vector<uint64_t>& valences,
+                          char valence_prefix,
+                          double variance = 1e-4,
+                          bool temp = false);
+
+  /*! \brief Check before adding node and vertex edge and get node pose and vertex
+   * positiong
+   *  - key: Key of pose graph node
+   *  - vertex: Key of vertex
+   *  - node_pose: reference to node pose
+   *  - vertex_pos: reference to vertex position
+   */
+  bool checkNodeValence(gtsam::Key key,
+                        gtsam::Key vertex,
+                        gtsam::Pose3& node_pose,
+                        gtsam::Point3& vertex_pos) const;
+
+  /*! \brief Add deformation graph edge between mesh vertices
+   *  - source_pose: pose of source (for the between) that is in same frame as the
+   * initial vertex positions
+   *  - source: The source set of mesh vertices
+   *  - dest_pose: pose of dest (for the between) that is in the same frame as the
+   * initial vertex positions
+   *  - dest: The destination set of mesh vertices
+   *  - source_T_dest: measurement to add (of the between)
+   *  - source_prefix: the prefixes of the key of the nodes corresponding to source mesh
+   * vertices
+   *  - dest_prefix: the prefixes of the key of the nodes corresponding to the dest mesh
+   * vertices
+   *  - variance: covariance of the deformation graph edges
+   */
+  void processBetweenAsMeshConnections(const gtsam::Pose3& source_pose,
+                                       const std::vector<uint64_t>& source,
+                                       const gtsam::Pose3& dest_pose,
+                                       const std::vector<uint64_t>& dest,
+                                       const gtsam::Pose3& source_T_dest,
+                                       char source_prefix,
+                                       char dest_prefix,
+                                       double variance = 1e-4,
+                                       bool temp = false,
+                                       bool known_inliers = false);
+
+  /*! \brief Add point measurements as a deformation edge factor
+   *  - from_key: key of the pose point measurement is made from
+   *  - to_key: key of the point
+   *  - from_pose: pose where measuremet is made in deformation graph frame
+   *  - to_point: point measurement in deformation graph frame
+   *  - variance: covariance of the deformation graph edges
+   *  - temp: temporary factor
+   */
+  void processPointMeasurement(gtsam::Key from_key,
+                               gtsam::Key to_key,
+                               const gtsam::Pose3& from_pose,
+                               const gtsam::Point3& to_point,
+                               double variance,
+                               bool temp = false,
+                               bool known_inlier = false);
+
   /*! \brief Fix the measurements of multiple nodes
    *  - measurements: a vector of key->pose pair of node measurements
    *  - variance: covariance of the prior factors
@@ -106,7 +172,7 @@ class DeformationGraph {
    *  - add_prior: boolean - add a Prior Factor or not
    *  - prior_variance: covariance of the prior
    */
-  void processNewNode(const gtsam::Key& key,
+  void processNewNode(gtsam::Key key,
                       const gtsam::Pose3& initial_pose,
                       bool add_prior,
                       double prior_variance = 1e-8);
@@ -117,24 +183,10 @@ class DeformationGraph {
    *  - add_prior: boolean - add a Prior Factor or not
    *  - prior_variance: covariance of the prior
    */
-  void processNewTempNode(const gtsam::Key& key,
+  void processNewTempNode(gtsam::Key key,
                           const gtsam::Pose3& initial_pose,
                           bool add_prior,
                           double prior_variance = 1e-8);
-
-  /*! \brief Add nodes and their valences, but keep them temporary
-   *  - keys: vector of keys of the nodes to be added
-   *  - initial_poses: poses of the nodes to be added
-   *  - valences: mesh graph vertices that are valences of the nodes
-   *  - valence_prefix: prefix of the valences (associated to robot id)
-   *  - add_prior: boolean - add a Prior Factor or not
-   *  - edge_variance: covariance of the node to mesh edges
-   *  - prior_variance: if add prior, covariance on the nodes
-   */
-  void processNewTempNodesValences(const NodeValenceInfoList& factors,
-                                   bool add_prior,
-                                   double edge_variance = 1e-2,
-                                   double prior_variance = 1e-8);
 
   /*! \brief Add a new between factor to the deformation graph
    *  - key_from: Key of front node to connect between factor
@@ -142,8 +194,8 @@ class DeformationGraph {
    *  - meas: Measurement of between factor
    *  - variance: covariance on the between factor
    */
-  void processNewBetween(const gtsam::Key& key_from,
-                         const gtsam::Key& key_to,
+  void processNewBetween(gtsam::Key key_from,
+                         gtsam::Key key_to,
                          const gtsam::Pose3& meas,
                          double variance = 1e-4);
 
@@ -174,6 +226,20 @@ class DeformationGraph {
   void processNewTempEdges(const pose_graph_tools::PoseGraph& edges,
                            double variance = 1e-2);
 
+  /*! \brief Add nodes and their valences, but keep them temporary
+   *  - keys: vector of keys of the nodes to be added
+   *  - initial_poses: poses of the nodes to be added
+   *  - valences: mesh graph vertices that are valences of the nodes
+   *  - valence_prefix: prefix of the valences (associated to robot id)
+   *  - add_prior: boolean - add a Prior Factor or not
+   *  - edge_variance: covariance of the node to mesh edges
+   *  - prior_variance: if add prior, covariance on the nodes
+   */
+  void processNewTempNodesValences(const NodeValenceInfoList& factors,
+                                   bool add_prior,
+                                   double edge_variance = 1e-2,
+                                   double prior_variance = 1e-8);
+
   /*! \brief Add a new mesh edge to deformation graph
    *  - mesh_edges: edges storing key-key pairs
    *  - mesh_nodes: gtsam values encoding key value pairs of new nodes
@@ -186,72 +252,6 @@ class DeformationGraph {
                                    std::vector<size_t>* added_indices,
                                    std::vector<Timestamp>* added_index_stamps,
                                    double variance = 1e-4);
-
-  /*! \brief Add connections from a pose graph node to mesh vertices nodes
-   *  - key: Key of pose graph node
-   *  - valences: The mesh vertices nodes to connect to
-   *  - prefix: the prefixes of the key of the nodes corresponding to mesh
-   * vertices
-   *  - variance: covariance of the deformation graph edges
-   */
-  void processNodeValence(const gtsam::Key& key,
-                          const std::vector<uint64_t>& valences,
-                          const char& valence_prefix,
-                          double variance = 1e-4,
-                          bool temp = false);
-
-  /*! \brief Check before adding node and vertex edge and get node pose and vertex
-   * positiong
-   *  - key: Key of pose graph node
-   *  - vertex: Key of vertex
-   *  - node_pose: reference to node pose
-   *  - vertex_pos: reference to vertex position
-   */
-  bool checkNodeValence(const gtsam::Key& key,
-                        const gtsam::Key& vertex,
-                        gtsam::Pose3& node_pose,
-                        gtsam::Point3& vertex_pos) const;
-
-  /*! \brief Add deformation graph edge between mesh vertices
-   *  - source_pose: pose of source (for the between) that is in same frame as the
-   * initial vertex positions
-   *  - source: The source set of mesh vertices
-   *  - dest_pose: pose of dest (for the between) that is in the same frame as the
-   * initial vertex positions
-   *  - dest: The destination set of mesh vertices
-   *  - source_T_dest: measurement to add (of the between)
-   *  - source_prefix: the prefixes of the key of the nodes corresponding to source mesh
-   * vertices
-   *  - dest_prefix: the prefixes of the key of the nodes corresponding to the dest mesh
-   * vertices
-   *  - variance: covariance of the deformation graph edges
-   */
-  void processBetweenAsMeshConnections(const gtsam::Pose3& source_pose,
-                                       const std::vector<uint64_t>& source,
-                                       const gtsam::Pose3& dest_pose,
-                                       const std::vector<uint64_t>& dest,
-                                       const gtsam::Pose3& source_T_dest,
-                                       const char& source_prefix,
-                                       const char& dest_prefix,
-                                       double variance = 1e-4,
-                                       bool temp = false,
-                                       bool known_inliers = false);
-
-  /*! \brief Add point measurements as a deformation edge factor
-   *  - from_key: key of the pose point measurement is made from
-   *  - to_key: key of the point
-   *  - from_pose: pose where measuremet is made in deformation graph frame
-   *  - to_point: point measurement in deformation graph frame
-   *  - variance: covariance of the deformation graph edges
-   *  - temp: temporary factor
-   */
-  void processPointMeasurement(const gtsam::Key& from_key,
-                               const gtsam::Key& to_key,
-                               const gtsam::Pose3& from_pose,
-                               const gtsam::Point3& to_point,
-                               double variance,
-                               bool temp = false,
-                               bool known_inlier = false);
 
   /*! \brief Remove sll prior factors of nodes that have given prefix
    *  - prefix: prefix of nodes to remove prior
@@ -407,6 +407,12 @@ class DeformationGraph {
     return &temp_inlier_weights_;
   }
 
+  //! Recalculate vertices getter
+  bool getRecalculateVertices() { return recalculate_vertices_; }
+
+  //! Recalculate vertices setter
+  void setRecalculateVertices() { recalculate_vertices_ = true; }
+
   //! Get the intial pose of a keyframe node
   gtsam::Pose3 getInitialPose(char prefix, size_t index) const;
 
@@ -421,17 +427,13 @@ class DeformationGraph {
 
   bool hasVertexKey(char prefix) const;
 
+  bool hasPrefixPoses(char prefix) const;
+
   //! Get the observed stamp of a vertex
   Timestamp getStampVertex(char prefix, size_t index) const;
 
   //! Get the observed stamps of the vertices corresponding to prefix
   std::vector<Timestamp> getStampVertices(char prefix) const;
-
-  //! Recalculate vertices getter
-  bool getRecalculateVertices() { return recalculate_vertices_; }
-
-  //! Recalculate vertices setter
-  void setRecalculateVertices() { recalculate_vertices_ = true; }
 
   //! Clear all (everything)
   void clear();
@@ -465,8 +467,6 @@ class DeformationGraph {
 
   //! Update the temp inlier weights (e.g. GNC results).
   void updateTempInlierWeights(const std::vector<double>& weights);
-
-  bool hasPrefixPoses(char prefix) const { return pg_initial_poses_.count(prefix); }
 
   template <typename Cloud>
   size_t findStartIndex(char prefix,
@@ -701,8 +701,7 @@ void DeformationGraph::deformPoints(CloudOut& vertices,
                                     std::vector<std::set<size_t>>* vertex_graph_map) {
   // Cannot deform if no nodes in the deformation graph
   if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
-    SPARK_LOG(DEBUG)
-        << "Deformation graph has no vertices for mesh prefix. No deformation";
+    SPARK_LOG(DEBUG) << "Graph has no vertices for prefix. No deformation";
     return;
   }
 
@@ -754,16 +753,14 @@ void DeformationGraph::deformPoints(CloudOut& vertices,
 }
 
 template <typename CloudIn>
-void DeformationGraph::customDeformation(
-    const std::function<void(const Eigen::Isometry3d&, size_t)>& callback,
-    const CloudIn& points,
-    char prefix,
-    size_t k,
-    double tol_t) const {
+void DeformationGraph::customDeformation(const DeformationCallback& callback,
+                                         const CloudIn& points,
+                                         char prefix,
+                                         size_t k,
+                                         double tol_t) const {
   // Cannot deform if no nodes in the deformation graph
   if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
-    SPARK_LOG(DEBUG)
-        << "Deformation graph has no vertices for mesh prefix. No deformation";
+    SPARK_LOG(DEBUG) << "Graph has no vertices for prefix. No deformation";
     return;
   }
 
@@ -805,8 +802,7 @@ void DeformationGraph::deformAllPoints(CloudOut& vertices,
                                        double tol_t) const {
   // Cannot deform if no nodes in the deformation graph
   if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
-    SPARK_LOG(DEBUG)
-        << "Deformation graph has no vertices for mesh prefix. No deformation";
+    SPARK_LOG(DEBUG) << "Graph has no vertices for prefix. No deformation";
     return;
   }
 
