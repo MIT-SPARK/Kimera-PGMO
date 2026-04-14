@@ -169,32 +169,34 @@ void save_factor(json& record, const gtsam::PriorFactor<gtsam::Pose3>& prior) {
   record["measurement"] = prior.prior();
 }
 
-bool save_factor(json& record, const gtsam::NonlinearFactor* factor) {
-  if (!factor) {
-    std::cout << "Invalid factor!" << std::endl;
-    return false;
-  }
+void save_factor_graph(json& graph_record, const gtsam::NonlinearFactorGraph& graph) {
+  for (const auto& factor : graph) {
+    if (!factor) {
+      continue;
+    }
 
-  auto between = dynamic_cast<const gtsam::BetweenFactor<gtsam::Pose3>*>(factor);
-  if (between) {
-    save_factor(record, *between);
-    return true;
-  }
+    auto& record = graph_record.emplace_back();
+    const auto between = cast_to_ptr<const gtsam::BetweenFactor<gtsam::Pose3>>(factor);
+    if (between) {
+      save_factor(record, *between);
+      continue;
+    }
 
-  auto dedge = dynamic_cast<const DeformationEdgeFactor*>(factor);
-  if (dedge) {
-    save_factor(record, *dedge);
-    return true;
-  }
+    const auto dedge = cast_to_ptr<const DeformationEdgeFactor>(factor);
+    if (dedge) {
+      save_factor(record, *dedge);
+      continue;
+    }
 
-  auto prior = dynamic_cast<const gtsam::PriorFactor<gtsam::Pose3>*>(factor);
-  if (prior) {
-    save_factor(record, *prior);
-    return true;
-  }
+    const auto prior = cast_to_ptr<const gtsam::PriorFactor<gtsam::Pose3>>(factor);
+    if (prior) {
+      save_factor(record, *prior);
+      continue;
+    }
 
-  factor->print("factor\n");
-  throw std::invalid_argument("unknown factor type!");
+    factor->print("factor\n");
+    throw std::invalid_argument("unknown factor type!");
+  }
 }
 
 template <int Dims>
@@ -252,6 +254,10 @@ void DeformationGraph::save(const std::string& filename) const {
     record["value"] = value.cast<gtsam::Pose3>();
   }
 
+  root["factors"] = json::array();
+  save_factor_graph(root["factors"], *nfg_);
+  root["known_inliers"] = *known_inliers_;
+
   root["temp_values"] = json::array();
   for (const auto& [key, value] : *temp_values_) {
     auto& record = root["temp_values"].emplace_back();
@@ -259,23 +265,8 @@ void DeformationGraph::save(const std::string& filename) const {
     record["value"] = value.cast<gtsam::Pose3>();
   }
 
-  root["factors"] = json::array();
-  for (const auto& factor : *nfg_) {
-    json record;
-    if (save_factor(record, factor.get())) {
-      record["factors"].push_back(record);
-    }
-  }
-
   root["temp_factors"] = json::array();
-  for (const auto& factor : *temp_nfg_) {
-    json record;
-    if (save_factor(record, factor.get())) {
-      record["temp_factors"].push_back(record);
-    }
-  }
-
-  root["known_inliers"] = *known_inliers_;
+  save_factor_graph(root["temp_factors"], *temp_nfg_);
   root["temp_known_inliers"] = *temp_known_inliers_;
 
   // save the initial positions and timestamps of the mesh vertices
