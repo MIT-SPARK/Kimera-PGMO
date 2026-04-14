@@ -69,7 +69,7 @@ KimeraPgmo::KimeraPgmo(const rclcpp::NodeOptions& options)
   pose_graph_pub_ = create_publisher<PoseGraphAdapter>("pose_graph", 1);
   optimized_path_pub_ = create_publisher<nav_msgs::msg::Path>("optimized_path", 1);
   viz_mesh_mesh_edges_pub_ =
-      create_publisher<Marker>("deformation_graph_mesh_mesh", 10);
+      create_publisher<visualization_msgs::msg::MarkerArray>("deformation_graph_mesh_mesh", 10);
   viz_pose_mesh_edges_pub_ =
       create_publisher<Marker>("deformation_graph_pose_mesh", 10);
 
@@ -404,13 +404,15 @@ void KimeraPgmo::visualizeDeformationGraph() const {
 
   // TODO(nathan) get actual node clock
   const auto curr_time = rclcpp::Clock().now();
-  visualization_msgs::msg::Marker mesh_mesh_viz;
+  visualization_msgs::msg::MarkerArray mesh_mesh_viz;
   visualization_msgs::msg::Marker pose_mesh_viz;
   fillDeformationGraphMarkers(
       *deformation_graph_, curr_time, mesh_mesh_viz, pose_mesh_viz);
 
   // Publish the msg with the edges
-  viz_mesh_mesh_edges_pub_->publish(mesh_mesh_viz);
+  if (!mesh_mesh_viz.markers.empty()) {
+    viz_mesh_mesh_edges_pub_->publish(mesh_mesh_viz);
+  }
   viz_pose_mesh_edges_pub_->publish(pose_mesh_viz);
 }
 

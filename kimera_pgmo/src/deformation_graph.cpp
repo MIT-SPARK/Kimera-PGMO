@@ -368,7 +368,11 @@ bool DeformationGraph::checkNewBetween(const gtsam::Key& key_from,
   }
 
   if (to_idx >= pg_initial_poses_.at(to_prefix).size()) {
-    SPARK_LOG(ERROR) << "DeformationGraph: skipping keys in addNewBetween.";
+    SPARK_LOG(ERROR) << "DeformationGraph: skipping keys in addNewBetween: "
+                     << "to_key=" << to_prefix << to_idx
+                     << " but DG only has " << pg_initial_poses_.at(to_prefix).size()
+                     << " poses for prefix '" << to_prefix << "'"
+                     << " (from_key=" << from_prefix << from_idx << ")";
     return false;
   }
 
@@ -546,6 +550,40 @@ void DeformationGraph::processNewMeshEdgesAndNodes(
     const gtsam::Pose3 pose_from = mesh_nodes.at<gtsam::Pose3>(e.first);
     const gtsam::Point3 point_to = mesh_nodes.at<gtsam::Pose3>(e.second).translation();
     addDeformationEdge(e.first, e.second, pose_from, point_to, variance, false, true);
+  }
+}
+
+void DeformationGraph::processNewMeshEdgesAndNodes(
+    const std::vector<std::pair<gtsam::Key, gtsam::Key>>& mesh_edges,
+    const gtsam::Values& mesh_nodes,
+    const std::unordered_map<gtsam::Key, Timestamp>& node_stamps,
+    std::vector<size_t>* added_indices,
+    std::vector<Timestamp>* added_index_stamps,
+    const std::vector<double>& edge_variances) {
+  assert(node_stamps.size() == mesh_nodes.size());
+  assert(edge_variances.size() == mesh_edges.size());
+
+  for (const auto& node_key : mesh_nodes.keys()) {
+    if (!checkNewMeshNode(node_key)) {
+      SPARK_LOG(FATAL) << "Error adding new mesh node.";
+    }
+
+    const gtsam::Pose3& node_pose = mesh_nodes.at<gtsam::Pose3>(node_key);
+    if (addNewMeshNode(node_key, node_pose, node_stamps.at(node_key))) {
+      added_indices->push_back(gtsam::Symbol(node_key).index());
+      added_index_stamps->push_back(node_stamps.at(node_key));
+    }
+  }
+
+  for (size_t idx = 0; idx < mesh_edges.size(); ++idx) {
+    const auto& e = mesh_edges[idx];
+    if (!checkNewMeshEdge(e.first, e.second)) {
+      SPARK_LOG(FATAL) << "Error adding new mesh edge.";
+    }
+
+    const gtsam::Pose3 pose_from = mesh_nodes.at<gtsam::Pose3>(e.first);
+    const gtsam::Point3 point_to = mesh_nodes.at<gtsam::Pose3>(e.second).translation();
+    addDeformationEdge(e.first, e.second, pose_from, point_to, edge_variances[idx], false, true);
   }
 }
 
@@ -1035,64 +1073,133 @@ void DeformationGraph::updateTempInlierWeights(const std::vector<double>& weight
   *temp_inlier_weights_ = weights;
 }
 
+namespace {
+bool factorInvolvesMeshVertex(const gtsam::NonlinearFactor* factor) {
+  if (!factor) return false;
+  for (const auto& key : factor->keys()) {
+    if (IsMeshVertex(key)) return true;
+  }
+  return false;
+}
+
+// Filter a factor graph, keeping only factors that don't involve mesh vertices.
+// Remaps inlier indices to match the new factor graph.
+void filterNonMeshFactors(
+    const gtsam::NonlinearFactorGraph& in_factors,
+    const std::set<size_t>& in_inliers,
+    std::shared_ptr<gtsam::NonlinearFactorGraph>& out_factors,
+    std::shared_ptr<std::set<size_t>>& out_inliers) {
+  out_factors = std::make_shared<gtsam::NonlinearFactorGraph>();
+  out_inliers = std::make_shared<std::set<size_t>>();
+  for (size_t i = 0; i < in_factors.size(); ++i) {
+    if (!factorInvolvesMeshVertex(in_factors[i].get())) {
+      if (in_inliers.count(i)) out_inliers->insert(out_factors->size());
+      out_factors->add(in_factors[i]);
+    }
+  }
+}
+}  // namespace
+
 void DeformationGraph::clearMeshNodesOnly() {
   vertex_positions_.clear();
   vertex_stamps_.clear();
   adjacency_map_.clear();
 
-  // Remove mesh vertices from values_
+  auto new_values = std::make_shared<gtsam::Values>();
+  for (const auto& key_value : *values_) {
+    if (!IsMeshVertex(key_value.key)) {
+      new_values->insert(key_value.key, values_->at(key_value.key));
+    }
+  }
+  values_ = new_values;
+
+  std::set<size_t> empty_inliers;
+  std::shared_ptr<std::set<size_t>> unused_inliers;
+  filterNonMeshFactors(*nfg_, empty_inliers, nfg_, unused_inliers);
+  filterNonMeshFactors(*temp_nfg_, empty_inliers, temp_nfg_, unused_inliers);
+}
+
+void DeformationGraph::clearMeshEdgeFactorsOnly() {
+  adjacency_map_.clear();
+  fusion_factor_indices_.clear();
+  lc_factor_indices_.clear();
+
+  filterNonMeshFactors(*nfg_, *known_inliers_, nfg_, known_inliers_);
+  filterNonMeshFactors(*temp_nfg_, *temp_known_inliers_, temp_nfg_, temp_known_inliers_);
+}
+
+void DeformationGraph::removeMeshNodesAbove(char prefix, size_t cutoff_index) {
+  // Truncate vertex_positions_ and vertex_stamps_
+  if (vertex_positions_.count(prefix) &&
+      vertex_positions_[prefix].size() > cutoff_index) {
+    vertex_positions_[prefix].resize(cutoff_index);
+  }
+  if (vertex_stamps_.count(prefix) &&
+      vertex_stamps_[prefix].size() > cutoff_index) {
+    vertex_stamps_[prefix].resize(cutoff_index);
+  }
+
+  // Remove GTSAM values for indices >= cutoff
   auto new_values = std::make_shared<gtsam::Values>();
   for (const auto& key_value : *values_) {
     gtsam::Key key = key_value.key;
-    if (!IsMeshVertex(key)) {
-      // Keep non-mesh vertices (robot poses)
+    gtsam::Symbol sym(key);
+    if (sym.chr() == prefix && sym.index() >= cutoff_index) {
+      continue;  // Skip entries at or above cutoff
+    }
+    new_values->insert(key, values_->at(key));
+  }
+  values_ = new_values;
+}
+
+void DeformationGraph::reindexMeshNodes(
+    char prefix,
+    const std::unordered_map<size_t, size_t>& old_to_new) {
+  // Rebuild values_: preserve optimized Pose3 for surviving mesh nodes, keep non-mesh values
+  auto new_values = std::make_shared<gtsam::Values>();
+  for (const auto& key_value : *values_) {
+    gtsam::Key key = key_value.key;
+    gtsam::Symbol sym(key);
+    if (sym.chr() == prefix) {
+      auto it = old_to_new.find(sym.index());
+      if (it != old_to_new.end()) {
+        gtsam::Key new_key = gtsam::Symbol(prefix, it->second);
+        new_values->insert(new_key, values_->at<gtsam::Pose3>(key));
+      }
+      // else: this CP was deleted, skip it
+    } else {
+      // Non-mesh key (pose node, etc.) — keep as-is
       new_values->insert(key, values_->at(key));
     }
   }
   values_ = new_values;
 
-  // Remove factors involving mesh vertices
-  auto new_factors = std::make_shared<gtsam::NonlinearFactorGraph>();
-  for (const auto& factor : *nfg_) {
-    if (!factor) {
-      continue;
-    }
-
-    bool involves_mesh = false;
-    for (const auto& key : factor->keys()) {
-      if (IsMeshVertex(key)) {
-        involves_mesh = true;
-        break;
-      }
-    }
-
-    if (!involves_mesh) {
-      // Keep factors that don't involve mesh vertices
-      new_factors->add(factor);
-    }
+  // Compute new size once for both vectors
+  size_t max_new_idx = 0;
+  for (const auto& [old_idx, new_idx] : old_to_new) {
+    max_new_idx = std::max(max_new_idx, new_idx);
   }
-  nfg_ = new_factors;
+  const size_t new_size = max_new_idx + 1;
 
-  // Remove temp factors involving mesh vertices
-  gtsam::NonlinearFactorGraph new_temp_factors;
-  for (size_t i = 0; i < temp_nfg_->size(); ++i) {
-    auto factor = (*temp_nfg_)[i];
-    if (!factor) {
-      continue;
+  // Rebuild vertex_positions_ with new indices
+  if (vertex_positions_.count(prefix)) {
+    const auto& old = vertex_positions_[prefix];
+    std::vector<gtsam::Point3> reindexed(new_size);
+    for (const auto& [old_idx, new_idx] : old_to_new) {
+      if (old_idx < old.size()) reindexed[new_idx] = old[old_idx];
     }
-
-    bool involves_mesh = false;
-    for (const auto& key : factor->keys()) {
-      if (IsMeshVertex(key)) {
-        involves_mesh = true;
-        break;
-      }
-    }
-
-    if (!involves_mesh) {
-      new_temp_factors.add(factor);
-    }
+    vertex_positions_[prefix] = std::move(reindexed);
   }
-  temp_nfg_ = std::make_shared<gtsam::NonlinearFactorGraph>(new_temp_factors);
+
+  // Rebuild vertex_stamps_ with new indices
+  if (vertex_stamps_.count(prefix)) {
+    const auto& old = vertex_stamps_[prefix];
+    std::vector<Timestamp> reindexed(new_size, 0);
+    for (const auto& [old_idx, new_idx] : old_to_new) {
+      if (old_idx < old.size()) reindexed[new_idx] = old[old_idx];
+    }
+    vertex_stamps_[prefix] = std::move(reindexed);
+  }
 }
+
 }  // namespace kimera_pgmo

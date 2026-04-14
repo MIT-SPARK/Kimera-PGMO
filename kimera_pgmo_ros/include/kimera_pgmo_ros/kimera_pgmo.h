@@ -25,6 +25,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <std_srvs/srv/empty.hpp>
 #include <visualization_msgs/msg/marker.hpp>
+#include <visualization_msgs/msg/marker_array.hpp>
 
 namespace kimera_pgmo {
 
@@ -37,6 +38,7 @@ class KimeraPgmo : public KimeraPgmoInterface, public rclcpp::Node {
   using OdomMsg = nav_msgs::msg::Odometry;
   using PathMsg = nav_msgs::msg::Path;
   using MarkerMsg = visualization_msgs::msg::Marker;
+  using MarkerArrayMsg = visualization_msgs::msg::MarkerArray;
   using LoadGraphSrv = kimera_pgmo_msgs::srv::LoadGraphMesh;
 
   struct Config : KimeraPgmoConfig {
@@ -187,7 +189,7 @@ class KimeraPgmo : public KimeraPgmoInterface, public rclcpp::Node {
   rclcpp::Publisher<PathMsg>::SharedPtr optimized_path_pub_;  // Unused for now (TODO)
   rclcpp::Publisher<OdomMsg>::SharedPtr optimized_odom_pub_;  // Unused for now (TODO)
   pose_graph_tools::PoseGraphPublisher pose_graph_pub_;
-  rclcpp::Publisher<MarkerMsg>::SharedPtr viz_mesh_mesh_edges_pub_;
+  rclcpp::Publisher<MarkerArrayMsg>::SharedPtr viz_mesh_mesh_edges_pub_;
   rclcpp::Publisher<MarkerMsg>::SharedPtr viz_pose_mesh_edges_pub_;
 
   // Transform broadcaster

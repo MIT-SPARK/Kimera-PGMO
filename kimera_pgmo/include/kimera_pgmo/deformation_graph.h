@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <map>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 #include "kimera_pgmo/mesh_deformation.h"
@@ -166,6 +167,20 @@ class DeformationGraph {
       std::vector<size_t>* added_indices,
       std::vector<Timestamp>* added_index_stamps,
       double variance = 1e-4);
+
+  /*! \brief Add new mesh edges and nodes with per-edge variances
+   *  - mesh_edges: edges storing key-key pairs
+   *  - mesh_nodes: gtsam values encoding key value pairs of new nodes
+   *  - added_indices: indices of nodes that was successfully added
+   *  - edge_variances: per-edge variance values (same order as mesh_edges)
+   */
+  void processNewMeshEdgesAndNodes(
+      const std::vector<std::pair<gtsam::Key, gtsam::Key>>& mesh_edges,
+      const gtsam::Values& mesh_nodes,
+      const std::unordered_map<gtsam::Key, Timestamp>& node_stamps,
+      std::vector<size_t>* added_indices,
+      std::vector<Timestamp>* added_index_stamps,
+      const std::vector<double>& edge_variances);
 
   /*! \brief Add connections from a pose graph node to mesh vertices nodes
    *  - key: Key of pose graph node
@@ -524,6 +539,46 @@ class DeformationGraph {
    */
   void clearMeshNodesOnly();
 
+  /*! \brief Set factor index classification for visualization
+   * Indices in these sets are classified as fusion/LC edges;
+   * all other mesh-mesh factors are continuant edges.
+   */
+  void setFusionFactorIndices(std::unordered_set<size_t> indices) {
+    fusion_factor_indices_ = std::move(indices);
+  }
+  void setLCFactorIndices(std::unordered_set<size_t> indices) {
+    lc_factor_indices_ = std::move(indices);
+  }
+  const std::unordered_set<size_t>& getFusionFactorIndices() const {
+    return fusion_factor_indices_;
+  }
+  const std::unordered_set<size_t>& getLCFactorIndices() const {
+    return lc_factor_indices_;
+  }
+
+  /*! \brief Clear only mesh edge factors (not nodes/values)
+   * Preserves vertex_positions_, vertex_stamps_, and values_.
+   * Only clears adjacency_map_ and factors involving mesh vertex keys.
+   */
+  void clearMeshEdgeFactorsOnly();
+
+  /*! \brief Remove mesh nodes with sequential index >= cutoff
+   * Removes values, vertex_positions_, and vertex_stamps_ entries
+   * for mesh symbols at or above the given cutoff index.
+   * @param prefix The mesh vertex prefix (e.g. 's')
+   * @param cutoff_index Entries at this index and above are removed
+   */
+  void removeMeshNodesAbove(char prefix, size_t cutoff_index);
+
+  /*! \brief Reindex mesh nodes using a mapping from old to new sequential indices
+   * Rebuilds values_, vertex_positions_, and vertex_stamps_ with new keys while
+   * preserving the optimized Pose3 values (not resetting to initial positions).
+   * Factors are not touched — they are already cleared by clearMeshEdgeFactorsOnly().
+   * @param prefix The mesh vertex prefix (e.g. 's')
+   * @param old_to_new Mapping of old sequential index -> new sequential index
+   */
+  void reindexMeshNodes(char prefix, const std::unordered_map<size_t, size_t>& old_to_new);
+
   /*! \brief Clear the last mesh interpolation cache
    */
   void clearMeshCache() { last_calculated_vertices_.clear(); }
@@ -713,6 +768,10 @@ class DeformationGraph {
 
   // track adjacency
   std::map<gtsam::Key, std::set<gtsam::Key>> adjacency_map_;
+
+  // Factor index classification for visualization
+  std::unordered_set<size_t> fusion_factor_indices_;
+  std::unordered_set<size_t> lc_factor_indices_;
 
   size_t num_loopclosures_ = 0;
 
