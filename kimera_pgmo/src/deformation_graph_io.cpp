@@ -343,8 +343,8 @@ DeformationGraph::Ptr DeformationGraph::loadFromJson(const fs::path& filepath,
   }
 
   data.at("known_inliers").get_to(*graph->known_inliers_);
-  data.at("inlier_weights").get_to(*inlier_weights_);
-  data.at("adjacency").get_to(adjacency_map_);
+  data.at("inlier_weights").get_to(*graph->inlier_weights_);
+  data.at("adjacency").get_to(graph->adjacency_map_);
 
   for (const auto& [prefix, record] : data.at("vertices").items()) {
     char vertex_prefix = prefix.at(0);
@@ -375,7 +375,7 @@ DeformationGraph::Ptr DeformationGraph::loadFromJson(const fs::path& filepath,
     add_factor(factor, *graph->temp_nfg_, set_robot_id, new_robot_id, include_priors);
   }
 
-  root.at("temp_inlier_weights").get_to(*temp_inlier_weights_);
+  data.at("temp_inlier_weights").get_to(*graph->temp_inlier_weights_);
   data.at("temp_known_inliers").get_to(*graph->temp_known_inliers_);
   return graph;
 }
