@@ -837,23 +837,24 @@ TEST(TestDeformationGraph, saveAndLoad) {
 
   EXPECT_EQ(5u, temp_factors->size());
   EXPECT_EQ(2u, temp_values->size());
-  graph.save(std::string(DATASET_PATH) + "/graph.json");
-  DeformationGraph new_graph;
-  new_graph.load(std::string(DATASET_PATH) + "/graph.json");
+  const std::filesystem::path dgraph_path(std::string(DATASET_PATH) + "/graph.json");
+  graph.save(dgraph_path);
+  auto new_graph = DeformationGraph::loadFromFile(dgraph_path);
+  ASSERT_TRUE(new_graph);
 
-  values = new_graph.getValues();
-  factors = new_graph.getFactors();
-  temp_values = new_graph.getTempValues();
-  temp_factors = new_graph.getTempFactors();
+  values = new_graph->getValues();
+  factors = new_graph->getFactors();
+  temp_values = new_graph->getTempValues();
+  temp_factors = new_graph->getTempFactors();
 
   EXPECT_EQ(15u, factors->size());
   EXPECT_EQ(6u, values->size());
 
   EXPECT_EQ(5u, temp_factors->size());
   EXPECT_EQ(2u, temp_values->size());
-  EXPECT_EQ(3, new_graph.getNumVertices());
-  EXPECT_EQ(0, new_graph.getInitialPositionVertex('v', 0).x());
-  EXPECT_EQ(1, new_graph.getInitialPositionVertex('v', 2).y());
+  EXPECT_EQ(3, new_graph->getNumVertices());
+  EXPECT_EQ(0, new_graph->getInitialPositionVertex('v', 0).x());
+  EXPECT_EQ(1, new_graph->getInitialPositionVertex('v', 2).y());
 }
 
 TEST(TestDeformationGraph, processPoseGraph) {

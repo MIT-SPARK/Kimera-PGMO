@@ -28,7 +28,7 @@ auto main(int argc, char* argv[]) -> int {
     return app.exit(e);
   }
 
-  auto dgraph = kimera_pgmo::DeformationGraph::load(args.input);
+  auto dgraph = kimera_pgmo::DeformationGraph::loadFromFile(args.input);
   if (args.output.empty()) {
     args.output = args.input.replace_extension(".json");
   }
