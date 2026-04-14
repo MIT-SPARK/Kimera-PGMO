@@ -308,6 +308,7 @@ DeformationGraph::Ptr DeformationGraph::load(const fs::path& filepath,
   }
 
   if (ext == ".dgrf") {
+    SPARK_LOG(WARNING) << "DGRF format deprecated!";
     return loadFromDgrf(filepath, include_temp, set_id, new_id, include_priors);
   }
 
@@ -398,18 +399,23 @@ DeformationGraph::Ptr DeformationGraph::loadFromDgrf(
       size_t key;
       double x, y, z, qx, qy, qz, qw;
       ss >> key >> x >> y >> z >> qx >> qy >> qz >> qw;
+      gtsam::Symbol gtsam_key(key);
+      if (set_robot_id) {
+        gtsam_key = rekey(gtsam_key, new_robot_id);
+      }
       gtsam::Pose3 pose(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
       if (tag == "NODE") {
-        graph->values_->insert(key, pose);
-        char node_prefix = gtsam::Symbol(key).chr();
+        graph->values_->insert(gtsam_key, pose);
+        // TODO this is different from the initial pose before save
+        char node_prefix = gtsam_key.chr();
         if (graph->pg_initial_poses_.count(node_prefix) == 0) {
           graph->pg_initial_poses_[node_prefix] = std::vector<gtsam::Pose3>();
         }
         // Implicit assumption that node is in order
         graph->pg_initial_poses_[node_prefix].push_back(pose);
-      } else {
-        graph->temp_values_->insert(key, pose);
-        graph->temp_pg_initial_poses_[key] = pose;
+      } else if (include_temp) {
+        graph->temp_values_->insert(gtsam_key, pose);
+        graph->temp_pg_initial_poses_[gtsam_key] = pose;
       }
     } else if (tag == "BETWEEN" || tag == "BETWEEN_TEMP") {
       size_t key1, key2;
@@ -424,13 +430,20 @@ DeformationGraph::Ptr DeformationGraph::loadFromDgrf(
           m(j, i) = e_ij;
         }
       }
+      gtsam::Symbol gtsam_key1(key1);
+      gtsam::Symbol gtsam_key2(key2);
+      if (set_robot_id) {
+        gtsam_key1 = rekey(gtsam_key1, new_robot_id);
+        gtsam_key2 = rekey(gtsam_key2, new_robot_id);
+      }
       gtsam::Pose3 meas(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
       gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
       if (tag == "BETWEEN") {
-        graph->nfg_->add(gtsam::BetweenFactor<gtsam::Pose3>(key1, key2, meas, noise));
-      } else {
+        graph->nfg_->add(
+            gtsam::BetweenFactor<gtsam::Pose3>(gtsam_key1, gtsam_key2, meas, noise));
+      } else if (include_temp) {
         graph->temp_nfg_->add(
-            gtsam::BetweenFactor<gtsam::Pose3>(key1, key2, meas, noise));
+            gtsam::BetweenFactor<gtsam::Pose3>(gtsam_key1, gtsam_key2, meas, noise));
       }
     } else if (tag == "DEDGE" || tag == "DEDGE_TEMP") {
       size_t key1, key2;
@@ -445,12 +458,20 @@ DeformationGraph::Ptr DeformationGraph::loadFromDgrf(
           m(j, i) = e_ij;
         }
       }
+      gtsam::Symbol gtsam_key1(key1);
+      gtsam::Symbol gtsam_key2(key2);
+      if (set_robot_id) {
+        gtsam_key1 = rekey(key1, new_robot_id);
+        gtsam_key2 = rekey(key2, new_robot_id);
+      }
       gtsam::Point3 measurement(x, y, z);
       gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
       if (tag == "DEDGE") {
-        graph->nfg_->add(DeformationEdgeFactor(key1, key2, measurement, noise));
-      } else {
-        graph->temp_nfg_->add(DeformationEdgeFactor(key1, key2, measurement, noise));
+        graph->nfg_->add(
+            DeformationEdgeFactor(gtsam_key1, gtsam_key2, measurement, noise));
+      } else if (include_temp) {
+        graph->temp_nfg_->add(
+            DeformationEdgeFactor(gtsam_key1, gtsam_key2, measurement, noise));
       }
     } else if (tag == "PRIOR") {
       size_t key;
@@ -466,9 +487,16 @@ DeformationGraph::Ptr DeformationGraph::loadFromDgrf(
         }
       }
 
-      gtsam::Pose3 meas(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
-      gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
-      graph->nfg_->add(gtsam::PriorFactor<gtsam::Pose3>(key, meas, noise));
+      if (include_priors) {
+        gtsam::Symbol gtsam_key(key);
+        if (set_robot_id) {
+          gtsam_key = rekey(gtsam_key, new_robot_id);
+        }
+
+        gtsam::Pose3 meas(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
+        gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
+        graph->nfg_->add(gtsam::PriorFactor<gtsam::Pose3>(gtsam_key, meas, noise));
+      }
     } else if (tag == "KNOWN_INLIERS") {
       size_t idx;
       while (ss >> idx) {
@@ -486,6 +514,9 @@ DeformationGraph::Ptr DeformationGraph::loadFromDgrf(
       ss >> key >> n_sec >> x >> y >> z;
       gtsam::Symbol vertex_symb(key);
       char vertex_prefix = vertex_symb.chr();
+      if (set_robot_id && kimera_pgmo::vertex_prefix_to_id.count(vertex_prefix) > 0) {
+        vertex_prefix = kimera_pgmo::robot_id_to_vertex_prefix.at(new_robot_id);
+      }
       size_t vertex_index = vertex_symb.index();
       if (vertex_index == 0) {
         graph->vertex_positions_[vertex_prefix] = std::vector<gtsam::Point3>{};
