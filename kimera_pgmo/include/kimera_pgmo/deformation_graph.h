@@ -45,6 +45,9 @@ using EdgeTypeVarianceMap = std::map<pose_graph_tools::PoseGraphEdge::Type, doub
 class DeformationGraph {
  public:
   using Ptr = std::shared_ptr<DeformationGraph>;
+  using VertexStamps = std::map<char, std::vector<Timestamp>>;
+  using VertexPositions = std::map<char, std::vector<gtsam::Point3>>;
+  using RobotPoseMap = std::map<char, std::vector<gtsam::Pose3>>;
 
   DeformationGraph(bool add_init_vertex_prior = false);
 
@@ -364,14 +367,13 @@ class DeformationGraph {
                     int start_index_hint = -1,
                     std::vector<std::set<size_t>>* vertex_graph_map = nullptr);
 
-  /*! \brief Get the number of loop closures processed by pgo
-   */
-  inline size_t getNumLoopclosures() const { return num_loopclosures_; }
+  //! Get the number of loop closures processed by pgo
+  size_t getNumLoopclosures() const { return num_loopclosures_; }
 
   /*! \brief Get the number of mesh vertices nodes in the deformation graph
    * - outputs the number of mesh vertices nodes
    */
-  inline size_t getNumVertices() const {
+  size_t getNumVertices() const {
     size_t num_vertices = 0;
     for (const auto& pfx_vertices : vertex_positions_) {
       num_vertices += pfx_vertices.second.size();
@@ -379,146 +381,100 @@ class DeformationGraph {
     return num_vertices;
   }
 
-  /*! \brief Gets the estimated values since last optimization
-   *  - outputs last estimated values as GTSAM Values
-   */
+  //! Gets the estimated values since last optimization
   const gtsam::Values* getValues() const { return values_.get(); }
 
-  /*! \brief Gets the estimated values since last optimization as a copy
-   *  - outputs last estimated values as GTSAM Values
-   */
+  //! Gets the estimated values since last optimization as a copy
   const gtsam::Values getValuesCopy() const { return *values_; }
 
-  /*! \brief Gets the factors added to the backend
-   *  - outputs the factors as a GTSAM NonlinearFactorGraph
-   */
+  //! Gets the factors added to the backend
   const gtsam::NonlinearFactorGraph* getFactors() const { return nfg_.get(); }
 
-  /*! \brief Gets the factors added to the backend as a copy
-   *  - outputs the factors as a GTSAM NonlinearFactorGraph
-   */
+  //! Gets the factors added to the backend as a copy
   const gtsam::NonlinearFactorGraph getFactorsCopy() const { return *nfg_; }
 
-  /*! \brief Gets the set of known inliers
-   *  - outputs the set of inlier indices
-   */
+  //! Gets the set of known inliers
   const std::set<size_t>* getKnownInlierSet() const { return known_inliers_.get(); }
 
-  /*! \brief Gets the set of known inliers as a copy
-   *  - outputs the set of inlier indices
-   */
+  //! Gets the set of known inliers as a copy
   const std::set<size_t> getKnownInlierSetCopy() const { return *known_inliers_; }
 
-  /*! \brief Gets the temp values since last optimization
-   *  - outputs last temp values as GTSAM Values
-   */
+  //! Gets the temp values since last optimization
   const gtsam::Values* getTempValues() const { return temp_values_.get(); }
 
-  /*! \brief Gets the temp values since last optimization as a copy
-   *  - outputs last temp values as GTSAM Values
-   */
+  //! Gets the temp values since last optimization as a copy
   const gtsam::Values getTempValuesCopy() const { return *temp_values_; }
 
-  /*! \brief Gets the temp factors added to the backend as a copy
-   *  - outputs the factors as a GTSAM NonlinearFactorGraph
-   */
+  //! Gets the temp factors added to the backend as a copy
   const gtsam::NonlinearFactorGraph* getTempFactors() const { return temp_nfg_.get(); }
 
-  /*! \brief Gets the temp factors added to the backend as a copy
-   *  - outputs the factors as a GTSAM NonlinearFactorGraph
-   */
+  //! Gets the temp factors added to the backend as a copy
   const gtsam::NonlinearFactorGraph getTempFactorsCopy() const { return *temp_nfg_; }
 
-  /*! \brief Gets the set of temp known inliers
-   *  - outputs the set of inlier indices
-   */
+  //! Gets the set of temp known inliers
   const std::set<size_t>* getTempKnownInlierSet() const {
     return temp_known_inliers_.get();
   }
 
-  /*! \brief Gets copy of the set of temp known inliers
-   *  - outputs the set of inlier indices
-   */
+  //! Gets copy of the set of temp known inliers
   const std::set<size_t> getTempKnownInlierSetCopy() const {
     return *temp_known_inliers_;
   }
 
-  /*! \brief Gets the inlier weights since last optimization
-   *  - outputs inlier weights as GTSAM vector
-   */
+  //! Gets the inlier weights since last optimization
   const std::vector<double>* getInlierWeights() const { return inlier_weights_.get(); }
 
-  /*! \brief Gets the temp inlier weights since last optimization
-   *  - outputs temp inlier weights as GTSAM vector
-   */
+  //! Gets the temp inlier weights since last optimization
   const std::vector<double>* getTempInlierWeights() const {
     return temp_inlier_weights_.get();
   }
 
-  /*! \brief Gets the pose graph from the backend
-   *   - timestamps: map of robot id to sequential timestamps in order to stamp
-   * the nodes in the output pose graph msg
-   *  - outputs the pose graph in pose_graph_tools::PoseGraph type
-   */
-  pose_graph_tools::PoseGraph::Ptr getPoseGraph(
-      const std::map<size_t, std::vector<Timestamp>>& timestamps,
-      bool include_deformation_edges = false,
-      bool include_between_edges = true,
-      bool optimized = true) const;
+  //! Gets the pose graph from the backend
+  pose_graph_tools::PoseGraph::Ptr getPoseGraph(bool include_deformation_edges = false,
+                                                bool include_between_edges = true,
+                                                bool optimized = true) const;
 
-  /*! \brief Get the intial pose of a keyframe node
-   */
-  inline gtsam::Pose3 getInitialPose(const char& prefix, const size_t& index) const {
+  //! Get the intial pose of a keyframe node
+  gtsam::Pose3 getInitialPose(const char& prefix, const size_t& index) const {
     return pg_initial_poses_.at(prefix).at(index);
   }
 
-  /*! \brief Get the intial position of a vertex
-   */
-  inline gtsam::Point3 getInitialPositionVertex(const char& prefix,
-                                                const size_t& index) const {
+  //! Get the intial position of a vertex
+  gtsam::Point3 getInitialPositionVertex(const char& prefix,
+                                         const size_t& index) const {
     return vertex_positions_.at(prefix).at(index);
   }
 
-  /*! \brief Get the intial positions of the vertices corresponding to prefix
-   */
-  inline std::vector<gtsam::Point3> getInitialPositionsVertices(
-      const char& prefix) const {
+  //! Get the intial positions of the vertices corresponding to prefix
+  std::vector<gtsam::Point3> getInitialPositionsVertices(const char& prefix) const {
     return vertex_positions_.at(prefix);
   }
 
-  /*! \brief Get the timestamps of the vertices corresponding to prefix
-   */
-  inline std::vector<Timestamp> getVertexStamps(const char prefix) const {
+  //! Get the timestamps of the vertices corresponding to prefix
+  std::vector<Timestamp> getVertexStamps(const char prefix) const {
     return vertex_stamps_.at(prefix);
   }
 
-  inline bool hasVertexKey(char prefix) const {
-    return vertex_positions_.count(prefix);
-  }
+  bool hasVertexKey(char prefix) const { return vertex_positions_.count(prefix); }
 
-  /*! \brief Get the observed stamp of a vertex
-   */
-  inline Timestamp getStampVertex(const char& prefix, const size_t& index) const {
+  //! Get the observed stamp of a vertex
+  Timestamp getStampVertex(const char& prefix, const size_t& index) const {
     return vertex_stamps_.at(prefix).at(index);
   }
 
-  /*! \brief Get the observed stamps of the vertices corresponding to prefix
-   */
-  inline std::vector<Timestamp> getStampVertices(const char& prefix) const {
+  //! Get the observed stamps of the vertices corresponding to prefix
+  std::vector<Timestamp> getStampVertices(const char& prefix) const {
     return vertex_stamps_.at(prefix);
   }
 
-  /*! \brief Recalculate vertices getter
-   */
-  inline bool getRecalculateVertices() { return recalculate_vertices_; }
+  //! Recalculate vertices getter
+  bool getRecalculateVertices() { return recalculate_vertices_; }
 
-  /*! \brief Recalculate vertices setter
-   */
-  inline void setRecalculateVertices() { recalculate_vertices_ = true; }
+  //! Recalculate vertices setter
+  void setRecalculateVertices() { recalculate_vertices_ = true; }
 
-  /*! \brief Clear all (everything)
-   */
-  inline void clear() {
+  //! Clear all (everything)
+  void clear() {
     nfg_->resize(0);
     temp_nfg_->resize(0);
     values_->clear();
@@ -529,25 +485,20 @@ class DeformationGraph {
     vertex_stamps_.clear();
   }
 
-  /*! \brief Clear only mesh vertices and their associated factors
-   * Preserves robot poses and pose-only factors
-   */
+  //! Clear only mesh vertices and their associated factors
   void clearMeshNodesOnly();
 
-  /*! \brief Clear the last mesh interpolation cache
-   */
+  //! Clear the last mesh interpolation cache
   void clearMeshCache() { last_calculated_vertices_.clear(); }
 
-  /*! \brief Clear all temporary values, factors, and related structures
-   */
-  inline void clearFactors() {
+  //! Clear all temporary values, factors, and related structures
+  void clearFactors() {
     nfg_->resize(0);
     temp_nfg_->resize(0);
   }
 
-  /*! \brief Clear all temporary values, factors, and related structures
-   */
-  inline void clearTemporaryStructures() {
+  //! Clear all temporary values, factors, and related structures
+  void clearTemporaryStructures() {
     temp_values_->clear();
     temp_nfg_->resize(0);
     temp_pg_initial_poses_.clear();
@@ -571,9 +522,7 @@ class DeformationGraph {
   //! Update the temp inlier weights (e.g. GNC results).
   void updateTempInlierWeights(const std::vector<double>& weights);
 
-  inline bool hasPrefixPoses(char prefix) const {
-    return pg_initial_poses_.count(prefix);
-  }
+  bool hasPrefixPoses(char prefix) const { return pg_initial_poses_.count(prefix); }
 
   template <typename Cloud>
   size_t findStartIndex(char prefix,
@@ -596,7 +545,7 @@ class DeformationGraph {
                        char prefix,
                        size_t start_index);
 
-  inline std::unique_lock<std::mutex> acquireLock() {
+  std::unique_lock<std::mutex> acquireLock() {
     return std::unique_lock<std::mutex>(mutex_);
   }
 
@@ -647,31 +596,6 @@ class DeformationGraph {
                 bool temp = false,
                 bool known_inlier = false);
 
-  bool tryConvertFactorToPriorEdge(
-      gtsam::NonlinearFactor* factor,
-      const std::map<size_t, std::vector<Timestamp>>& timestamps,
-      int factor_idx,
-      pose_graph_tools::PoseGraphEdge& edge) const;
-
-  bool tryConvertFactorToBetweenEdge(
-      gtsam::NonlinearFactor* factor,
-      const std::map<size_t, std::vector<Timestamp>>& timestamps,
-      int factor_idx,
-      pose_graph_tools::PoseGraphEdge& edge) const;
-
-  bool tryConvertFactorToDeformationEdge(gtsam::NonlinearFactor* factor,
-                                         pose_graph_tools::PoseGraphEdge& edge) const;
-
-  bool tryConvertKeyToPoseNode(
-      const gtsam::Key& key,
-      const std::map<size_t, std::vector<Timestamp>>& timestamps,
-      pose_graph_tools::PoseGraphNode& node,
-      bool optimized = true) const;
-
-  bool tryConvertKeyToMeshNode(const gtsam::Key& key,
-                               pose_graph_tools::PoseGraphNode& node,
-                               bool optimized = true) const;
-
   size_t getRemappedId(const std::map<size_t, size_t>& remap, size_t original) const;
 
   bool checkAdjacency(gtsam::Key from, gtsam::Key to) const;
@@ -693,11 +617,11 @@ class DeformationGraph {
 
   // Keep track of vertices not part of mesh
   // for embedding trajectory, etc.
-  std::map<char, std::vector<gtsam::Pose3>> pg_initial_poses_;
+  RobotPoseMap pg_initial_poses_;
   std::unordered_map<gtsam::Key, gtsam::Pose3> temp_pg_initial_poses_;
 
-  std::map<char, std::vector<gtsam::Point3>> vertex_positions_;
-  std::map<char, std::vector<Timestamp>> vertex_stamps_;
+  VertexPositions vertex_positions_;
+  VertexStamps vertex_stamps_;
 
   // factors
   std::shared_ptr<gtsam::NonlinearFactorGraph> nfg_;
