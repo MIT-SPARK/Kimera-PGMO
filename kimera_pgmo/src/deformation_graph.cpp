@@ -22,6 +22,9 @@
 
 namespace kimera_pgmo {
 
+using VertexStamps = DeformationGraph::VertexStamps;
+using VertexPositions = DeformationGraph::VertexPositions;
+using RobotPoseMap = DeformationGraph::RobotPoseMap;
 using MeasurementVector = std::vector<std::pair<gtsam::Key, gtsam::Pose3>>;
 using RobotTimestampMap = std::map<size_t, std::vector<Timestamp>>;
 using pose_graph_tools::PoseGraph;
@@ -30,6 +33,214 @@ using pose_graph_tools::PoseGraphNode;
 using PoseBetween = gtsam::BetweenFactor<gtsam::Pose3>;
 using PosePrior = gtsam::PriorFactor<gtsam::Pose3>;
 using EdgeType = pose_graph_tools::PoseGraphEdge::Type;
+
+namespace {
+
+template <typename FactorT>
+const gtsam::noiseModel::Gaussian* factorNoise(const FactorT& factor) {
+  return dynamic_cast<const gtsam::noiseModel::Gaussian*>(factor.noiseModel().get());
+}
+
+inline std::optional<uint64_t> maybeGetTimestamp(const RobotTimestampMap& timestamps,
+                                                 int32_t robot,
+                                                 uint64_t key) {
+  auto riter = timestamps.find(robot);
+  if (riter == timestamps.end()) {
+    return std::nullopt;
+  }
+
+  if (key >= riter->second.size()) {
+    return std::nullopt;
+  }
+
+  return riter->second[key];
+}
+
+inline bool isOutlier(const std::vector<double>* inlier_weights, int factor_idx) {
+  if (!inlier_weights) {
+    return false;
+  }
+
+  if (factor_idx < 0 || static_cast<size_t>(factor_idx) >= inlier_weights->size()) {
+    return false;
+  }
+
+  return inlier_weights->at(factor_idx) < 0.5;
+}
+
+inline bool factorToDeformationEdge(const gtsam::NonlinearFactor* factor,
+                                    const VertexStamps& vertex_stamps,
+                                    PoseGraphEdge& edge) {
+  // check if deformation edge factor
+  const auto factor_ptr = dynamic_cast<const DeformationEdgeFactor*>(factor);
+  if (!factor_ptr) {
+    return false;
+  }
+
+  const gtsam::Symbol front(factor_ptr->front());
+  const gtsam::Symbol back(factor_ptr->back());
+  edge.key_from = front.index();
+  edge.key_to = back.index();
+
+  if (vertex_prefix_to_id.count(front.chr()) && vertex_prefix_to_id.count(back.chr())) {
+    edge.type = EdgeType::MESH;
+    edge.robot_from = vertex_prefix_to_id.at(front.chr());
+    edge.robot_to = vertex_prefix_to_id.at(back.chr());
+    edge.stamp_ns = vertex_stamps.at(front.chr()).at(front.index());
+  } else if (vertex_prefix_to_id.count(front.chr())) {
+    edge.type = EdgeType::MESH_POSE;
+    edge.robot_from = vertex_prefix_to_id.at(front.chr());
+    edge.robot_to = robot_prefix_to_id.at(back.chr());
+    edge.stamp_ns = vertex_stamps.at(front.chr()).at(front.index());
+  } else if (vertex_prefix_to_id.count(back.chr())) {
+    edge.type = EdgeType::POSE_MESH;
+    edge.robot_from = robot_prefix_to_id.at(front.chr());
+    edge.robot_to = vertex_prefix_to_id.at(back.chr());
+    edge.stamp_ns = vertex_stamps.at(back.chr()).at(back.index());
+  } else {
+    return false;
+  }
+
+  edge.pose = gtsam::Pose3(gtsam::Rot3(), factor_ptr->measurement()).matrix();
+  const auto noise_model = factorNoise(*factor_ptr);
+  if (noise_model) {
+    edge.covariance.block(3, 3, 3, 3) = noise_model->covariance();
+  }
+
+  return true;
+}
+
+inline bool factorToPrior(const gtsam::NonlinearFactor* factor,
+                          const RobotTimestampMap& timestamps,
+                          const std::vector<double>* inlier_weights,
+                          int factor_idx,
+                          PoseGraphEdge& edge) {
+  // check if prior factor
+  const auto factor_ptr = dynamic_cast<const PosePrior*>(factor);
+  if (!factor_ptr) {
+    return false;
+  }
+
+  const gtsam::Symbol key(factor_ptr->key());
+  if (!robot_prefix_to_id.count(key.chr())) {
+    return false;
+  }
+
+  edge.key_from = key.index();
+  edge.key_to = key.index();
+  edge.robot_from = robot_prefix_to_id.at(key.chr());
+  edge.robot_to = robot_prefix_to_id.at(key.chr());
+  const auto stamp_ns = maybeGetTimestamp(timestamps, edge.robot_to, edge.key_to);
+  if (stamp_ns) {
+    edge.stamp_ns = *stamp_ns;
+  }
+
+  edge.type = isOutlier(inlier_weights, factor_idx) ? EdgeType::REJECTED_PRIOR
+                                                    : EdgeType::PRIOR;
+  edge.pose = factor_ptr->prior().matrix();
+  const auto noise_model = factorNoise(*factor_ptr);
+  if (noise_model) {
+    edge.covariance = noise_model->covariance();
+  }
+
+  return true;
+}
+
+inline bool factorToBetween(const gtsam::NonlinearFactor* factor,
+                            const RobotTimestampMap& timestamps,
+                            const std::vector<double>* inlier_weights,
+                            int factor_idx,
+                            PoseGraphEdge& edge) {
+  // check if between factor
+  const auto factor_ptr = dynamic_cast<const PoseBetween*>(factor);
+  if (!factor_ptr) {
+    return false;
+  }
+
+  const gtsam::Symbol front(factor_ptr->front());
+  const gtsam::Symbol back(factor_ptr->back());
+  edge.key_from = front.index();
+  edge.key_to = back.index();
+  edge.robot_from = robot_prefix_to_id.at(front.chr());
+  edge.robot_to = robot_prefix_to_id.at(back.chr());
+  const auto stamp_ns = maybeGetTimestamp(timestamps, edge.robot_to, edge.key_to);
+  if (stamp_ns) {
+    edge.stamp_ns = *stamp_ns;
+  }
+
+  bool same_robot = edge.robot_from == edge.robot_to;
+  if (same_robot && edge.key_to == edge.key_from + 1) {
+    edge.type = EdgeType::ODOM;
+  } else {
+    edge.type = isOutlier(inlier_weights, factor_idx) ? EdgeType::REJECTED_LOOPCLOSE
+                                                      : EdgeType::LOOPCLOSE;
+  }
+
+  edge.pose = factor_ptr->measured().matrix();
+  const auto noise_model = factorNoise(*factor_ptr);
+  if (noise_model) {
+    edge.covariance = noise_model->covariance();
+  }
+
+  return true;
+}
+
+inline bool valueToPoseNode(const gtsam::Key& key,
+                            const gtsam::Values& values,
+                            const RobotTimestampMap& timestamps,
+                            const RobotPoseMap& initial_poses,
+                            PoseGraphNode& node,
+                            bool optimized) {
+  const gtsam::Symbol node_symb(key);
+  if (!robot_prefix_to_id.count(node_symb.chr())) {
+    return false;
+  }
+
+  const size_t robot_id = robot_prefix_to_id.at(node_symb.chr());
+  node.key = node_symb.index();
+  node.robot_id = robot_id;
+  const auto stamp_ns = maybeGetTimestamp(timestamps, node.robot_id, node.key);
+  if (stamp_ns) {
+    node.stamp_ns = *stamp_ns;
+  } else {
+    SPARK_LOG(WARNING) << "Invalid timestamp for (robot=" << node.robot_id
+                       << ", pose=" << node.key << ")!";
+  }
+
+  if (optimized) {
+    node.pose = values.at<gtsam::Pose3>(key).matrix();
+  } else {
+    node.pose = initial_poses.at(node_symb.chr()).at(node_symb.index()).matrix();
+  }
+  return true;
+}
+
+inline bool valueToMeshNode(const gtsam::Key& key,
+                            const gtsam::Values& values,
+                            const VertexPositions& vertex_positions,
+                            const VertexStamps& vertex_stamps,
+                            PoseGraphNode& node,
+                            bool optimized) {
+  const gtsam::Symbol node_symb(key);
+  if (!vertex_prefix_to_id.count(node_symb.chr())) {
+    return false;
+  }
+
+  const size_t robot_id = vertex_prefix_to_id.at(node_symb.chr());
+  node.key = node_symb.index();
+  node.robot_id = robot_id;
+  node.stamp_ns = vertex_stamps.at(node_symb.chr()).at(node_symb.index());
+  if (optimized) {
+    node.pose = values.at<gtsam::Pose3>(key).matrix();
+  } else {
+    const auto pos = vertex_positions.at(node_symb.chr()).at(node_symb.index());
+    node.pose = gtsam::Pose3(gtsam::Rot3(), pos).matrix();
+  }
+
+  return true;
+}
+
+}  // namespace
 
 DeformationGraph::DeformationGraph(bool add_init_vertex_prior)
     : add_init_vertex_prior_(add_init_vertex_prior),
@@ -760,183 +971,6 @@ std::vector<gtsam::Pose3> DeformationGraph::getTrajectory(char prefix) const {
   return traj;
 }
 
-std::optional<uint64_t> maybeGetTimestamp(const RobotTimestampMap& timestamps,
-                                          int32_t robot,
-                                          uint64_t key) {
-  auto riter = timestamps.find(robot);
-  if (riter == timestamps.end()) {
-    return std::nullopt;
-  }
-
-  if (key >= riter->second.size()) {
-    return std::nullopt;
-  }
-
-  return riter->second[key];
-}
-
-bool DeformationGraph::tryConvertFactorToPriorEdge(gtsam::NonlinearFactor* factor,
-                                                   const RobotTimestampMap& timestamps,
-                                                   int factor_idx,
-                                                   PoseGraphEdge& edge) const {
-  // check if prior factor
-  const auto factor_ptr = dynamic_cast<const PosePrior*>(factor);
-  if (!factor_ptr) {
-    return false;
-  }
-
-  const gtsam::Symbol key(factor_ptr->key());
-  if (!robot_prefix_to_id.count(key.chr())) {
-    return false;
-  }
-
-  edge.key_from = key.index();
-  edge.key_to = key.index();
-  edge.robot_from = robot_prefix_to_id.at(key.chr());
-  edge.robot_to = robot_prefix_to_id.at(key.chr());
-  const auto stamp_ns = maybeGetTimestamp(timestamps, edge.robot_to, edge.key_to);
-  if (stamp_ns) {
-    edge.stamp_ns = *stamp_ns;
-  }
-
-  edge.pose = factor_ptr->prior().matrix();
-  if (!inlier_weights_) {
-    // If no inlier weights assume no outlier rejection
-    edge.type = EdgeType::PRIOR;
-  } else {
-    if (factor_idx >= 0 && inlier_weights_->size() > static_cast<size_t>(factor_idx) &&
-        inlier_weights_->at(factor_idx) < 0.5) {
-      edge.type = EdgeType::REJECTED_PRIOR;
-    } else {
-      edge.type = EdgeType::PRIOR;
-    }
-  }
-
-  const auto noise_model =
-      dynamic_cast<const gtsam::noiseModel::Gaussian*>(factor_ptr->noiseModel().get());
-  if (noise_model) {
-    edge.covariance = noise_model->covariance();
-  }
-  return true;
-}
-
-bool DeformationGraph::tryConvertFactorToBetweenEdge(
-    gtsam::NonlinearFactor* factor,
-    const RobotTimestampMap& timestamps,
-    int factor_idx,
-    PoseGraphEdge& edge) const {
-  // check if between factor
-  const auto factor_ptr = dynamic_cast<const PoseBetween*>(factor);
-  if (!factor_ptr) {
-    return false;
-  }
-
-  const gtsam::Symbol front(factor_ptr->front());
-  const gtsam::Symbol back(factor_ptr->back());
-  edge.key_from = front.index();
-  edge.key_to = back.index();
-  edge.robot_from = robot_prefix_to_id.at(front.chr());
-  edge.robot_to = robot_prefix_to_id.at(back.chr());
-  const auto stamp_ns = maybeGetTimestamp(timestamps, edge.robot_to, edge.key_to);
-  if (stamp_ns) {
-    edge.stamp_ns = *stamp_ns;
-  }
-
-  bool same_robot = edge.robot_from == edge.robot_to;
-  if (same_robot && edge.key_to == edge.key_from + 1) {
-    edge.type = EdgeType::ODOM;
-  } else {
-    if (!inlier_weights_) {
-      // If no inlier weights assume no outlier rejection
-      edge.type = EdgeType::LOOPCLOSE;
-    } else {
-      if (factor_idx >= 0 &&
-          inlier_weights_->size() > static_cast<size_t>(factor_idx) &&
-          inlier_weights_->at(factor_idx) < 0.5) {
-        edge.type = EdgeType::REJECTED_LOOPCLOSE;
-      } else {
-        edge.type = EdgeType::LOOPCLOSE;
-      }
-    }
-  }
-
-  edge.pose = factor_ptr->measured().matrix();
-
-  const auto noise_model =
-      dynamic_cast<const gtsam::noiseModel::Gaussian*>(factor_ptr->noiseModel().get());
-  if (noise_model) {
-    edge.covariance = noise_model->covariance();
-  }
-  return true;
-}
-
-bool DeformationGraph::tryConvertFactorToDeformationEdge(gtsam::NonlinearFactor* factor,
-                                                         PoseGraphEdge& edge) const {
-  // check if deformation edge factor
-  const auto factor_ptr = dynamic_cast<const DeformationEdgeFactor*>(factor);
-  if (!factor_ptr) {
-    return false;
-  }
-
-  const gtsam::Symbol front(factor_ptr->front());
-  const gtsam::Symbol back(factor_ptr->back());
-  edge.key_from = front.index();
-  edge.key_to = back.index();
-
-  if (vertex_prefix_to_id.count(front.chr()) && vertex_prefix_to_id.count(back.chr())) {
-    edge.type = EdgeType::MESH;
-    edge.robot_from = vertex_prefix_to_id.at(front.chr());
-    edge.robot_to = vertex_prefix_to_id.at(back.chr());
-    edge.stamp_ns = vertex_stamps_.at(front.chr()).at(front.index());
-  } else if (vertex_prefix_to_id.count(front.chr())) {
-    edge.type = EdgeType::MESH_POSE;
-    edge.robot_from = vertex_prefix_to_id.at(front.chr());
-    edge.robot_to = robot_prefix_to_id.at(back.chr());
-    edge.stamp_ns = vertex_stamps_.at(front.chr()).at(front.index());
-  } else if (vertex_prefix_to_id.count(back.chr())) {
-    edge.type = EdgeType::POSE_MESH;
-    edge.robot_from = robot_prefix_to_id.at(front.chr());
-    edge.robot_to = vertex_prefix_to_id.at(back.chr());
-    edge.stamp_ns = vertex_stamps_.at(back.chr()).at(back.index());
-  } else {
-    return false;
-  }
-  edge.pose = gtsam::Pose3(gtsam::Rot3(), factor_ptr->measurement()).matrix();
-
-  const auto noise_model =
-      dynamic_cast<const gtsam::noiseModel::Gaussian*>(factor_ptr->noiseModel().get());
-  if (noise_model) {
-    edge.covariance.block(3, 3, 3, 3) = noise_model->covariance();
-  }
-
-  return true;
-}
-
-bool DeformationGraph::tryConvertKeyToPoseNode(const gtsam::Key& key,
-                                               const RobotTimestampMap& timestamps,
-                                               PoseGraphNode& node,
-                                               bool optimized) const {
-  gtsam::Symbol node_symb(key);
-  if (!robot_prefix_to_id.count(node_symb.chr())) {
-    return false;
-  }
-
-  const size_t robot_id = robot_prefix_to_id.at(node_symb.chr());
-  node.key = node_symb.index();
-  node.robot_id = robot_id;
-  const auto stamp_ns = maybeGetTimestamp(timestamps, node.robot_id, node.key);
-  if (stamp_ns) {
-    node.stamp_ns = *stamp_ns;
-  } else {
-    SPARK_LOG(WARNING) << "Invalid timestamp for (robot=" << node.robot_id
-                       << ", pose=" << node.key << ")!";
-  }
-  node.pose =
-      optimized ? values_->at<gtsam::Pose3>(key).matrix()
-                : pg_initial_poses_.at(node_symb.chr()).at(node_symb.index()).matrix();
-  return true;
-}
-
 size_t DeformationGraph::getRemappedId(const std::map<size_t, size_t>& remap,
                                        size_t original) const {
   const auto iter = remap.find(original);
@@ -954,30 +988,7 @@ bool DeformationGraph::checkAdjacency(gtsam::Key from, gtsam::Key to) const {
   return true;
 }
 
-bool DeformationGraph::tryConvertKeyToMeshNode(const gtsam::Key& key,
-                                               PoseGraphNode& node,
-                                               bool optimized) const {
-  gtsam::Symbol node_symb(key);
-
-  if (!vertex_prefix_to_id.count(node_symb.chr())) {
-    return false;
-  }
-
-  const size_t robot_id = vertex_prefix_to_id.at(node_symb.chr());
-  node.key = node_symb.index();
-  node.robot_id = robot_id;
-  node.stamp_ns = vertex_stamps_.at(node_symb.chr()).at(node_symb.index());
-  node.pose =
-      optimized
-          ? values_->at<gtsam::Pose3>(key).matrix()
-          : gtsam::Pose3(gtsam::Rot3(),
-                         vertex_positions_.at(node_symb.chr()).at(node_symb.index()))
-                .matrix();
-  return true;
-}
-
-PoseGraph::Ptr DeformationGraph::getPoseGraph(const RobotTimestampMap& timestamps,
-                                              bool include_deformation_edges,
+PoseGraph::Ptr DeformationGraph::getPoseGraph(bool include_deformation_edges,
                                               bool include_between_edges,
                                               bool optimized) const {
   auto graph = std::make_shared<PoseGraph>();
