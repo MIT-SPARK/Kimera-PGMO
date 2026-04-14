@@ -905,8 +905,7 @@ TEST(TestDeformationGraph, processMeshGraph) {
   SetUpDeformationGraph(&graph);
 
   // Construct mesh graph
-  std::map<size_t, std::vector<Timestamp>> timestamps;
-  auto mesh_graph = graph.getPoseGraph(timestamps, true, false);
+  auto mesh_graph = graph.getPoseGraph(true, false);
 
   // Create variance mapping
   std::map<pose_graph_tools::PoseGraphEdge::Type, double> variance_map;
@@ -947,10 +946,8 @@ TEST(TestDeformationGraph, processPoseMeshGraph) {
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)));
 
   // Construct mesh graph
-  std::map<size_t, std::vector<Timestamp>> timestamps;
-  timestamps[0] = {static_cast<uint64_t>(1e+9), static_cast<uint64_t>(2e+9)};
-  auto pose_graph = graph.getPoseGraph(timestamps, false, true);
-  auto mesh_graph = graph.getPoseGraph(timestamps, true, false);
+  auto pose_graph = graph.getPoseGraph(false, true);
+  auto mesh_graph = graph.getPoseGraph(true, false);
 
   // Create variance mapping
   std::map<pose_graph_tools::PoseGraphEdge::Type, double> variance_map;
