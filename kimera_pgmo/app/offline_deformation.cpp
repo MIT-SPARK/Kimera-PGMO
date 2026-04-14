@@ -28,7 +28,7 @@ class OfflineDeformation {
   OfflineDeformation(const OfflineDeformationConfig& config)
       : config_(config),
         pgo_(config.optimizer.create()),
-        deformation_graph_(DeformationGraph::loadFromFile(config.log_path)) {
+        deformation_graph_(DeformationGraph::load(config.log_path)) {
     std::cout << "[OfflineDeformation] Initialized with:\n"
               << config::toString(config) << std::endl;
     pgo_->setLogPath(config.log_path);

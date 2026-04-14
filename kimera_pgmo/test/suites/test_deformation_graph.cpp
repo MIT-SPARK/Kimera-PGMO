@@ -839,7 +839,7 @@ TEST(TestDeformationGraph, saveAndLoad) {
   EXPECT_EQ(2u, temp_values->size());
   const std::filesystem::path dgraph_path(std::string(DATASET_PATH) + "/graph.json");
   graph.save(dgraph_path);
-  auto new_graph = DeformationGraph::loadFromFile(dgraph_path);
+  auto new_graph = DeformationGraph::load(dgraph_path);
   ASSERT_TRUE(new_graph);
 
   values = new_graph->getValues();
