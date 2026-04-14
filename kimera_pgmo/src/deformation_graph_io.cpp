@@ -199,9 +199,8 @@ void save_factor_graph(json& graph_record, const gtsam::NonlinearFactorGraph& gr
   }
 }
 
-template <int Dims>
 gtsam::SharedNoiseModel load_noise(const json& factor) {
-  const auto info = factor.at("information").get<Eigen::Matrix<double, Dims, Dims>>();
+  const auto info = factor.at("information").get<Eigen::MatrixXd>();
   return gtsam::noiseModel::Gaussian::Information(info);
 }
 
@@ -215,7 +214,7 @@ void add_factor(const json& factor,
     const auto key1 = get_mapped_key(factor, "key1", set_robot_id, new_robot_id);
     const auto key2 = get_mapped_key(factor, "key2", set_robot_id, new_robot_id);
     const auto pose = factor.at("measurement").get<gtsam::Pose3>();
-    const auto noise = load_noise<6>(factor);
+    const auto noise = load_noise(factor);
     graph.add(gtsam::BetweenFactor<gtsam::Pose3>(key1, key2, pose, noise));
     return;
   }
@@ -224,7 +223,7 @@ void add_factor(const json& factor,
     const auto key1 = get_mapped_key(factor, "key1", set_robot_id, new_robot_id);
     const auto key2 = get_mapped_key(factor, "key2", set_robot_id, new_robot_id);
     const auto point = factor.at("measurement").get<gtsam::Point3>();
-    const auto noise = load_noise<3>(factor);
+    const auto noise = load_noise(factor);
     graph.add(DeformationEdgeFactor(key1, key2, point, noise));
     return;
   }
@@ -236,11 +235,12 @@ void add_factor(const json& factor,
 
     const auto key = get_mapped_key(factor, "key", set_robot_id, new_robot_id);
     const auto prior = factor.at("measurement").get<gtsam::Pose3>();
-    const auto noise = load_noise<6>(factor);
+    const auto noise = load_noise(factor);
     graph.add(gtsam::PriorFactor<gtsam::Pose3>(key, prior, noise));
+    return;
   }
 
-  throw std::domain_error("unknown factor type " + type);
+  throw std::domain_error("unknown factor type '" + type + "'");
 }
 
 void DeformationGraph::save(const std::string& filename) const {
@@ -272,7 +272,7 @@ void DeformationGraph::save(const std::string& filename) const {
   // save the initial positions and timestamps of the mesh vertices
   root["vertices"] = json::object();
   for (const auto& [prefix, vertices] : vertex_positions_) {
-    auto& record = root["vertices"][std::to_string(prefix)];
+    auto& record = root["vertices"][std::string(1, prefix)];
     record["pos"] = vertices;
     record["stamps"] = vertex_stamps_.at(prefix);
   }
@@ -364,7 +364,7 @@ DeformationGraph::Ptr DeformationGraph::loadFromJson(const fs::path& filepath,
     graph->temp_pg_initial_poses_[key] = pose;
   }
 
-  for (const auto& factor : data.at("tem_factors")) {
+  for (const auto& factor : data.at("temp_factors")) {
     add_factor(factor, *graph->temp_nfg_, set_robot_id, new_robot_id, include_priors);
   }
 
@@ -513,7 +513,7 @@ DeformationGraph::Ptr DeformationGraph::loadFromDgrf(
         graph->vertex_positions_[vertex_prefix] = std::vector<gtsam::Point3>{};
         graph->vertex_stamps_[vertex_prefix] = std::vector<Timestamp>{};
       }
-      assert(vertex_index == vertex_positions_[vertex_prefix].size());
+
       graph->vertex_positions_[vertex_prefix].push_back(gtsam::Point3(x, y, z));
       graph->vertex_stamps_[vertex_prefix].push_back(n_sec);
     } else {
