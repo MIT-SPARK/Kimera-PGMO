@@ -362,9 +362,10 @@ TEST(TestDeformationGraph, updateMesh) {
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor.measurement()));
 
   std::vector<uint64_t> new_node_valences{0, 2};
-  graph.processNewNode(gtsam::Symbol('a', 0),
-                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
-                       false);
+  graph.addNewNode(gtsam::Symbol('a', 0),
+                   0,
+                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
+                   false);
   graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
 
   // Check that the factors are added correctly
@@ -380,9 +381,10 @@ TEST(TestDeformationGraph, updateMesh) {
   EXPECT_EQ(gtsam::Symbol('v', 0).key(), factor6.back());
 
   std::vector<uint64_t> new_node_valences_2{2};
-  graph.processNewNode(gtsam::Symbol('a', 1),
-                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
-                       false);
+  graph.addNewNode(gtsam::Symbol('a', 1),
+                   0,
+                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
+                   false);
   graph.processNewBetween(
       gtsam::Symbol('a', 0),
       gtsam::Symbol('a', 1),
@@ -415,12 +417,14 @@ TEST(TestDeformationGraph, addNodeMeasurements) {
   }
 
   std::vector<uint64_t> new_node_valences{0, 2};
-  graph.processNewNode(gtsam::Symbol('a', 0),
-                       gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)),
-                       false);
-  graph.processNewNode(gtsam::Symbol('a', 1),
-                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
-                       false);
+  graph.addNewNode(gtsam::Symbol('a', 0),
+                   0,
+                   gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)),
+                   false);
+  graph.addNewNode(gtsam::Symbol('a', 1),
+                   0,
+                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
+                   false);
   graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
 
   // Check factors added
@@ -471,9 +475,10 @@ TEST(TestDeformationGraph, removePriorsWithPrefix) {
   }
 
   std::vector<uint64_t> new_node_valences{0, 2};
-  graph.processNewNode(gtsam::Symbol('a', 0),
-                       gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)),
-                       false);
+  graph.addNewNode(gtsam::Symbol('a', 0),
+                   0,
+                   gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)),
+                   false);
   graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
 
   // Add node measurement
@@ -540,11 +545,14 @@ TEST(TestDeformationGraph, processNewBetween) {
   SetUpOriginalMesh(original_mesh, &original_mesh_stamps, &original_mesh_inds);
 
   std::vector<uint64_t> new_node_valences{0, 2};
-  graph.processNewNode(
-      gtsam::Symbol('a', 0), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), true);
-  graph.processNewNode(gtsam::Symbol('a', 1),
-                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
-                       false);
+  graph.addNewNode(gtsam::Symbol('a', 0),
+                   0,
+                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
+                   true);
+  graph.addNewNode(gtsam::Symbol('a', 1),
+                   0,
+                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
+                   false);
   graph.processNewBetween(gtsam::Symbol('a', 0),
                           gtsam::Symbol('a', 1),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)));
@@ -581,9 +589,10 @@ TEST(TestDeformationGraph, processNewBetween) {
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
                                   traj[1]));
 
-  graph.processNewNode(gtsam::Symbol('a', 2),
-                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)),
-                       false);
+  graph.addNewNode(gtsam::Symbol('a', 2),
+                   0,
+                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)),
+                   false);
   graph.processNewBetween(gtsam::Symbol('a', 1),
                           gtsam::Symbol('a', 2),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)));
@@ -628,19 +637,23 @@ TEST(TestDeformationGraph, addTemporary) {
   SetUpDeformationGraph(&graph);
 
   std::vector<uint64_t> new_node_valences{0, 2};
-  graph.processNewNode(
-      gtsam::Symbol('a', 0), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), true);
-  graph.processNewNode(gtsam::Symbol('a', 1),
-                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
-                       false);
+  graph.addNewNode(gtsam::Symbol('a', 0),
+                   0,
+                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
+                   true);
+  graph.addNewNode(gtsam::Symbol('a', 1),
+                   0,
+                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
+                   false);
   graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
   graph.processNewBetween(gtsam::Symbol('a', 0),
                           gtsam::Symbol('a', 1),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)));
 
-  graph.processNewNode(gtsam::Symbol('a', 2),
-                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)),
-                       false);
+  graph.addNewNode(gtsam::Symbol('a', 2),
+                   0,
+                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)),
+                   false);
   graph.processNewBetween(gtsam::Symbol('a', 1),
                           gtsam::Symbol('a', 2),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)));
@@ -795,20 +808,24 @@ TEST(TestDeformationGraph, saveAndLoad) {
   SetUpDeformationGraph(&graph);
 
   std::vector<uint64_t> new_node_valences{0, 2};
-  graph.processNewNode(
-      gtsam::Symbol('a', 0), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), true);
+  graph.addNewNode(gtsam::Symbol('a', 0),
+                   0,
+                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
+                   true);
   graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
 
-  graph.processNewNode(gtsam::Symbol('a', 1),
-                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
-                       false);
+  graph.addNewNode(gtsam::Symbol('a', 1),
+                   0,
+                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
+                   false);
   graph.processNewBetween(gtsam::Symbol('a', 0),
                           gtsam::Symbol('a', 1),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)));
 
-  graph.processNewNode(gtsam::Symbol('a', 2),
-                       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)),
-                       false);
+  graph.addNewNode(gtsam::Symbol('a', 2),
+                   0,
+                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)),
+                   false);
   graph.processNewBetween(gtsam::Symbol('a', 1),
                           gtsam::Symbol('a', 2),
                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)));
@@ -938,8 +955,10 @@ TEST(TestDeformationGraph, processPoseMeshGraph) {
   SetUpOriginalMesh(original_mesh, &original_mesh_stamps, &original_mesh_inds);
 
   std::vector<uint64_t> new_node_valences{0, 2};
-  graph.processNewNode(
-      gtsam::Symbol('a', 0), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), true);
+  graph.addNewNode(gtsam::Symbol('a', 0),
+                   0,
+                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
+                   true);
   graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
   graph.processNewBetween(gtsam::Symbol('a', 0),
                           gtsam::Symbol('a', 1),

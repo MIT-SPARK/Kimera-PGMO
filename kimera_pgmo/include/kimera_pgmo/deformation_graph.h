@@ -166,17 +166,6 @@ class DeformationGraph {
   void processNodeMeasurements(const NodeMeasurements& measurements,
                                double variance = 1e-4);
 
-  /*! \brief Initialize with new node of a trajectory
-   *  - key: Key of first node in new trajectory
-   *  - initial_pose: Initial measurement of first node
-   *  - add_prior: boolean - add a Prior Factor or not
-   *  - prior_variance: covariance of the prior
-   */
-  void processNewNode(gtsam::Key key,
-                      const gtsam::Pose3& initial_pose,
-                      bool add_prior,
-                      double prior_variance = 1e-8);
-
   /*! \brief Initialize with new node of a trajectory, but keep it temporary
    *  - key: Key of first node in new trajectory
    *  - initial_pose: Initial measurement of first node
@@ -204,8 +193,8 @@ class DeformationGraph {
    *  - key_to: Key of back node to connect between factor
    *  - meas: Measurement of between (odom) factor
    */
-  void updatePoseGraphInitialGuess(const gtsam::Key& key_from,
-                                   const gtsam::Key& key_to,
+  void updatePoseGraphInitialGuess(gtsam::Key key_from,
+                                   gtsam::Key key_to,
                                    const gtsam::Pose3& meas);
 
   /*! \brief Add a new temporary between factor to the deformation graph
@@ -214,8 +203,8 @@ class DeformationGraph {
    *  - meas: Measurement of between factor
    *  - variance: covariance on the temporary between factor
    */
-  void processNewTempBetween(const gtsam::Key& key_from,
-                             const gtsam::Key& key_to,
+  void processNewTempBetween(gtsam::Key key_from,
+                             gtsam::Key key_to,
                              const gtsam::Pose3& meas,
                              double variance = 1e-4);
 
@@ -252,6 +241,20 @@ class DeformationGraph {
                                    std::vector<size_t>* added_indices,
                                    std::vector<Timestamp>* added_index_stamps,
                                    double variance = 1e-4);
+
+  /**
+   * Add a new pose node to the deformation graph
+   * @param key Key of pose node
+   * @param stamp Timestamp of pose node
+   * @param initial_pose Original pose of pose node
+   * @param add_prior Add prior factor for pose
+   * @param prior_variance Variance for prior factor
+   */
+  bool addNewNode(gtsam::Key key,
+                  Timestamp stamp,
+                  const gtsam::Pose3& initial_pose,
+                  bool add_prior = false,
+                  double prior_variance = 1.0e-8);
 
   /*! \brief Remove sll prior factors of nodes that have given prefix
    *  - prefix: prefix of nodes to remove prior
@@ -527,10 +530,6 @@ class DeformationGraph {
   bool checkNewMeshNode(const gtsam::Key& node_key) const;
 
   bool checkNewMeshEdge(const gtsam::Key& from, const gtsam::Key& to) const;
-
-  bool checkNewNode(const gtsam::Key& key) const;
-
-  void addNewNode(const gtsam::Key& key, const gtsam::Pose3& initial_pose);
 
   void addNewTempNode(const gtsam::Key& key, const gtsam::Pose3& initial_pose);
 
