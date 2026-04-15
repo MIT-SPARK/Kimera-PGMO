@@ -168,8 +168,11 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
     const gtsam::Symbol key_symb(GetRobotPrefix(robot_id), 0);
     const gtsam::Pose3 init_pose(init_node.pose.matrix());
     if (config_.mode != RunMode::MESH_ONLY) {
-      deformation_graph_->processNewNode(
-          key_symb, init_pose, config_.b_add_initial_prior, config_.prior_variance);
+      deformation_graph_->addNewNode(key_symb,
+                                     init_node.stamp_ns,
+                                     init_pose,
+                                     config_.b_add_initial_prior,
+                                     config_.prior_variance);
     }
 
     keyed_stamps_.insert({key_symb, init_node.stamp_ns});
