@@ -3,11 +3,8 @@
 #include <config_utilities/printing.h>
 #include <config_utilities/validation.h>
 #include <config_utilities/virtual_config.h>
-#include <glog/logging.h>
 #include <kimera_pgmo/deformation_graph.h>
 #include <kimera_pgmo/optimizer/kimera_rpgo_optimizer.h>
-
-#include <filesystem>
 
 namespace kimera_pgmo {
 
@@ -32,10 +29,11 @@ class OfflineDeformation {
       : config_(config),
         pgo_(config.optimizer.create()),
         deformation_graph_(new DeformationGraph) {
-    LOG(INFO) << "[OfflineDeformation] Initialized with:\n" << config::toString(config);
+    std::cout << "[OfflineDeformation] Initialized with:\n"
+              << config::toString(config) << std::endl;
     pgo_->setLogPath(config.log_path);
     deformation_graph_->load(config.dgrf_file);
-    LOG(INFO) << "Loaded " << config.dgrf_file;
+    std::cout << "Loaded " << config.dgrf_file << std::endl;
   }
 
   void run() {
@@ -55,7 +53,8 @@ class OfflineDeformation {
     deformation_graph_->updateTempInlierWeights(temp_inlier_weights);
     if (!config_.log_path.empty()) {
       deformation_graph_->save(config_.log_path);
-      LOG(INFO) << "Saved deformation optimization result to " << config_.log_path;
+      std::cout << "Saved deformation optimization result to " << config_.log_path
+                << std::endl;
     }
   }
 

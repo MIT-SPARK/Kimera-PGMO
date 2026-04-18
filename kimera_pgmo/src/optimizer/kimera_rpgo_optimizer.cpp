@@ -3,7 +3,6 @@
 #include <config_utilities/config.h>
 #include <config_utilities/types/enum.h>
 #include <config_utilities/validation.h>
-#include <glog/logging.h>
 
 #include <algorithm>
 #include <iomanip>
@@ -180,7 +179,7 @@ void KimeraRpgoOptimizer::update(const Factors& factors,
     ss << std::string(80, '=') << "\n";
   }
 
-  LOG(INFO) << ss.str();
+  SPARK_LOG(INFO) << ss.str();
 
   if (!log_path_.empty()) {
     rpgo_->writeLog(log_path_ + "/rpgo_log.json");
