@@ -1089,14 +1089,16 @@ void filterNonMeshFactors(
     const std::set<size_t>& in_inliers,
     std::shared_ptr<gtsam::NonlinearFactorGraph>& out_factors,
     std::shared_ptr<std::set<size_t>>& out_inliers) {
-  out_factors = std::make_shared<gtsam::NonlinearFactorGraph>();
-  out_inliers = std::make_shared<std::set<size_t>>();
+  auto new_factors = std::make_shared<gtsam::NonlinearFactorGraph>();
+  auto new_inliers = std::make_shared<std::set<size_t>>();
   for (size_t i = 0; i < in_factors.size(); ++i) {
     if (!factorInvolvesMeshVertex(in_factors[i].get())) {
-      if (in_inliers.count(i)) out_inliers->insert(out_factors->size());
-      out_factors->add(in_factors[i]);
+      if (in_inliers.count(i)) new_inliers->insert(new_factors->size());
+      new_factors->add(in_factors[i]);
     }
   }
+  out_factors = std::move(new_factors);
+  out_inliers = std::move(new_inliers);
 }
 }  // namespace
 
