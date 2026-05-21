@@ -31,6 +31,9 @@ void declare_config(KimeraRpgoOptimizer::Config& config) {
   field(config.verbosity, "verbosity");
   field(config.print_summary, "print_summary");
   field(config.print_iterations, "print_iterations");
+  field(config.lm_max_iterations, "lm_max_iterations");
+  field(config.lm_relative_error_tol, "lm_relative_error_tol");
+  field(config.lm_absolute_error_tol, "lm_absolute_error_tol");
   field(config.use_4dof_optim, "use_4dof_optim");
   field(config.use_gnc, "use_gnc");
   {
@@ -73,6 +76,14 @@ KimeraRpgoOptimizer::KimeraRpgoOptimizer(const Config& config)
   rpgo_config_.solver_config.least_squares_option = config.solver;
   rpgo_config_.solver_config.verbosity = config.verbosity;
   rpgo_config_.solver_config.setLeastSquaresParamsDefault();
+  if (rpgo_config_.solver_config.optimizer_params) {
+    rpgo_config_.solver_config.optimizer_params->maxIterations =
+        config.lm_max_iterations;
+    rpgo_config_.solver_config.optimizer_params->relativeErrorTol =
+        config.lm_relative_error_tol;
+    rpgo_config_.solver_config.optimizer_params->absoluteErrorTol =
+        config.lm_absolute_error_tol;
+  }
 
   if (config.use_gnc) {
     rpgo_config_.solver_config.setGncParams(config.gnc);

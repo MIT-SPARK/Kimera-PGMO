@@ -20,6 +20,9 @@ class KimeraRpgoOptimizer : public Optimizer {
     bool print_summary = true;
     bool print_iterations = true;
     int verbosity = 0;
+    int lm_max_iterations = 1000;
+    double lm_relative_error_tol = 1.0e-5;
+    double lm_absolute_error_tol = 1.0e-5;
   } const config;
 
   KimeraRpgoOptimizer(const Config& config);
