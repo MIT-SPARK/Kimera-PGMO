@@ -539,23 +539,6 @@ class DeformationGraph {
    */
   void clearMeshNodesOnly();
 
-  /*! \brief Set factor index classification for visualization
-   * Indices in these sets are classified as fusion/LC edges;
-   * all other mesh-mesh factors are continuant edges.
-   */
-  void setFusionFactorIndices(std::unordered_set<size_t> indices) {
-    fusion_factor_indices_ = std::move(indices);
-  }
-  void setLCFactorIndices(std::unordered_set<size_t> indices) {
-    lc_factor_indices_ = std::move(indices);
-  }
-  const std::unordered_set<size_t>& getFusionFactorIndices() const {
-    return fusion_factor_indices_;
-  }
-  const std::unordered_set<size_t>& getLCFactorIndices() const {
-    return lc_factor_indices_;
-  }
-
   /*! \brief Clear only mesh edge factors (not nodes/values)
    * Preserves vertex_positions_, vertex_stamps_, and values_.
    * Only clears adjacency_map_ and factors involving mesh vertex keys.
@@ -768,10 +751,6 @@ class DeformationGraph {
 
   // track adjacency
   std::map<gtsam::Key, std::set<gtsam::Key>> adjacency_map_;
-
-  // Factor index classification for visualization
-  std::unordered_set<size_t> fusion_factor_indices_;
-  std::unordered_set<size_t> lc_factor_indices_;
 
   size_t num_loopclosures_ = 0;
 

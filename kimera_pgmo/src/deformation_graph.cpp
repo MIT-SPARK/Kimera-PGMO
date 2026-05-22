@@ -1123,8 +1123,6 @@ void DeformationGraph::clearMeshNodesOnly() {
 
 void DeformationGraph::clearMeshEdgeFactorsOnly() {
   adjacency_map_.clear();
-  fusion_factor_indices_.clear();
-  lc_factor_indices_.clear();
 
   filterNonMeshFactors(*nfg_, *known_inliers_, nfg_, known_inliers_);
   filterNonMeshFactors(*temp_nfg_, *temp_known_inliers_, temp_nfg_, temp_known_inliers_);

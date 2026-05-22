@@ -18,13 +18,10 @@ using visualization_msgs::msg::MarkerArray;
 
 namespace {
 
-enum class MeshEdgeType { CONTINUANT, FUSION, LOOP_CLOSURE };
-
 struct MeshEdge {
   geometry_msgs::msg::Point p_front;
   geometry_msgs::msg::Point p_back;
   double variance;
-  MeshEdgeType type = MeshEdgeType::CONTINUANT;
 };
 
 }  // namespace
@@ -45,11 +42,7 @@ void fillDeformationGraphMarkers(const DeformationGraph& graph,
   pose_mesh_viz.type = Marker::LINE_LIST;
   pose_mesh_viz.scale.x = 0.02;
 
-  // Get factor index classification sets
-  const auto& fusion_indices = graph.getFusionFactorIndices();
-  const auto& lc_indices = graph.getLCFactorIndices();
-
-  // First pass: collect mesh-mesh edges with type classification
+  // First pass: collect mesh-mesh edges (colored by factor variance below).
   std::vector<MeshEdge> mesh_edges;
   double min_var = std::numeric_limits<double>::max();
   double max_var = 0.0;
@@ -93,15 +86,8 @@ void fillDeformationGraphMarkers(const DeformationGraph& graph,
         }
       }
 
-      if (fusion_indices.count(factor_idx)) {
-        edge.type = MeshEdgeType::FUSION;
-      } else if (lc_indices.count(factor_idx)) {
-        edge.type = MeshEdgeType::LOOP_CLOSURE;
-      } else {
-        edge.type = MeshEdgeType::CONTINUANT;
-        min_var = std::min(min_var, edge.variance);
-        max_var = std::max(max_var, edge.variance);
-      }
+      min_var = std::min(min_var, edge.variance);
+      max_var = std::max(max_var, edge.variance);
       mesh_edges.push_back(edge);
     } else {
       auto& p_front = pose_mesh_viz.points.emplace_back();
@@ -119,70 +105,41 @@ void fillDeformationGraphMarkers(const DeformationGraph& graph,
   }
 
   constexpr double kEdgeWidth = 0.025;
-  constexpr double kFusionEdgeWidth = 0.045;
   const double log_min = (min_var > 0) ? std::log(min_var) : -12.0;
   const double log_max = (max_var > 0) ? std::log(max_var) : -8.0;
   const double log_range = log_max - log_min;
 
-  for (const auto* ns : {"mesh_mesh_edges", "fusion_edges", "lc_edges"}) {
+  {
     Marker clear_marker;
     clear_marker.action = Marker::DELETEALL;
     clear_marker.header.frame_id = frame_id;
     clear_marker.header.stamp = stamp;
-    clear_marker.ns = ns;
+    clear_marker.ns = "mesh_mesh_edges";
     mesh_mesh_viz.markers.push_back(clear_marker);
   }
 
   int mesh_edge_id = 1;
-  int fusion_edge_id = 1;
-  int lc_edge_id = 1;
 
-  for (size_t i = 0; i < mesh_edges.size(); ++i) {
-    const auto& edge = mesh_edges[i];
-
+  for (const auto& edge : mesh_edges) {
     Marker m;
     m.header.frame_id = frame_id;
     m.header.stamp = stamp;
     m.action = Marker::ADD;
     m.type = Marker::LINE_LIST;
+    m.ns = "mesh_mesh_edges";
+    m.id = mesh_edge_id++;
+    m.scale.x = kEdgeWidth;
     m.points.push_back(edge.p_front);
     m.points.push_back(edge.p_back);
 
+    // Color by factor variance: low (stiff) -> green, high (loose) -> red.
+    const double log_var = (edge.variance > 0) ? std::log(edge.variance) : log_min;
+    const double t = (log_range > 0) ? (log_var - log_min) / log_range : 0.5;
     std_msgs::msg::ColorRGBA color;
-
-    switch (edge.type) {
-      case MeshEdgeType::FUSION:
-        m.ns = "fusion_edges";
-        m.id = fusion_edge_id++;
-        m.scale.x = kFusionEdgeWidth;
-        color.r = 0.0f;
-        color.g = 0.9f;
-        color.b = 1.0f;
-        color.a = 0.95f;
-        break;
-      case MeshEdgeType::LOOP_CLOSURE:
-        m.ns = "lc_edges";
-        m.id = lc_edge_id++;
-        m.scale.x = kFusionEdgeWidth;
-        color.r = 1.0f;
-        color.g = 0.0f;
-        color.b = 0.8f;
-        color.a = 0.95f;
-        break;
-      case MeshEdgeType::CONTINUANT:
-      default:
-        m.ns = "mesh_mesh_edges";
-        m.id = mesh_edge_id++;
-        m.scale.x = kEdgeWidth;
-        const double log_var = (edge.variance > 0) ? std::log(edge.variance) : log_min;
-        const double t =
-            (log_range > 0) ? (log_var - log_min) / log_range : 0.5;
-        color.r = static_cast<float>(t);
-        color.g = static_cast<float>(1.0 - t);
-        color.b = 0.0f;
-        color.a = 0.8f;
-        break;
-    }
+    color.r = static_cast<float>(t);
+    color.g = static_cast<float>(1.0 - t);
+    color.b = 0.0f;
+    color.a = 0.8f;
 
     m.colors.push_back(color);
     m.colors.push_back(color);
