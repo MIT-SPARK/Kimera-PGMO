@@ -15,7 +15,7 @@
 namespace rviz_common::properties {
 class BoolProperty;
 class ColorProperty;
-}
+}  // namespace rviz_common::properties
 
 namespace kimera_pgmo {
 
