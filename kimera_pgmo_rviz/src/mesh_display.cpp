@@ -6,6 +6,7 @@
 #include "kimera_pgmo_rviz/mesh_display.h"
 
 #include <rviz_common/properties/bool_property.hpp>
+#include <rviz_common/properties/color_property.hpp>
 
 #include "kimera_pgmo_rviz/mesh_visual.h"
 #include "kimera_pgmo_rviz/tf_event_buffer.h"
@@ -15,6 +16,7 @@ namespace kimera_pgmo {
 
 using kimera_pgmo_msgs::msg::Mesh;
 using rviz_common::properties::BoolProperty;
+using rviz_common::properties::ColorProperty;
 
 MeshDisplay::MeshDisplay() {
   visibility_fields_ = std::make_unique<VisibilityField>("Visible", this, this);
@@ -37,6 +39,27 @@ MeshDisplay::MeshDisplay() {
                                      "Toggle visibility for all meshes",
                                      this,
                                      SLOT(toggleVisibilityAllSloT()));
+
+  ambient_ = std::make_unique<ColorProperty>("Ambient",
+                                             QColor::fromRgbF(0.9, 0.9, 0.9),
+                                             "Ambient lighting parameters",
+                                             this,
+                                             SLOT(updateGlobalSettingsSlot()));
+  emissive_ = std::make_unique<ColorProperty>("Emissive",
+                                              QColor::fromRgbF(0.1, 0.1, 0.1),
+                                              "Emissive lighting parameters",
+                                              this,
+                                              SLOT(updateGlobalSettingsSlot()));
+  diffuse_ = std::make_unique<ColorProperty>("Diffuse",
+                                             QColor::fromRgbF(0.05, 0.05, 0.05),
+                                             "Diffuse lighting parameter",
+                                             this,
+                                             SLOT(updateGlobalSettingsSlot()));
+  specular_ = std::make_unique<ColorProperty>("Specular",
+                                              QColor::fromRgbF(0.0, 0.0, 0.0),
+                                              "Specular lighting parameter",
+                                              this,
+                                              SLOT(updateGlobalSettingsSlot()));
 }
 
 MeshDisplay::~MeshDisplay() {}
@@ -70,6 +93,10 @@ void MeshDisplay::updateGlobalSettingsSlot() {
 void MeshDisplay::updateVisualSettings(MeshVisual& visual) const {
   visual.shouldCull(cull_->getBool());
   visual.shouldLight(lighting_->getBool());
+  visual.setLighting(ambient_->getOgreColor(),
+                     emissive_->getOgreColor(),
+                     diffuse_->getOgreColor(),
+                     specular_->getOgreColor());
 }
 
 void MeshDisplay::visibleSlot() { updateVisible(); }

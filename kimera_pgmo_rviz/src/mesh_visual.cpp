@@ -33,14 +33,49 @@ inline void updateNormal(const Eigen::Vector3f& n,
   normals(3, index) += 1;
 }
 
+static const std::vector<std::array<uint8_t, 3>> custom_150_palette{
+    {0, 102, 51},    {0, 255, 0},     {4, 74, 246},    {191, 191, 181}, {72, 90, 13},
+    {204, 0, 102},   {196, 26, 252},  {254, 217, 251}, {127, 255, 255}, {133, 87, 54},
+    {130, 26, 50},   {10, 5, 65},     {3, 75, 135},    {18, 124, 89},   {21, 182, 126},
+    {90, 171, 130},  {189, 217, 119}, {188, 63, 11},   {86, 82, 249},   {196, 221, 253},
+    {187, 78, 62},   {188, 49, 167},  {182, 161, 248}, {112, 201, 196}, {11, 41, 99},
+    {211, 102, 1},   {4, 227, 101},   {147, 201, 250}, {255, 0, 0},     {224, 33, 3},
+    {254, 74, 17},   {255, 127, 0},   {176, 188, 66},  {247, 29, 54},   {74, 117, 80},
+    {71, 56, 199},   {250, 107, 216}, {4, 204, 229},   {25, 208, 53},   {52, 249, 65},
+    {70, 220, 121},  {68, 86, 156},   {7, 150, 36},    {255, 127, 127}, {64, 46, 6},
+    {139, 167, 123}, {18, 165, 78},   {157, 166, 28},  {9, 163, 248},   {191, 67, 218},
+    {135, 243, 61},  {81, 119, 190},  {0, 126, 204},   {228, 73, 252},  {227, 108, 163},
+    {127, 255, 127}, {50, 211, 203},  {3, 190, 177},   {127, 255, 0},   {11, 59, 10},
+    {108, 38, 143},  {243, 33, 254},  {182, 106, 251}, {120, 251, 191}, {145, 115, 208},
+    {48, 129, 250},  {43, 78, 65},    {73, 0, 197},    {0, 249, 143},   {80, 160, 69},
+    {200, 252, 62},  {127, 39, 198},  {139, 79, 186},  {155, 225, 169}, {239, 148, 63},
+    {30, 183, 5},    {137, 90, 3},    {49, 35, 155},   {242, 186, 113}, {127, 0, 0},
+    {191, 148, 1},   {134, 147, 65},  {175, 254, 104}, {84, 183, 23},   {12, 87, 183},
+    {1, 20, 178},    {185, 224, 0},   {255, 255, 127}, {44, 252, 176},  {62, 186, 252},
+    {3, 253, 46},    {41, 208, 156},  {138, 94, 126},  {32, 31, 231},   {192, 120, 193},
+    {231, 66, 87},   {105, 0, 153},   {251, 216, 190}, {228, 45, 198},  {0, 0, 255},
+    {67, 234, 247},  {156, 4, 152},   {253, 219, 57},  {183, 148, 126}, {246, 154, 179},
+    {127, 127, 255}, {0, 255, 255},   {225, 189, 224}, {47, 253, 125},  {47, 0, 127},
+    {92, 207, 58},   {173, 253, 235}, {251, 78, 170},  {164, 41, 91},   {0, 127, 0},
+    {65, 43, 54},    {196, 100, 129}, {143, 157, 184}, {234, 190, 2},   {0, 234, 191},
+    {191, 254, 179}, {149, 1, 215},   {67, 231, 11},   {131, 195, 0},   {188, 121, 62},
+    {70, 143, 13},   {106, 168, 230}, {231, 106, 88},  {255, 255, 0},   {121, 54, 15},
+    {127, 255, 0},   {248, 157, 252}, {63, 7, 14},     {146, 63, 249},  {185, 8, 32},
+    {247, 0, 223},   {234, 252, 199}, {91, 29, 248},   {122, 0, 89},    {41, 99, 220},
+    {28, 132, 140},  {127, 209, 111}, {110, 54, 79},   {63, 68, 107},   {214, 0, 171},
+    {71, 9, 82},     {224, 187, 57},  {253, 20, 130},  {127, 127, 0},   {113, 132, 132},
+};
+
 }  // namespace
 
 MeshVisual::MeshVisual(Ogre::SceneManager* manager,
                        Ogre::SceneNode* parent,
                        const std::string& ns)
     : visual_ns_(ns),
-      cull_faces_(false),
-      lighting_enabled_(false),
+      ambient_(0.9, 0.9, 0.9, 0.9),
+      emissive_(0.1, 0.1, 0.1, 0.1),
+      diffuse_(0.05, 0.05, 0.05, 0.05),
+      specular_(0.0, 0.0, 0.0, 0.0),
       manager_(manager),
       node_(nullptr),
       mesh_(nullptr) {
@@ -54,6 +89,10 @@ MeshVisual::MeshVisual(Ogre::SceneManager* manager,
   auto material = material_manager.create(
       material_name_, Ogre::ResourceGroupManager::DEFAULT_RESOURCE_GROUP_NAME);
   material->setReceiveShadows(false);
+
+  for (const auto& c : custom_150_palette) {
+    colormap_.push_back(Ogre::ColourValue(c[0] / 255.0f, c[1] / 255.0f, c[2] / 255.0f));
+  }
 }
 
 MeshVisual::~MeshVisual() {
@@ -69,7 +108,6 @@ MeshVisual::~MeshVisual() {
 }
 
 void MeshVisual::reset() {
-  // TODO(lschmid): WIP, check if needed.
   if (mesh_) {
     mesh_->clear();
   }
@@ -82,6 +120,78 @@ void MeshVisual::setPose(const Ogre::Vector3& parent_t_mesh,
                                << " rot: " << parent_R_mesh);
   node_->setPosition(parent_t_mesh);
   node_->setOrientation(parent_R_mesh);
+}
+
+void MeshVisual::setMesh(const std::vector<traits::Vertex>& vertices,
+                         const std::vector<traits::Face>& faces,
+                         float label_alpha,
+                         Ogre::ColourValue default_color) {
+  RVIZ_COMMON_LOG_DEBUG_STREAM("Setting mesh with " << vertices.size()
+                                                    << " vertices and " << faces.size()
+                                                    << " faces");
+  RVIZ_COMMON_LOG_DEBUG_STREAM("Names: mesh=" << mesh_name_
+                                              << ", material=" << material_name_);
+
+  reset();
+  if (!mesh_) {
+    mesh_ = manager_->createManualObject(mesh_name_);
+    setCullMode();
+    setLightingMode();
+    node_->attachObject(mesh_);
+  }
+
+  Eigen::Matrix4Xf normals = Eigen::Matrix4Xf::Zero(4, vertices.size());
+  mesh_->estimateVertexCount(vertices.size());
+  mesh_->estimateIndexCount(3 * faces.size());
+  mesh_->setDynamic(false);
+  mesh_->begin(material_name_, Ogre::RenderOperation::OT_TRIANGLE_LIST);
+
+  for (const auto& face : faces) {
+    if (face[0] >= vertices.size() || face[1] >= vertices.size() ||
+        face[2] >= vertices.size()) {
+      continue;
+    }
+
+    mesh_->triangle(face[0], face[1], face[2]);
+
+    // TODO(nathan) do this incrementally and pass in
+    const auto& p1 = vertices[face[0]].pos;
+    const auto& p2 = vertices[face[1]].pos;
+    const auto& p3 = vertices[face[2]].pos;
+    Eigen::Vector3f n = ((p2 - p1).cross(p3 - p1)).normalized();
+    updateNormal(n, face[0], normals);
+    updateNormal(n, face[1], normals);
+    updateNormal(n, face[2], normals);
+  }
+
+  for (size_t i = 0; i < vertices.size(); ++i) {
+    const auto& p = vertices[i];
+    mesh_->position(p.pos.x(), p.pos.y(), p.pos.z());
+    const Eigen::Vector4f n = normals.block<4, 1>(0, i);
+    if (n[3] == 0.0f) {
+      // not touched by any faces so default normal doesn't matter
+      mesh_->normal(0.0, 0.0, 1.0);
+    } else {
+      mesh_->normal(n.x() / n[3], n.y() / n[3], n.z() / n[3]);
+    }
+
+    Ogre::ColourValue color = default_color;
+    if (p.traits.properties.has_color) {
+      color = Ogre::ColourValue(p.traits.color[0] / 255.0f,
+                                p.traits.color[1] / 255.0f,
+                                p.traits.color[2] / 255.0f,
+                                p.traits.color[3] / 255.0f);
+    }
+
+    if (label_alpha > 0.01f && p.traits.properties.has_color &&
+        p.traits.label < colormap_.size()) {
+      color = (1.0f - label_alpha) * color + label_alpha * colormap_[p.traits.label];
+    }
+
+    mesh_->colour(color);
+  }
+
+  mesh_->end();
 }
 
 void MeshVisual::setMessage(const Mesh& mesh) {
@@ -181,16 +291,32 @@ void MeshVisual::setLightingMode() {
                                                        << std::boolalpha
                                                        << lighting_enabled_);
 
+  material.setAmbient(ambient_);
+  material.setDiffuse(diffuse_);
+  material.setSpecular(specular_);
+  material.setShininess(2.0);  // this turns shininess down (max 128)
   if (lighting_enabled_) {
     material.getTechnique(0)->setLightingEnabled(true);
     const auto pass = material.getTechnique(0)->getPass(0);
     pass->setVertexColourTracking(Ogre::TVC_AMBIENT | Ogre::TVC_EMISSIVE |
                                   Ogre::TVC_DIFFUSE | Ogre::TVC_SPECULAR);
+    pass->setEmissive(emissive_);
   } else {
     material.getTechnique(0)->setLightingEnabled(false);
     const auto pass = material.getTechnique(0)->getPass(0);
     pass->setVertexColourTracking(Ogre::TVC_NONE);
   }
+}
+
+void MeshVisual::setLighting(Ogre::ColourValue ambient,
+                             Ogre::ColourValue emissive,
+                             Ogre::ColourValue diffuse,
+                             Ogre::ColourValue specular) {
+  ambient_ = ambient;
+  emissive_ = emissive;
+  diffuse_ = diffuse;
+  specular_ = specular;
+  setLightingMode();
 }
 
 }  // namespace kimera_pgmo
