@@ -240,6 +240,17 @@ class DeformationGraph {
    *  - variance: covariance of the deformation graph edges
    *  - temp: temporary factor
    */
+  /*! \brief Variant of processPointMeasurement taking an explicit noise model
+   *  (e.g. anisotropic / information-weighted edges). Same bookkeeping.
+   */
+  void processPointMeasurement(const gtsam::Key& from_key,
+                               const gtsam::Key& to_key,
+                               const gtsam::Pose3& from_pose,
+                               const gtsam::Point3& to_point,
+                               const gtsam::SharedNoiseModel& noise,
+                               bool temp = false,
+                               bool known_inlier = true);
+
   void processPointMeasurement(const gtsam::Key& from_key,
                                const gtsam::Key& to_key,
                                const gtsam::Pose3& from_pose,

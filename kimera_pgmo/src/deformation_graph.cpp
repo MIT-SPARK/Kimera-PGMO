@@ -244,6 +244,36 @@ void DeformationGraph::processPointMeasurement(const gtsam::Key& from_key,
       from_key, to_key, from_pose, to_point, variance, temp, known_inlier);
 }
 
+void DeformationGraph::processPointMeasurement(const gtsam::Key& from_key,
+                                               const gtsam::Key& to_key,
+                                               const gtsam::Pose3& from_pose,
+                                               const gtsam::Point3& to_point,
+                                               const gtsam::SharedNoiseModel& noise,
+                                               bool temp,
+                                               bool known_inlier) {
+  if (!values_->exists(to_key) && !temp_values_->exists(to_key)) {
+    if (temp) {
+      temp_values_->insert(to_key, gtsam::Pose3(gtsam::Rot3(), to_point));
+    } else {
+      values_->insert(to_key, gtsam::Pose3(gtsam::Rot3(), to_point));
+    }
+  }
+  const DeformationEdgeFactor new_edge(from_key, to_key, from_pose, to_point, noise);
+  auto& adjacent_keys = adjacency_map_[from_key];
+  adjacent_keys.insert(to_key);
+  if (temp) {
+    if (known_inlier) {
+      temp_known_inliers_->insert(temp_nfg_->size());
+    }
+    temp_nfg_->add(new_edge);
+    return;
+  }
+  if (known_inlier) {
+    known_inliers_->insert(nfg_->size());
+  }
+  nfg_->add(new_edge);
+}
+
 void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
                                           const gtsam::Key& to_key,
                                           const gtsam::Pose3& from_pose,
