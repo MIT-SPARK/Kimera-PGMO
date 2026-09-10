@@ -22,9 +22,8 @@ TEST(TestBlockCompression, constructor) {
       new pcl::PointCloud<pcl::PointXYZRGBA>);
   pcl::PointCloud<pcl::PointXYZ>::Ptr active_vertices(
       new pcl::PointCloud<pcl::PointXYZ>);
-  std::shared_ptr<std::vector<pcl::Vertices> > triangles(
-      new std::vector<pcl::Vertices>);
-  std::shared_ptr<std::vector<double> > vertex_timestamps(new std::vector<double>);
+  std::shared_ptr<std::vector<pcl::Vertices>> triangles(new std::vector<pcl::Vertices>);
+  std::shared_ptr<std::vector<double>> vertex_timestamps(new std::vector<double>);
 
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);
@@ -102,9 +101,8 @@ TEST(TestBlockCompression, storedValues) {
       new pcl::PointCloud<pcl::PointXYZRGBA>);
   pcl::PointCloud<pcl::PointXYZ>::Ptr active_vertices(
       new pcl::PointCloud<pcl::PointXYZ>);
-  std::shared_ptr<std::vector<pcl::Vertices> > triangles(
-      new std::vector<pcl::Vertices>);
-  std::shared_ptr<std::vector<double> > vertex_timestamps(new std::vector<double>);
+  std::shared_ptr<std::vector<pcl::Vertices>> triangles(new std::vector<pcl::Vertices>);
+  std::shared_ptr<std::vector<double>> vertex_timestamps(new std::vector<double>);
 
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);
@@ -184,9 +182,8 @@ TEST(TestBlockCompression, pruneStoredMesh) {
       new pcl::PointCloud<pcl::PointXYZRGBA>);
   pcl::PointCloud<pcl::PointXYZ>::Ptr active_vertices(
       new pcl::PointCloud<pcl::PointXYZ>);
-  std::shared_ptr<std::vector<pcl::Vertices> > triangles(
-      new std::vector<pcl::Vertices>);
-  std::shared_ptr<std::vector<double> > vertex_timestamps(new std::vector<double>);
+  std::shared_ptr<std::vector<pcl::Vertices>> triangles(new std::vector<pcl::Vertices>);
+  std::shared_ptr<std::vector<double>> vertex_timestamps(new std::vector<double>);
 
   // try pruning
   compression.pruneStoredMesh(100.5);
@@ -314,9 +311,8 @@ TEST(TestBlockCompression, storedValuesCompressed) {
       new pcl::PointCloud<pcl::PointXYZRGBA>);
   pcl::PointCloud<pcl::PointXYZ>::Ptr active_vertices(
       new pcl::PointCloud<pcl::PointXYZ>);
-  std::shared_ptr<std::vector<pcl::Vertices> > triangles(
-      new std::vector<pcl::Vertices>);
-  std::shared_ptr<std::vector<double> > vertex_timestamps(new std::vector<double>);
+  std::shared_ptr<std::vector<pcl::Vertices>> triangles(new std::vector<pcl::Vertices>);
+  std::shared_ptr<std::vector<double>> vertex_timestamps(new std::vector<double>);
 
   compression.getVertices(vertices);
   compression.getActiveVertices(active_vertices);
@@ -347,6 +343,104 @@ TEST(TestBlockCompression, storedValuesCompressed) {
   EXPECT_EQ(0u, vertices->size());
   EXPECT_EQ(0u, active_vertices->size());
   EXPECT_EQ(0u, vertex_timestamps->size());
+}
+
+namespace {
+class IndexedTestMesh : public MeshInterface {
+ public:
+  const BlockIndices& blockIndices() const override { return blocks_; }
+  void markBlockActive(const BlockIndex& index) const override {
+    offset_ = 10 * index.x();
+  }
+  size_t activeBlockSize() const override { return points_.size(); }
+  pcl::PointXYZRGBA getActiveVertex(size_t i) const override {
+    const auto& p = points_[i];
+    pcl::PointXYZRGBA result;
+    result.x = p[0] + offset_;
+    result.y = p[1];
+    result.z = p[2];
+    return result;
+  }
+  size_t activeBlockNumFaces() const override { return faces_.size(); }
+  std::array<size_t, 3> getActiveFace(size_t i) const override { return faces_.at(i); }
+  Ptr clone() const override { return std::make_shared<IndexedTestMesh>(*this); }
+  std::vector<std::array<size_t, 3>> faces_{{0, 2, 1}, {1, 2, 3}};
+
+ private:
+  mutable float offset_ = 0;
+  BlockIndices blocks_{BlockIndex(0, 0, 0), BlockIndex(1, 0, 0)};
+  std::vector<std::array<float, 3>> points_{
+      {0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {1, 1, 0}, {100, 100, 100}};
+};
+}  // namespace
+
+TEST(TestBlockCompression, IndexedFacesCorrectAcrossBlocksAndPruning) {
+  BlockCompression compression(0.1);
+  IndexedTestMesh mesh;
+  const std::array<std::array<float, 3>, 8> expected_points{{{0, 0, 0},
+                                                             {1, 0, 0},
+                                                             {0, 1, 0},
+                                                             {1, 1, 0},
+                                                             {10, 0, 0},
+                                                             {11, 0, 0},
+                                                             {10, 1, 0},
+                                                             {11, 1, 0}}};
+  const std::array<std::array<size_t, 3>, 4> expected_faces{
+      {{0, 2, 1}, {1, 2, 3}, {4, 6, 5}, {5, 6, 7}}};
+  for (const auto stamp : {100.0, 101.0, 120.0}) {
+    compression.pruneStoredMesh(stamp - 10);
+    pcl::PointCloud<pcl::PointXYZRGBA> vertices;
+    std::vector<pcl::Vertices> faces;
+    std::vector<size_t> indices;
+    HashedIndexMapping mapping;
+    compression.compressAndIntegrate(mesh, vertices, faces, indices, mapping, stamp);
+
+    const size_t offset = stamp == 120.0 ? 8 : 0;
+    ASSERT_EQ(indices.size(), 8u);
+    for (size_t i = 0; i < indices.size(); ++i) {
+      EXPECT_EQ(indices[i], offset + i);
+    }
+    for (const auto& block : mesh.blockIndices()) {
+      const auto& block_mapping = mapping.at(block);
+      ASSERT_EQ(block_mapping.size(), 4u);
+      EXPECT_EQ(block_mapping.count(4), 0u);  // Isolated input vertex.
+      for (size_t i = 0; i < 4; ++i) {
+        EXPECT_EQ(block_mapping.at(i), offset + 4 * block.x() + i);
+      }
+    }
+    if (stamp == 101.0) {
+      EXPECT_TRUE(vertices.empty());
+      EXPECT_TRUE(faces.empty());
+      continue;
+    }
+
+    ASSERT_EQ(vertices.size(), expected_points.size());
+    for (size_t i = 0; i < expected_points.size(); ++i) {
+      EXPECT_FLOAT_EQ(vertices[i].x, expected_points[i][0]);
+      EXPECT_FLOAT_EQ(vertices[i].y, expected_points[i][1]);
+      EXPECT_FLOAT_EQ(vertices[i].z, expected_points[i][2]);
+    }
+    ASSERT_EQ(faces.size(), expected_faces.size());
+    for (size_t i = 0; i < expected_faces.size(); ++i) {
+      ASSERT_EQ(faces[i].vertices.size(), 3u);
+      for (size_t j = 0; j < 3; ++j) {
+        EXPECT_EQ(faces[i].vertices[j], offset + expected_faces[i][j]);
+      }
+    }
+  }
+}
+
+TEST(TestBlockCompression, RejectsIndexedFaceOutsideItsBlock) {
+  BlockCompression compression(0.1);
+  IndexedTestMesh mesh;
+  mesh.faces_.push_back({0, 1, 5});
+  pcl::PointCloud<pcl::PointXYZRGBA> vertices;
+  std::vector<pcl::Vertices> faces;
+  std::vector<size_t> indices;
+  HashedIndexMapping mapping;
+  EXPECT_THROW(
+      compression.compressAndIntegrate(mesh, vertices, faces, indices, mapping, 1.0),
+      std::out_of_range);
 }
 
 }  // namespace kimera_pgmo

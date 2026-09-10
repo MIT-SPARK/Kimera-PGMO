@@ -250,12 +250,14 @@ void MeshCompression::compressAndIntegrate(const MeshInterface& mesh,
   // Iterate through the blocks
   for (const auto& block_index : mesh.blockIndices()) {
     mesh.markBlockActive(block_index);
-    assert(mesh.activeBlockSize() % 3 == 0);
+    const auto block_offset = count;
+    const auto num_vertices = mesh.activeBlockSize();
+    const auto num_faces = mesh.activeBlockNumFaces();
     // Add to remapping if not yet added previously
     remapping.insert({block_index, IndexMapping()});
 
     // Iterate through vertices of mesh block
-    for (size_t i = 0; i < mesh.activeBlockSize(); ++i) {
+    for (size_t i = 0; i < num_vertices; ++i) {
       const pcl::PointXYZRGBA p = mesh.getActiveVertex(i);
       const pcl::PointXYZ p_xyz(p.x, p.y, p.z);
       // Book keep to track block index
@@ -299,48 +301,40 @@ void MeshCompression::compressAndIntegrate(const MeshInterface& mesh,
         active_vertex_stamps_[result_idx] = stamp_in_sec;
       }
 
-      // Every 3 vertices is a surface
-      if (i % 3 == 2 && temp_reindex.at(count) != temp_reindex.at(count - 1)) {
-        // Get the new indices of face
-        size_t r_idx_0 = temp_reindex.at(count - 2);
-        size_t r_idx_1 = temp_reindex.at(count - 1);
-        size_t r_idx_2 = temp_reindex.at(count);
+      ++count;
+    }
 
-        // First check if there's a new vertex
-        bool has_new_vertex =
-            (r_idx_0 >= num_original_vertices || r_idx_1 >= num_original_vertices ||
-             r_idx_2 >= num_original_vertices);
-
-        if (!has_new_vertex) {
-          count++;
-          continue;  // no need to check
+    // Faces index the active block's vertices, including shared vertices.
+    for (size_t i = 0; i < num_faces; ++i) {
+      const auto face = mesh.getActiveFace(i);
+      std::array<size_t, 3> indices;
+      std::array<size_t, 3> remapped;
+      for (size_t j = 0; j < 3; ++j) {
+        if (face[j] >= num_vertices) {
+          throw std::out_of_range("Mesh face vertex exceeds active block size");
         }
-
-        // Then check if face is degenerate
-        bool degenerate =
-            (r_idx_0 == r_idx_1 || r_idx_0 == r_idx_2 || r_idx_1 == r_idx_2);
-
-        if (degenerate) {
-          count++;
-          continue;
-        }
-
-        // Add to input surfaces
-        pcl::Vertices orig_s;
-        orig_s.vertices.push_back(count - 2);
-        orig_s.vertices.push_back(count - 1);
-        orig_s.vertices.push_back(count);
-        input_surfaces.push_back(orig_s);
-
-        // Mark vertices as pass check (has at least one adjacent polygon)
-        if (r_idx_0 >= num_original_vertices)
-          potential_new_vertices_check[r_idx_0 - num_original_vertices] = true;
-        if (r_idx_1 >= num_original_vertices)
-          potential_new_vertices_check[r_idx_1 - num_original_vertices] = true;
-        if (r_idx_2 >= num_original_vertices)
-          potential_new_vertices_check[r_idx_2 - num_original_vertices] = true;
+        indices[j] = block_offset + face[j];
+        remapped[j] = temp_reindex.at(indices[j]);
       }
-      count++;
+      if (remapped[0] < num_original_vertices && remapped[1] < num_original_vertices &&
+          remapped[2] < num_original_vertices) {
+        continue;
+      }
+      if (remapped[0] == remapped[1] || remapped[0] == remapped[2] ||
+          remapped[1] == remapped[2]) {
+        continue;
+      }
+
+      pcl::Vertices original;
+      for (const auto index : indices) {
+        original.vertices.push_back(index);
+      }
+      input_surfaces.push_back(std::move(original));
+      for (const auto index : remapped) {
+        if (index >= num_original_vertices) {
+          potential_new_vertices_check[index - num_original_vertices] = true;
+        }
+      }
     }
   }
 
