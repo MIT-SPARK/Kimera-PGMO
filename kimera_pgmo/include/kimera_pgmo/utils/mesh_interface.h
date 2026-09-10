@@ -8,7 +8,9 @@
 
 #include <pcl/point_types.h>
 
+#include <array>
 #include <optional>
+#include <stdexcept>
 
 #include "kimera_pgmo/hashing.h"
 
@@ -34,6 +36,21 @@ struct MeshInterface {
   }
 
   virtual Ptr clone() const = 0;
+
+  // By default, each consecutive group of three vertices defines a face.
+  // Indexed meshes override both methods to expose their explicit faces.
+  virtual size_t activeBlockNumFaces() const {
+    const auto size = activeBlockSize();
+    if (size % 3 != 0) {
+      throw std::invalid_argument("Mesh vertex count does not define complete faces");
+    }
+    return size / 3;
+  }
+
+  virtual std::array<size_t, 3> getActiveFace(size_t i) const {
+    const auto index = 3 * i;
+    return {index, index + 1, index + 2};
+  }
 };
 
 }  // namespace kimera_pgmo
