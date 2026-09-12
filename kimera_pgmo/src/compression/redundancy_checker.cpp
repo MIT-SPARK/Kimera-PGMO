@@ -31,12 +31,22 @@ size_t RedundancyChecker::FaceHash::operator()(const traits::Face& face) const {
   return value;
 }
 
+RedundancyChecker::RedundancyChecker() : RedundancyChecker(0) {}
+
+RedundancyChecker::RedundancyChecker(size_t num_faces_hint) {
+  seen_.reserve(num_faces_hint);
+}
+
 bool RedundancyChecker::check(const traits::Face& face) const {
   return !seen_.count(reindexFace(face));
 }
 
 void RedundancyChecker::add(const traits::Face& face) {
   seen_.insert(reindexFace(face));
+}
+
+bool RedundancyChecker::tryAdd(const traits::Face& face) {
+  return seen_.insert(reindexFace(face)).second;
 }
 
 void RedundancyChecker::clear() { seen_.clear(); }

@@ -10,8 +10,12 @@ struct RedundancyChecker {
     size_t operator()(const traits::Face& face) const;
   };
 
+  RedundancyChecker();
+  RedundancyChecker(size_t num_faces_hint);
+
   bool check(const traits::Face& face) const;
   void add(const traits::Face& face);
+  bool tryAdd(const traits::Face& face);
   void clear();
 
  private:
