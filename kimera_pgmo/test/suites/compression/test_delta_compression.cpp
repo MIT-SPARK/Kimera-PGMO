@@ -686,29 +686,6 @@ TEST(DeltaCompression, VertexInfoCorrect) {
   EXPECT_TRUE(info.shouldArchive());
 }
 
-TEST(DeltaCompression, MergeOperatorCorrect) {
-  const auto make_traits = [](traits::Timestamp first, traits::Timestamp last) {
-    return traits::VertexTraits{
-        {true, true, false, true}, {1, 2, 3, 4}, last, 0, first};
-  };
-
-  VertexInfo info;
-  DefaultVertexUpdate{}(0, traits::Pos(1, 2, 3), make_traits(1, 2), info);
-  EXPECT_TRUE(info.traits.properties.has_color);
-  EXPECT_TRUE(info.traits.properties.has_stamp);
-  EXPECT_TRUE(info.traits.properties.has_first_seen_stamp);
-  EXPECT_EQ(info.traits.first_seen_stamp, 1u);
-  EXPECT_EQ(info.traits.stamp, 2u);
-
-  DefaultVertexUpdate{}(0, traits::Pos(1, 2, 3), make_traits(3, 4), info);
-  EXPECT_EQ(info.traits.first_seen_stamp, 1u);
-  EXPECT_EQ(info.traits.stamp, 4u);
-
-  DefaultVertexUpdate{}(0, traits::Pos(1, 2, 3), make_traits(0, 3), info);
-  EXPECT_EQ(info.traits.first_seen_stamp, 0u);
-  EXPECT_EQ(info.traits.stamp, 4u);
-}
-
 TEST(DeltaCompression, UpdateWithMergeCorrect) {
   const auto make_traits =
       [](traits::Timestamp first, traits::Timestamp last, traits::Label label = 0) {

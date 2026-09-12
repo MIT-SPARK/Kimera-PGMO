@@ -20,6 +20,7 @@ add_executable(
   suites/utils/test_mesh_io.cpp
   suites/utils/test_pcl_utilities.cpp
   suites/utils/test_range_generator.cpp
+  suites/utils/test_vertex_update.cpp
   suites/test_deformation_edge_factor.cpp
   suites/test_deformation_graph.cpp
   suites/test_mesh_deformation.cpp
