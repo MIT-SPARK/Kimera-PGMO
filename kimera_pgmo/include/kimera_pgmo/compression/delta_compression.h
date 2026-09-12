@@ -13,6 +13,7 @@
 #include "kimera_pgmo/hashing.h"
 #include "kimera_pgmo/mesh_delta.h"
 #include "kimera_pgmo/mesh_types.h"
+#include "kimera_pgmo/utils/vertex_update.h"
 
 namespace kimera_pgmo {
 
@@ -55,13 +56,6 @@ struct BlockInfo {
   LongIndexSet vertices = {};
   //! @brief Current faces
   std::vector<traits::Face> faces = {};
-};
-
-struct DefaultVertexUpdate {
-  void operator()(uint64_t timestamp_ns,
-                  const traits::Pos& pos,
-                  const traits::VertexTraits& traits,
-                  VertexInfo& info) const;
 };
 
 class DeltaCompression {

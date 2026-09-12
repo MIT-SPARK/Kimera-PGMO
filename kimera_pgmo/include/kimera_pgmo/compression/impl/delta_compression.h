@@ -79,7 +79,7 @@ void DeltaCompression::addPoint(uint64_t timestamp,
   }
 
   auto& info = info_iter->second;
-  merger(timestamp, pos, traits, info);
+  merger(timestamp, pos, traits, info.pos, info.traits);
   if (info.sequence_number != tracking_info_.sequence_number) {
     const size_t prev_index = info.mesh_index;
     info.mesh_index = active_remapping_.size();
