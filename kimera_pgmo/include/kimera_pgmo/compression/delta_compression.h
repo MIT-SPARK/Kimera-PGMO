@@ -9,11 +9,11 @@
 
 #include <cstdint>
 
-#include "kimera_pgmo/utils/vertex_update.h"
 #include "kimera_pgmo/compression/redundancy_checker.h"
 #include "kimera_pgmo/hashing.h"
 #include "kimera_pgmo/mesh_delta.h"
 #include "kimera_pgmo/mesh_types.h"
+#include "kimera_pgmo/utils/vertex_update.h"
 
 namespace kimera_pgmo {
 
