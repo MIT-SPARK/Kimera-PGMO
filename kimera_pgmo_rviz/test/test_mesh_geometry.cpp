@@ -114,6 +114,84 @@ TEST(MeshGeometry, PendingFacesRemapAndNormalsCrossChunkBoundaries) {
   }
 }
 
+TEST(MeshGeometry, SequenceGapDropsActiveAndPendingGeometry) {
+  MeshGeometry geometry;
+  geometry.setMaxVertices(3);
+  geometry.setNormalsEnabled(true);
+  MeshDelta first({10, 0, 0});
+  addTriangle(first, 0, true);
+  addTriangle(first, 2, true);
+  addTriangle(first, 4, false);
+  first.addFace({0, 1, 6}, true);
+  geometry.applyDelta(first);
+  geometry.clearDirty();
+  const auto stored = geometry.chunks()[0].vertices.data();
+
+  // These counts and remappings describe the dropped delta, not our mesh.
+  MeshDelta newest(MeshDelta::TrackingInfo::with_remap(12, 100, 50, {{0, 99}}));
+  addTriangle(newest, 8, true);
+  addTriangle(newest, 10, false);
+  EXPECT_EQ(geometry.applyDelta(newest), 6u);
+  ASSERT_EQ(geometry.vertices().size(), 12u);
+  EXPECT_FLOAT_EQ(geometry.vertices()[6].pos.x(), 8.0f);
+  EXPECT_EQ(geometry.faces(),
+            (std::vector<traits::Face>{{0, 1, 2}, {3, 4, 5}, {6, 7, 8}, {9, 10, 11}}));
+  EXPECT_EQ(collectFaces(geometry, 3), geometry.faces());
+  EXPECT_EQ(geometry.chunks()[0].vertices.data(), stored);
+
+  MeshGeometry reference;
+  reference.setNormalsEnabled(true);
+  reference.setMesh(geometry.vertices(), geometry.faces());
+  for (size_t i = 0; i < geometry.vertices().size(); ++i) {
+    EXPECT_TRUE(geometry.normal(i).isApprox(reference.normal(i)));
+  }
+
+  MeshDelta next({13, 3, 1});
+  addTriangle(next, 12, false);
+  EXPECT_EQ(geometry.applyDelta(next), 9u);
+  EXPECT_FLOAT_EQ(geometry.vertices()[9].pos.x(), 12.0f);
+  EXPECT_EQ(collectFaces(geometry, 3), geometry.faces());
+}
+
+TEST(MeshGeometry, SequenceGapWithMatchingCountsStillDropsPendingFaces) {
+  MeshGeometry geometry;
+  MeshDelta first({5, 0, 0});
+  addTriangle(first, 0, true);
+  addTriangle(first, 2, false);
+  first.addFace({0, 1, 3}, true);
+  geometry.applyDelta(first);
+
+  MeshDelta newest(MeshDelta::TrackingInfo::with_remap(7, 3, 1, {{0, 0}}));
+  addTriangle(newest, 4, false);
+  geometry.applyDelta(newest);
+  EXPECT_EQ(geometry.faces(), (std::vector<traits::Face>{{0, 1, 2}, {3, 4, 5}}));
+
+  MeshDelta empty({9, 3, 1});
+  geometry.applyDelta(empty);
+  EXPECT_EQ(geometry.vertices().size(), 3u);
+  EXPECT_EQ(collectFaces(geometry, 16384), (std::vector<traits::Face>{{0, 1, 2}}));
+}
+
+TEST(MeshGeometry, SequenceWraparoundKeepsPendingFaces) {
+  MeshGeometry geometry;
+  MeshDelta first({65535, 0, 0});
+  addTriangle(first, 0, true);
+  addTriangle(first, 2, false);
+  first.addFace({0, 1, 3}, true);
+  geometry.applyDelta(first);
+
+  MeshDelta next(MeshDelta::TrackingInfo::with_remap(0, 3, 1, {{0, 1}}));
+  addTriangle(next, 4, false);
+  geometry.applyDelta(next);
+  ASSERT_EQ(geometry.faces().size(), 3u);
+  EXPECT_EQ(geometry.faces()[1], (traits::Face{0, 1, 4}));
+
+  geometry.setMesh({}, {});
+  // Starting midway through a stream remains supported after a reset.
+  EXPECT_EQ(geometry.applyDelta(first), 0u);
+  EXPECT_EQ(geometry.vertices().size(), 6u);
+}
+
 TEST(MeshGeometry, InvalidLeadingFaceCanBecomeValidAfterDelta) {
   MeshGeometry geometry;
   MeshDelta first({});

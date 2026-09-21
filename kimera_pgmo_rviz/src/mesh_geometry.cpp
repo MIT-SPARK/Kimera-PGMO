@@ -25,6 +25,7 @@ void MeshGeometry::setMesh(std::vector<traits::Vertex> vertices,
   vertices_ = std::move(vertices);
   faces_ = std::move(faces);
   offsets_ = {};
+  sequence_number_.reset();
   archived_chunks_ = 0;
   // Old vertex indices need not exist in the replacement mesh.
   chunks_.clear();
@@ -35,24 +36,48 @@ void MeshGeometry::setMesh(std::vector<traits::Vertex> vertices,
   rebuildChunks(0);
 }
 
+bool MeshGeometry::needsRecovery(uint16_t sequence_number) const {
+  if (!sequence_number_) {
+    return false;
+  }
+
+  const auto expected = static_cast<uint16_t>(*sequence_number_ + 1);
+  return sequence_number != expected;
+}
+
+void MeshGeometry::validateDelta(const MeshDelta& delta) const {
+  // An empty mesh can start receiving deltas midway through a stream.
+  const auto active_vertices = vertices_.size() - offsets_.archived_vertices;
+  if (!vertices_.empty() && delta.info.prev_active_vertices != active_vertices) {
+    throw std::invalid_argument("Mesh delta does not match the active vertex count");
+  }
+
+  // The unarchived suffix includes pending faces as well as active faces.
+  const auto unarchived_faces = faces_.size() - offsets_.archived_faces;
+  if (!faces_.empty() && delta.info.prev_active_faces > unarchived_faces) {
+    throw std::invalid_argument("Mesh delta active faces overlap the archive boundary");
+  }
+}
+
 size_t MeshGeometry::applyDelta(const MeshDelta& delta) {
-  if ((!vertices_.empty() && delta.info.prev_active_vertices > vertices_.size()) ||
-      (!faces_.empty() && delta.info.prev_active_faces > faces_.size())) {
-    throw std::invalid_argument("Mesh delta does not match the previous mesh");
+  const auto recover = needsRecovery(delta.info.sequence_number);
+  if (!recover) {
+    validateDelta(delta);
   }
 
-  const auto first_vertex =
-      vertices_.empty() ? 0 : vertices_.size() - delta.info.prev_active_vertices;
-  if (first_vertex != offsets_.archived_vertices ||
-      (!faces_.empty() &&
-       faces_.size() - delta.info.prev_active_faces < offsets_.archived_faces)) {
-    throw std::invalid_argument("Mesh delta does not match the archive boundary");
-  }
-
+  const auto first_vertex = offsets_.archived_vertices;
   const auto first_face = offsets_.archived_faces;
   std::set<size_t> changed;
   updateNormals(first_face, -1.0f, changed);
-  delta.updateMesh(vertices_, faces_, offsets_);
+  if (recover) {
+    // Pending faces also depend on the missing active-vertex remapping.
+    vertices_.resize(first_vertex);
+    faces_.resize(first_face);
+  }
+
+  const MeshDelta::TrackingInfo no_history;
+  const auto& tracking = recover ? no_history : delta.info;
+  delta.updateMesh(vertices_, faces_, offsets_, tracking);
   if (normals_enabled_) {
     normals_.resize(vertices_.size(), Eigen::Vector3f::Zero());
     // No fully archived face references the replaced active vertex suffix.
@@ -65,6 +90,7 @@ size_t MeshGeometry::applyDelta(const MeshDelta& delta) {
   // archive chunks keep their geometry and GPU buffers.
   rebuildChunks(archived_chunks_ ? archived_chunks_ - 1 : 0);
   dirtyNormals(changed);
+  sequence_number_ = delta.info.sequence_number;
   return first_vertex;
 }
 
