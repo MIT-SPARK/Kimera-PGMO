@@ -1,4 +1,4 @@
-<library path="kimera_pgmo_rviz_coloring">
+<library path="kimera_pgmo_rviz_coloring_plugins">
   <class name="kimera_pgmo/RGB" type="kimera_pgmo::RgbColoringPlugin" base_class_type="kimera_pgmo::MeshColoringPlugin"/>
   <class name="kimera_pgmo/Uniform" type="kimera_pgmo::UniformColoringPlugin" base_class_type="kimera_pgmo::MeshColoringPlugin"/>
   <class name="kimera_pgmo/Semantic" type="kimera_pgmo::SemanticColoringPlugin" base_class_type="kimera_pgmo::MeshColoringPlugin"/>

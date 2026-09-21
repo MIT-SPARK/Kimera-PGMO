@@ -22,7 +22,6 @@ add_library(
   SHARED
   src/mesh_coloring_plugin.cpp
   src/mesh_coloring_property.cpp
-  src/mesh_coloring_plugins.cpp
   include/kimera_pgmo_rviz/mesh_coloring_plugin.h
   include/kimera_pgmo_rviz/mesh_coloring_property.h)
 target_include_directories(
@@ -31,8 +30,14 @@ target_include_directories(
          "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>")
 ament_target_dependencies(kimera_pgmo_rviz_coloring PUBLIC kimera_pgmo_ros pluginlib
                           rviz_common)
-target_link_libraries(kimera_pgmo_rviz_coloring PRIVATE yaml-cpp::yaml-cpp)
 target_link_options(kimera_pgmo_rviz_coloring PRIVATE -Wl,--no-undefined)
+
+# Keep registrations out of libraries linked by the display so pluginlib owns
+# their initial load and associates factories with the coloring loader.
+add_library(kimera_pgmo_rviz_coloring_plugins SHARED src/mesh_coloring_plugins.cpp)
+target_link_libraries(kimera_pgmo_rviz_coloring_plugins
+                      PRIVATE kimera_pgmo_rviz_coloring yaml-cpp::yaml-cpp)
+target_link_options(kimera_pgmo_rviz_coloring_plugins PRIVATE -Wl,--no-undefined)
 pluginlib_export_plugin_description_file(kimera_pgmo_rviz mesh_coloring_plugins.xml)
 
 add_library(
@@ -65,6 +70,7 @@ install(
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION lib/${PROJECT_NAME})
+install(TARGETS kimera_pgmo_rviz_coloring_plugins LIBRARY DESTINATION lib)
 install(DIRECTORY include/${PROJECT_NAME}/ DESTINATION include/${PROJECT_NAME}/)
 install(FILES rviz_common_plugins.xml DESTINATION share/${PROJECT_NAME})
 install(DIRECTORY icons/ DESTINATION share/${PROJECT_NAME}/icons)
@@ -82,6 +88,11 @@ if(BUILD_TESTING)
   ament_add_gtest(test_mesh_coloring_property test/property_test_main.cpp
                   test/test_mesh_coloring_property.cpp)
   target_link_libraries(test_mesh_coloring_property ${PROJECT_NAME})
+
+  # Load the display through pluginlib, as RViz does, rather than linking it.
+  ament_add_gtest(test_mesh_coloring_loading test/property_test_main.cpp
+                  test/test_mesh_coloring_loading.cpp)
+  ament_target_dependencies(test_mesh_coloring_loading pluginlib rviz_common)
 endif()
 
 ament_package()
