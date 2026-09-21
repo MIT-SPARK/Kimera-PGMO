@@ -1,7 +1,8 @@
 find_package(ament_cmake_gtest REQUIRED)
 
 ament_add_gtest(${PROJECT_NAME}-test pgmo_ros_unit_tests.cpp
-                test_mesh_conversion.cpp test_gtsam_conversions.cpp)
+                test_mesh_conversion.cpp test_gtsam_conversions.cpp
+                test_mesh_coloring.cpp)
 target_include_directories(${PROJECT_NAME}-test PUBLIC ${roslib_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME} ${roslib_LIBRARIES})
 
