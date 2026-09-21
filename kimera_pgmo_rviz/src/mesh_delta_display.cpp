@@ -11,15 +11,14 @@
 #include <rviz_common/logging.hpp>
 #include <rviz_common/properties/bool_property.hpp>
 #include <rviz_common/properties/color_property.hpp>
-#include <rviz_common/properties/float_property.hpp>
 
+#include "kimera_pgmo_rviz/mesh_properties.h"
 #include "kimera_pgmo_rviz/mesh_visual.h"
 
 namespace kimera_pgmo {
 
 using rviz_common::properties::BoolProperty;
 using rviz_common::properties::ColorProperty;
-using rviz_common::properties::FloatProperty;
 
 MeshDeltaDisplay::MeshDeltaDisplay() {
   visibility_ = std::make_unique<BoolProperty>(
@@ -29,19 +28,11 @@ MeshDeltaDisplay::MeshDeltaDisplay() {
   lighting_ = std::make_unique<BoolProperty>(
       "Enable Lighting", false, "Toggle lighting", this, SLOT(settingsSlot()));
 
-  label_alpha_ = std::make_unique<FloatProperty>("Label Alpha",
-                                                 0.0,
-                                                 "Amount to blend label colors in by",
-                                                 this,
-                                                 SLOT(colorSlot()));
-  label_alpha_->setMin(0.0);
-  label_alpha_->setMax(1.0);
-  default_color_ =
-      std::make_unique<ColorProperty>("Default Color",
-                                      QColor::fromRgbF(0.4, 0.4, 0.4),
-                                      "Default color for labels outside of range",
-                                      this,
-                                      SLOT(colorSlot()));
+  mesh_properties_ = std::make_unique<MeshProperties>(this);
+  connect(mesh_properties_.get(),
+          &MeshProperties::changed,
+          this,
+          &MeshDeltaDisplay::meshSlot);
 
   ambient_ = std::make_unique<ColorProperty>("Ambient",
                                              QColor::fromRgbF(0.9, 0.9, 0.9),
@@ -72,8 +63,6 @@ void MeshDeltaDisplay::onInitialize() { MFDClass::onInitialize(); }
 void MeshDeltaDisplay::reset() {
   MFDClass::reset();
 
-  faces_.clear();
-  vertices_.clear();
   visual_.reset();
 }
 
@@ -92,13 +81,19 @@ void MeshDeltaDisplay::settingsSlot() {
                        specular_->getOgreColor());
 }
 
-void MeshDeltaDisplay::colorSlot() {
+void MeshDeltaDisplay::meshSlot() {
   if (!visual_) {
     return;
   }
 
-  visual_->setMesh(
-      vertices_, faces_, label_alpha_->getFloat(), default_color_->getOgreColor());
+  try {
+    mesh_properties_->apply(*visual_);
+    deleteStatus("Mesh settings");
+    context_->queueRender();
+  } catch (const std::exception& e) {
+    setStatus(
+        rviz_common::properties::StatusProperty::Error, "Mesh settings", e.what());
+  }
 }
 
 void MeshDeltaDisplay::processMessage(const Msg::ConstSharedPtr msg) {
@@ -106,13 +101,11 @@ void MeshDeltaDisplay::processMessage(const Msg::ConstSharedPtr msg) {
     return;
   }
 
-  auto delta = conversions::from_ros(*msg);
-  delta->updateMesh(vertices_, faces_, offsets_);
-
   if (!visual_) {
     visual_ = std::make_unique<MeshVisual>(
         context_->getSceneManager(), scene_node_, "mesh_delta_display");
     settingsSlot();
+    meshSlot();
   }
 
   Ogre::Vector3 position;
@@ -122,11 +115,18 @@ void MeshDeltaDisplay::processMessage(const Msg::ConstSharedPtr msg) {
                      QString(msg->header.frame_id.c_str()) + "' to frame '" +
                      fixed_frame_ + "'";
     setStatus(rviz_common::properties::StatusProperty::Error, "Topic", status);
+    return;
   }
 
   visual_->setPose(position, orientation);
-  visual_->setMesh(
-      vertices_, faces_, label_alpha_->getFloat(), default_color_->getOgreColor());
+  try {
+    const auto delta = conversions::from_ros(*msg);
+    visual_->applyDelta(*delta);
+    deleteStatus("Mesh");
+    context_->queueRender();
+  } catch (const std::exception& e) {
+    setStatus(rviz_common::properties::StatusProperty::Error, "Mesh", e.what());
+  }
 }
 
 }  // namespace kimera_pgmo

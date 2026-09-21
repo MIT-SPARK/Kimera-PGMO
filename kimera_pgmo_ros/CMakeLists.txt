@@ -29,6 +29,7 @@ add_library(
   src/conversion/mesh.cpp
   src/conversion/mesh_delta.cpp
   src/conversion/mesh_types.cpp
+  src/mesh_coloring.cpp
   src/mesh_frontend.cpp
   src/visualization_functions.cpp)
 target_include_directories(

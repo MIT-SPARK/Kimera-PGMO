@@ -1,0 +1,9 @@
+<library path="kimera_pgmo_rviz_coloring">
+  <class name="kimera_pgmo/RGB" type="kimera_pgmo::RgbColoringPlugin" base_class_type="kimera_pgmo::MeshColoringPlugin"/>
+  <class name="kimera_pgmo/Uniform" type="kimera_pgmo::UniformColoringPlugin" base_class_type="kimera_pgmo::MeshColoringPlugin"/>
+  <class name="kimera_pgmo/Semantic" type="kimera_pgmo::SemanticColoringPlugin" base_class_type="kimera_pgmo::MeshColoringPlugin"/>
+  <class name="kimera_pgmo/FirstSeen" type="kimera_pgmo::FirstSeenColoringPlugin" base_class_type="kimera_pgmo::MeshColoringPlugin"/>
+  <class name="kimera_pgmo/LastSeen" type="kimera_pgmo::LastSeenColoringPlugin" base_class_type="kimera_pgmo::MeshColoringPlugin"/>
+  <class name="kimera_pgmo/SeenDuration" type="kimera_pgmo::SeenDurationColoringPlugin" base_class_type="kimera_pgmo::MeshColoringPlugin"/>
+  <class name="kimera_pgmo/Split" type="kimera_pgmo::SplitColoringPlugin" base_class_type="kimera_pgmo::MeshColoringPlugin"/>
+</library>
