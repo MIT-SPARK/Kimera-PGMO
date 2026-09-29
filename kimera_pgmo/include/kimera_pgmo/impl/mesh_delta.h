@@ -43,25 +43,41 @@ void MeshDelta::updateMesh(Vertices& vertices,
                            Faces& faces,
                            MeshOffsetInfo& offsets,
                            const Eigen::Isometry3f* transform) const {
-  const auto vertex_offset = updateVertices<Vertices>(vertices, transform);
-  const auto archived_faces = updateFaces<Faces>(faces, offsets, vertex_offset);
+  updateMesh(vertices, faces, offsets, info, transform);
+}
+
+template <typename Vertices, typename Faces>
+void MeshDelta::updateMesh(Vertices& vertices,
+                           Faces& faces,
+                           MeshOffsetInfo& offsets,
+                           const TrackingInfo& tracking,
+                           const Eigen::Isometry3f* transform) const {
+  const auto vertex_offset = updateVertices(vertices, tracking, transform);
+  const auto archived_faces = updateFaces(faces, offsets, vertex_offset, tracking);
   offsets = {
       vertex_offset + num_archived_vertices_,
       vertex_offset,
       archived_faces,
-      info.prev_to_curr,
+      tracking.prev_to_curr,
   };
 }
 
 template <typename Vertices>
 size_t MeshDelta::updateVertices(Vertices& vertices,
                                  const Eigen::Isometry3f* transform) const {
+  return updateVertices(vertices, info, transform);
+}
+
+template <typename Vertices>
+size_t MeshDelta::updateVertices(Vertices& vertices,
+                                 const TrackingInfo& tracking,
+                                 const Eigen::Isometry3f* transform) const {
   const auto curr_size = traits::num_vertices(vertices);
-  if (curr_size && curr_size < info.prev_active_vertices) {
+  if (curr_size && curr_size < tracking.prev_active_vertices) {
     throw std::logic_error("Invalid target vertices!");
   }
 
-  const auto start_idx = curr_size ? curr_size - info.prev_active_vertices : 0;
+  const auto start_idx = curr_size ? curr_size - tracking.prev_active_vertices : 0;
   const auto total_vertices = start_idx + vertex_updates_.size();
   traits::resize_vertices(vertices, total_vertices);
 
@@ -82,13 +98,21 @@ template <typename Faces>
 size_t MeshDelta::updateFaces(Faces& faces,
                               const MeshOffsetInfo& prev_offsets,
                               size_t vertex_offset) const {
+  return updateFaces(faces, prev_offsets, vertex_offset, info);
+}
+
+template <typename Faces>
+size_t MeshDelta::updateFaces(Faces& faces,
+                              const MeshOffsetInfo& prev_offsets,
+                              size_t vertex_offset,
+                              const TrackingInfo& tracking) const {
   const auto curr_size = traits::num_faces(faces);
-  if (curr_size && curr_size < info.prev_active_faces) {
+  if (curr_size && curr_size < tracking.prev_active_faces) {
     throw std::logic_error("Invalid target faces!");
   }
 
   const size_t archived_threshold = vertex_offset + num_archived_vertices_;
-  const auto start_idx = curr_size ? curr_size - info.prev_active_faces : 0;
+  const auto start_idx = curr_size ? curr_size - tracking.prev_active_faces : 0;
   const size_t total_faces = start_idx + getNumFaces();
   traits::resize_faces(faces, total_faces);
 
@@ -97,8 +121,8 @@ size_t MeshDelta::updateFaces(Faces& faces,
   size_t pending_start = prev_offsets.archived_faces;
   for (size_t i = pending_start; i < start_idx; ++i) {
     auto f_p = traits::get_face(faces, i);
-    if (info.prev_to_curr) {
-      f_p = remapFace(f_p, vertex_offset, *info.prev_to_curr);
+    if (tracking.prev_to_curr) {
+      f_p = remapFace(f_p, vertex_offset, *tracking.prev_to_curr);
     }
 
     if (!allVerticesBelow(f_p, archived_threshold)) {

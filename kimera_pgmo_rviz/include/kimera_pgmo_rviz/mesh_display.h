@@ -20,6 +20,7 @@ class ColorProperty;
 namespace kimera_pgmo {
 
 class MeshVisual;
+class MeshProperties;
 class VisibilityField;
 class TfEventBuffer;
 
@@ -43,6 +44,8 @@ class MeshDisplay : public rviz_common::MessageFilterDisplay<MeshMsg> {
   // Trigger an update of the settings for all visuals.
   void updateGlobalSettingsSlot();
 
+  void meshSlot();
+
   void visibleSlot();
 
   void toggleVisibilityAllSloT();
@@ -57,6 +60,8 @@ class MeshDisplay : public rviz_common::MessageFilterDisplay<MeshMsg> {
 
   // The root of the visibility tree.
   std::unique_ptr<VisibilityField> visibility_fields_;
+
+  std::unique_ptr<MeshProperties> mesh_properties_;
 
   // properties
   std::unique_ptr<rviz_common::properties::BoolProperty> cull_;

@@ -5,12 +5,15 @@
  */
 #pragma once
 #include <Ogre.h>
-#include <kimera_pgmo/mesh_types.h>
+#include <kimera_pgmo_ros/mesh_coloring.h>
 
 #include <atomic>
+#include <optional>
 #include <string>
 
 #include <kimera_pgmo_msgs/msg/mesh.hpp>
+
+#include "kimera_pgmo_rviz/mesh_geometry.h"
 
 namespace Ogre {
 class SceneManager;
@@ -33,12 +36,11 @@ class MeshVisual {
   void setPose(const Ogre::Vector3& parent_t_mesh,
                const Ogre::Quaternion& parent_R_mesh);
 
-  void setMesh(const std::vector<traits::Vertex>& vertices,
-               const std::vector<traits::Face>& faces,
-               float label_alpha,
-               Ogre::ColourValue default_color);
-
   void setMessage(const kimera_pgmo_msgs::msg::Mesh& mesh);
+  void applyDelta(const MeshDelta& delta);
+  void setColoring(std::shared_ptr<MeshColoring> coloring, size_t revision);
+  std::optional<size_t> coloringRevision() const { return coloring_revision_; }
+  void setMaxVertices(size_t max_vertices);
 
   void shouldCull(bool cull);
   void shouldLight(bool light);
@@ -54,6 +56,10 @@ class MeshVisual {
   void reset();
 
  private:
+  void updateColors(size_t first_changed);
+  void updateTransparency();
+  void upload();
+  void uploadChunk(size_t index);
   void setCullMode();
   void setLightingMode();
 
@@ -75,9 +81,13 @@ class MeshVisual {
 
   Ogre::SceneManager* manager_;
   Ogre::SceneNode* node_;
-  Ogre::ManualObject* mesh_;
-
-  std::vector<Ogre::ColourValue> colormap_;
+  MeshGeometry geometry_;
+  std::vector<Ogre::ManualObject*> meshes_;
+  std::vector<traits::Color> colors_;
+  size_t transparent_vertices_ = 0;
+  bool transparency_enabled_ = false;
+  std::shared_ptr<MeshColoring> coloring_;
+  std::optional<size_t> coloring_revision_;
 };
 
 }  // namespace kimera_pgmo

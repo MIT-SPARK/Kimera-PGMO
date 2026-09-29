@@ -109,13 +109,22 @@ class MeshDelta {
                   MeshOffsetInfo& offsets,
                   const Eigen::Isometry3f* transform = nullptr) const;
 
+  //! Apply the payload with different tracking information without copying it.
+  //! Empty tracking appends to the retained mesh without remapping existing faces.
+  template <typename Vertices, typename Faces>
+  void updateMesh(Vertices& vertices,
+                  Faces& faces,
+                  MeshOffsetInfo& offsets,
+                  const TrackingInfo& tracking,
+                  const Eigen::Isometry3f* transform = nullptr) const;
+
   template <typename Vertices>
   size_t updateVertices(Vertices& vertices,
                         const Eigen::Isometry3f* transform = nullptr) const;
 
   template <typename Faces>
   size_t updateFaces(Faces& faces,
-                     const MeshOffsetInfo& prev_offests,
+                     const MeshOffsetInfo& prev_offsets,
                      size_t vertex_offset) const;
 
   //! Get the valid vertex properties that the delta has
@@ -127,6 +136,18 @@ class MeshDelta {
 
   //! Last updated timestamp of the mesh delta
   traits::Timestamp timestamp_ns = 0;
+
+ private:
+  template <typename Vertices>
+  size_t updateVertices(Vertices& vertices,
+                        const TrackingInfo& tracking,
+                        const Eigen::Isometry3f* transform) const;
+
+  template <typename Faces>
+  size_t updateFaces(Faces& faces,
+                     const MeshOffsetInfo& prev_offsets,
+                     size_t vertex_offset,
+                     const TrackingInfo& tracking) const;
 
  protected:
   size_t num_archived_vertices_ = 0;

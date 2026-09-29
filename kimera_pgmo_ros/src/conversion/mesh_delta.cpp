@@ -9,6 +9,8 @@
 
 #include <kimera_pgmo/mesh_delta.h>
 
+#include <stdexcept>
+
 #include <rclcpp/time.hpp>
 
 #include "kimera_pgmo_ros/conversion/mesh_types.h"
@@ -50,6 +52,11 @@ void to_ros(const MeshDelta& delta, kimera_pgmo_msgs::msg::MeshDelta& msg) {
 }
 
 MeshDelta::Ptr from_ros(const kimera_pgmo_msgs::msg::MeshDelta& msg) {
+  if (msg.previous_indices.size() != msg.current_indices.size() ||
+      msg.num_archived_vertices > msg.vertex_updates.size()) {
+    throw std::invalid_argument("Invalid mesh delta remapping or archive count");
+  }
+
   auto info = MeshDelta::TrackingInfo::with_remap(
       msg.seq_number, msg.prev_active_vertices, msg.prev_active_faces);
   std::transform(msg.previous_indices.begin(),

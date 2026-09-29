@@ -8,6 +8,7 @@
 #include <rviz_common/properties/bool_property.hpp>
 #include <rviz_common/properties/color_property.hpp>
 
+#include "kimera_pgmo_rviz/mesh_properties.h"
 #include "kimera_pgmo_rviz/mesh_visual.h"
 #include "kimera_pgmo_rviz/tf_event_buffer.h"
 #include "kimera_pgmo_rviz/visibility_field.h"
@@ -19,6 +20,9 @@ using rviz_common::properties::BoolProperty;
 using rviz_common::properties::ColorProperty;
 
 MeshDisplay::MeshDisplay() {
+  mesh_properties_ = std::make_unique<MeshProperties>(this);
+  connect(
+      mesh_properties_.get(), &MeshProperties::changed, this, &MeshDisplay::meshSlot);
   visibility_fields_ = std::make_unique<VisibilityField>("Visible", this, this);
 
   // Setup rviz properties.
@@ -76,7 +80,7 @@ void MeshDisplay::reset() {
   tf_buffer_->reset();
 }
 
-void MeshDisplay::update(float /* wall_dt */, float /* ros_dt */) {
+void MeshDisplay::update(float, float) {
   // Update the poses of all visuals if new transforms are available.
   for (const auto& update : tf_buffer_->getTransformUpdates()) {
     auto visual = visuals_.get(update.ns);
@@ -99,6 +103,20 @@ void MeshDisplay::updateVisualSettings(MeshVisual& visual) const {
                      specular_->getOgreColor());
 }
 
+void MeshDisplay::meshSlot() {
+  try {
+    visuals_.applyToAll(
+        [this](MeshVisual& visual) { mesh_properties_->apply(visual); });
+    deleteStatus("Mesh settings");
+    if (context_) {
+      context_->queueRender();
+    }
+  } catch (const std::exception& e) {
+    setStatus(
+        rviz_common::properties::StatusProperty::Error, "Mesh settings", e.what());
+  }
+}
+
 void MeshDisplay::visibleSlot() { updateVisible(); }
 
 void MeshDisplay::updateVisible() {
@@ -108,6 +126,7 @@ void MeshDisplay::updateVisible() {
     if (isEnabled()) {
       visible = visibility_fields_->isEnabled(ns);
     }
+
     visual->setVisible(visible);
   }
 }
@@ -124,6 +143,7 @@ void MeshDisplay::processMessage(const Mesh::ConstSharedPtr msg) {
   if (!msg) {
     return;
   }
+
   const std::string& ns = msg->ns;
 
   if (msg->vertices.empty()) {
@@ -145,12 +165,27 @@ void MeshDisplay::processMessage(const Mesh::ConstSharedPtr msg) {
     }
   }
 
-  visual->setMessage(*msg);
+  try {
+    visual->setMessage(*msg);
+    deleteStatus("Mesh");
+    if (context_) {
+      context_->queueRender();
+    }
+  } catch (const std::exception& e) {
+    setStatus(rviz_common::properties::StatusProperty::Error, "Mesh", e.what());
+  }
 }
 
 MeshVisual* MeshDisplay::createVisual(const std::string& ns) {
   auto& visual = visuals_.create(ns, context_->getSceneManager(), scene_node_);
   updateVisualSettings(visual);
+  try {
+    mesh_properties_->apply(visual);
+  } catch (const std::exception& e) {
+    setStatus(
+        rviz_common::properties::StatusProperty::Error, "Mesh settings", e.what());
+  }
+
   visibility_fields_->addField(ns);
   visual.setVisible(visibility_fields_->isEnabled(ns));
   return &visual;
