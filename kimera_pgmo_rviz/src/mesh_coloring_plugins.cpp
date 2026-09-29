@@ -1,4 +1,4 @@
-#include <kimera_pgmo_ros/mesh_coloring_factories.h>
+#include <kimera_pgmo_ros/mesh_colorings.h>
 #include <yaml-cpp/yaml.h>
 
 #include <cmath>
@@ -160,7 +160,7 @@ class RgbColoringPlugin : public MeshColoringPlugin {
   }
 
   std::unique_ptr<MeshColoring> createColoring() const override {
-    return makeRgbColoring({colorValue(*fallback_)});
+    return std::make_unique<RgbMeshColoring>(RgbColoringConfig{colorValue(*fallback_)});
   }
 
  private:
@@ -175,7 +175,8 @@ class UniformColoringPlugin : public MeshColoringPlugin {
   }
 
   std::unique_ptr<MeshColoring> createColoring() const override {
-    return makeUniformColoring({colorValue(*color_, opacity_->getFloat())});
+    return std::make_unique<UniformMeshColoring>(
+        UniformColoringConfig{colorValue(*color_, opacity_->getFloat())});
   }
 
  private:
@@ -218,7 +219,7 @@ class SemanticColoringPlugin : public MeshColoringPlugin {
       throw std::invalid_argument("Unknown semantic palette");
     }
 
-    return makeSemanticColoring(config);
+    return std::make_unique<SemanticMeshColoring>(config);
   }
 
  private:
@@ -233,8 +234,8 @@ class FirstSeenColoringPlugin : public MeshColoringPlugin {
   void createProperties(Property* parent) override { properties_.create(parent, this); }
 
   std::unique_ptr<MeshColoring> createColoring() const override {
-    return makeFirstSeenColoring(
-        {colorValue(*properties_.invalid), properties_.bounds()});
+    return std::make_unique<FirstSeenMeshColoring>(FirstSeenColoringConfig{
+        colorValue(*properties_.invalid), properties_.bounds()});
   }
 
  private:
@@ -246,8 +247,8 @@ class LastSeenColoringPlugin : public MeshColoringPlugin {
   void createProperties(Property* parent) override { properties_.create(parent, this); }
 
   std::unique_ptr<MeshColoring> createColoring() const override {
-    return makeLastSeenColoring(
-        {colorValue(*properties_.invalid), properties_.bounds()});
+    return std::make_unique<LastSeenMeshColoring>(
+        LastSeenColoringConfig{colorValue(*properties_.invalid), properties_.bounds()});
   }
 
  private:
@@ -259,8 +260,8 @@ class SeenDurationColoringPlugin : public MeshColoringPlugin {
   void createProperties(Property* parent) override { properties_.create(parent, this); }
 
   std::unique_ptr<MeshColoring> createColoring() const override {
-    return makeSeenDurationColoring(
-        {colorValue(*properties_.invalid), properties_.bounds()});
+    return std::make_unique<SeenDurationMeshColoring>(SeenDurationColoringConfig{
+        colorValue(*properties_.invalid), properties_.bounds()});
   }
 
  private:
@@ -296,7 +297,7 @@ class SplitColoringPlugin : public MeshColoringPlugin {
     config.normal = {normal.x, normal.y, normal.z};
     config.origin = {origin.x, origin.y, origin.z};
     config.default_color = colorValue(*fallback_);
-    return makeSplitColoring(config, child_->createColoring());
+    return std::make_unique<SplitMeshColoring>(config, child_->createColoring());
   }
 
  private:

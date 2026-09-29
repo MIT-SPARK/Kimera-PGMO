@@ -10,7 +10,7 @@
 #include <OgreSceneManager.h>
 #include <OgreSceneNode.h>
 #include <kimera_pgmo_ros/conversion/mesh_types.h>
-#include <kimera_pgmo_ros/mesh_coloring_factories.h>
+#include <kimera_pgmo_ros/mesh_colorings.h>
 
 #include <Eigen/Dense>
 #include <rviz_common/logging.hpp>
@@ -42,7 +42,7 @@ MeshVisual::MeshVisual(Ogre::SceneManager* manager,
 
   setCullMode();
   setLightingMode();
-  coloring_ = makeRgbColoring();
+  coloring_ = std::make_unique<RgbMeshColoring>();
 }
 
 MeshVisual::~MeshVisual() {

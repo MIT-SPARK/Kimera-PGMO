@@ -4,7 +4,7 @@
 #include <optional>
 #include <stdexcept>
 
-#include "kimera_pgmo_ros/mesh_coloring_factories.h"
+#include "kimera_pgmo_ros/mesh_colorings.h"
 
 namespace kimera_pgmo {
 namespace {
@@ -62,268 +62,186 @@ traits::Color timeColor(double ratio) {
   return blend(palette[lower], palette[lower + 1], scaled - lower);
 }
 
-class RgbMeshColoring : public MeshColoring {
- public:
-  explicit RgbMeshColoring(const RgbColoringConfig& config)
-      : fallback_(config.default_color) {}
-
-  bool prepare(const MeshColoringView&, size_t) override { return false; }
-
-  traits::Color color(const MeshColoringView& mesh, size_t i) const override {
-    const auto& traits = mesh.vertices[i].traits;
-    return traits.properties.has_color ? traits.color : fallback_;
-  }
-
- private:
-  traits::Color fallback_{102, 102, 102, 255};
-};
-
-class UniformMeshColoring : public MeshColoring {
- public:
-  explicit UniformMeshColoring(const UniformColoringConfig& config)
-      : color_(config.color) {}
-
-  bool prepare(const MeshColoringView&, size_t) override { return false; }
-
-  traits::Color color(const MeshColoringView&, size_t) const override { return color_; }
-
- private:
-  traits::Color color_{102, 102, 102, 255};
-};
-
-class SemanticMeshColoring : public MeshColoring {
- public:
-  explicit SemanticMeshColoring(const SemanticColoringConfig& config)
-      : fallback_(config.default_color), alpha_(config.alpha) {
-    if (!std::isfinite(alpha_) || alpha_ < 0.0 || alpha_ > 1.0) {
-      throw std::invalid_argument("Semantic blend must be in [0, 1]");
-    }
-
-    if (config.palette) {
-      palette_ = *config.palette;
-      return;
-    }
-
-    for (size_t i = 0; i < custom_150_palette.size(); ++i) {
-      const auto& c = custom_150_palette[i];
-      palette_[i] = {c[0], c[1], c[2], 255};
-    }
-  }
-
-  bool prepare(const MeshColoringView&, size_t) override { return false; }
-
-  traits::Color color(const MeshColoringView& mesh, size_t i) const override {
-    const auto& traits = mesh.vertices[i].traits;
-    const auto source = traits.properties.has_color ? traits.color : fallback_;
-    if (!traits.properties.has_label) {
-      return source;
-    }
-
-    const auto iter = palette_.find(traits.label);
-    const auto label_color = iter == palette_.end() ? fallback_ : iter->second;
-    return blend(source, label_color, alpha_);
-  }
-
- private:
-  traits::Color fallback_{102, 102, 102, 255};
-  double alpha_ = 1.0;
-  std::map<traits::Label, traits::Color> palette_;
-};
-
-class TimeMeshColoring : public MeshColoring {
- public:
-  TimeMeshColoring(const traits::Color& invalid,
-                   const std::optional<MeshTimeBounds>& bounds)
-      : invalid_(invalid), bounds_(bounds) {
-    if (bounds_ && bounds_->first > bounds_->second) {
-      throw std::invalid_argument("Minimum time must not exceed maximum time");
-    }
-  }
-
-  bool prepare(const MeshColoringView& mesh, size_t first_changed) override {
-    if (bounds_) {
-      return false;
-    }
-
-    // A multiset of timestamp counts supports removal/replacement of the active
-    // suffix without scanning the archived mesh on every delta.
-    first_changed = std::min(first_changed, values_.size());
-    for (size_t i = first_changed; i < values_.size(); ++i) {
-      if (!values_[i]) {
-        continue;
-      }
-
-      const auto iter = counts_.find(*values_[i]);
-      --iter->second;
-      if (!iter->second) {
-        counts_.erase(iter);
-      }
-    }
-
-    values_.resize(mesh.vertices.size());
-    for (size_t i = first_changed; i < values_.size(); ++i) {
-      values_[i] = value(mesh.vertices[i].traits);
-      if (values_[i]) {
-        ++counts_[*values_[i]];
-      }
-    }
-
-    const auto previous = automatic_bounds_;
-    automatic_bounds_ = counts_.empty() ? std::make_pair(uint64_t{0}, uint64_t{0})
-                                        : std::make_pair(counts_.begin()->first,
-                                                         counts_.rbegin()->first);
-    if (zeroMinimum()) {
-      automatic_bounds_.first = 0;
-    }
-
-    return automatic_bounds_ != previous;
-  }
-
-  traits::Color color(const MeshColoringView& mesh, size_t i) const override {
-    const auto stamp = value(mesh.vertices[i].traits);
-    if (!stamp) {
-      return invalid_;
-    }
-
-    const auto [min, max] = bounds_.value_or(automatic_bounds_);
-    if (*stamp <= min || min == max) {
-      return timeColor(0.0);
-    }
-
-    if (*stamp >= max) {
-      return timeColor(1.0);
-    }
-
-    return timeColor(static_cast<double>(*stamp - min) /
-                     static_cast<double>(max - min));
-  }
-
- protected:
-  virtual std::optional<uint64_t> value(const traits::VertexTraits&) const = 0;
-  virtual bool zeroMinimum() const { return false; }
-
- private:
-  traits::Color invalid_{0, 255, 0, 255};
-  std::optional<std::pair<uint64_t, uint64_t>> bounds_;
-  std::pair<uint64_t, uint64_t> automatic_bounds_{0, 0};
-  std::vector<std::optional<uint64_t>> values_;
-  std::map<uint64_t, size_t> counts_;
-};
-
-class FirstSeenMeshColoring : public TimeMeshColoring {
- public:
-  explicit FirstSeenMeshColoring(const FirstSeenColoringConfig& config)
-      : TimeMeshColoring(config.invalid_color, config.bounds) {}
-
- protected:
-  std::optional<uint64_t> value(const traits::VertexTraits& t) const override {
-    return t.properties.has_first_seen_stamp && t.first_seen_stamp
-               ? std::optional<uint64_t>(t.first_seen_stamp)
-               : std::nullopt;
-  }
-};
-
-class LastSeenMeshColoring : public TimeMeshColoring {
- public:
-  explicit LastSeenMeshColoring(const LastSeenColoringConfig& config)
-      : TimeMeshColoring(config.invalid_color, config.bounds) {}
-
- protected:
-  std::optional<uint64_t> value(const traits::VertexTraits& t) const override {
-    return t.properties.has_stamp && t.stamp ? std::optional<uint64_t>(t.stamp)
-                                             : std::nullopt;
-  }
-};
-
-class SeenDurationMeshColoring : public TimeMeshColoring {
- public:
-  explicit SeenDurationMeshColoring(const SeenDurationColoringConfig& config)
-      : TimeMeshColoring(config.invalid_color, config.bounds) {}
-
- protected:
-  bool zeroMinimum() const override { return true; }
-
-  std::optional<uint64_t> value(const traits::VertexTraits& t) const override {
-    if (!t.properties.has_stamp || !t.properties.has_first_seen_stamp || !t.stamp ||
-        !t.first_seen_stamp || t.stamp < t.first_seen_stamp) {
-      return std::nullopt;
-    }
-
-    return t.stamp - t.first_seen_stamp;
-  }
-};
-
-class SplitMeshColoring : public MeshColoring {
- public:
-  SplitMeshColoring(const SplitColoringConfig& config,
-                    std::shared_ptr<MeshColoring> child)
-      : normal_(config.normal),
-        origin_(config.origin),
-        fallback_(config.default_color),
-        coloring_(std::move(child)) {
-    if (!normal_.allFinite() || normal_.squaredNorm() == 0 || !origin_.allFinite()) {
-      throw std::invalid_argument(
-          "Split plane must have a finite nonzero normal and finite origin");
-    }
-
-    if (!coloring_) {
-      throw std::invalid_argument("Split coloring requires a child processor");
-    }
-  }
-
-  bool prepare(const MeshColoringView& mesh, size_t first_changed) override {
-    return coloring_->prepare(mesh, first_changed);
-  }
-
-  traits::Color color(const MeshColoringView& mesh, size_t i) const override {
-    const auto& vertex = mesh.vertices[i];
-    if (normal_.dot(vertex.pos - origin_) >= 0.0f) {
-      return coloring_->color(mesh, i);
-    }
-
-    return vertex.traits.properties.has_color ? vertex.traits.color : fallback_;
-  }
-
- private:
-  Eigen::Vector3f normal_ = Eigen::Vector3f::Ones();
-  Eigen::Vector3f origin_ = Eigen::Vector3f::Zero();
-  traits::Color fallback_{102, 102, 102, 255};
-  std::shared_ptr<MeshColoring> coloring_;
-};
-
 }  // namespace
 
-std::unique_ptr<MeshColoring> makeRgbColoring(const RgbColoringConfig& config) {
-  return std::make_unique<RgbMeshColoring>(config);
+RgbMeshColoring::RgbMeshColoring(const RgbColoringConfig& config)
+    : fallback_(config.default_color) {}
+
+bool RgbMeshColoring::prepare(const MeshColoringView&, size_t) { return false; }
+
+traits::Color RgbMeshColoring::color(const MeshColoringView& mesh, size_t i) const {
+  const auto& traits = mesh.vertices[i].traits;
+  return traits.properties.has_color ? traits.color : fallback_;
 }
 
-std::unique_ptr<MeshColoring> makeUniformColoring(const UniformColoringConfig& config) {
-  return std::make_unique<UniformMeshColoring>(config);
+UniformMeshColoring::UniformMeshColoring(const UniformColoringConfig& config)
+    : color_(config.color) {}
+
+bool UniformMeshColoring::prepare(const MeshColoringView&, size_t) { return false; }
+
+traits::Color UniformMeshColoring::color(const MeshColoringView&, size_t) const {
+  return color_;
 }
 
-std::unique_ptr<MeshColoring> makeSemanticColoring(
-    const SemanticColoringConfig& config) {
-  return std::make_unique<SemanticMeshColoring>(config);
+SemanticMeshColoring::SemanticMeshColoring(const SemanticColoringConfig& config)
+    : fallback_(config.default_color), alpha_(config.alpha) {
+  if (!std::isfinite(alpha_) || alpha_ < 0.0 || alpha_ > 1.0) {
+    throw std::invalid_argument("Semantic blend must be in [0, 1]");
+  }
+
+  if (config.palette) {
+    palette_ = *config.palette;
+    return;
+  }
+
+  for (size_t i = 0; i < custom_150_palette.size(); ++i) {
+    const auto& c = custom_150_palette[i];
+    palette_[i] = {c[0], c[1], c[2], 255};
+  }
 }
 
-std::unique_ptr<MeshColoring> makeFirstSeenColoring(
-    const FirstSeenColoringConfig& config) {
-  return std::make_unique<FirstSeenMeshColoring>(config);
+bool SemanticMeshColoring::prepare(const MeshColoringView&, size_t) { return false; }
+
+traits::Color SemanticMeshColoring::color(const MeshColoringView& mesh,
+                                          size_t i) const {
+  const auto& traits = mesh.vertices[i].traits;
+  const auto source = traits.properties.has_color ? traits.color : fallback_;
+  if (!traits.properties.has_label) {
+    return source;
+  }
+
+  const auto iter = palette_.find(traits.label);
+  const auto label_color = iter == palette_.end() ? fallback_ : iter->second;
+  return blend(source, label_color, alpha_);
 }
 
-std::unique_ptr<MeshColoring> makeLastSeenColoring(
-    const LastSeenColoringConfig& config) {
-  return std::make_unique<LastSeenMeshColoring>(config);
+TimeMeshColoring::TimeMeshColoring(const traits::Color& invalid,
+                                   const std::optional<MeshTimeBounds>& bounds)
+    : invalid_(invalid), bounds_(bounds) {
+  if (bounds_ && bounds_->first > bounds_->second) {
+    throw std::invalid_argument("Minimum time must not exceed maximum time");
+  }
 }
 
-std::unique_ptr<MeshColoring> makeSeenDurationColoring(
-    const SeenDurationColoringConfig& config) {
-  return std::make_unique<SeenDurationMeshColoring>(config);
+bool TimeMeshColoring::prepare(const MeshColoringView& mesh, size_t first_changed) {
+  if (bounds_) {
+    return false;
+  }
+
+  // A multiset of timestamp counts supports removal/replacement of the active
+  // suffix without scanning the archived mesh on every delta.
+  first_changed = std::min(first_changed, values_.size());
+  for (size_t i = first_changed; i < values_.size(); ++i) {
+    if (!values_[i]) {
+      continue;
+    }
+
+    const auto iter = counts_.find(*values_[i]);
+    --iter->second;
+    if (!iter->second) {
+      counts_.erase(iter);
+    }
+  }
+
+  values_.resize(mesh.vertices.size());
+  for (size_t i = first_changed; i < values_.size(); ++i) {
+    values_[i] = value(mesh.vertices[i].traits);
+    if (values_[i]) {
+      ++counts_[*values_[i]];
+    }
+  }
+
+  const auto previous = automatic_bounds_;
+  automatic_bounds_ =
+      counts_.empty() ? std::make_pair(uint64_t{0}, uint64_t{0})
+                      : std::make_pair(counts_.begin()->first, counts_.rbegin()->first);
+  if (zeroMinimum()) {
+    automatic_bounds_.first = 0;
+  }
+
+  return automatic_bounds_ != previous;
 }
 
-std::unique_ptr<MeshColoring> makeSplitColoring(const SplitColoringConfig& config,
-                                                std::shared_ptr<MeshColoring> child) {
-  return std::make_unique<SplitMeshColoring>(config, std::move(child));
+traits::Color TimeMeshColoring::color(const MeshColoringView& mesh, size_t i) const {
+  const auto stamp = value(mesh.vertices[i].traits);
+  if (!stamp) {
+    return invalid_;
+  }
+
+  const auto [min, max] = bounds_.value_or(automatic_bounds_);
+  if (*stamp <= min || min == max) {
+    return timeColor(0.0);
+  }
+
+  if (*stamp >= max) {
+    return timeColor(1.0);
+  }
+
+  return timeColor(static_cast<double>(*stamp - min) / static_cast<double>(max - min));
+}
+
+FirstSeenMeshColoring::FirstSeenMeshColoring(const FirstSeenColoringConfig& config)
+    : TimeMeshColoring(config.invalid_color, config.bounds) {}
+
+std::optional<uint64_t> FirstSeenMeshColoring::value(
+    const traits::VertexTraits& t) const {
+  return t.properties.has_first_seen_stamp && t.first_seen_stamp
+             ? std::optional<uint64_t>(t.first_seen_stamp)
+             : std::nullopt;
+}
+
+LastSeenMeshColoring::LastSeenMeshColoring(const LastSeenColoringConfig& config)
+    : TimeMeshColoring(config.invalid_color, config.bounds) {}
+
+std::optional<uint64_t> LastSeenMeshColoring::value(
+    const traits::VertexTraits& t) const {
+  return t.properties.has_stamp && t.stamp ? std::optional<uint64_t>(t.stamp)
+                                           : std::nullopt;
+}
+
+SeenDurationMeshColoring::SeenDurationMeshColoring(
+    const SeenDurationColoringConfig& config)
+    : TimeMeshColoring(config.invalid_color, config.bounds) {}
+
+bool SeenDurationMeshColoring::zeroMinimum() const { return true; }
+
+std::optional<uint64_t> SeenDurationMeshColoring::value(
+    const traits::VertexTraits& t) const {
+  if (!t.properties.has_stamp || !t.properties.has_first_seen_stamp || !t.stamp ||
+      !t.first_seen_stamp || t.stamp < t.first_seen_stamp) {
+    return std::nullopt;
+  }
+
+  return t.stamp - t.first_seen_stamp;
+}
+
+SplitMeshColoring::SplitMeshColoring(const SplitColoringConfig& config,
+                                     std::shared_ptr<MeshColoring> child)
+    : normal_(config.normal),
+      origin_(config.origin),
+      fallback_(config.default_color),
+      coloring_(std::move(child)) {
+  if (!normal_.allFinite() || normal_.squaredNorm() == 0 || !origin_.allFinite()) {
+    throw std::invalid_argument(
+        "Split plane must have a finite nonzero normal and finite origin");
+  }
+
+  if (!coloring_) {
+    throw std::invalid_argument("Split coloring requires a child processor");
+  }
+}
+
+bool SplitMeshColoring::prepare(const MeshColoringView& mesh, size_t first_changed) {
+  return coloring_->prepare(mesh, first_changed);
+}
+
+traits::Color SplitMeshColoring::color(const MeshColoringView& mesh, size_t i) const {
+  const auto& vertex = mesh.vertices[i];
+  if (normal_.dot(vertex.pos - origin_) >= 0.0f) {
+    return coloring_->color(mesh, i);
+  }
+
+  return vertex.traits.properties.has_color ? vertex.traits.color : fallback_;
 }
 
 }  // namespace kimera_pgmo
