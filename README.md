@@ -20,8 +20,19 @@ If you find this library helpful or use it in your projects, please cite:
 
 <img src="images/pgmo_optimization.png" width="900">
 
-> :warning: **Warning** <br>
-> The ROS2 version of this package is in active development and is not guaranteed to build, run or have documentation. You have been warned!
+**Update:** We've archived the ROS1 version of Hydra and switched to the ROS2 version by default. See [this branch](https://github.com/MIT-SPARK/Kimera-PGMO/tree/archive/ros_noetic) for the pinned version of the code if you need the ROS1 version for any reason. We are unlikely to support any issues that come up with the archived ROS1 version.
+
+## Filing Issues
+
+Please understand that this is research code maintained by busy graduate students, **which comes with some caveats**:
+  1. We do our best to maintain and keep the code up-to-date, but things may break or change occasionally
+  2. We do not have bandwidth to help adapt the code to new applications
+  3. The documentation, code-base and installation instructions are geared towards practitioners familiar with ROS
+
+> **:warning: Warning**<br>
+> We don't support other platforms. Issues requesting support on other platforms (e.g., Ubuntu 18.04, Windows) will be summarily closed.
+
+Thank you in advance for your understanding!
 
 ## Dependencies
 
