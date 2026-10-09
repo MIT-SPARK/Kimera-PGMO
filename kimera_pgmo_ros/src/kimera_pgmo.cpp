@@ -365,7 +365,7 @@ void KimeraPgmo::saveTrajectoryCallback(const Empty::Request::SharedPtr&,
 void KimeraPgmo::saveGraphCallback(const Empty::Request::SharedPtr&,
                                    Empty::Response::SharedPtr) {
   // Save trajectory
-  std::string dgrf_name = config_.log_path + std::string("/pgmo.dgrf");
+  std::string dgrf_name = config_.log_path + std::string("/pgmo.json");
   saveDeformationGraph(dgrf_name);
   RCLCPP_INFO(get_logger(), "KimeraPgmo: Saved deformation graph to file.");
 }
@@ -385,6 +385,14 @@ void KimeraPgmo::loadGraphMeshCallback(const LoadGraphSrv::Request::SharedPtr& r
                                          optimized_mesh_,
                                          &mesh_vertex_stamps_,
                                          true);
+    if (response->success) {
+      timestamps_ = KimeraPgmoInterface::getRobotTimestamps(request->robot_id);
+      trajectory_.clear();
+      for (size_t i = 0; i < timestamps_.size(); ++i) {
+        trajectory_.push_back(
+            deformation_graph_->getInitialPose(GetRobotPrefix(request->robot_id), i));
+      }
+    }
   }  // end interface critical section
 
   if (response->success && optimized_mesh_pub_->get_subscription_count() > 0) {

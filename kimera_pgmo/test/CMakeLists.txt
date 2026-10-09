@@ -24,6 +24,7 @@ add_executable(
   suites/test_deformation_edge_factor.cpp
   suites/test_deformation_graph.cpp
   suites/test_native_deformation.cpp
+  suites/test_graph_checkpoint.cpp
   suites/test_mesh_deformation.cpp
   suites/test_mesh_delta.cpp
   suites/test_mesh_frontend_interface.cpp

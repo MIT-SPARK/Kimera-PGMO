@@ -12,6 +12,7 @@
   <depend>config_utilities</depend>
   <depend>eigen</depend>
   <depend>gtsam</depend>
+  <depend>nlohmann_json</depend>
   <depend>kimera_rpgo</depend>
   <depend>pose_graph_tools</depend>
   <depend>spatial_hash</depend>

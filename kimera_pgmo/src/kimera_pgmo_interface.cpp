@@ -151,6 +151,13 @@ void KimeraPgmoInterface::resetDeformationGraph() {
 void KimeraPgmoInterface::loadDeformationGraphFromFile(const std::string& input) {
   deformation_graph_->load(input);
   num_loop_closures_ = deformation_graph_->getNumLoopclosures();
+  keyed_stamps_.clear();
+  for (const auto key : deformation_graph_->getValues()->keys()) {
+    const auto stamp = deformation_graph_->getPoseTimestamp(key);
+    if (stamp) {
+      keyed_stamps_.emplace(key, *stamp);
+    }
+  }
 }
 
 void KimeraPgmoInterface::loadDeformationGraphFromFile(const std::string& input,
@@ -158,6 +165,13 @@ void KimeraPgmoInterface::loadDeformationGraphFromFile(const std::string& input,
                                                        bool include_priors) {
   deformation_graph_->load(input, true, true, robot_id, include_priors);
   num_loop_closures_ = deformation_graph_->getNumLoopclosures();
+  keyed_stamps_.clear();
+  for (const auto key : deformation_graph_->getValues()->keys()) {
+    const auto stamp = deformation_graph_->getPoseTimestamp(key);
+    if (stamp) {
+      keyed_stamps_.emplace(key, *stamp);
+    }
+  }
 }
 
 ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(

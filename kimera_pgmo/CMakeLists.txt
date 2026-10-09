@@ -12,6 +12,7 @@ option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 find_package(config_utilities REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(GTSAM REQUIRED)
+find_package(nlohmann_json REQUIRED)
 find_package(kimera_rpgo REQUIRED)
 find_package(pose_graph_tools REQUIRED)
 find_package(spatial_hash REQUIRED)
@@ -69,6 +70,7 @@ target_link_libraries(
          Eigen3::Eigen
          kimera_rpgo::kimera_rpgo
          gtsam
+         nlohmann_json::nlohmann_json
          pose_graph_tools::pose_graph_tools
          spatial_hash::spatial_hash
          config_utilities::config_utilities)
@@ -93,6 +95,8 @@ install(
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION})
+
+install(PROGRAMS scripts/upgrade_deformation_graph.py DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(

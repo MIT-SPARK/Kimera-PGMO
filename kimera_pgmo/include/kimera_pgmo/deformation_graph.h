@@ -58,6 +58,12 @@ struct OptimizationSnapshot {
   OptimizationState temporary;
 };
 
+struct GraphLoadOptions {
+  bool include_temp = true;
+  bool include_priors = true;
+  std::map<size_t, size_t> robot_id_remapping;
+};
+
 class DeformationGraph {
  public:
   /*! \brief Deformation graph class constructor
@@ -71,6 +77,7 @@ class DeformationGraph {
   std::optional<Timestamp> getPoseTimestamp(gtsam::Key key) const;
   //! Return complete trajectory timestamps, throwing if a stamp is missing.
   std::map<size_t, std::vector<Timestamp>> getPoseTimestamps() const;
+  void load(const std::string& filename, const GraphLoadOptions& options);
   gtsam::NonlinearFactor::shared_ptr makePrior(gtsam::Key key,
                                                const gtsam::Pose3& pose,
                                                double variance) const;
@@ -732,6 +739,8 @@ class DeformationGraph {
   bool checkAdjacency(gtsam::Key from, gtsam::Key to) const;
 
  private:
+  struct Archive;
+
   bool add_init_vertex_prior_;
   bool verbose_;
 

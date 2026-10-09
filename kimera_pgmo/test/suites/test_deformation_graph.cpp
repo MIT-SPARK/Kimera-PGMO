@@ -843,7 +843,7 @@ TEST(TestDeformationGraph, saveAndLoad) {
   EXPECT_EQ(5u, temp_factors->size());
   EXPECT_EQ(2u, temp_values->size());
   const auto path = std::filesystem::temp_directory_path() /
-                    ("pgmo-roundtrip-" + std::to_string(getpid()) + ".dgrf");
+                    ("pgmo-roundtrip-" + std::to_string(getpid()) + ".json");
   graph.save(path);
   DeformationGraph new_graph;
   new_graph.load(path);
