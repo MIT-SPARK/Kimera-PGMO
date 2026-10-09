@@ -15,6 +15,7 @@
 #include <limits>
 #include <optional>
 
+#include "kimera_pgmo/utils/common_functions.h"
 #include "kimera_pgmo/utils/mesh_io.h"
 
 namespace kimera_pgmo {

@@ -8,6 +8,8 @@
 #include <chrono>
 #include <cmath>
 
+#include "kimera_pgmo/utils/common_functions.h"
+
 namespace kimera_pgmo {
 
 struct InputConfig {

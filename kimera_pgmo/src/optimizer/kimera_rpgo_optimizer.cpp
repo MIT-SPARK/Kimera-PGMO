@@ -1,6 +1,7 @@
 #include "kimera_pgmo/optimizer/kimera_rpgo_optimizer.h"
 
 #include <config_utilities/config.h>
+#include <config_utilities/factory.h>
 #include <config_utilities/types/enum.h>
 #include <config_utilities/validation.h>
 

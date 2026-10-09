@@ -1,8 +1,6 @@
 #pragma once
-#include <config_utilities/factory.h>
 #include <kimera_rpgo/rpgo.h>
 
-#include "kimera_pgmo/deformation_graph_4dof.h"
 #include "kimera_pgmo/optimizer/optimizer_interface.h"
 
 namespace kimera_pgmo {
