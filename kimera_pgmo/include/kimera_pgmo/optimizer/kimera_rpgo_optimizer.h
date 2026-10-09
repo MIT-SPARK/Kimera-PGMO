@@ -2,7 +2,6 @@
 #include <config_utilities/factory.h>
 #include <kimera_rpgo/rpgo.h>
 
-#include "kimera_pgmo/deformation_graph_4dof.h"
 #include "kimera_pgmo/optimizer/optimizer_interface.h"
 
 namespace kimera_pgmo {
@@ -12,7 +11,6 @@ class KimeraRpgoOptimizer : public Optimizer {
   struct Config {
     kimera_rpgo::SolverConfig::LeastSquaresOption solver =
         kimera_rpgo::SolverConfig::LeastSquaresOption::LM;
-    bool use_4dof_optim = false;
     bool use_gnc = true;
     kimera_rpgo::GncParams gnc;
     bool use_pcm = false;
@@ -37,11 +35,6 @@ class KimeraRpgoOptimizer : public Optimizer {
   const Values& getTempEstimates() const override;
   const std::vector<double>& getInlierWeights() const override;
   const std::vector<double>& getTempInlierWeights() const override;
-
-  const std::pair<KimeraRpgoOptimizer::Factors, KimeraRpgoOptimizer::Values>
-  processFactorsAndValues(const KimeraRpgoOptimizer::Factors& factors,
-                          const KimeraRpgoOptimizer::Values& initial,
-                          const bool use_4dof_optim);
 
  private:
   void setLogPath(const std::string& log_path) override;

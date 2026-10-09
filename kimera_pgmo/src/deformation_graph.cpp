@@ -7,10 +7,12 @@
 
 #include "kimera_pgmo/deformation_graph.h"
 
+#include <gtsam/base/numericalDerivative.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
+#include <kimera_rpgo/pose_graph_4dof.h>
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/common/io.h>
 
@@ -31,17 +33,12 @@ using PoseBetween = gtsam::BetweenFactor<gtsam::Pose3>;
 using PosePrior = gtsam::PriorFactor<gtsam::Pose3>;
 using EdgeType = pose_graph_tools::PoseGraphEdge::Type;
 
-DeformationGraph::DeformationGraph(bool add_init_vertex_prior)
+DeformationGraph::DeformationGraph(bool add_init_vertex_prior, PoseMode mode)
     : add_init_vertex_prior_(add_init_vertex_prior),
       verbose_(true),
-      nfg_(new gtsam::NonlinearFactorGraph),
-      known_inliers_(new std::set<size_t>),
       values_(new gtsam::Values),
-      temp_nfg_(new gtsam::NonlinearFactorGraph),
-      temp_known_inliers_(new std::set<size_t>),
       temp_values_(new gtsam::Values),
-      inlier_weights_(new std::vector<double>),
-      temp_inlier_weights_(new std::vector<double>),
+      pose_mode_(mode),
       recalculate_vertices_(false) {}
 
 DeformationGraph::~DeformationGraph() {}
@@ -60,6 +57,8 @@ void DeformationGraph::processPoseGraph(const pose_graph_tools::PoseGraph& pose_
     if (checkNewNode(node_key)) {
       addNewNode(node_key, node_pose);
     }
+
+    setPoseTimestamp(node_key, node.stamp_ns);
     // Note that the pose here directly updates the pg initial pose. Which matters for
     // the processNodeValence function (connecting node to vertex) but does not matter
     // as much if the node to vertex edges will be directly given
@@ -234,9 +233,9 @@ void DeformationGraph::processPointMeasurement(const gtsam::Key& from_key,
                                                bool known_inlier) {
   if (!values_->exists(to_key) && !temp_values_->exists(to_key)) {
     if (temp) {
-      temp_values_->insert(to_key, gtsam::Pose3(gtsam::Rot3(), to_point));
+      insertValue(to_key, gtsam::Pose3(gtsam::Rot3(), to_point), true);
     } else {
-      values_->insert(to_key, gtsam::Pose3(gtsam::Rot3(), to_point));
+      insertValue(to_key, gtsam::Pose3(gtsam::Rot3(), to_point));
     }
   }
 
@@ -251,23 +250,8 @@ void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
                                           double variance,
                                           bool temp,
                                           bool known_inlier) {
-  const gtsam::SharedNoiseModel noise =
-      gtsam::noiseModel::Isotropic::Variance(3, variance);
-  // Create deformation edge factor
-  const DeformationEdgeFactor new_edge(from_key, to_key, from_pose, to_point, noise);
-  auto& adjacent_keys = adjacency_map_[from_key];
-  adjacent_keys.insert(to_key);
-  if (temp) {
-    if (known_inlier) {
-      temp_known_inliers_->insert(temp_nfg_->size());
-    }
-    temp_nfg_->add(new_edge);
-    return;
-  }
-  if (known_inlier) {
-    known_inliers_->insert(nfg_->size());
-  }
-  nfg_->add(new_edge);
+  addDeformationEdge(
+      from_key, to_key, from_pose.transformTo(to_point), variance, temp, known_inlier);
 }
 
 void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
@@ -276,23 +260,10 @@ void DeformationGraph::addDeformationEdge(const gtsam::Key& from_key,
                                           double variance,
                                           bool temp,
                                           bool known_inlier) {
-  const gtsam::SharedNoiseModel noise =
-      gtsam::noiseModel::Isotropic::Variance(3, variance);
-  // Create deformation edge factor
-  const DeformationEdgeFactor new_edge(from_key, to_key, measurement, noise);
-  auto& adjacent_keys = adjacency_map_[from_key];
-  adjacent_keys.insert(to_key);
-  if (temp) {
-    if (known_inlier) {
-      temp_known_inliers_->insert(temp_nfg_->size());
-    }
-    temp_nfg_->add(new_edge);
-    return;
-  }
-  if (known_inlier) {
-    known_inliers_->insert(nfg_->size());
-  }
-  nfg_->add(new_edge);
+  const auto noise = gtsam::noiseModel::Isotropic::Variance(3, variance);
+  appendFactor(
+      makeDeformationFactor(from_key, to_key, measurement, noise), temp, known_inlier);
+  adjacency_map_[from_key].insert(to_key);
 }
 
 void DeformationGraph::addPrior(const gtsam::Key& key,
@@ -300,38 +271,25 @@ void DeformationGraph::addPrior(const gtsam::Key& key,
                                 double variance,
                                 bool temp,
                                 bool known_inlier) {
-  gtsam::Vector6 variances;
-  variances.head<3>().setConstant(1e-02 * variance);
-  variances.tail<3>().setConstant(variance);
-  const auto noise = gtsam::noiseModel::Diagonal::Variances(variances);
-
-  gtsam::PriorFactor<gtsam::Pose3> measurement(key, pose, noise);
-  if (temp) {
-    if (known_inlier) {
-      temp_known_inliers_->insert(temp_nfg_->size());
-    }
-    temp_nfg_->add(measurement);
-  } else {
-    if (known_inlier) {
-      known_inliers_->insert(nfg_->size());
-    }
-    nfg_->add(measurement);
-  }
+  appendFactor(makePrior(key, pose, variance), temp, known_inlier);
 }
 
 void DeformationGraph::processNodeMeasurements(const MeasurementVector& measurements,
                                                double variance) {
-  for (auto&& [key, pose] : measurements) {
+  gtsam::Values updates;
+  for (const auto& [key, pose] : measurements) {
     if (!values_->exists(key)) {
-      SPARK_LOG(ERROR) << "DeformationGraph: adding node measurement to a node "
-                       << gtsam::DefaultKeyFormatter(key)
-                       << " not previously seen before.";
-      values_->insert(key, pose);
+      insertValue(key, pose);
+    } else if (updates.exists(key)) {
+      updates.update(key, pose);
     } else {
-      values_->update(key, pose);
+      updates.insert(key, pose);
     }
+
     addPrior(key, pose, variance);
   }
+
+  updateValues(updates);
 }
 
 void DeformationGraph::processNewBetween(const gtsam::Key& key_from,
@@ -385,8 +343,12 @@ void DeformationGraph::updatePoseGraphInitialGuess(const gtsam::Key& key_from,
   } else {
     SPARK_LOG(FATAL) << "Missing from key values when adding initial guess.";
   }
-  values_->insert(key_to, initial_estimate);
-  init_pose = pg_initial_poses_[to_prefix].back().compose(meas);
+
+  init_pose = originalPose(key_from).compose(meas);
+  insertValue(key_to, init_pose);
+  gtsam::Values updates;
+  updates.insert(key_to, initial_estimate);
+  updateValues(updates);
   pg_initial_poses_[to_prefix].push_back(init_pose);
 }
 
@@ -397,26 +359,30 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
                                      bool temp,
                                      bool known_inlier) {
   gtsam::Vector6 variances;
-  variances.head<3>().setConstant(1e-02 * variance);
+  variances.head<3>().setConstant(1e-2 * variance);
   variances.tail<3>().setConstant(variance);
-  const gtsam::SharedNoiseModel noise =
-      gtsam::noiseModel::Diagonal::Variances(variances);
-  if (temp) {
-    if (known_inlier) {
-      temp_known_inliers_->insert(temp_nfg_->size());
-    }
-    temp_nfg_->add(gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
-    return;
+  const auto noise = gtsam::noiseModel::Diagonal::Variances(variances);
+  if (isPose4(key_from) != isPose4(key_to)) {
+    throw std::invalid_argument("Between factors require matching pose types");
   }
-  if (known_inlier) {
-    known_inliers_->insert(nfg_->size());
-  }
-  nfg_->add(gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
 
-  // if it's a loop closure factor
-  if (key_to != key_from + 1) {
-    SPARK_LOG(DEBUG) << "DeformationGraph: Added loop closure";
-    num_loopclosures_++;
+  if (isPose4(key_from)) {
+    const auto& source = originalPose(key_from);
+    appendFactor(boost::make_shared<kimera_rpgo::Pose4BetweenFactor>(
+                     key_from,
+                     key_to,
+                     kimera_rpgo::projectBetween(source, meas),
+                     kimera_rpgo::projectBetweenNoise(source, meas, noise)),
+                 temp,
+                 known_inlier);
+  } else {
+    appendFactor(boost::make_shared<PoseBetween>(key_from, key_to, meas, noise),
+                 temp,
+                 known_inlier);
+  }
+
+  if (!temp && key_to != key_from + 1) {
+    ++num_loopclosures_;
     recalculate_vertices_ = true;
   }
 }
@@ -471,14 +437,15 @@ bool DeformationGraph::addNewMeshNode(const gtsam::Key& node_key,
     return false;
   }
 
+  mesh_keys_.insert(node_key);
   vertex_positions_[node_prefix].push_back(node_pose.translation());
   vertex_stamps_[node_prefix].push_back(node_stamp);
-  // TODO(Yun) temporary hack, check if this assumption always valid even with poses
-  if (add_init_vertex_prior_ && values_->size() == 0) {
+  insertValue(node_key, node_pose);
+  // Add a prior to the first mesh-only control.
+  if (add_init_vertex_prior_ && values_->size() == 1) {
     addPrior(node_key, node_pose, 1e-3, false, true);
   }
 
-  values_->insert(node_key, node_pose);
   return true;
 }
 
@@ -593,7 +560,7 @@ void DeformationGraph::addNewNode(const gtsam::Key& key,
     pg_initial_poses_[prefix].push_back(initial_pose);
   }
 
-  values_->insert(key, initial_pose);
+  insertValue(key, initial_pose);
 }
 
 void DeformationGraph::processNewTempNode(const gtsam::Key& key,
@@ -610,7 +577,7 @@ void DeformationGraph::processNewTempNode(const gtsam::Key& key,
 void DeformationGraph::addNewTempNode(const gtsam::Key& key,
                                       const gtsam::Pose3& initial_pose) {
   temp_pg_initial_poses_[key] = initial_pose;
-  temp_values_->insert(key, initial_pose);
+  insertValue(key, initial_pose, true);
 }
 
 void DeformationGraph::processNewTempNodesValences(const NodeValenceInfoList& info,
@@ -651,40 +618,15 @@ void DeformationGraph::processNewTempNodesValences(const NodeValenceInfoList& in
 }
 
 void DeformationGraph::removePriorsWithPrefix(const char& prefix) {
-  // First make copy of nfg_
-  const gtsam::NonlinearFactorGraph nfg_copy = *nfg_;
-  const gtsam::NonlinearFactorGraph temp_nfg_copy = *temp_nfg_;
-  // Clear nfg_
-  nfg_.reset(new gtsam::NonlinearFactorGraph);
-  temp_nfg_.reset(new gtsam::NonlinearFactorGraph);
-
-  // Iterate and pick out non prior factors and prior factors without key with
-  // prefix
-  for (auto factor : nfg_copy) {
-    const auto prior_factor_3d = dynamic_cast<const PosePrior*>(factor.get());
-    if (prior_factor_3d) {
-      gtsam::Symbol node(prior_factor_3d->key());
-      if (node.chr() != prefix) {
-        nfg_->add(factor);
-      }
-      continue;
-    }
-
-    nfg_->add(factor);
-  }
-
-  for (auto temp_factor : temp_nfg_copy) {
-    const auto prior_factor_3d = dynamic_cast<const PosePrior*>(temp_factor.get());
-    if (prior_factor_3d) {
-      gtsam::Symbol node(prior_factor_3d->key());
-      if (node.chr() != prefix) {
-        nfg_->add(temp_factor);
-      }
-      continue;
-    }
-
-    temp_nfg_->add(temp_factor);
-  }
+  const auto keep = [&](const gtsam::NonlinearFactor& factor) {
+    const bool prior =
+        dynamic_cast<const PosePrior*>(&factor) ||
+        dynamic_cast<const gtsam::PriorFactor<gtsam::Pose4DoF>*>(&factor);
+    return !prior || gtsam::Symbol(factor.front()).chr() != prefix;
+  };
+  permanent_.filter(keep);
+  temporary_.filter(keep);
+  rebuildBookkeeping();
 }
 
 pcl::PolygonMesh DeformationGraph::deformMesh(const pcl::PolygonMesh& original_mesh,
@@ -781,12 +723,14 @@ bool DeformationGraph::tryConvertFactorToPriorEdge(gtsam::NonlinearFactor* facto
                                                    int factor_idx,
                                                    PoseGraphEdge& edge) const {
   // check if prior factor
-  const auto factor_ptr = dynamic_cast<const PosePrior*>(factor);
-  if (!factor_ptr) {
+  const auto prior3 = dynamic_cast<const PosePrior*>(factor);
+  const auto prior4 = dynamic_cast<const gtsam::PriorFactor<gtsam::Pose4DoF>*>(factor);
+  if (!prior3 && !prior4) {
     return false;
   }
 
-  const gtsam::Symbol key(factor_ptr->key());
+  const auto factor_ptr = dynamic_cast<const gtsam::NoiseModelFactor*>(factor);
+  const gtsam::Symbol key(factor->front());
   if (!robot_prefix_to_id.count(key.chr())) {
     return false;
   }
@@ -800,13 +744,13 @@ bool DeformationGraph::tryConvertFactorToPriorEdge(gtsam::NonlinearFactor* facto
     edge.stamp_ns = *stamp_ns;
   }
 
-  edge.pose = factor_ptr->prior().matrix();
-  if (!inlier_weights_) {
+  edge.pose = prior3 ? prior3->prior().matrix() : prior4->prior().pose().matrix();
+  if (permanent_.inlier_weights.empty()) {
     // If no inlier weights assume no outlier rejection
     edge.type = EdgeType::PRIOR;
   } else {
-    if (factor_idx >= 0 && inlier_weights_->size() > factor_idx &&
-        inlier_weights_->at(factor_idx) < 0.5) {
+    if (factor_idx >= 0 && permanent_.inlier_weights.size() > factor_idx &&
+        permanent_.inlier_weights.at(factor_idx) < 0.5) {
       edge.type = EdgeType::REJECTED_PRIOR;
     } else {
       edge.type = EdgeType::PRIOR;
@@ -816,8 +760,17 @@ bool DeformationGraph::tryConvertFactorToPriorEdge(gtsam::NonlinearFactor* facto
   const auto noise_model =
       dynamic_cast<const gtsam::noiseModel::Gaussian*>(factor_ptr->noiseModel().get());
   if (noise_model) {
-    edge.covariance = noise_model->covariance();
+    if (prior3) {
+      edge.covariance = noise_model->covariance();
+    } else {
+      const std::function<gtsam::Pose3(const gtsam::Pose4DoF&)> lift =
+          [](const auto& pose) { return pose.pose(); };
+      const auto J = gtsam::numericalDerivative11<gtsam::Pose3, gtsam::Pose4DoF>(
+          lift, prior4->prior());
+      edge.covariance = J * noise_model->covariance() * J.transpose();
+    }
   }
+
   return true;
 }
 
@@ -827,13 +780,32 @@ bool DeformationGraph::tryConvertFactorToBetweenEdge(
     int factor_idx,
     PoseGraphEdge& edge) const {
   // check if between factor
-  const auto factor_ptr = dynamic_cast<const PoseBetween*>(factor);
-  if (!factor_ptr) {
+  const auto between3 = dynamic_cast<const PoseBetween*>(factor);
+  const auto between4 =
+      dynamic_cast<const gtsam::BetweenFactor<gtsam::Pose4DoF>*>(factor);
+  if (!between3 && !between4) {
     return false;
   }
 
-  const gtsam::Symbol front(factor_ptr->front());
-  const gtsam::Symbol back(factor_ptr->back());
+  const auto factor_ptr = dynamic_cast<const gtsam::NoiseModelFactor*>(factor);
+  const gtsam::Symbol front(factor->front());
+  const gtsam::Symbol back(factor->back());
+  if (!robot_prefix_to_id.count(front.chr()) || !robot_prefix_to_id.count(back.chr())) {
+    return false;
+  }
+
+  const std::function<gtsam::Pose3(const gtsam::Pose4DoF&)> lift =
+      [&](const auto& relative) {
+        const auto& source = originalPose(front);
+        const auto source_yaw = source.rotation().yaw();
+        const auto target_tilt = originalPose(back).rotation().ypr();
+        const gtsam::Pose3 target(
+            gtsam::Rot3::Ypr(
+                source_yaw + relative.yaw(), target_tilt(1), target_tilt(2)),
+            source.translation() +
+                gtsam::Rot3::Yaw(source_yaw).rotate(relative.translation()));
+        return source.between(target);
+      };
   edge.key_from = front.index();
   edge.key_to = back.index();
   edge.robot_from = robot_prefix_to_id.at(front.chr());
@@ -847,12 +819,12 @@ bool DeformationGraph::tryConvertFactorToBetweenEdge(
   if (same_robot && edge.key_to == edge.key_from + 1) {
     edge.type = EdgeType::ODOM;
   } else {
-    if (!inlier_weights_) {
+    if (permanent_.inlier_weights.empty()) {
       // If no inlier weights assume no outlier rejection
       edge.type = EdgeType::LOOPCLOSE;
     } else {
-      if (factor_idx >= 0 && inlier_weights_->size() > factor_idx &&
-          inlier_weights_->at(factor_idx) < 0.5) {
+      if (factor_idx >= 0 && permanent_.inlier_weights.size() > factor_idx &&
+          permanent_.inlier_weights.at(factor_idx) < 0.5) {
         edge.type = EdgeType::REJECTED_LOOPCLOSE;
       } else {
         edge.type = EdgeType::LOOPCLOSE;
@@ -860,26 +832,41 @@ bool DeformationGraph::tryConvertFactorToBetweenEdge(
     }
   }
 
-  edge.pose = factor_ptr->measured().matrix();
+  edge.pose =
+      between3 ? between3->measured().matrix() : lift(between4->measured()).matrix();
 
   const auto noise_model =
       dynamic_cast<const gtsam::noiseModel::Gaussian*>(factor_ptr->noiseModel().get());
   if (noise_model) {
-    edge.covariance = noise_model->covariance();
+    if (between3) {
+      edge.covariance = noise_model->covariance();
+    } else {
+      const auto J = gtsam::numericalDerivative11<gtsam::Pose3, gtsam::Pose4DoF>(
+          lift, between4->measured());
+      edge.covariance = J * noise_model->covariance() * J.transpose();
+    }
   }
+
   return true;
 }
 
 bool DeformationGraph::tryConvertFactorToDeformationEdge(gtsam::NonlinearFactor* factor,
                                                          PoseGraphEdge& edge) const {
-  // check if deformation edge factor
-  const auto factor_ptr = dynamic_cast<const DeformationEdgeFactor*>(factor);
-  if (!factor_ptr) {
+  const auto f33 = dynamic_cast<const DeformationEdgeFactor*>(factor);
+  const auto f34 = dynamic_cast<const DeformationEdgeFactorToPose4DoF*>(factor);
+  const auto f43 = dynamic_cast<const DeformationEdgeFactorFromPose4DoF*>(factor);
+  const auto f44 = dynamic_cast<const DeformationEdgeFactor4DoF*>(factor);
+  if (!f33 && !f34 && !f43 && !f44) {
     return false;
   }
 
-  const gtsam::Symbol front(factor_ptr->front());
-  const gtsam::Symbol back(factor_ptr->back());
+  const auto measurement = f33   ? f33->measurement()
+                           : f34 ? f34->measurement()
+                           : f43 ? f43->measurement()
+                                 : f44->measurement();
+  const auto factor_ptr = dynamic_cast<const gtsam::NoiseModelFactor*>(factor);
+  const gtsam::Symbol front(factor->front());
+  const gtsam::Symbol back(factor->back());
   edge.key_from = front.index();
   edge.key_to = back.index();
 
@@ -901,7 +888,8 @@ bool DeformationGraph::tryConvertFactorToDeformationEdge(gtsam::NonlinearFactor*
   } else {
     return false;
   }
-  edge.pose = gtsam::Pose3(gtsam::Rot3(), factor_ptr->measurement()).matrix();
+
+  edge.pose = gtsam::Pose3(gtsam::Rot3(), measurement).matrix();
 
   const auto noise_model =
       dynamic_cast<const gtsam::noiseModel::Gaussian*>(factor_ptr->noiseModel().get());
@@ -984,7 +972,7 @@ PoseGraph::Ptr DeformationGraph::getPoseGraph(const RobotTimestampMap& timestamp
 
   // first store the factors as edges
   size_t index = 0;
-  for (const auto& factor : *nfg_) {
+  for (const auto& factor : permanent_.factors) {
     PoseGraphEdge pg_edge;
     if (include_between_edges &&
         tryConvertFactorToBetweenEdge(factor.get(), timestamps, index, pg_edge)) {
@@ -1020,79 +1008,27 @@ PoseGraph::Ptr DeformationGraph::getPoseGraph(const RobotTimestampMap& timestamp
 }
 
 void DeformationGraph::updateValues(const gtsam::Values& updates) {
-  values_->update(updates);
+  updateState(updates, false);
 }
 
 void DeformationGraph::updateTempValues(const gtsam::Values& updates) {
-  temp_values_->update(updates);
+  updateState(updates, true);
 }
 
 void DeformationGraph::updateInlierWeights(const std::vector<double>& weights) {
-  *inlier_weights_ = weights;
+  if (!weights.empty() && weights.size() != permanent_.factors.size()) {
+    throw std::invalid_argument("Incorrect permanent weight count");
+  }
+
+  permanent_.inlier_weights = weights;
 }
 
 void DeformationGraph::updateTempInlierWeights(const std::vector<double>& weights) {
-  *temp_inlier_weights_ = weights;
+  if (!weights.empty() && weights.size() != temporary_.factors.size()) {
+    throw std::invalid_argument("Incorrect temporary weight count");
+  }
+
+  temporary_.inlier_weights = weights;
 }
 
-void DeformationGraph::clearMeshNodesOnly() {
-  vertex_positions_.clear();
-  vertex_stamps_.clear();
-  adjacency_map_.clear();
-
-  // Remove mesh vertices from values_
-  auto new_values = std::make_shared<gtsam::Values>();
-  for (const auto& key_value : *values_) {
-    gtsam::Key key = key_value.key;
-    if (!IsMeshVertex(key)) {
-      // Keep non-mesh vertices (robot poses)
-      new_values->insert(key, values_->at(key));
-    }
-  }
-  values_ = new_values;
-
-  // Remove factors involving mesh vertices
-  auto new_factors = std::make_shared<gtsam::NonlinearFactorGraph>();
-  for (const auto& factor : *nfg_) {
-    if (!factor) {
-      continue;
-    }
-
-    bool involves_mesh = false;
-    for (const auto& key : factor->keys()) {
-      if (IsMeshVertex(key)) {
-        involves_mesh = true;
-        break;
-      }
-    }
-
-    if (!involves_mesh) {
-      // Keep factors that don't involve mesh vertices
-      new_factors->add(factor);
-    }
-  }
-  nfg_ = new_factors;
-
-  // Remove temp factors involving mesh vertices
-  gtsam::NonlinearFactorGraph new_temp_factors;
-  for (size_t i = 0; i < temp_nfg_->size(); ++i) {
-    auto factor = (*temp_nfg_)[i];
-    if (!factor) {
-      continue;
-    }
-
-    bool involves_mesh = false;
-    for (const auto& key : factor->keys()) {
-      if (IsMeshVertex(key)) {
-        involves_mesh = true;
-        break;
-      }
-    }
-
-    if (!involves_mesh) {
-      new_temp_factors.add(factor);
-    }
-  }
-  temp_nfg_ = std::make_shared<gtsam::NonlinearFactorGraph>(new_temp_factors);
-}
 }  // namespace kimera_pgmo

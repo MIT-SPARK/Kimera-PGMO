@@ -17,6 +17,7 @@
 #include "kimera_pgmo/deformation_graph.h"
 #include "kimera_pgmo/optimizer/kimera_rpgo_optimizer.h"
 #include "kimera_pgmo/optimizer/optimizer_interface.h"
+#include "kimera_pgmo/utils/common_functions.h"
 
 namespace kimera_pgmo {
 
@@ -66,6 +67,7 @@ struct KimeraPgmoConfig {
 
   // pgmo behavior
   RunMode mode = RunMode::FULL;
+  PoseMode pose_mode = PoseMode::POSE3;
   int num_interp_pts = 3;
   double interp_horizon = 5.0;
   bool b_add_initial_prior = true;

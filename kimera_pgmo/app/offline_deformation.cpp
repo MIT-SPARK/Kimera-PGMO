@@ -37,12 +37,13 @@ class OfflineDeformation {
   }
 
   void run() {
-    pgo_->update(deformation_graph_->getFactorsCopy(),
-                 deformation_graph_->getValuesCopy(),
-                 deformation_graph_->getKnownInlierSetCopy(),
-                 deformation_graph_->getTempFactorsCopy(),
-                 deformation_graph_->getTempValuesCopy(),
-                 deformation_graph_->getTempKnownInlierSetCopy());
+    const auto snapshot = deformation_graph_->optimizationSnapshot();
+    pgo_->update(snapshot.permanent.factors,
+                 snapshot.permanent.values,
+                 snapshot.permanent.known_inliers,
+                 snapshot.temporary.factors,
+                 snapshot.temporary.values,
+                 snapshot.temporary.known_inliers);
     auto estimates = pgo_->getEstimates();
     auto temp_estimates = pgo_->getTempEstimates();
     auto inlier_weights = pgo_->getInlierWeights();

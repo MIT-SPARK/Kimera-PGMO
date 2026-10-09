@@ -3,11 +3,12 @@
 #include <config_utilities/config.h>
 #include <config_utilities/types/enum.h>
 #include <config_utilities/validation.h>
+#include <kimera_rpgo/pose_graph_4dof.h>
 
 #include <algorithm>
 #include <iomanip>
 
-#include "kimera_pgmo/deformation_graph_4dof.h"
+#include "kimera_pgmo/utils/logging.h"
 
 namespace kimera_pgmo {
 namespace {
@@ -31,7 +32,6 @@ void declare_config(KimeraRpgoOptimizer::Config& config) {
   field(config.verbosity, "verbosity");
   field(config.print_summary, "print_summary");
   field(config.print_iterations, "print_iterations");
-  field(config.use_4dof_optim, "use_4dof_optim");
   field(config.use_gnc, "use_gnc");
   {
     NameSpace ns("gnc");
@@ -107,21 +107,12 @@ void KimeraRpgoOptimizer::update(const Factors& factors,
     iterations.push_back({iteration, prev, curr});
   });
 
-  const auto& [input_factors, input_initial] =
-      processFactorsAndValues(factors, initial, config.use_4dof_optim);
-  rpgo_->addFactors(input_factors);
-  rpgo_->addValues(input_initial);
-
-  // NOTE(hlim) The final output should be gtsam::Pose3 for compatibility,
-  // regardless of whether 4DoF optimization is used or not.
-  result_ = initial;
-
-  const auto& [input_temp_factors, input_temp_initial] =
-      processFactorsAndValues(temp_factors, temp_initial, config.use_4dof_optim);
-
-  rpgo_->addFactors(input_temp_factors);
-  rpgo_->addValues(input_temp_initial);
-  temp_result_ = temp_initial;
+  rpgo_->addFactors(factors);
+  rpgo_->addValues(initial);
+  rpgo_->addFactors(temp_factors);
+  rpgo_->addValues(temp_initial);
+  result_ = kimera_rpgo::pose3Estimates(initial);
+  temp_result_ = kimera_rpgo::pose3Estimates(temp_initial);
 
   std::set<size_t> all_known_inliers = known_inliers;
   size_t n = factors.size();
@@ -134,8 +125,7 @@ void KimeraRpgoOptimizer::update(const Factors& factors,
   rpgo_->run();
 
   // Get estimates
-  auto rpgo_result = config.use_4dof_optim ? convertPose4DoFToPose3(rpgo_->getResult())
-                                           : rpgo_->getResult();
+  const auto rpgo_result = kimera_rpgo::pose3Estimates(rpgo_->getResult());
   for (const auto& key_val : rpgo_result) {
     if (result_.exists(key_val.key)) {
       result_.update(key_val.key, key_val.value);
@@ -184,17 +174,6 @@ void KimeraRpgoOptimizer::update(const Factors& factors,
   if (!log_path_.empty()) {
     rpgo_->writeLog(log_path_ + "/rpgo_log.json");
   }
-}
-
-const std::pair<KimeraRpgoOptimizer::Factors, KimeraRpgoOptimizer::Values>
-KimeraRpgoOptimizer::processFactorsAndValues(
-    const KimeraRpgoOptimizer::Factors& factors,
-    const KimeraRpgoOptimizer::Values& initial,
-    const bool use_4dof_optim) {
-  if (!use_4dof_optim) {
-    return {factors, initial};
-  }
-  return convertGraphToPose4DoF(factors, initial);
 }
 
 const KimeraRpgoOptimizer::Values& KimeraRpgoOptimizer::getEstimates() const {

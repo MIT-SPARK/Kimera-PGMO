@@ -46,6 +46,7 @@ add_library(
   src/utils/range_generator.cpp
   src/utils/vertex_update.cpp
   src/optimizer/kimera_rpgo_optimizer.cpp
+  src/deformation_graph_state.cpp
   src/deformation_graph.cpp
   src/deformation_graph_io.cpp
   src/kimera_pgmo_interface.cpp

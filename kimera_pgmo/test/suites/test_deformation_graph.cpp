@@ -1,3 +1,6 @@
+#include <unistd.h>
+
+#include <filesystem>
 /**
  * @file   test_deformation_graph.cpp
  * @brief  Unit-tests for the deformation graph class
@@ -839,9 +842,12 @@ TEST(TestDeformationGraph, saveAndLoad) {
 
   EXPECT_EQ(5u, temp_factors->size());
   EXPECT_EQ(2u, temp_values->size());
-  graph.save(std::string(DATASET_PATH) + "/graph.dgrf");
+  const auto path = std::filesystem::temp_directory_path() /
+                    ("pgmo-roundtrip-" + std::to_string(getpid()) + ".dgrf");
+  graph.save(path);
   DeformationGraph new_graph;
-  new_graph.load(std::string(DATASET_PATH) + "/graph.dgrf");
+  new_graph.load(path);
+  std::filesystem::remove(path);
 
   values = new_graph.getValues();
   factors = new_graph.getFactors();

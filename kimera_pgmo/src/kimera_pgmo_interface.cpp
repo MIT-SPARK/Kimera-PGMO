@@ -9,12 +9,14 @@
 #include <config_utilities/printing.h>
 #include <config_utilities/types/enum.h>
 #include <config_utilities/validation.h>
+#include <kimera_rpgo/utils/pose_4dof.h>
 
 #include <chrono>
 #include <cmath>
 #include <limits>
 #include <optional>
 
+#include "kimera_pgmo/utils/common_functions.h"
 #include "kimera_pgmo/utils/mesh_io.h"
 
 namespace kimera_pgmo {
@@ -43,6 +45,9 @@ void declare_config(KimeraPgmoConfig& config) {
              {{RunMode::FULL, "FULL"},
               {RunMode::EXTERNAL_OPTIMIZER, "EXTERNAL_OPTIMIZER"},
               {RunMode::MESH_ONLY, "MESH_ONLY"}});
+  enum_field(config.pose_mode,
+             "pose_mode",
+             {{PoseMode::POSE3, "POSE3"}, {PoseMode::POSE4DOF, "POSE4DOF"}});
   field(config.num_interp_pts, "num_interp_pts");
   field(config.interp_horizon, "interp_horizon");
   field(config.b_add_initial_prior, "add_initial_prior");
@@ -73,7 +78,8 @@ KimeraPgmoInterface::KimeraPgmoInterface(const KimeraPgmoConfig& config)
     : config_(config::checkValid(config)),
       pgo_(config.optimizer.create()),
       full_mesh_updated_(false),
-      deformation_graph_(new DeformationGraph(config_.mode == RunMode::MESH_ONLY)),
+      deformation_graph_(
+          new DeformationGraph(config_.mode == RunMode::MESH_ONLY, config_.pose_mode)),
       num_loop_closures_(0) {
   pgo_->setLogPath(config.log_path);
 }
@@ -138,7 +144,8 @@ bool KimeraPgmoInterface::wasFullMeshUpdated(bool clear_flag) {
 }
 
 void KimeraPgmoInterface::resetDeformationGraph() {
-  deformation_graph_.reset(new DeformationGraph);
+  deformation_graph_.reset(
+      new DeformationGraph(config_.mode == RunMode::MESH_ONLY, config_.pose_mode));
 }
 
 void KimeraPgmoInterface::loadDeformationGraphFromFile(const std::string& input) {
@@ -173,6 +180,10 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
     if (config_.mode != RunMode::MESH_ONLY) {
       deformation_graph_->processNewNode(
           key_symb, init_pose, config_.b_add_initial_prior, config_.prior_variance);
+    }
+
+    if (config_.mode != RunMode::MESH_ONLY) {
+      deformation_graph_->setPoseTimestamp(key_symb, init_node.stamp_ns);
     }
 
     keyed_stamps_.insert({key_symb, init_node.stamp_ns});
@@ -241,6 +252,7 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
       }
 
       deformation_graph_->updatePoseGraphInitialGuess(from_key, to_key, measure);
+      deformation_graph_->setPoseTimestamp(to_key, pg_edge.stamp_ns);
       deformation_graph_->processNewBetween(
           from_key, to_key, measure, config_.odom_variance);
 
@@ -500,12 +512,13 @@ OptimizeStats KimeraPgmoInterface::optimize() {
   {
     auto lock = deformation_graph_->acquireLock();
     optimizeStartup();
-    factors = deformation_graph_->getFactorsCopy();
-    initial = deformation_graph_->getValuesCopy();
-    temp_factors = deformation_graph_->getTempFactorsCopy();
-    temp_initial = deformation_graph_->getTempValuesCopy();
-    known_inliers = deformation_graph_->getKnownInlierSetCopy();
-    temp_known_inliers = deformation_graph_->getTempKnownInlierSetCopy();
+    auto snapshot = deformation_graph_->optimizationSnapshot();
+    factors = std::move(snapshot.permanent.factors);
+    initial = std::move(snapshot.permanent.values);
+    temp_factors = std::move(snapshot.temporary.factors);
+    temp_initial = std::move(snapshot.temporary.values);
+    known_inliers = std::move(snapshot.permanent.known_inliers);
+    temp_known_inliers = std::move(snapshot.temporary.known_inliers);
   }
 
   const auto start = std::chrono::system_clock::now();
@@ -525,15 +538,16 @@ OptimizeStats KimeraPgmoInterface::optimize() {
   for (size_t factor_idx = 0; factor_idx < factors.size(); ++factor_idx) {
     const auto& factor = factors[factor_idx];
     const auto derived = dynamic_cast<const BetweenFactorT*>(factor.get());
-    if (!derived) {
+    if (!derived &&
+        !dynamic_cast<const gtsam::BetweenFactor<gtsam::Pose4DoF>*>(factor.get())) {
       continue;
     }
 
-    const gtsam::Symbol k1(derived->keys().front());
-    const gtsam::Symbol k2(derived->keys().back());
+    const gtsam::Symbol k1(factor->keys().front());
+    const gtsam::Symbol k2(factor->keys().back());
     const int64_t k1_index = k1.index();
     const int64_t k2_index = k2.index();
-    if (std::abs(k1_index - k2_index) <= 1) {
+    if (k1.chr() == k2.chr() && k2_index == k1_index + 1) {
       continue;  // odometry
     }
 

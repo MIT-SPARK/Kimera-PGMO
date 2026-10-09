@@ -16,6 +16,7 @@
 
 #include <cstdint>
 #include <map>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -41,11 +42,42 @@ using NodeValenceInfoList = std::vector<NodeValenceInfo>;
 
 using EdgeTypeVarianceMap = std::map<pose_graph_tools::PoseGraphEdge::Type, double>;
 
+enum class PoseMode { POSE3, POSE4DOF };
+
+struct OptimizationState {
+  gtsam::Values values;
+  gtsam::NonlinearFactorGraph factors;
+  std::set<size_t> known_inliers;
+  std::vector<double> inlier_weights;
+
+  void filter(const std::function<bool(const gtsam::NonlinearFactor&)>& keep);
+};
+
+struct OptimizationSnapshot {
+  OptimizationState permanent;
+  OptimizationState temporary;
+};
+
 class DeformationGraph {
  public:
   /*! \brief Deformation graph class constructor
    */
-  DeformationGraph(bool add_init_vertex_prior = false);
+  DeformationGraph(bool add_init_vertex_prior = false, PoseMode mode = PoseMode::POSE3);
+
+  PoseMode poseMode() const { return pose_mode_; }
+  //! Copy both partitions for optimization; acquireLock guards concurrent mutation.
+  OptimizationSnapshot optimizationSnapshot() const;
+  void setPoseTimestamp(gtsam::Key key, Timestamp stamp);
+  std::optional<Timestamp> getPoseTimestamp(gtsam::Key key) const;
+  //! Return complete trajectory timestamps, throwing if a stamp is missing.
+  std::map<size_t, std::vector<Timestamp>> getPoseTimestamps() const;
+  gtsam::NonlinearFactor::shared_ptr makePrior(gtsam::Key key,
+                                               const gtsam::Pose3& pose,
+                                               double variance) const;
+  gtsam::NonlinearFactor::shared_ptr makePrior(
+      gtsam::Key key,
+      const gtsam::Pose3& pose,
+      const gtsam::SharedNoiseModel& noise) const;
   ~DeformationGraph();
 
   inline void setVerboseFlag(bool verbose) { verbose_ = verbose; }
@@ -379,25 +411,31 @@ class DeformationGraph {
    */
   const gtsam::Values getValuesCopy() const { return *values_; }
 
-  /*! \brief Gets the factors added to the backend
+  /*! \brief Gets native factors; pair with optimizationSnapshot values to optimize.
    *  - outputs the factors as a GTSAM NonlinearFactorGraph
    */
-  const gtsam::NonlinearFactorGraph* getFactors() const { return nfg_.get(); }
+  const gtsam::NonlinearFactorGraph* getFactors() const { return &permanent_.factors; }
 
-  /*! \brief Gets the factors added to the backend as a copy
+  /*! \brief Copy native factors; optimizationSnapshot supplies matching values.
    *  - outputs the factors as a GTSAM NonlinearFactorGraph
    */
-  const gtsam::NonlinearFactorGraph getFactorsCopy() const { return *nfg_; }
+  const gtsam::NonlinearFactorGraph getFactorsCopy() const {
+    return permanent_.factors;
+  }
 
   /*! \brief Gets the set of known inliers
    *  - outputs the set of inlier indices
    */
-  const std::set<size_t>* getKnownInlierSet() const { return known_inliers_.get(); }
+  const std::set<size_t>* getKnownInlierSet() const {
+    return &permanent_.known_inliers;
+  }
 
   /*! \brief Gets the set of known inliers as a copy
    *  - outputs the set of inlier indices
    */
-  const std::set<size_t> getKnownInlierSetCopy() const { return *known_inliers_; }
+  const std::set<size_t> getKnownInlierSetCopy() const {
+    return permanent_.known_inliers;
+  }
 
   /*! \brief Gets the temp values since last optimization
    *  - outputs last temp values as GTSAM Values
@@ -412,37 +450,43 @@ class DeformationGraph {
   /*! \brief Gets the temp factors added to the backend as a copy
    *  - outputs the factors as a GTSAM NonlinearFactorGraph
    */
-  const gtsam::NonlinearFactorGraph* getTempFactors() const { return temp_nfg_.get(); }
+  const gtsam::NonlinearFactorGraph* getTempFactors() const {
+    return &temporary_.factors;
+  }
 
   /*! \brief Gets the temp factors added to the backend as a copy
    *  - outputs the factors as a GTSAM NonlinearFactorGraph
    */
-  const gtsam::NonlinearFactorGraph getTempFactorsCopy() const { return *temp_nfg_; }
+  const gtsam::NonlinearFactorGraph getTempFactorsCopy() const {
+    return temporary_.factors;
+  }
 
   /*! \brief Gets the set of temp known inliers
    *  - outputs the set of inlier indices
    */
   const std::set<size_t>* getTempKnownInlierSet() const {
-    return temp_known_inliers_.get();
+    return &temporary_.known_inliers;
   }
 
   /*! \brief Gets copy of the set of temp known inliers
    *  - outputs the set of inlier indices
    */
   const std::set<size_t> getTempKnownInlierSetCopy() const {
-    return *temp_known_inliers_;
+    return temporary_.known_inliers;
   }
 
   /*! \brief Gets the inlier weights since last optimization
    *  - outputs inlier weights as GTSAM vector
    */
-  const std::vector<double>* getInlierWeights() const { return inlier_weights_.get(); }
+  const std::vector<double>* getInlierWeights() const {
+    return &permanent_.inlier_weights;
+  }
 
   /*! \brief Gets the temp inlier weights since last optimization
    *  - outputs temp inlier weights as GTSAM vector
    */
   const std::vector<double>* getTempInlierWeights() const {
-    return temp_inlier_weights_.get();
+    return &temporary_.inlier_weights;
   }
 
   /*! \brief Gets the pose graph from the backend
@@ -508,21 +552,33 @@ class DeformationGraph {
 
   /*! \brief Clear all (everything)
    */
-  inline void clear() {
-    nfg_->resize(0);
-    temp_nfg_->resize(0);
-    values_->clear();
-    temp_values_->clear();
-    pg_initial_poses_.clear();
-    temp_pg_initial_poses_.clear();
-    vertex_positions_.clear();
-    vertex_stamps_.clear();
-  }
+  void clear();
 
   /*! \brief Clear only mesh vertices and their associated factors
    * Preserves robot poses and pose-only factors
    */
   void clearMeshNodesOnly();
+  //! Clear factors involving mesh controls while retaining their estimates.
+  void clearMeshEdgeFactorsOnly();
+  //! Remove controls at/above cutoff and all their incident factors.
+  void removeMeshNodesAbove(char prefix, size_t cutoff_index);
+  //! Clear mesh factors first; new indices must be dense and unique.
+  void reindexMeshNodes(char prefix,
+                        const std::unordered_map<size_t, size_t>& old_to_new);
+  void processPointMeasurement(gtsam::Key from_key,
+                               gtsam::Key to_key,
+                               const gtsam::Pose3& from_pose,
+                               const gtsam::Point3& to_point,
+                               const gtsam::SharedNoiseModel& noise,
+                               bool temp = false,
+                               bool known_inlier = true);
+  void processNewMeshEdgesAndNodes(
+      const std::vector<std::pair<gtsam::Key, gtsam::Key>>& mesh_edges,
+      const gtsam::Values& mesh_nodes,
+      const std::unordered_map<gtsam::Key, Timestamp>& node_stamps,
+      std::vector<size_t>* added_indices,
+      std::vector<Timestamp>* added_index_stamps,
+      const std::vector<double>& edge_variances);
 
   /*! \brief Clear the last mesh interpolation cache
    */
@@ -530,18 +586,11 @@ class DeformationGraph {
 
   /*! \brief Clear all temporary values, factors, and related structures
    */
-  inline void clearFactors() {
-    nfg_->resize(0);
-    temp_nfg_->resize(0);
-  }
+  void clearFactors();
 
   /*! \brief Clear all temporary values, factors, and related structures
    */
-  inline void clearTemporaryStructures() {
-    temp_values_->clear();
-    temp_nfg_->resize(0);
-    temp_pg_initial_poses_.clear();
-  }
+  void clearTemporaryStructures();
 
   /*! \brief Update the values. Use to update initial estimate. Use with caution since
    * initial estimate and result shares same variable. (only depends on if you call
@@ -694,22 +743,30 @@ class DeformationGraph {
   std::map<char, std::vector<gtsam::Point3>> vertex_positions_;
   std::map<char, std::vector<Timestamp>> vertex_stamps_;
 
-  // factors
-  std::shared_ptr<gtsam::NonlinearFactorGraph> nfg_;
-  // known inlier set
-  std::shared_ptr<std::set<size_t>> known_inliers_;
-  // current estimate
+  OptimizationState permanent_;
+  OptimizationState temporary_;
+  // Pose3 views retained for mesh deformation and downstream consumers.
   std::shared_ptr<gtsam::Values> values_;
-  // temp factors
-  std::shared_ptr<gtsam::NonlinearFactorGraph> temp_nfg_;
-  // known inlier set
-  std::shared_ptr<std::set<size_t>> temp_known_inliers_;
-  // current temp estimate
   std::shared_ptr<gtsam::Values> temp_values_;
-  // gnc weights (from last update)
-  std::shared_ptr<std::vector<double>> inlier_weights_;
-  // gnc weights for temp factors (from last update)
-  std::shared_ptr<std::vector<double>> temp_inlier_weights_;
+  PoseMode pose_mode_;
+  std::map<gtsam::Key, gtsam::Pose3> original_poses_;
+  std::set<gtsam::Key> mesh_keys_;
+  std::map<gtsam::Key, Timestamp> pose_stamps_;
+
+  void insertValue(gtsam::Key key, const gtsam::Pose3& pose, bool temp = false);
+  void updateState(const gtsam::Values& updates, bool temp);
+  void appendFactor(const gtsam::NonlinearFactor::shared_ptr& factor,
+                    bool temp,
+                    bool known_inlier);
+  void rebuildBookkeeping();
+  void refreshEstimates();
+  bool isPose4(gtsam::Key key) const;
+  const gtsam::Pose3& originalPose(gtsam::Key key) const;
+  gtsam::NonlinearFactor::shared_ptr makeDeformationFactor(
+      gtsam::Key from,
+      gtsam::Key to,
+      const gtsam::Point3& measurement,
+      const gtsam::SharedNoiseModel& noise) const;
 
   // track adjacency
   std::map<gtsam::Key, std::set<gtsam::Key>> adjacency_map_;
