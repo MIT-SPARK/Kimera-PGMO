@@ -21,9 +21,7 @@ find_package(nlohmann_json REQUIRED)
 set(CLEAR_WARNING_SUPPRESSION OFF)
 if(NOT DEFINED CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
   set(CLEAR_WARNING_SUPPRESSION ON)
-  set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS
-      1
-      CACHE INTERNAL "No dev warnings")
+  set(CMAKE_SUPPRESS_DEVELOPER_WARNINGS 1 CACHE INTERNAL "No dev warnings")
 endif()
 
 find_package(PCL REQUIRED COMPONENTS common geometry kdtree octree)
@@ -59,8 +57,7 @@ add_library(
   src/mesh_offset_info.cpp
   src/mesh_traits.cpp
   src/mesh_types.cpp
-  src/pcl_mesh_traits.cpp
-  src/sparse_keyframe.cpp)
+  src/pcl_mesh_traits.cpp)
 target_include_directories(
   ${PROJECT_NAME}
   PUBLIC $<INSTALL_INTERFACE:include>
