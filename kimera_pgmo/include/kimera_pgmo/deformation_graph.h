@@ -66,11 +66,6 @@ class DeformationGraph {
                                     bool include_priors = true,
                                     std::optional<size_t> new_robot_id = std::nullopt);
 
-  //! Gets the pose graph corresponding to the underlying factor graph
-  pose_graph_tools::PoseGraph::Ptr getPoseGraph(bool include_deformation_edges = false,
-                                                bool include_between_edges = true,
-                                                bool optimized = true) const;
-
   /*! \brief Directly add a full pose graph to the deformation graph
    *  - pose_graph: full pose graph
    *  - variance_map: map edge type to variance value
@@ -91,6 +86,103 @@ class DeformationGraph {
                         const EdgeTypeVarianceMap& variance_map,
                         std::map<size_t, size_t> robot_id_remap = {},
                         const Eigen::Isometry3d* const transform = nullptr);
+
+  /*! \brief Fix the measurements of multiple nodes
+   *  - measurements: a vector of key->pose pair of node measurements
+   *  - variance: covariance of the prior factors
+   */
+  void processNodeMeasurements(const NodeMeasurements& measurements,
+                               double variance = 1e-4);
+
+  /**
+   * Add a new pose node to the deformation graph
+   * @param key Key of pose node
+   * @param stamp Timestamp of pose node
+   * @param initial_pose Original pose of pose node
+   * @param add_prior Add prior factor for pose
+   * @param prior_variance Variance for prior factor
+   */
+  bool addNewNode(gtsam::Key key,
+                  Timestamp stamp,
+                  const gtsam::Pose3& initial_pose,
+                  bool add_prior = false,
+                  double prior_variance = 1.0e-8);
+
+  /*! \brief Initialize with new node of a trajectory, but keep it temporary
+   *  - key: Key of first node in new trajectory
+   *  - initial_pose: Initial measurement of first node
+   *  - add_prior: boolean - add a Prior Factor or not
+   *  - prior_variance: covariance of the prior
+   */
+  void processNewTempNode(gtsam::Key key,
+                          const gtsam::Pose3& initial_pose,
+                          bool add_prior,
+                          double prior_variance = 1e-8);
+
+  /*! \brief Add nodes and their valences, but keep them temporary
+   *  - keys: vector of keys of the nodes to be added
+   *  - initial_poses: poses of the nodes to be added
+   *  - valences: mesh graph vertices that are valences of the nodes
+   *  - valence_prefix: prefix of the valences (associated to robot id)
+   *  - add_prior: boolean - add a Prior Factor or not
+   *  - edge_variance: covariance of the node to mesh edges
+   *  - prior_variance: if add prior, covariance on the nodes
+   */
+  void processNewTempNodesValences(const NodeValenceInfoList& factors,
+                                   bool add_prior,
+                                   double edge_variance = 1e-2,
+                                   double prior_variance = 1e-8);
+
+  /*! \brief Add a new between factor to the deformation graph
+   *  - key_from: Key of front node to connect between factor
+   *  - key_to: Key of back node to connect between factor
+   *  - meas: Measurement of between factor
+   *  - variance: covariance on the between factor
+   */
+  void processNewBetween(gtsam::Key key_from,
+                         gtsam::Key key_to,
+                         const gtsam::Pose3& meas,
+                         double variance = 1e-4);
+
+  /*! \brief Adding new initial guess according to an odometry measurement
+   *  - key_from: Key of front node to connect between factor
+   *  - key_to: Key of back node to connect between factor
+   *  - meas: Measurement of between (odom) factor
+   */
+  void updatePoseGraphInitialGuess(gtsam::Key key_from,
+                                   gtsam::Key key_to,
+                                   const gtsam::Pose3& meas);
+
+  /*! \brief Add a new temporary between factor to the deformation graph
+   *  - key_from: Key of front node to connect between factor
+   *  - key_to: Key of back node to connect between factor
+   *  - meas: Measurement of between factor
+   *  - variance: covariance on the temporary between factor
+   */
+  void processNewTempBetween(gtsam::Key key_from,
+                             gtsam::Key key_to,
+                             const gtsam::Pose3& meas,
+                             double variance = 1e-4);
+
+  /*! \brief Add new edges as temporary between factor to the deformation graph
+   *  - edges: pose_graph_tools::PoseGraph type with the edges to add
+   *  - variance: covariance on the added temp edges
+   */
+  void processNewTempEdges(const pose_graph_tools::PoseGraph& edges,
+                           double variance = 1e-2);
+
+  /*! \brief Add a new mesh edge to deformation graph
+   *  - mesh_edges: edges storing key-key pairs
+   *  - mesh_nodes: gtsam values encoding key value pairs of new nodes
+   *  - added_indices: indices of nodes that was successfully added
+   *  - variance: covariance of the deformation graph edges
+   */
+  void processNewMeshEdgesAndNodes(const MeshEdges& mesh_edges,
+                                   const gtsam::Values& mesh_nodes,
+                                   const MeshNodeStamps& node_stamps,
+                                   std::vector<size_t>* added_indices,
+                                   std::vector<Timestamp>* added_index_stamps,
+                                   double variance = 1e-4);
 
   /*! \brief Add connections from a pose graph node to mesh vertices nodes
    *  - key: Key of pose graph node
@@ -157,103 +249,6 @@ class DeformationGraph {
                                double variance,
                                bool temp = false,
                                bool known_inlier = false);
-
-  /*! \brief Fix the measurements of multiple nodes
-   *  - measurements: a vector of key->pose pair of node measurements
-   *  - variance: covariance of the prior factors
-   */
-  void processNodeMeasurements(const NodeMeasurements& measurements,
-                               double variance = 1e-4);
-
-  /*! \brief Initialize with new node of a trajectory, but keep it temporary
-   *  - key: Key of first node in new trajectory
-   *  - initial_pose: Initial measurement of first node
-   *  - add_prior: boolean - add a Prior Factor or not
-   *  - prior_variance: covariance of the prior
-   */
-  void processNewTempNode(gtsam::Key key,
-                          const gtsam::Pose3& initial_pose,
-                          bool add_prior,
-                          double prior_variance = 1e-8);
-
-  /*! \brief Add a new between factor to the deformation graph
-   *  - key_from: Key of front node to connect between factor
-   *  - key_to: Key of back node to connect between factor
-   *  - meas: Measurement of between factor
-   *  - variance: covariance on the between factor
-   */
-  void processNewBetween(gtsam::Key key_from,
-                         gtsam::Key key_to,
-                         const gtsam::Pose3& meas,
-                         double variance = 1e-4);
-
-  /*! \brief Adding new initial guess according to an odometry measurement
-   *  - key_from: Key of front node to connect between factor
-   *  - key_to: Key of back node to connect between factor
-   *  - meas: Measurement of between (odom) factor
-   */
-  void updatePoseGraphInitialGuess(gtsam::Key key_from,
-                                   gtsam::Key key_to,
-                                   const gtsam::Pose3& meas);
-
-  /*! \brief Add a new temporary between factor to the deformation graph
-   *  - key_from: Key of front node to connect between factor
-   *  - key_to: Key of back node to connect between factor
-   *  - meas: Measurement of between factor
-   *  - variance: covariance on the temporary between factor
-   */
-  void processNewTempBetween(gtsam::Key key_from,
-                             gtsam::Key key_to,
-                             const gtsam::Pose3& meas,
-                             double variance = 1e-4);
-
-  /*! \brief Add new edges as temporary between factor to the deformation graph
-   *  - edges: pose_graph_tools::PoseGraph type with the edges to add
-   *  - variance: covariance on the added temp edges
-   */
-  void processNewTempEdges(const pose_graph_tools::PoseGraph& edges,
-                           double variance = 1e-2);
-
-  /*! \brief Add nodes and their valences, but keep them temporary
-   *  - keys: vector of keys of the nodes to be added
-   *  - initial_poses: poses of the nodes to be added
-   *  - valences: mesh graph vertices that are valences of the nodes
-   *  - valence_prefix: prefix of the valences (associated to robot id)
-   *  - add_prior: boolean - add a Prior Factor or not
-   *  - edge_variance: covariance of the node to mesh edges
-   *  - prior_variance: if add prior, covariance on the nodes
-   */
-  void processNewTempNodesValences(const NodeValenceInfoList& factors,
-                                   bool add_prior,
-                                   double edge_variance = 1e-2,
-                                   double prior_variance = 1e-8);
-
-  /*! \brief Add a new mesh edge to deformation graph
-   *  - mesh_edges: edges storing key-key pairs
-   *  - mesh_nodes: gtsam values encoding key value pairs of new nodes
-   *  - added_indices: indices of nodes that was successfully added
-   *  - variance: covariance of the deformation graph edges
-   */
-  void processNewMeshEdgesAndNodes(const MeshEdges& mesh_edges,
-                                   const gtsam::Values& mesh_nodes,
-                                   const MeshNodeStamps& node_stamps,
-                                   std::vector<size_t>* added_indices,
-                                   std::vector<Timestamp>* added_index_stamps,
-                                   double variance = 1e-4);
-
-  /**
-   * Add a new pose node to the deformation graph
-   * @param key Key of pose node
-   * @param stamp Timestamp of pose node
-   * @param initial_pose Original pose of pose node
-   * @param add_prior Add prior factor for pose
-   * @param prior_variance Variance for prior factor
-   */
-  bool addNewNode(gtsam::Key key,
-                  Timestamp stamp,
-                  const gtsam::Pose3& initial_pose,
-                  bool add_prior = false,
-                  double prior_variance = 1.0e-8);
 
   /*! \brief Remove sll prior factors of nodes that have given prefix
    *  - prefix: prefix of nodes to remove prior
@@ -357,11 +352,11 @@ class DeformationGraph {
                     int start_index_hint = -1,
                     std::vector<std::set<size_t>>* vertex_graph_map = nullptr);
 
-  //! Get the number of mesh vertices nodes in the deformation graph
-  size_t getNumVertices() const;
-
   //! Get the number of loop closures processed by pgo
   size_t getNumLoopclosures() const { return num_loopclosures_; }
+
+  //! Get the number of mesh vertices nodes in the deformation graph
+  size_t getNumVertices() const;
 
   //! Gets the estimated values since last optimization
   const gtsam::Values* getValues() const { return &values_; }
@@ -409,11 +404,10 @@ class DeformationGraph {
     return &temp_inlier_weights_;
   }
 
-  //! Recalculate vertices getter
-  bool getRecalculateVertices() { return recalculate_vertices_; }
-
-  //! Recalculate vertices setter
-  void setRecalculateVertices() { recalculate_vertices_ = true; }
+  //! Gets the pose graph corresponding to the underlying factor graph
+  pose_graph_tools::PoseGraph::Ptr getPoseGraph(bool include_deformation_edges = false,
+                                                bool include_between_edges = true,
+                                                bool optimized = true) const;
 
   //! Get the intial pose of a keyframe node
   gtsam::Pose3 getInitialPose(char prefix, size_t index) const;
@@ -429,13 +423,17 @@ class DeformationGraph {
 
   bool hasVertexKey(char prefix) const;
 
-  bool hasPrefixPoses(char prefix) const;
-
   //! Get the observed stamp of a vertex
   Timestamp getStampVertex(char prefix, size_t index) const;
 
   //! Get the observed stamps of the vertices corresponding to prefix
   std::vector<Timestamp> getStampVertices(char prefix) const;
+
+  //! Recalculate vertices getter
+  bool getRecalculateVertices() { return recalculate_vertices_; }
+
+  //! Recalculate vertices setter
+  void setRecalculateVertices() { recalculate_vertices_ = true; }
 
   //! Clear all (everything)
   void clear();
@@ -469,6 +467,8 @@ class DeformationGraph {
 
   //! Update the temp inlier weights (e.g. GNC results).
   void updateTempInlierWeights(const std::vector<double>& weights);
+
+  bool hasPrefixPoses(char prefix) const;
 
   template <typename Cloud>
   size_t findStartIndex(char prefix,
@@ -545,39 +545,45 @@ class DeformationGraph {
  private:
   friend struct DGRFLoader;
   bool add_init_vertex_prior_;
-  size_t num_loopclosures_;
-  std::map<gtsam::Key, std::set<gtsam::Key>> adjacency_map_;
 
   // Keep track of vertices not part of mesh
   // for embedding trajectory, etc.
-  RobotTimestampMap pg_stamps_;
   RobotPoseMap pg_initial_poses_;
   std::unordered_map<gtsam::Key, gtsam::Pose3> temp_pg_initial_poses_;
 
-  VertexStamps vertex_stamps_;
   VertexPositions vertex_positions_;
+  VertexStamps vertex_stamps_;
 
-  // current estimate
-  gtsam::Values values_;
   // factors
   gtsam::NonlinearFactorGraph nfg_;
   // known inlier set
   std::set<size_t> known_inliers_;
-  // gnc weights (from last update)
-  std::vector<double> inlier_weights_;
+  // current estimate
+  gtsam::Values values_;
 
-  // current temp estimate
-  gtsam::Values temp_values_;
   // temp factors
   gtsam::NonlinearFactorGraph temp_nfg_;
   // known inlier set
   std::set<size_t> temp_known_inliers_;
+  // current temp estimate
+  gtsam::Values temp_values_;
+  // gnc weights (from last update)
+  std::vector<double> inlier_weights_;
   // gnc weights for temp factors (from last update)
   std::vector<double> temp_inlier_weights_;
+
+  // track adjacency
+  std::map<gtsam::Key, std::set<gtsam::Key>> adjacency_map_;
+
+  size_t num_loopclosures_;
 
   // Recalculate only if new measurements added
   bool recalculate_vertices_;
   std::map<char, pcl::PointCloud<pcl::PointXYZ>> last_calculated_vertices_;
+
+  // Keep track of vertices not part of mesh
+  // for embedding trajectory, etc.
+  RobotTimestampMap pg_stamps_;
 
   // Mutex
   std::mutex mutex_;
