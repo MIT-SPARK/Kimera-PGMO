@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <filesystem>
 #include <map>
+#include <optional>
 #include <unordered_map>
 #include <vector>
 
@@ -62,10 +63,8 @@ class DeformationGraph {
 
   //! Load deformation graph from file
   static DeformationGraph::Ptr load(const std::filesystem::path& filename,
-                                    bool include_temp = true,
-                                    bool set_robot_id = false,
-                                    size_t new_robot_id = 0,
-                                    bool include_priors = true);
+                                    bool include_priors = true,
+                                    std::optional<size_t> new_robot_id = std::nullopt);
 
   //! Gets the pose graph corresponding to the underlying factor graph
   pose_graph_tools::PoseGraph::Ptr getPoseGraph(bool include_deformation_edges = false,
@@ -543,19 +542,8 @@ class DeformationGraph {
 
   bool checkAdjacency(gtsam::Key from, gtsam::Key to) const;
 
-  static DeformationGraph::Ptr loadFromDgrf(const std::filesystem::path& filename,
-                                            bool include_temp,
-                                            bool set_robot_id,
-                                            size_t new_robot_id,
-                                            bool include_priors);
-
-  static DeformationGraph::Ptr loadFromJson(const std::filesystem::path& filename,
-                                            bool include_temp,
-                                            bool set_robot_id,
-                                            size_t new_robot_id,
-                                            bool include_priors);
-
  private:
+  friend struct DGRFLoader;
   bool add_init_vertex_prior_;
   size_t num_loopclosures_;
   std::map<gtsam::Key, std::set<gtsam::Key>> adjacency_map_;

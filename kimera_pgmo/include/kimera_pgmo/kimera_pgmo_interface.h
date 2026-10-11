@@ -137,15 +137,8 @@ class KimeraPgmoInterface {
   void resetDeformationGraph();
 
   //! Load deformation graph
-  void loadDeformationGraphFromFile(const std::string& input);
-
-  /*! \brief Load deformation graph and assign specific robot id
-   * - input: dgrf file (deformation graph file)
-   * - robot_id: robot id
-   */
   void loadDeformationGraphFromFile(const std::string& input,
-                                    size_t robot_id,
-                                    bool include_priors = true);
+                                    std::optional<size_t> robot_id = std::nullopt);
 
  protected:
   ProcessPoseGraphStatus processIncrementalPoseGraph(
