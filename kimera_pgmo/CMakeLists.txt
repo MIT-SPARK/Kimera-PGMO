@@ -5,16 +5,18 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-add_compile_options(-Wall -Wextra -Wno-sign-compare -Wno-unused-parameter)
+add_compile_options(-Wall -Wextra -Wpedantic)
 
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
+find_package(CLI11 REQUIRED)
 find_package(config_utilities REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(GTSAM REQUIRED)
 find_package(kimera_rpgo REQUIRED)
 find_package(pose_graph_tools REQUIRED)
 find_package(spatial_hash REQUIRED)
+find_package(nlohmann_json REQUIRED)
 
 set(CLEAR_WARNING_SUPPRESSION OFF)
 if(NOT DEFINED CMAKE_SUPPRESS_DEVELOPER_WARNINGS)
@@ -55,8 +57,7 @@ add_library(
   src/mesh_offset_info.cpp
   src/mesh_traits.cpp
   src/mesh_types.cpp
-  src/pcl_mesh_traits.cpp
-  src/sparse_keyframe.cpp)
+  src/pcl_mesh_traits.cpp)
 target_include_directories(
   ${PROJECT_NAME}
   PUBLIC $<INSTALL_INTERFACE:include>
@@ -70,15 +71,19 @@ target_link_libraries(
          gtsam
          pose_graph_tools::pose_graph_tools
          spatial_hash::spatial_hash
-         config_utilities::config_utilities)
+         config_utilities::config_utilities
+  PRIVATE nlohmann_json::nlohmann_json)
 set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
 add_library(kimera_pgmo::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 
 add_executable(offline_deformation app/offline_deformation.cpp)
-target_link_libraries(offline_deformation ${PROJECT_NAME})
+target_link_libraries(offline_deformation PUBLIC ${PROJECT_NAME})
 
 add_executable(mesh_trajectory_deformer app/mesh_trajectory_deformer.cpp)
-target_link_libraries(mesh_trajectory_deformer ${PROJECT_NAME})
+target_link_libraries(mesh_trajectory_deformer PUBLIC ${PROJECT_NAME})
+
+add_executable(update_dgraph_format app/update_dgraph_format.cpp)
+target_link_libraries(update_dgraph_format PUBLIC ${PROJECT_NAME} CLI11::CLI11)
 
 include(CTest)
 if(BUILD_TESTING)
@@ -87,11 +92,12 @@ if(BUILD_TESTING)
 endif()
 
 install(
-  TARGETS ${PROJECT_NAME} mesh_trajectory_deformer
+  TARGETS ${PROJECT_NAME} offline_deformation mesh_trajectory_deformer
+          update_dgraph_format
   EXPORT kimera_pgmo-targets
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  RUNTIME DESTINATION ${CATKIN_GLOBAL_BIN_DESTINATION})
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 install(DIRECTORY include/ DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 install(
@@ -112,3 +118,8 @@ write_basic_package_version_file(
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/kimera_pgmoConfig.cmake
               ${CMAKE_CURRENT_BINARY_DIR}/kimera_pgmoConfigVersion.cmake
         DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/kimera_pgmo)
+
+find_package(ament_cmake_core QUIET)
+if(${ament_cmake_core_FOUND})
+  ament_package()
+endif()

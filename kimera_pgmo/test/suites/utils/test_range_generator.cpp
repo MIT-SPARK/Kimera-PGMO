@@ -17,7 +17,7 @@ TEST(RangeGenerator, generatorCorrect) {
 
   const RangeGenerator stamp_gen(stamps.size());
   auto bound = std::upper_bound(
-      stamp_gen.begin(), stamp_gen.end(), 50, [&](auto value, auto idx) {
+      stamp_gen.begin(), stamp_gen.end(), 50u, [&](auto value, auto idx) {
         return value < stamps.at(idx);
       });
   const auto diff = bound - generator.begin();

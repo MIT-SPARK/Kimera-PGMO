@@ -28,11 +28,10 @@ class OfflineDeformation {
   OfflineDeformation(const OfflineDeformationConfig& config)
       : config_(config),
         pgo_(config.optimizer.create()),
-        deformation_graph_(new DeformationGraph) {
+        deformation_graph_(DeformationGraph::load(config.log_path)) {
     std::cout << "[OfflineDeformation] Initialized with:\n"
               << config::toString(config) << std::endl;
     pgo_->setLogPath(config.log_path);
-    deformation_graph_->load(config.dgrf_file);
     std::cout << "Loaded " << config.dgrf_file << std::endl;
   }
 
@@ -61,7 +60,7 @@ class OfflineDeformation {
  private:
   OfflineDeformationConfig config_;
   Optimizer::Ptr pgo_;
-  DeformationGraphPtr deformation_graph_;
+  DeformationGraph::Ptr deformation_graph_;
 };
 
 }  // namespace kimera_pgmo

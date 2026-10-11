@@ -47,7 +47,7 @@ void pgmoResizeVertices(PointCloud<T>& cloud, size_t size) {
 }
 
 template <typename T>
-PgmoProps pgmoGetVertexProperties(const PointCloud<T>& cloud) {
+PgmoProps pgmoGetVertexProperties(const PointCloud<T>& /* cloud */) {
   return {traits::has_color_v<T>, false, traits::has_label_v<T>, false};
 }
 

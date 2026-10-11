@@ -9,6 +9,7 @@
   <license>BSD</license>
 
   <buildtool_depend>cmake</buildtool_depend>
+  <depend>cli11</depend>
   <depend>config_utilities</depend>
   <depend>eigen</depend>
   <depend>gtsam</depend>

@@ -37,9 +37,9 @@ traits::Pos pgmoGetVertex(const TestMesh& mesh,
   return ::kimera_pgmo::pgmoGetVertex(mesh.points, i, traits);
 }
 
-size_t pgmoNumFaces(const TestMesh& faces) { return 0; }
+size_t pgmoNumFaces(const TestMesh&) { return 0; }
 
-traits::Face pgmoGetFace(const TestMesh& faces, size_t i) { return {}; }
+traits::Face pgmoGetFace(const TestMesh&, size_t) { return {}; }
 
 namespace {
 
