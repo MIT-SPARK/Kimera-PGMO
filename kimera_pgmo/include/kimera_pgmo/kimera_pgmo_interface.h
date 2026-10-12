@@ -8,7 +8,6 @@
 #include <config_utilities/virtual_config.h>
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/inference/Symbol.h>
-#include <pcl/PolygonMesh.h>
 #include <pose_graph_tools/pose_graph.h>
 
 #include <map>
@@ -19,9 +18,6 @@
 #include "kimera_pgmo/optimizer/optimizer_interface.h"
 
 namespace kimera_pgmo {
-
-using Path = std::vector<gtsam::Pose3>;
-using PathPtr = std::shared_ptr<Path>;
 
 enum class ProcessPoseGraphStatus {
   EMPTY,
@@ -88,37 +84,24 @@ class KimeraPgmoInterface {
   friend class KimeraPgmoInterfaceTest;
 
  public:
-  /*! \brief Constructor for Kimera Pgmo class. Which subscribes to the
-   * incremental mesh and pose graph to create the deformation graph and also
-   * the full mesh to perform distortions and publish the optimzed distored mesh
-   * and trajectory
-   */
   KimeraPgmoInterface(const KimeraPgmoConfig& config);
 
   ~KimeraPgmoInterface() = default;
 
-  /*! \brief Load deformation graph and mesh from file
-   * - robot_id: robot id
-   * - ply_path: ply file storing mesh
-   * - dgrf_path: dgrf file storing deformation graph
-   * - optimized_mesh: ptr to optimized mesh (to be returned)
-   * - do_optimize: toggle optimization
-   */
+  //! Load deformation graph
+  void loadGraph(const std::string& input,
+                 std::optional<size_t> robot_id = std::nullopt);
+
+  //! Load deformation graph, mesh and potentially optimize
   bool loadGraphAndMesh(size_t robot_id,
                         const std::string& ply_path,
                         const std::string& dgrf_path,
-                        pcl::PolygonMesh::Ptr optimized_mesh,
-                        std::vector<Timestamp>* mesh_vertex_stamps,
                         bool do_optimize);
 
-  /*! \brief Get the optimized trajectory of a robot
-   * - robot_id: id of the robot referred to in query
-   */
-  Path getOptimizedTrajectory(size_t robot_id) const;
+  //! Get the optimized trajectory of a robot
+  std::vector<gtsam::Pose3> getOptimizedTrajectory(size_t robot_id) const;
 
-  /*! \brief Get the timestamps of the robot trajectory
-   * - robot_id: id of the robot referred to in query
-   */
+  //! Get the timestamps of the robot trajectory
   std::vector<Timestamp> getRobotTimestamps(size_t robot_id) const;
 
   //! Get the factors of the underlying deformation graph
@@ -130,22 +113,15 @@ class KimeraPgmoInterface {
   //! Pointer to deformation graph
   DeformationGraph::Ptr getDeformationGraphPtr() const;
 
-  //! Get whether the mesh has been updated
-  bool wasFullMeshUpdated(bool clear_flag = true);
-
   //! Reset deformation graph
   void resetDeformationGraph();
-
-  //! Load deformation graph
-  void loadDeformationGraphFromFile(const std::string& input,
-                                    std::optional<size_t> robot_id = std::nullopt);
 
  protected:
   ProcessPoseGraphStatus processIncrementalPoseGraph(
       const pose_graph_tools::PoseGraph& pose_graph,
       const std::vector<size_t>& new_mesh_indices,
       const std::vector<Timestamp>& new_mesh_index_stamps,
-      Path& initial_trajectory,
+      std::vector<gtsam::Pose3>& initial_trajectory,
       std::vector<Timestamp>& node_timestamps);
 
   ProcessMeshGraphStatus processIncrementalMeshGraph(
@@ -154,19 +130,15 @@ class KimeraPgmoInterface {
       std::vector<size_t>& new_mesh_indices,
       std::vector<Timestamp>& new_mesh_index_stamps);
 
-  void processOptimizedPath(const Path& path, size_t robot_id = 0);
+  void processOptimizedPath(const std::vector<gtsam::Pose3>& path, size_t robot_id = 0);
 
   OptimizeStats optimize();
 
-  virtual void optimizeStartup() {}
+  virtual void optimizeStartup();
 
-  virtual void optimizeCleanup(const gtsam::Values& /* results */) {}
+  virtual void optimizeCleanup(const gtsam::Values& results);
 
-  bool optimizeFullMesh(size_t robot_id,
-                        const pcl::PolygonMesh& input_mesh,
-                        const std::vector<Timestamp>& mesh_vertex_stamps,
-                        pcl::PolygonMesh& optimized_mesh,
-                        bool do_optimize);
+  bool deformFullMesh(size_t robot_id, bool do_optimize);
 
   bool findClosestMeshIndices(const size_t& robot_id,
                               const Timestamp& stamp,
@@ -176,25 +148,28 @@ class KimeraPgmoInterface {
 
   bool addMeshMeshConnections(const std::map<Timestamp, gtsam::Key>& nodes,
                               const std::vector<gtsam::Pose3>& measurements,
-                              const Path& initial_trajectory,
+                              const std::vector<gtsam::Pose3>& initial_trajectory,
                               bool as_inliers);
 
-  bool saveMesh(const pcl::PolygonMesh& mesh, const std::string& ply_name) const;
+  bool saveMesh(const std::string& filepath) const;
 
-  bool saveTrajectory(const Path& trajectory,
-                      const std::vector<Timestamp>& timestamps,
-                      const std::string& csv_file) const;
+  bool saveTrajectory(const std::string& filepath) const;
 
-  bool saveDeformationGraph(const std::string& dgrf_name) const;
+  bool saveDeformationGraph(const std::string& filepath) const;
 
  protected:
   KimeraPgmoConfig config_;
   Optimizer::Ptr pgo_;
 
-  bool full_mesh_updated_;
-
   DeformationGraph::Ptr deformation_graph_;
   double compression_time_horizon_;
+
+  std::vector<Timestamp> timestamps_;
+  std::vector<gtsam::Pose3> optimized_path_;
+
+  std::vector<traits::Face> faces_;
+  std::vector<traits::Vertex> original_vertices_;
+  std::vector<traits::Vertex> optimized_vertices_;
 
   size_t num_loop_closures_;
   std::unordered_map<gtsam::Key, std::set<gtsam::Key>> loop_closures_;

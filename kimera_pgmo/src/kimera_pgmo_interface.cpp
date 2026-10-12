@@ -9,19 +9,16 @@
 #include <config_utilities/printing.h>
 #include <config_utilities/types/enum.h>
 #include <config_utilities/validation.h>
-#include <pcl/conversions.h>
 
 #include <chrono>
 #include <cmath>
 
-#include "kimera_pgmo/pcl_mesh_traits.h"
 #include "kimera_pgmo/utils/common_functions.h"
 #include "kimera_pgmo/utils/mesh_io.h"
 
 namespace kimera_pgmo {
 
 using pose_graph_tools::PoseGraph;
-
 using BetweenFactorT = gtsam::BetweenFactor<gtsam::Pose3>;
 
 std::ostream& operator<<(std::ostream& out, const OptimizeStats& stats) {
@@ -72,31 +69,34 @@ void declare_config(KimeraPgmoConfig& config) {
 KimeraPgmoInterface::KimeraPgmoInterface(const KimeraPgmoConfig& config)
     : config_(config::checkValid(config)),
       pgo_(config.optimizer.create()),
-      full_mesh_updated_(false),
       deformation_graph_(new DeformationGraph(config_.mode == RunMode::MESH_ONLY)),
       num_loop_closures_(0) {
   pgo_->setLogPath(config.log_path);
 }
 
+void KimeraPgmoInterface::loadGraph(const std::string& input,
+                                    std::optional<size_t> robot_id) {
+  deformation_graph_ = DeformationGraph::load(input, true, robot_id);
+  num_loop_closures_ = deformation_graph_->getNumLoopclosures();
+}
+
 bool KimeraPgmoInterface::loadGraphAndMesh(size_t robot_id,
                                            const std::string& ply_path,
                                            const std::string& dgrf_path,
-                                           pcl::PolygonMesh::Ptr optimized_mesh,
-                                           std::vector<Timestamp>* stamps,
                                            bool do_optimize) {
-  pcl::PolygonMeshPtr mesh(new pcl::PolygonMesh());
-  kimera_pgmo::ReadMeshWithStampsFromPly(ply_path, mesh, stamps);
+  loadGraph(dgrf_path);
 
-  loadDeformationGraphFromFile(dgrf_path);
   SPARK_LOG(INFO) << "Loaded new graph. Currently have "
                   << deformation_graph_->getNumVertices()
                   << "vertices in deformation graph and " << num_loop_closures_
                   << " loop closures.";
 
-  return optimizeFullMesh(robot_id, *mesh, *stamps, *optimized_mesh, do_optimize);
+  kimera_pgmo::ReadMesh(ply_path, original_vertices_, faces_);
+  return deformFullMesh(robot_id, do_optimize);
 }
 
-Path KimeraPgmoInterface::getOptimizedTrajectory(size_t robot_id) const {
+std::vector<gtsam::Pose3> KimeraPgmoInterface::getOptimizedTrajectory(
+    size_t robot_id) const {
   // return the optimized trajectory (pose graph)
   const char& robot_prefix = robot_id_to_prefix.at(robot_id);
   return deformation_graph_->getTrajectory(robot_prefix);
@@ -106,7 +106,7 @@ std::vector<Timestamp> KimeraPgmoInterface::getRobotTimestamps(size_t robot_id) 
   std::vector<Timestamp> stamps;
   const char& robot_prefix = robot_id_to_prefix.at(robot_id);
   // TODO(yun) remove call to get optimized trajectory
-  Path optimized_traj = deformation_graph_->getTrajectory(robot_prefix);
+  auto optimized_traj = deformation_graph_->getTrajectory(robot_prefix);
   for (size_t i = 0; i < optimized_traj.size(); i++) {
     stamps.push_back(keyed_stamps_.at(gtsam::Symbol(robot_prefix, i)));
   }
@@ -127,29 +127,15 @@ DeformationGraph::Ptr KimeraPgmoInterface::getDeformationGraphPtr() const {
   return deformation_graph_;
 }
 
-bool KimeraPgmoInterface::wasFullMeshUpdated(bool clear_flag) {
-  bool to_return = full_mesh_updated_;
-  if (clear_flag) {
-    full_mesh_updated_ = false;
-  }
-  return to_return;
-}
-
 void KimeraPgmoInterface::resetDeformationGraph() {
   deformation_graph_.reset(new DeformationGraph);
-}
-
-void KimeraPgmoInterface::loadDeformationGraphFromFile(const std::string& input,
-                                                       std::optional<size_t> robot_id) {
-  deformation_graph_ = DeformationGraph::load(input, true, robot_id);
-  num_loop_closures_ = deformation_graph_->getNumLoopclosures();
 }
 
 ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
     const PoseGraph& msg,
     const std::vector<size_t>& new_mesh_indices,
     const std::vector<Timestamp>& /* new_mesh_index_stamps */,
-    Path& initial_trajectory,
+    std::vector<gtsam::Pose3>& initial_trajectory,
     std::vector<Timestamp>& node_timestamps) {
   std::map<Timestamp, gtsam::Key> stamped_nodes;
   std::vector<gtsam::Pose3> odom_measurements;
@@ -365,7 +351,7 @@ bool KimeraPgmoInterface::addPoseMeshConnections(
 bool KimeraPgmoInterface::addMeshMeshConnections(
     const std::map<Timestamp, gtsam::Key>& stamped_nodes,
     const std::vector<gtsam::Pose3>& measurements,
-    const Path& initial_trajectory,
+    const std::vector<gtsam::Pose3>& initial_trajectory,
     bool as_inliers) {
   if (stamped_nodes.size() == 0) {
     return true;
@@ -422,8 +408,7 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
     std::vector<size_t>& new_mesh_indices,
     std::vector<Timestamp>& new_mesh_index_stamps) {
   if (mesh_graph.edges.empty() || mesh_graph.nodes.empty()) {
-    SPARK_LOG(DEBUG)
-        << "processIncrementalMeshGraph: 0 nodes or 0 edges in mesh graph msg.";
+    SPARK_LOG(DEBUG) << "processIncrementalMeshGraph: empty message.";
     return ProcessMeshGraphStatus::EMPTY;
   }
 
@@ -438,9 +423,7 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
   for (const auto& e : mesh_graph.edges) {
     if (static_cast<size_t>(e.robot_from) != robot_id ||
         static_cast<size_t>(e.robot_to) != robot_id) {
-      SPARK_LOG(WARNING)
-          << "processIncrementalMeshGraph: detect different robot ids in single "
-             "mesh graph msg.";
+      SPARK_LOG(WARNING) << "processIncrementalMeshGraph: different ids in message.";
     }
 
     gtsam::Key from = gtsam::Symbol(GetVertexPrefix(e.robot_from), e.key_from);
@@ -451,9 +434,7 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
   // Convert and add nodes
   for (const auto& n : mesh_graph.nodes) {
     if (static_cast<size_t>(n.robot_id) != robot_id) {
-      SPARK_LOG(WARNING)
-          << "processIncrementalMeshGraph: detect different robot ids in single "
-             "mesh graph msg.";
+      SPARK_LOG(WARNING) << "processIncrementalMeshGraph: different ids in message.";
       return ProcessMeshGraphStatus::INVALID;
     }
 
@@ -479,9 +460,9 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
   return ProcessMeshGraphStatus::SUCCESS;
 }
 
-void KimeraPgmoInterface::processOptimizedPath(const Path& path, size_t robot_id) {
-  SPARK_LOG(INFO)
-      << "KimeraPgmo: Received optimized trajectory. Fixing pose graph nodes...";
+void KimeraPgmoInterface::processOptimizedPath(const std::vector<gtsam::Pose3>& path,
+                                               size_t robot_id) {
+  SPARK_LOG(INFO) << "Received optimized trajectory. Fixing pose graph nodes...";
   deformation_graph_->removePriorsWithPrefix(GetRobotPrefix(robot_id));
 
   std::vector<std::pair<gtsam::Key, gtsam::Pose3>> node_estimates;
@@ -494,23 +475,22 @@ void KimeraPgmoInterface::processOptimizedPath(const Path& path, size_t robot_id
 }
 
 OptimizeStats KimeraPgmoInterface::optimize() {
+  gtsam::Values init, temp_init;
+  std::set<size_t> inliers, temp_inliers;
   gtsam::NonlinearFactorGraph factors, temp_factors;
-  gtsam::Values initial, temp_initial;
-  std::set<size_t> known_inliers, temp_known_inliers;
   {
     auto lock = deformation_graph_->acquireLock();
     optimizeStartup();
     factors = deformation_graph_->getFactorsCopy();
-    initial = deformation_graph_->getValuesCopy();
+    init = deformation_graph_->getValuesCopy();
     temp_factors = deformation_graph_->getTempFactorsCopy();
-    temp_initial = deformation_graph_->getTempValuesCopy();
-    known_inliers = deformation_graph_->getKnownInlierSetCopy();
-    temp_known_inliers = deformation_graph_->getTempKnownInlierSetCopy();
+    temp_init = deformation_graph_->getTempValuesCopy();
+    inliers = deformation_graph_->getKnownInlierSetCopy();
+    temp_inliers = deformation_graph_->getTempKnownInlierSetCopy();
   }
 
   const auto start = std::chrono::system_clock::now();
-  pgo_->update(
-      factors, initial, known_inliers, temp_factors, temp_initial, temp_known_inliers);
+  pgo_->update(factors, init, inliers, temp_factors, temp_init, temp_inliers);
   const auto end = std::chrono::system_clock::now();
 
   auto estimates = pgo_->getEstimates();
@@ -551,8 +531,8 @@ OptimizeStats KimeraPgmoInterface::optimize() {
     }
   }
 
-  stats.elapsed_s =
-      std::chrono::duration_cast<std::chrono::duration<double>>(end - start).count();
+  using Sec = std::chrono::duration<double>;
+  stats.elapsed_s = std::chrono::duration_cast<Sec>(end - start).count();
 
   {
     auto lock = deformation_graph_->acquireLock();
@@ -566,12 +546,12 @@ OptimizeStats KimeraPgmoInterface::optimize() {
   return stats;
 }
 
-bool KimeraPgmoInterface::optimizeFullMesh(size_t robot_id,
-                                           const pcl::PolygonMesh& input_mesh,
-                                           const std::vector<Timestamp>& input_stamps,
-                                           pcl::PolygonMesh& optimized_mesh,
-                                           bool do_optimize) {
-  if (input_mesh.cloud.height * input_mesh.cloud.width == 0) {
+void KimeraPgmoInterface::optimizeStartup() {}
+
+void KimeraPgmoInterface::optimizeCleanup(const gtsam::Values&) {}
+
+bool KimeraPgmoInterface::deformFullMesh(size_t robot_id, bool do_optimize) {
+  if (original_vertices_.empty()) {
     return false;
   }
 
@@ -579,55 +559,44 @@ bool KimeraPgmoInterface::optimizeFullMesh(size_t robot_id,
     optimize();
   }
 
-  pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
-  pcl::fromPCLPointCloud2(input_mesh.cloud, new_vertices);
-  // note that there's no aliasing w.r.t. the new and old vertices so this is safe
-  ConstStampedCloud<pcl::PointXYZRGBA> old_cloud{new_vertices, input_stamps};
-  deformation_graph_->deformPoints(new_vertices,
-                                   old_cloud,
+  optimized_vertices_.resize(original_vertices_.size());
+  deformation_graph_->deformPoints(optimized_vertices_,
+                                   original_vertices_,
                                    GetVertexPrefix(robot_id),
                                    config_.num_interp_pts,
                                    config_.interp_horizon);
-
-  optimized_mesh.polygons = input_mesh.polygons;
-  pcl::toPCLPointCloud2(new_vertices, optimized_mesh.cloud);
-  full_mesh_updated_ = true;
   return true;
 }
 
-bool KimeraPgmoInterface::saveMesh(const pcl::PolygonMesh& mesh,
-                                   const std::string& ply_name) const {
-  // Save mesh
-  WriteMeshToPly(ply_name, mesh);
-  SPARK_LOG(INFO) << "KimeraPgmo: Saved mesh to file.";
+bool KimeraPgmoInterface::saveMesh(const std::string& filepath) const {
+  WriteMesh(filepath, optimized_vertices_, faces_);
+  SPARK_LOG(INFO) << "KimeraPgmo: Saved mesh to file '" << filepath << "'";
   return true;
 }
 
-bool KimeraPgmoInterface::saveTrajectory(const Path& trajectory,
-                                         const std::vector<Timestamp>& timestamps,
-                                         const std::string& csv_file) const {
-  // There should be a timestamp associated with each pose
-  assert(trajectory.size() == timestamps.size());
+bool KimeraPgmoInterface::saveTrajectory(const std::string& filepath) const {
+  if (optimized_path_.size() != timestamps_.size()) {
+    throw std::runtime_error("Poses and timestamps do not match!");
+  }
 
   std::ofstream csvfile;
-  csvfile.open(csv_file);
+  csvfile.open(filepath);
   csvfile << "timestamp[ns],x,y,z,qw,qx,qy,qz\n";
-  for (size_t i = 0; i < trajectory.size(); i++) {
-    const gtsam::Point3& pos = trajectory[i].translation();
-    const gtsam::Quaternion& quat = trajectory[i].rotation().toQuaternion();
-    csvfile << timestamps[i] << "," << pos.x() << "," << pos.y() << "," << pos.z()
-            << "," << quat.w() << "," << quat.x() << "," << quat.y() << "," << quat.z()
-            << "\n";
+  for (size_t i = 0; i < optimized_path_.size(); i++) {
+    const auto p = optimized_path_[i].translation();
+    const auto q = optimized_path_[i].rotation().toQuaternion();
+    csvfile << timestamps_[i] << "," << p.x() << "," << p.y() << "," << p.z() << ","
+            << q.w() << "," << q.x() << "," << q.y() << "," << q.z() << "\n";
   }
+
   csvfile.close();
-  SPARK_LOG(INFO) << "KimeraPgmo: Saved trajectories to file.";
+  SPARK_LOG(INFO) << "KimeraPgmo: Saved trajectories to file '" << filepath << "'";
   return true;
 }
 
-bool KimeraPgmoInterface::saveDeformationGraph(const std::string& dgrf_name) const {
-  // Save mesh
-  deformation_graph_->save(dgrf_name);
-  SPARK_LOG(INFO) << "KimeraPgmo: Saved deformation graph to file.";
+bool KimeraPgmoInterface::saveDeformationGraph(const std::string& filepath) const {
+  deformation_graph_->save(filepath);
+  SPARK_LOG(INFO) << "KimeraPgmo: Saved deformation graph to file '" << filepath << "'";
   return true;
 }
 
