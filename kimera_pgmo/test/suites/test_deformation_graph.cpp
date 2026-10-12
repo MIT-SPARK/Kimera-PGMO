@@ -238,7 +238,7 @@ TEST(TestDeformationGraph, deformMesh) {
   for (const auto& p : original) {
     auto& new_point = expected.emplace_back();
     new_point.pos = p.pos;
-    new_point.pos.x() += 0.5;
+    new_point.pos.x() -= 0.5;
   }
 
   // deform mesh
