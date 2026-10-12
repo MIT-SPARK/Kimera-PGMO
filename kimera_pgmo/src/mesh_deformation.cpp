@@ -70,8 +70,7 @@ void SearchTree::search(const traits::Pos& point,
 }
 
 // Calculate new point location from k points
-Eigen::Isometry3d interpDeformation(std::set<size_t>& control_points_seen,
-                                    char prefix,
+Eigen::Isometry3d interpDeformation(char prefix,
                                     const std::vector<gtsam::Point3>& control_points,
                                     const gtsam::Values& values,
                                     const SearchTree& tree,
@@ -99,7 +98,6 @@ Eigen::Isometry3d interpDeformation(std::set<size_t>& control_points_seen,
     const auto local_rot = local_tf.rotation();
     q += w * local_rot.toQuaternion().coeffs();
     t += w * (local_tf.translation() - local_rot * control_points.at(nn_index[j]));
-    control_points_seen.insert(nn_index[j]);
   }
 
   q /= weight_sum;
@@ -109,15 +107,13 @@ Eigen::Isometry3d interpDeformation(std::set<size_t>& control_points_seen,
 }
 
 // Calculate new point location from k points
-traits::Pos interpPoint(std::set<size_t>& control_points_seen,
-                        char prefix,
+traits::Pos interpPoint(char prefix,
                         const std::vector<gtsam::Point3>& control_points,
                         const gtsam::Values& values,
                         const SearchTree& tree,
                         size_t k,
                         const traits::Pos& vi) {
-  const auto new_T_old = interpDeformation(
-      control_points_seen, prefix, control_points, values, tree, k, vi);
+  const auto new_T_old = interpDeformation(prefix, control_points, values, tree, k, vi);
   return new_T_old.cast<float>() * vi;
 }
 

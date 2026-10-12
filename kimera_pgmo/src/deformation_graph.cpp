@@ -241,9 +241,7 @@ inline bool valueToMeshNode(const gtsam::Key& key,
 }  // namespace
 
 DeformationGraph::DeformationGraph(bool add_init_vertex_prior)
-    : add_init_vertex_prior_(add_init_vertex_prior),
-      num_loopclosures_(0),
-      recalculate_vertices_(false) {}
+    : add_init_vertex_prior_(add_init_vertex_prior), num_loopclosures_(0) {}
 
 DeformationGraph::~DeformationGraph() {}
 
@@ -605,8 +603,7 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
   gtsam::Vector6 variances;
   variances.head<3>().setConstant(1e-02 * variance);
   variances.tail<3>().setConstant(variance);
-  const gtsam::SharedNoiseModel noise =
-      gtsam::noiseModel::Diagonal::Variances(variances);
+  const auto noise = gtsam::noiseModel::Diagonal::Variances(variances);
   if (temp) {
     if (known_inlier) {
       temp_known_inliers_.insert(temp_nfg_.size());
@@ -623,7 +620,6 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
   if (key_to != key_from + 1) {
     SPARK_LOG(DEBUG) << "DeformationGraph: Added loop closure";
     num_loopclosures_++;
-    recalculate_vertices_ = true;
   }
 }
 

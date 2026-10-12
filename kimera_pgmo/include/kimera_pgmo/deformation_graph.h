@@ -396,12 +396,6 @@ class DeformationGraph {
   //! Get the observed stamps of the vertices corresponding to prefix
   std::vector<Timestamp> getStampVertices(char prefix) const;
 
-  //! Recalculate vertices getter
-  bool getRecalculateVertices() { return recalculate_vertices_; }
-
-  //! Recalculate vertices setter
-  void setRecalculateVertices() { recalculate_vertices_ = true; }
-
   //! Clear all (everything)
   void clear();
 
@@ -520,9 +514,6 @@ class DeformationGraph {
 
   size_t num_loopclosures_;
 
-  // Recalculate only if new measurements added
-  bool recalculate_vertices_;
-
   // Keep track of vertices not part of mesh
   // for embedding trajectory, etc.
   RobotTimestampMap pg_stamps_;
@@ -562,9 +553,7 @@ void DeformationGraph::deformPoints(CloudOut& vertices,
   }
 
   const std::vector<size_t>* indices_ptr = start_idx == 0 ? nullptr : &to_deform;
-  std::vector<std::set<size_t>> vertex_graph_map_deformed;
   deformation::deformPoints(vertices,
-                            vertex_graph_map_deformed,
                             old_vertices,
                             prefix,
                             vertex_positions_.at(prefix),
@@ -573,8 +562,6 @@ void DeformationGraph::deformPoints(CloudOut& vertices,
                             k,
                             tol_t,
                             indices_ptr);
-
-  recalculate_vertices_ = false;
 }
 
 template <typename CloudIn>
@@ -589,26 +576,18 @@ void DeformationGraph::customDeformation(const DeformationCallback& callback,
     return;
   }
 
-  std::vector<std::set<size_t>> vertex_graph_map_deformed;
   deformation::processPoints(
       [&](const size_t ii,
-          std::set<size_t>& control_points_seen,
           char prefix,
           const std::vector<gtsam::Point3>& control_points,
           const gtsam::Values& values,
           const deformation::SearchTree& octree,
           size_t k) {
-        const auto transform = interpDeformation(control_points_seen,
-                                                 prefix,
-                                                 control_points,
-                                                 values,
-                                                 octree,
-                                                 k,
-                                                 traits::get_vertex(points, ii));
+        const auto transform = interpDeformation(
+            prefix, control_points, values, octree, k, traits::get_vertex(points, ii));
 
         callback(transform, ii);
       },
-      vertex_graph_map_deformed,
       points,
       prefix,
       vertex_positions_.at(prefix),
@@ -631,9 +610,7 @@ void DeformationGraph::deformAllPoints(CloudOut& vertices,
     return;
   }
 
-  std::vector<std::set<size_t>> vertex_graph_map_deformed;
   deformation::deformPoints(vertices,
-                            vertex_graph_map_deformed,
                             old_vertices,
                             prefix,
                             vertex_positions_.at(prefix),

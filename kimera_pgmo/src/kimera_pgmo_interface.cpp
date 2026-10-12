@@ -265,8 +265,10 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
           SPARK_LOG(WARNING)
               << "Failed to add mesh-to-mesh connections for loop closure.";
         }
-        deformation_graph_->setRecalculateVertices();
+        // TODO(nathan) force loop closure for mesh
+        // deformation_graph_->setRecalculateVertices();
       }
+
       auto& loop_closures_to = loop_closures_[from_key];
       loop_closures_to.insert(to_key);
       auto& loop_closures_from = loop_closures_[to_key];
@@ -293,9 +295,11 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
       if (stamped_nodes.size() > 0 && new_mesh_indices.size() > 0) {
         SPARK_LOG(WARNING) << "KimeraPgmo: Partial mesh not connected to pose graph.";
       }
+
       return ProcessPoseGraphStatus::MESH_DISCONNECTED;
     }
   }
+
   return ProcessPoseGraphStatus::SUCCESS;
 }
 

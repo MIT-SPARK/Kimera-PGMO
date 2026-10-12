@@ -160,9 +160,6 @@ void OptimizeOnce(DeformationGraph& deformation_graph) {
 
   deformation_graph.updateValues(results);
   deformation_graph.updateTempValues(temp_results);
-
-  // For testing purposes always recalculate vertices
-  deformation_graph.setRecalculateVertices();
 }
 
 }  // namespace
