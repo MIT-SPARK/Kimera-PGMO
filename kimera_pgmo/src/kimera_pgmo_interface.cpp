@@ -9,10 +9,12 @@
 #include <config_utilities/printing.h>
 #include <config_utilities/types/enum.h>
 #include <config_utilities/validation.h>
+#include <pcl/conversions.h>
 
 #include <chrono>
 #include <cmath>
 
+#include "kimera_pgmo/pcl_mesh_traits.h"
 #include "kimera_pgmo/utils/common_functions.h"
 #include "kimera_pgmo/utils/mesh_io.h"
 
@@ -80,10 +82,10 @@ bool KimeraPgmoInterface::loadGraphAndMesh(size_t robot_id,
                                            const std::string& ply_path,
                                            const std::string& dgrf_path,
                                            pcl::PolygonMesh::Ptr optimized_mesh,
-                                           std::vector<Timestamp>* mesh_vertex_stamps,
+                                           std::vector<Timestamp>* stamps,
                                            bool do_optimize) {
   pcl::PolygonMeshPtr mesh(new pcl::PolygonMesh());
-  kimera_pgmo::ReadMeshWithStampsFromPly(ply_path, mesh, mesh_vertex_stamps);
+  kimera_pgmo::ReadMeshWithStampsFromPly(ply_path, mesh, stamps);
 
   loadDeformationGraphFromFile(dgrf_path);
   SPARK_LOG(INFO) << "Loaded new graph. Currently have "
@@ -91,9 +93,7 @@ bool KimeraPgmoInterface::loadGraphAndMesh(size_t robot_id,
                   << "vertices in deformation graph and " << num_loop_closures_
                   << " loop closures.";
 
-  std::vector<int> fake_indices(mesh_vertex_stamps->size(), 0);
-  return optimizeFullMesh(
-      robot_id, *mesh, *mesh_vertex_stamps, fake_indices, *optimized_mesh, do_optimize);
+  return optimizeFullMesh(robot_id, *mesh, *stamps, *optimized_mesh, do_optimize);
 }
 
 Path KimeraPgmoInterface::getOptimizedTrajectory(size_t robot_id) const {
@@ -562,35 +562,31 @@ OptimizeStats KimeraPgmoInterface::optimize() {
   return stats;
 }
 
-bool KimeraPgmoInterface::optimizeFullMesh(
-    size_t robot_id,
-    const pcl::PolygonMesh& input_mesh,
-    const std::vector<Timestamp>& mesh_vertex_stamps,
-    const std::vector<int>& mesh_vertex_graph_inds,
-    pcl::PolygonMesh& optimized_mesh,
-    bool do_optimize) {
-  // check if empty
+bool KimeraPgmoInterface::optimizeFullMesh(size_t robot_id,
+                                           const pcl::PolygonMesh& input_mesh,
+                                           const std::vector<Timestamp>& input_stamps,
+                                           pcl::PolygonMesh& optimized_mesh,
+                                           bool do_optimize) {
   if (input_mesh.cloud.height * input_mesh.cloud.width == 0) {
     return false;
   }
 
-  // Optimize mesh
-  try {
-    if (do_optimize) {
-      optimize();
-    }
-
-    optimized_mesh = deformation_graph_->deformMesh(input_mesh,
-                                                    mesh_vertex_stamps,
-                                                    mesh_vertex_graph_inds,
-                                                    GetVertexPrefix(robot_id),
-                                                    config_.num_interp_pts,
-                                                    config_.interp_horizon);
-  } catch (const std::out_of_range& e) {
-    SPARK_LOG(ERROR) << "Failed to deform mesh. Out of range error.";
-    return false;
+  if (do_optimize) {
+    optimize();
   }
 
+  pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
+  pcl::fromPCLPointCloud2(input_mesh.cloud, new_vertices);
+  // note that there's no aliasing w.r.t. the new and old vertices so this is safe
+  ConstStampedCloud<pcl::PointXYZRGBA> old_cloud{new_vertices, input_stamps};
+  deformation_graph_->deformPoints(new_vertices,
+                                   old_cloud,
+                                   GetVertexPrefix(robot_id),
+                                   config_.num_interp_pts,
+                                   config_.interp_horizon);
+
+  optimized_mesh.polygons = input_mesh.polygons;
+  pcl::toPCLPointCloud2(new_vertices, optimized_mesh.cloud);
   full_mesh_updated_ = true;
   return true;
 }

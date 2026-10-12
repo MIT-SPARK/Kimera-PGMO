@@ -6,18 +6,25 @@
 
 #include <gtest/gtest.h>
 #include <kimera_rpgo/rpgo.h>
-#include <pcl/conversions.h>
 
 #include "kimera_pgmo/deformation_edge_factor.h"
 #include "kimera_pgmo/deformation_graph.h"
 #include "kimera_pgmo/utils/common_structs.h"
-#include "kimera_pgmo/utils/graph.h"
-#include "kimera_pgmo/utils/mesh_io.h"
-#include "pgmo_fixtures.h"
 #include "test_config.h"
 
 namespace kimera_pgmo {
 namespace {
+
+gtsam::Symbol operator"" _id(const char* str, size_t size) {
+  if (size < 1) {
+    throw std::domain_error("invalid literal: must have at least two characters");
+  }
+
+  char prefix = str[0];
+  std::string number(str + 1, size - 1);
+  size_t index = std::stoull(number);
+  return gtsam::Symbol(prefix, index);
+}
 
 template <typename T, typename Ptr>
 const T* cast_factor(const Ptr& ptr, bool should_throw = false) {
@@ -36,83 +43,35 @@ const T* cast_factor(const Ptr& ptr, bool should_throw = false) {
   return cast;
 }
 
-template <typename PointT>
-gtsam::Point3 PclToGtsam(const PointT& p) {
-  return gtsam::Point3(p.x, p.y, p.z);
-}
-
-}  // namespace
-
-pcl::PolygonMesh createMeshTriangle() {
-  // Create simple pcl mesh with one triangle
-  pcl::PolygonMesh mesh;
-
-  pcl::PointCloud<pcl::PointXYZ> ptcld;
-  ptcld.points.push_back(pcl::PointXYZ(0, 0, 0));
-  ptcld.points.push_back(pcl::PointXYZ(1, 0, 0));
-  ptcld.points.push_back(pcl::PointXYZ(0, 1, 0));
-  pcl::toPCLPointCloud2(ptcld, mesh.cloud);
-
-  pcl::Vertices tri_1;
-  tri_1.vertices = {0, 1, 2};
-  mesh.polygons = std::vector<pcl::Vertices>{tri_1};
-
-  return mesh;
-}
-
-bool ComparePointcloud(const pcl::PointCloud<pcl::PointXYZRGBA>& cloud1,
-                       const pcl::PointCloud<pcl::PointXYZRGBA>& cloud2,
+void ComparePointcloud(const std::vector<traits::Vertex>& cloud1,
+                       const std::vector<traits::Vertex>& cloud2,
                        double precision = 0.0) {
-  if (cloud1.points.size() != cloud2.points.size()) return false;
-  for (size_t i = 0; i < cloud1.points.size(); i++) {
-    pcl::PointXYZRGBA p1 = cloud1.points[i];
-    pcl::PointXYZRGBA p2 = cloud2.points[i];
-    if (abs(p1.x - p2.x) > precision) return false;
-    if (abs(p1.y - p2.y) > precision) return false;
-    if (abs(p1.z - p2.z) > precision) return false;
-    if (p1.r != p2.r) return false;
-    if (p1.g != p2.g) return false;
-    if (p1.b != p2.b) return false;
-    if (p1.a != p2.a) return false;
-  }
-  return true;
-}
-
-void MeshToEdgesAndNodes(const pcl::PolygonMesh& mesh,
-                         const char& prefix,
-                         gtsam::Values* mesh_nodes,
-                         std::vector<std::pair<gtsam::Key, gtsam::Key>>* mesh_edges,
-                         std::unordered_map<gtsam::Key, Timestamp>* node_stamps) {
-  pcl::PointCloud<pcl::PointXYZ> vertices;
-  pcl::fromPCLPointCloud2(mesh.cloud, vertices);
-  std::vector<size_t> mesh_indices(vertices.size());
-  std::iota(std::begin(mesh_indices), std::end(mesh_indices), 0);
-
-  Graph graph_struct;
-  const auto graph_mesh_edges =
-      graph_struct.addPointsAndSurfaces(mesh_indices, mesh.polygons);
-
-  for (auto i : mesh_indices) {
-    mesh_nodes->insert(gtsam::Symbol(prefix, i),
-                       gtsam::Pose3(gtsam::Rot3(), PclToGtsam(vertices.at(i))));
-    node_stamps->insert({gtsam::Symbol(prefix, i), 0});
+  if (cloud1.size() != cloud2.size()) {
+    throw std::runtime_error("cloud sizes don't match");
   }
 
-  for (const auto& [v1, v2] : graph_mesh_edges) {
-    mesh_edges->push_back({gtsam::Symbol(prefix, v1), gtsam::Symbol(prefix, v2)});
+  for (size_t i = 0; i < cloud1.size(); i++) {
+    EXPECT_TRUE(cloud1[i].pos.isApprox(cloud2[i].pos, precision));
   }
 }
 
-void SetUpDeformationGraph(DeformationGraph* graph, bool add_mesh = true) {
-  if (!add_mesh) {
-    return;
-  }
-
-  pcl::PolygonMesh simple_mesh = createMeshTriangle();
+void SetUpDeformationGraph(DeformationGraph* graph) {
   gtsam::Values mesh_nodes;
-  std::vector<std::pair<gtsam::Key, gtsam::Key>> mesh_edges;
   std::unordered_map<gtsam::Key, Timestamp> mesh_node_stamps;
-  MeshToEdgesAndNodes(simple_mesh, 'v', &mesh_nodes, &mesh_edges, &mesh_node_stamps);
+  mesh_nodes.insert("v0"_id, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0.0, 0.0, 0.0)));
+  mesh_node_stamps["v0"_id] = 0;
+  mesh_nodes.insert("v1"_id, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1.0, 0.0, 0.0)));
+  mesh_node_stamps["v1"_id] = 0;
+  mesh_nodes.insert("v2"_id, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0.0, 1.0, 0.0)));
+  mesh_node_stamps["v2"_id] = 0;
+
+  std::vector<std::pair<gtsam::Key, gtsam::Key>> mesh_edges;
+  mesh_edges.push_back({"v0"_id, "v1"_id});
+  mesh_edges.push_back({"v1"_id, "v0"_id});
+  mesh_edges.push_back({"v1"_id, "v2"_id});
+  mesh_edges.push_back({"v2"_id, "v1"_id});
+  mesh_edges.push_back({"v2"_id, "v0"_id});
+  mesh_edges.push_back({"v0"_id, "v2"_id});
 
   std::vector<size_t> added_node_indices;
   std::vector<Timestamp> added_node_stamps;
@@ -123,19 +82,52 @@ void SetUpDeformationGraph(DeformationGraph* graph, bool add_mesh = true) {
                                      &added_node_stamps);
 }
 
-void SetUpOriginalMesh(pcl::PolygonMesh& mesh,
-                       std::vector<Timestamp>* stamps,
-                       std::vector<int>* indices) {
-  mesh = test::createSimpleMesh();
-  size_t num_vertices = mesh.cloud.width * mesh.cloud.height;
-  for (size_t i = 0; i < num_vertices; i++) {
-    stamps->push_back(0);
-    if (i % 2 == 0) {
-      indices->push_back(-1);
-    } else {
-      indices->push_back(0);
-    }
-  }
+traits::Vertex makePoint(float x, float y, float z, Timestamp stamp) {
+  traits::VertexTraits traits;
+  traits.properties.has_stamp = true;
+  traits.stamp = stamp;
+  return {traits::Pos(x, y, z), traits};
+}
+
+std::vector<traits::Vertex> makeTriangle() {
+  std::vector<traits::Vertex> points;
+  points.push_back(makePoint(0.0, 0.0, 0.0, 0));
+  points.push_back(makePoint(1.0, 0.0, 0.0, 0));
+  points.push_back(makePoint(0.0, 1.0, 0.0, 0));
+  return points;
+}
+
+std::vector<traits::Vertex> makePartialCube() {
+  std::vector<traits::Vertex> points;
+  points.push_back(makePoint(0.0, 0.0, 0.0, 0));
+  points.push_back(makePoint(1.0, 0.0, 0.0, 0));
+  points.push_back(makePoint(0.0, 1.0, 0.0, 0));
+  points.push_back(makePoint(1.0, 1.0, 0.0, 0));
+  points.push_back(makePoint(0.0, 0.0, 1.0, 0));
+  return points;
+}
+
+std::vector<traits::Vertex> makeCube() {
+  std::vector<traits::Vertex> points;
+  points.push_back(makePoint(0.0, 0.0, 0.0, 0));
+  points.push_back(makePoint(1.0, 0.0, 0.0, 0));
+  points.push_back(makePoint(0.0, 1.0, 0.0, 0));
+  points.push_back(makePoint(0.0, 0.0, 1.0, 0));
+  points.push_back(makePoint(1.0, 1.0, 0.0, 0));
+  points.push_back(makePoint(1.0, 0.0, 1.0, 0));
+  points.push_back(makePoint(0.0, 1.0, 1.0, 0));
+  points.push_back(makePoint(1.0, 1.0, 1.0, 0));
+  return points;
+}
+
+std::vector<traits::Vertex> deformVertices(const DeformationGraph& graph,
+                                           const std::vector<traits::Vertex>& original,
+                                           char prefix,
+                                           size_t k = 4,
+                                           double tol_t = 10.0) {
+  std::vector<traits::Vertex> new_points = original;
+  graph.deformAllPoints(new_points, original, prefix, k, tol_t);
+  return new_points;
 }
 
 void OptimizeOnce(DeformationGraph& deformation_graph) {
@@ -173,6 +165,8 @@ void OptimizeOnce(DeformationGraph& deformation_graph) {
   deformation_graph.setRecalculateVertices();
 }
 
+}  // namespace
+
 TEST(TestDeformationGraph, processNewMeshEdgesAndNodes) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
@@ -193,115 +187,61 @@ TEST(TestDeformationGraph, processNewMeshEdgesAndNodes) {
 TEST(TestDeformationGraph, reconstructMesh) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
-  pcl::PolygonMesh original_mesh;
-  std::vector<Timestamp> original_mesh_stamps;
-  std::vector<int> original_mesh_inds;
-  SetUpOriginalMesh(original_mesh, &original_mesh_stamps, &original_mesh_inds);
+
+  auto original = makePartialCube();
 
   // First try deform with k = 1, should not change
-  pcl::PolygonMesh new_mesh =
-      graph.deformMesh(original_mesh, original_mesh_stamps, original_mesh_inds, 'v', 1);
-  pcl::PointCloud<pcl::PointXYZRGBA> deformed_vertices;
-  pcl::fromPCLPointCloud2(new_mesh.cloud, deformed_vertices);
-  EXPECT_EQ(5, deformed_vertices.points.size());
-  EXPECT_EQ(1, deformed_vertices.points[1].x);
-  EXPECT_EQ(1, deformed_vertices.points[2].y);
-  EXPECT_EQ(1, deformed_vertices.points[4].z);
-  EXPECT_EQ(33, deformed_vertices.points[1].r);
-  EXPECT_EQ(144, deformed_vertices.points[2].g);
-  EXPECT_EQ(255, deformed_vertices.points[3].a);
-  EXPECT_EQ(144, deformed_vertices.points[4].r);
-  EXPECT_EQ(original_mesh.polygons[0].vertices, new_mesh.polygons[0].vertices);
-  EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
+  auto new_points = deformVertices(graph, original, 'v', 1);
+  ASSERT_EQ(5, new_points.size());
+  EXPECT_EQ(1, new_points[1].pos.x());
+  EXPECT_EQ(1, new_points[2].pos.y());
+  EXPECT_EQ(1, new_points[4].pos.z());
 
   // Try with k = 2
-  new_mesh =
-      graph.deformMesh(original_mesh, original_mesh_stamps, original_mesh_inds, 'v', 2);
-  pcl::fromPCLPointCloud2(new_mesh.cloud, deformed_vertices);
-  EXPECT_EQ(5, deformed_vertices.points.size());
-  EXPECT_EQ(1, deformed_vertices.points[1].x);
-  EXPECT_EQ(1, deformed_vertices.points[2].y);
-  EXPECT_EQ(1, deformed_vertices.points[4].z);
-  EXPECT_EQ(33, deformed_vertices.points[1].r);
-  EXPECT_EQ(144, deformed_vertices.points[2].g);
-  EXPECT_EQ(255, deformed_vertices.points[3].a);
-  EXPECT_EQ(144, deformed_vertices.points[4].r);
-  EXPECT_EQ(original_mesh.polygons[0].vertices, new_mesh.polygons[0].vertices);
-  EXPECT_EQ(original_mesh.polygons[3].vertices, new_mesh.polygons[3].vertices);
+  new_points = deformVertices(graph, original, 'v', 2);
+  ASSERT_EQ(5, new_points.size());
+  EXPECT_EQ(1, new_points[1].pos.x());
+  EXPECT_EQ(1, new_points[2].pos.y());
+  EXPECT_EQ(1, new_points[4].pos.z());
 }
 
 TEST(TestDeformationGraph, deformMeshTranslation) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
 
-  pcl::PolygonMesh original;
-  std::vector<Timestamp> original_stamps;
-  std::vector<int> original_inds;
-  SetUpOriginalMesh(original, &original_stamps, &original_inds);
+  auto original = makePartialCube();
 
   // deform mesh
   gtsam::Pose3 distortion(gtsam::Rot3(), gtsam::Point3(1.5, 0.0, 0.0));
   std::vector<std::pair<gtsam::Key, gtsam::Pose3>> node_distortions;
-  node_distortions.push_back({gtsam::Symbol('v', 1), distortion});
+  node_distortions.push_back({"v1"_id, distortion});
   graph.processNodeMeasurements(node_distortions, 1e-10);
 
-  pcl::PointCloud<pcl::PointXYZRGBA> original_vertices, expected_vertices;
-  pcl::fromPCLPointCloud2(original.cloud, original_vertices);
-  for (pcl::PointXYZRGBA p : original_vertices.points) {
-    pcl::PointXYZRGBA new_point;
-    new_point.x = p.x + 0.5;
-    new_point.y = p.y;
-    new_point.z = p.z;
-    new_point.r = p.r;
-    new_point.g = p.g;
-    new_point.b = p.b;
-    new_point.a = p.a;
-    expected_vertices.push_back(new_point);
+  std::vector<traits::Vertex> expected;
+  for (const auto& p : original) {
+    auto& new_point = expected.emplace_back();
+    new_point.pos = p.pos;
+    new_point.pos.x() += 0.5;
   }
 
   // First try deform with k = 1, should not change
   OptimizeOnce(graph);
-  auto new_mesh = graph.deformMesh(original, original_stamps, original_inds, 'v', 1);
 
-  pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
-  pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
-  EXPECT_TRUE(ComparePointcloud(expected_vertices, actual_vertices, 1e-6));
-  EXPECT_EQ(original.polygons[0].vertices, new_mesh.polygons[0].vertices);
-  EXPECT_EQ(original.polygons[3].vertices, new_mesh.polygons[3].vertices);
+  auto result = deformVertices(graph, original, 'v', 1);
+  ComparePointcloud(expected, result, 1e-6);
 
   // Try with k = 2
-  new_mesh = graph.deformMesh(original, original_stamps, original_inds, 'v', 2);
-
-  pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
-  EXPECT_TRUE(ComparePointcloud(expected_vertices, actual_vertices, 1e-6));
-  EXPECT_EQ(original.polygons[0].vertices, new_mesh.polygons[0].vertices);
-  EXPECT_EQ(original.polygons[3].vertices, new_mesh.polygons[3].vertices);
+  result = deformVertices(graph, original, 'v', 2);
+  ComparePointcloud(expected, result, 1e-6);
 }
 
 TEST(TestDeformationGraph, deformMesh) {
-  pcl::PolygonMeshPtr cube_mesh(new pcl::PolygonMesh());
-  ReadMeshFromPly(std::string(DATASET_PATH) + "/cube.ply", cube_mesh);
-
-  size_t num_vertices = cube_mesh->cloud.width * cube_mesh->cloud.height;
-  std::vector<Timestamp> cube_mesh_stamps;
-  std::vector<int> cube_mesh_inds;
-  for (size_t i = 0; i < num_vertices; i++) {
-    cube_mesh_stamps.push_back(0);
-    cube_mesh_inds.push_back(-1);
-  }
-
-  pcl::PointCloud<pcl::PointXYZRGBA> original_vertices, expected_vertices;
-  pcl::fromPCLPointCloud2(cube_mesh->cloud, original_vertices);
-  for (pcl::PointXYZRGBA p : original_vertices.points) {
-    pcl::PointXYZRGBA new_point;
-    new_point.x = p.x - 0.5;
-    new_point.y = p.y;
-    new_point.z = p.z;
-    new_point.r = p.r;
-    new_point.g = p.g;
-    new_point.b = p.b;
-    new_point.a = p.a;
-    expected_vertices.push_back(new_point);
+  const auto original = makeCube();
+  std::vector<traits::Vertex> expected;
+  for (const auto& p : original) {
+    auto& new_point = expected.emplace_back();
+    new_point.pos = p.pos;
+    new_point.pos.x() += 0.5;
   }
 
   // deform mesh
@@ -310,37 +250,25 @@ TEST(TestDeformationGraph, deformMesh) {
 
   gtsam::Pose3 distortion(gtsam::Rot3(), gtsam::Point3(-0.5, 0.0, 0.0));
   std::vector<std::pair<gtsam::Key, gtsam::Pose3>> node_distortions;
-  node_distortions.push_back({gtsam::Symbol('v', 0), distortion});
+  node_distortions.push_back({"v0"_id, distortion});
   graph.processNodeMeasurements(node_distortions, 1e-10);
 
-  // optimize
   OptimizeOnce(graph);
 
-  // Try with k = 3
-  auto new_mesh =
-      graph.deformMesh(*cube_mesh, cube_mesh_stamps, cube_mesh_inds, 'v', 3);
-  pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
-  pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
-  EXPECT_TRUE(ComparePointcloud(expected_vertices, actual_vertices, 1e-6));
-  EXPECT_EQ(cube_mesh->polygons[0].vertices, new_mesh.polygons[0].vertices);
-  EXPECT_EQ(cube_mesh->polygons[3].vertices, new_mesh.polygons[3].vertices);
+  auto result = deformVertices(graph, original, 'v', 3);
+  ComparePointcloud(expected, result, 1e-6);
 
   // deform mesh again
   gtsam::Pose3 distortion2(gtsam::Rot3(), gtsam::Point3(1.5, 0.0, 0.0));
   node_distortions.clear();
-  node_distortions.push_back({gtsam::Symbol('v', 1), distortion2});
+  node_distortions.push_back({"v1"_id, distortion2});
   graph.processNodeMeasurements(node_distortions, 1e-10);
 
-  // optimize
   OptimizeOnce(graph);
 
-  // Try with k = 3
-  new_mesh = graph.deformMesh(*cube_mesh, cube_mesh_stamps, cube_mesh_inds, 'v', 2);
-  pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
-  EXPECT_NEAR(-0.5, actual_vertices.points[0].x, 0.001);
-  EXPECT_NEAR(1.273, actual_vertices.points[1].x, 0.001);
-  EXPECT_EQ(cube_mesh->polygons[0].vertices, new_mesh.polygons[0].vertices);
-  EXPECT_EQ(cube_mesh->polygons[3].vertices, new_mesh.polygons[3].vertices);
+  result = deformVertices(graph, original, 'v', 2);
+  EXPECT_NEAR(-0.5, result[0].pos.x(), 0.001);
+  EXPECT_NEAR(1.273, result[1].pos.x(), 0.001);
 }
 
 TEST(TestDeformationGraph, updateMesh) {
@@ -362,11 +290,9 @@ TEST(TestDeformationGraph, updateMesh) {
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(1, 0, 0), factor.measurement()));
 
   std::vector<uint64_t> new_node_valences{0, 2};
-  graph.addNewNode(gtsam::Symbol('a', 0),
-                   0,
-                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
-                   false);
-  graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
+  graph.addNewNode(
+      "a0"_id, 0, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), false);
+  graph.processNodeValence("a0"_id, new_node_valences, 'v');
 
   // Check that the factors are added correctly
   values = graph.getValues();
@@ -377,19 +303,15 @@ TEST(TestDeformationGraph, updateMesh) {
   EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors->at(9)));
   DeformationEdgeFactor factor6 = *cast_factor<DeformationEdgeFactor>(factors->at(6));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(-2, -2, -2), factor6.measurement()));
-  EXPECT_EQ(gtsam::Symbol('a', 0).key(), factor6.front());
-  EXPECT_EQ(gtsam::Symbol('v', 0).key(), factor6.back());
+  EXPECT_EQ("a0"_id.key(), factor6.front());
+  EXPECT_EQ("v0"_id.key(), factor6.back());
 
   std::vector<uint64_t> new_node_valences_2{2};
-  graph.addNewNode(gtsam::Symbol('a', 1),
-                   0,
-                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
-                   false);
+  graph.addNewNode(
+      "a1"_id, 0, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)), false);
   graph.processNewBetween(
-      gtsam::Symbol('a', 0),
-      gtsam::Symbol('a', 1),
-      gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(0, 1, 2)));
-  graph.processNodeValence(gtsam::Symbol('a', 1), new_node_valences_2, 'v');
+      "a0"_id, "a1"_id, gtsam::Pose3(gtsam::Rot3(0, 1, 0, 0), gtsam::Point3(0, 1, 2)));
+  graph.processNodeValence("a1"_id, new_node_valences_2, 'v');
 
   // Check that the factors are added
   values = graph.getValues();
@@ -400,32 +322,22 @@ TEST(TestDeformationGraph, updateMesh) {
   EXPECT_TRUE(cast_factor<DeformationEdgeFactor>(factors->at(12)));
   DeformationEdgeFactor factor12 = *cast_factor<DeformationEdgeFactor>(factors->at(12));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Point3(2, 2, 4), factor12.measurement()));
-  EXPECT_EQ(gtsam::Symbol('v', 2).key(), factor12.front());
-  EXPECT_EQ(gtsam::Symbol('a', 1).key(), factor12.back());
+  EXPECT_EQ("v2"_id.key(), factor12.front());
+  EXPECT_EQ("a1"_id.key(), factor12.back());
 }
 
 TEST(TestDeformationGraph, addNodeMeasurements) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
-  pcl::PolygonMesh simple_mesh = createMeshTriangle();
-  size_t num_vertices = simple_mesh.cloud.width * simple_mesh.cloud.height;
-  std::vector<Timestamp> simple_mesh_stamps;
-  std::vector<int> simple_mesh_inds;
-  for (size_t i = 0; i < num_vertices; i++) {
-    simple_mesh_stamps.push_back(0);
-    simple_mesh_inds.push_back(-1);
-  }
+
+  auto original = makeTriangle();
 
   std::vector<uint64_t> new_node_valences{0, 2};
-  graph.addNewNode(gtsam::Symbol('a', 0),
-                   0,
-                   gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)),
-                   false);
-  graph.addNewNode(gtsam::Symbol('a', 1),
-                   0,
-                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
-                   false);
-  graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
+  graph.addNewNode(
+      "a0"_id, 0, gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)), false);
+  graph.addNewNode(
+      "a1"_id, 0, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), false);
+  graph.processNodeValence("a0"_id, new_node_valences, 'v');
 
   // Check factors added
   auto factors = graph.getFactors();
@@ -433,10 +345,9 @@ TEST(TestDeformationGraph, addNodeMeasurements) {
   // Add node measurement
   std::vector<std::pair<gtsam::Key, gtsam::Pose3>> measurements;
   measurements.push_back(std::pair<gtsam::Key, gtsam::Pose3>(
-      gtsam::Symbol('a', 0), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2))));
+      "a0"_id, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2))));
   measurements.push_back(std::pair<gtsam::Key, gtsam::Pose3>(
-      gtsam::Symbol('a', 1),
-      gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2))));
+      "a1"_id, gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2))));
 
   graph.processNodeMeasurements(measurements);
 
@@ -448,43 +359,31 @@ TEST(TestDeformationGraph, addNodeMeasurements) {
 
   OptimizeOnce(graph);
 
-  pcl::PolygonMesh new_mesh =
-      graph.deformMesh(simple_mesh, simple_mesh_stamps, simple_mesh_inds, 'v', 1);
-  pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
-  pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
-
-  EXPECT_NEAR(4, actual_vertices.points[0].x, 0.001);
-  EXPECT_NEAR(4, actual_vertices.points[0].y, 0.001);
-  EXPECT_NEAR(0, actual_vertices.points[0].z, 0.001);
-  EXPECT_NEAR(3, actual_vertices.points[1].x, 0.001);
-  EXPECT_NEAR(3, actual_vertices.points[2].y, 0.001);
-  EXPECT_NEAR(0, actual_vertices.points[1].z, 0.001);
-  EXPECT_NEAR(4, actual_vertices.points[2].x, 0.001);
+  auto result = deformVertices(graph, original, 'v', 1);
+  EXPECT_NEAR(4, result[0].pos.x(), 0.001);
+  EXPECT_NEAR(4, result[0].pos.y(), 0.001);
+  EXPECT_NEAR(0, result[0].pos.z(), 0.001);
+  EXPECT_NEAR(3, result[1].pos.x(), 0.001);
+  EXPECT_NEAR(3, result[2].pos.y(), 0.001);
+  EXPECT_NEAR(0, result[1].pos.z(), 0.001);
+  EXPECT_NEAR(4, result[2].pos.x(), 0.001);
 }
 
 TEST(TestDeformationGraph, removePriorsWithPrefix) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
-  pcl::PolygonMesh simple_mesh = createMeshTriangle();
-  size_t num_vertices = simple_mesh.cloud.width * simple_mesh.cloud.height;
-  std::vector<Timestamp> simple_mesh_stamps;
-  std::vector<int> simple_mesh_inds;
-  for (size_t i = 0; i < num_vertices; i++) {
-    simple_mesh_stamps.push_back(0);
-    simple_mesh_inds.push_back(-1);
-  }
+
+  const auto original = makeTriangle();
 
   std::vector<uint64_t> new_node_valences{0, 2};
-  graph.addNewNode(gtsam::Symbol('a', 0),
-                   0,
-                   gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)),
-                   false);
-  graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
+  graph.addNewNode(
+      "a0"_id, 0, gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2)), false);
+  graph.processNodeValence("a0"_id, new_node_valences, 'v');
 
   // Add node measurement
   std::vector<std::pair<gtsam::Key, gtsam::Pose3>> measurements;
   measurements.push_back(std::pair<gtsam::Key, gtsam::Pose3>(
-      gtsam::Symbol('a', 0), gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2))));
+      "a0"_id, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2))));
 
   graph.processNodeMeasurements(measurements);
 
@@ -495,18 +394,14 @@ TEST(TestDeformationGraph, removePriorsWithPrefix) {
 
   OptimizeOnce(graph);
 
-  pcl::PolygonMesh new_mesh =
-      graph.deformMesh(simple_mesh, simple_mesh_stamps, simple_mesh_inds, 'v', 1);
-  pcl::PointCloud<pcl::PointXYZRGBA> actual_vertices;
-  pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
-
-  EXPECT_NEAR(4, actual_vertices.points[0].x, 0.001);
-  EXPECT_NEAR(4, actual_vertices.points[0].y, 0.001);
-  EXPECT_NEAR(0, actual_vertices.points[0].z, 0.001);
-  EXPECT_NEAR(3, actual_vertices.points[1].x, 0.001);
-  EXPECT_NEAR(3, actual_vertices.points[2].y, 0.001);
-  EXPECT_NEAR(0, actual_vertices.points[1].z, 0.001);
-  EXPECT_NEAR(4, actual_vertices.points[2].x, 0.001);
+  auto result = deformVertices(graph, original, 'v', 1);
+  EXPECT_NEAR(4, result[0].pos.x(), 0.001);
+  EXPECT_NEAR(4, result[0].pos.y(), 0.001);
+  EXPECT_NEAR(0, result[0].pos.z(), 0.001);
+  EXPECT_NEAR(3, result[1].pos.x(), 0.001);
+  EXPECT_NEAR(3, result[2].pos.y(), 0.001);
+  EXPECT_NEAR(0, result[1].pos.z(), 0.001);
+  EXPECT_NEAR(4, result[2].pos.x(), 0.001);
 
   // Up to here should be same as last test case
   // Remove priors
@@ -517,46 +412,36 @@ TEST(TestDeformationGraph, removePriorsWithPrefix) {
 
   // Add another prior to see if mesh reset
   std::vector<std::pair<gtsam::Key, gtsam::Pose3>> priors;
-  priors.push_back({gtsam::Symbol('a', 0),
-                    gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2))});
+  priors.push_back(
+      {"a0"_id, gtsam::Pose3(gtsam::Rot3(0, 0, 0, 1), gtsam::Point3(2, 2, 2))});
   graph.processNodeMeasurements(priors);
 
   OptimizeOnce(graph);
 
-  new_mesh =
-      graph.deformMesh(simple_mesh, simple_mesh_stamps, simple_mesh_inds, 'v', 1);
-  pcl::fromPCLPointCloud2(new_mesh.cloud, actual_vertices);
-
-  EXPECT_NEAR(0, actual_vertices.points[0].x, 0.001);
-  EXPECT_NEAR(0, actual_vertices.points[0].y, 0.001);
-  EXPECT_NEAR(0, actual_vertices.points[0].z, 0.001);
-  EXPECT_NEAR(1, actual_vertices.points[1].x, 0.001);
-  EXPECT_NEAR(1, actual_vertices.points[2].y, 0.001);
-  EXPECT_NEAR(0, actual_vertices.points[1].z, 0.001);
-  EXPECT_NEAR(0, actual_vertices.points[2].x, 0.001);
+  result = deformVertices(graph, original, 'v', 1);
+  EXPECT_NEAR(0, result[0].pos.x(), 0.001);
+  EXPECT_NEAR(0, result[0].pos.y(), 0.001);
+  EXPECT_NEAR(0, result[0].pos.z(), 0.001);
+  EXPECT_NEAR(1, result[1].pos.x(), 0.001);
+  EXPECT_NEAR(1, result[2].pos.y(), 0.001);
+  EXPECT_NEAR(0, result[1].pos.z(), 0.001);
+  EXPECT_NEAR(0, result[2].pos.x(), 0.001);
 }
 
 TEST(TestDeformationGraph, processNewBetween) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
-  pcl::PolygonMesh original_mesh;
-  std::vector<Timestamp> original_mesh_stamps;
-  std::vector<int> original_mesh_inds;
-  SetUpOriginalMesh(original_mesh, &original_mesh_stamps, &original_mesh_inds);
+
+  const auto original = makePartialCube();
 
   std::vector<uint64_t> new_node_valences{0, 2};
-  graph.addNewNode(gtsam::Symbol('a', 0),
-                   0,
-                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
-                   true);
-  graph.addNewNode(gtsam::Symbol('a', 1),
-                   0,
-                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
-                   false);
-  graph.processNewBetween(gtsam::Symbol('a', 0),
-                          gtsam::Symbol('a', 1),
-                          gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)));
-  graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
+  graph.addNewNode(
+      "a0"_id, 0, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), true);
+  graph.addNewNode(
+      "a1"_id, 0, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)), false);
+  graph.processNewBetween(
+      "a0"_id, "a1"_id, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)));
+  graph.processNodeValence("a0"_id, new_node_valences, 'v');
 
   OptimizeOnce(graph);
 
@@ -571,7 +456,7 @@ TEST(TestDeformationGraph, processNewBetween) {
       *cast_factor<gtsam::PriorFactor<gtsam::Pose3>>(factors->at(6));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
                                   prior_factor.prior()));
-  EXPECT_EQ(gtsam::Symbol('a', 0).key(), prior_factor.key());
+  EXPECT_EQ("a0"_id.key(), prior_factor.key());
 
   // Check the between factor
   EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors->at(7)));
@@ -579,8 +464,8 @@ TEST(TestDeformationGraph, processNewBetween) {
       *cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors->at(7));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)),
                                   odom_factor.measured()));
-  EXPECT_EQ(gtsam::Symbol('a', 0).key(), odom_factor.front());
-  EXPECT_EQ(gtsam::Symbol('a', 1).key(), odom_factor.back());
+  EXPECT_EQ("a0"_id.key(), odom_factor.front());
+  EXPECT_EQ("a1"_id.key(), odom_factor.back());
 
   std::vector<gtsam::Pose3> traj = graph.getTrajectory('a');
   EXPECT_EQ(2, traj.size());
@@ -589,19 +474,15 @@ TEST(TestDeformationGraph, processNewBetween) {
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
                                   traj[1]));
 
-  graph.addNewNode(gtsam::Symbol('a', 2),
-                   0,
-                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)),
-                   false);
-  graph.processNewBetween(gtsam::Symbol('a', 1),
-                          gtsam::Symbol('a', 2),
-                          gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)));
-  graph.processNewBetween(gtsam::Symbol('a', 0),
-                          gtsam::Symbol('a', 2),
-                          gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)));
+  graph.addNewNode(
+      "a2"_id, 0, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)), false);
+  graph.processNewBetween(
+      "a1"_id, "a2"_id, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)));
+  graph.processNewBetween(
+      "a0"_id, "a2"_id, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)));
 
   std::vector<uint64_t> new_node_valences_2{2};
-  graph.processNodeValence(gtsam::Symbol('a', 2), new_node_valences_2, 'v');
+  graph.processNodeValence("a2"_id, new_node_valences_2, 'v');
 
   OptimizeOnce(graph);
 
@@ -614,8 +495,8 @@ TEST(TestDeformationGraph, processNewBetween) {
       *cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors->at(12));
   EXPECT_TRUE(gtsam::assert_equal(
       gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)), new1.measured()));
-  EXPECT_EQ(gtsam::Symbol('a', 1).key(), new1.front());
-  EXPECT_EQ(gtsam::Symbol('a', 2).key(), new1.back());
+  EXPECT_EQ("a1"_id.key(), new1.front());
+  EXPECT_EQ("a2"_id.key(), new1.back());
 
   // Check the between factor
   EXPECT_TRUE(cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors->at(13)));
@@ -623,8 +504,8 @@ TEST(TestDeformationGraph, processNewBetween) {
       *cast_factor<gtsam::BetweenFactor<gtsam::Pose3>>(factors->at(13));
   EXPECT_TRUE(gtsam::assert_equal(gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 0, 0)),
                                   new2.measured()));
-  EXPECT_EQ(gtsam::Symbol('a', 0).key(), new2.front());
-  EXPECT_EQ(gtsam::Symbol('a', 2).key(), new2.back());
+  EXPECT_EQ("a0"_id.key(), new2.front());
+  EXPECT_EQ("a2"_id.key(), new2.back());
 
   traj = graph.getTrajectory('a');
   ASSERT_EQ(3, traj.size());
@@ -637,29 +518,21 @@ TEST(TestDeformationGraph, addTemporary) {
   SetUpDeformationGraph(&graph);
 
   std::vector<uint64_t> new_node_valences{0, 2};
-  graph.addNewNode(gtsam::Symbol('a', 0),
-                   0,
-                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
-                   true);
-  graph.addNewNode(gtsam::Symbol('a', 1),
-                   0,
-                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
-                   false);
-  graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
-  graph.processNewBetween(gtsam::Symbol('a', 0),
-                          gtsam::Symbol('a', 1),
-                          gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)));
+  graph.addNewNode(
+      "a0"_id, 0, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), true);
+  graph.addNewNode(
+      "a1"_id, 0, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)), false);
+  graph.processNodeValence("a0"_id, new_node_valences, 'v');
+  graph.processNewBetween(
+      "a0"_id, "a1"_id, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)));
 
-  graph.addNewNode(gtsam::Symbol('a', 2),
-                   0,
-                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)),
-                   false);
-  graph.processNewBetween(gtsam::Symbol('a', 1),
-                          gtsam::Symbol('a', 2),
-                          gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)));
+  graph.addNewNode(
+      "a2"_id, 0, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)), false);
+  graph.processNewBetween(
+      "a1"_id, "a2"_id, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)));
 
   std::vector<uint64_t> new_node_valences_2{2};
-  graph.processNodeValence(gtsam::Symbol('a', 2), new_node_valences_2, 'v');
+  graph.processNodeValence("a2"_id, new_node_valences_2, 'v');
 
   // Check added factors
   auto factors = graph.getFactors();
@@ -676,15 +549,13 @@ TEST(TestDeformationGraph, addTemporary) {
   EXPECT_EQ(3, traj.size());
 
   // Add temporary nodes and edges
-  graph.processNewTempNode(gtsam::Symbol('p', 0), gtsam::Pose3(), false);
-  graph.processNewTempNode(gtsam::Symbol('p', 1),
-                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 1)),
-                           false);
-  graph.processNewTempBetween(gtsam::Symbol('p', 0),
-                              gtsam::Symbol('p', 1),
-                              gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 1)));
+  graph.processNewTempNode("p0"_id, gtsam::Pose3(), false);
+  graph.processNewTempNode(
+      "p1"_id, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 1)), false);
+  graph.processNewTempBetween(
+      "p0"_id, "p1"_id, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 1)));
   std::vector<uint64_t> temp_node_valences{1, 2};
-  graph.processNodeValence(gtsam::Symbol('p', 0), temp_node_valences, 'v', 1e-4, true);
+  graph.processNodeValence("p0"_id, temp_node_valences, 'v', 1e-4, true);
 
   // Check added factors
   OptimizeOnce(graph);
@@ -707,10 +578,9 @@ TEST(TestDeformationGraph, addTemporary) {
   EXPECT_EQ(0u, temp_values->size());
 
   // Re-ad temporary nodes and edges
-  graph.processNewTempNode(gtsam::Symbol('p', 0), gtsam::Pose3(), false);
+  graph.processNewTempNode("p0"_id, gtsam::Pose3(), false);
   std::vector<uint64_t> temp_node_valences_2{0, 1, 2};
-  graph.processNodeValence(
-      gtsam::Symbol('p', 0), temp_node_valences_2, 'v', 1e-4, true);
+  graph.processNodeValence("p0"_id, temp_node_valences_2, 'v', 1e-4, true);
 
   OptimizeOnce(graph);
 
@@ -808,41 +678,31 @@ TEST(TestDeformationGraph, saveAndLoad) {
   SetUpDeformationGraph(&graph);
 
   std::vector<uint64_t> new_node_valences{0, 2};
-  graph.addNewNode(gtsam::Symbol('a', 0),
-                   0,
-                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
-                   true);
-  graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
+  graph.addNewNode(
+      "a0"_id, 0, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), true);
+  graph.processNodeValence("a0"_id, new_node_valences, 'v');
 
-  graph.addNewNode(gtsam::Symbol('a', 1),
-                   0,
-                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)),
-                   false);
-  graph.processNewBetween(gtsam::Symbol('a', 0),
-                          gtsam::Symbol('a', 1),
-                          gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)));
+  graph.addNewNode(
+      "a1"_id, 0, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 3, 4)), false);
+  graph.processNewBetween(
+      "a0"_id, "a1"_id, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)));
 
-  graph.addNewNode(gtsam::Symbol('a', 2),
-                   0,
-                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)),
-                   false);
-  graph.processNewBetween(gtsam::Symbol('a', 1),
-                          gtsam::Symbol('a', 2),
-                          gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)));
+  graph.addNewNode(
+      "a2"_id, 0, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(3, 2.1, 2.1)), false);
+  graph.processNewBetween(
+      "a1"_id, "a2"_id, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, -0.9, -1.9)));
 
   std::vector<uint64_t> new_node_valences_2{2};
-  graph.processNodeValence(gtsam::Symbol('a', 2), new_node_valences_2, 'v');
+  graph.processNodeValence("a2"_id, new_node_valences_2, 'v');
 
   // Add temporary nodes and edges
-  graph.processNewTempNode(gtsam::Symbol('p', 0), gtsam::Pose3(), false);
-  graph.processNewTempNode(gtsam::Symbol('p', 1),
-                           gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 1)),
-                           false);
-  graph.processNewTempBetween(gtsam::Symbol('p', 0),
-                              gtsam::Symbol('p', 1),
-                              gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 1)));
+  graph.processNewTempNode("p0"_id, gtsam::Pose3(), false);
+  graph.processNewTempNode(
+      "p1"_id, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 1)), false);
+  graph.processNewTempBetween(
+      "p0"_id, "p1"_id, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(1, 1, 1)));
   std::vector<uint64_t> temp_node_valences{1, 2};
-  graph.processNodeValence(gtsam::Symbol('p', 0), temp_node_valences, 'v', 1e-4, true);
+  graph.processNodeValence("p0"_id, temp_node_valences, 'v', 1e-4, true);
 
   auto values = graph.getValues();
   auto factors = graph.getFactors();
@@ -876,7 +736,6 @@ TEST(TestDeformationGraph, saveAndLoad) {
 
 TEST(TestDeformationGraph, processPoseGraph) {
   DeformationGraph graph;
-  SetUpDeformationGraph(&graph, false);
 
   // Construct pose graph
   pose_graph_tools::PoseGraph pose_graph;
@@ -932,7 +791,6 @@ TEST(TestDeformationGraph, processMeshGraph) {
 
   // Process pose graph
   DeformationGraph new_graph;
-  SetUpDeformationGraph(&new_graph, false);
   new_graph.processMeshGraph(*mesh_graph, variance_map);
 
   auto values = graph.getValues();
@@ -946,23 +804,19 @@ TEST(TestDeformationGraph, processMeshGraph) {
               new_values->at<gtsam::Pose3>(key_value.key).matrix());
   }
 }
+
 TEST(TestDeformationGraph, processPoseMeshGraph) {
   DeformationGraph graph;
   SetUpDeformationGraph(&graph);
-  pcl::PolygonMesh original_mesh;
-  std::vector<Timestamp> original_mesh_stamps;
-  std::vector<int> original_mesh_inds;
-  SetUpOriginalMesh(original_mesh, &original_mesh_stamps, &original_mesh_inds);
+
+  const auto original = makePartialCube();
 
   std::vector<uint64_t> new_node_valences{0, 2};
-  graph.addNewNode(gtsam::Symbol('a', 0),
-                   0,
-                   gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)),
-                   true);
-  graph.processNodeValence(gtsam::Symbol('a', 0), new_node_valences, 'v');
-  graph.processNewBetween(gtsam::Symbol('a', 0),
-                          gtsam::Symbol('a', 1),
-                          gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)));
+  graph.addNewNode(
+      "a0"_id, 0, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(2, 2, 2)), true);
+  graph.processNodeValence("a0"_id, new_node_valences, 'v');
+  graph.processNewBetween(
+      "a0"_id, "a1"_id, gtsam::Pose3(gtsam::Rot3(), gtsam::Point3(0, 1, 2)));
 
   // Construct mesh graph
   auto pose_graph = graph.getPoseGraph(false, true);
@@ -980,7 +834,6 @@ TEST(TestDeformationGraph, processPoseMeshGraph) {
 
   // Process pose graph
   DeformationGraph new_graph;
-  SetUpDeformationGraph(&new_graph, false);
   new_graph.processPoseGraph(*pose_graph, variance_map);
   new_graph.processMeshGraph(*mesh_graph, variance_map);
 

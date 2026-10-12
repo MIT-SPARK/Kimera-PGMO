@@ -9,8 +9,6 @@
 #include <gtsam/geometry/Point3.h>
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/Values.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
 
 #include "kimera_pgmo/mesh_traits.h"
 #include "kimera_pgmo/utils/common_structs.h"

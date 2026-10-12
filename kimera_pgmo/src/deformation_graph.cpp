@@ -11,13 +11,10 @@
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
 #include <gtsam/slam/BetweenFactor.h>
 #include <gtsam/slam/PriorFactor.h>
-#include <pcl/PCLPointCloud2.h>
-#include <pcl/common/io.h>
 
 #include <cmath>
 
 #include "kimera_pgmo/deformation_edge_factor.h"
-#include "kimera_pgmo/pcl_mesh_traits.h"
 #include "kimera_pgmo/utils/common_functions.h"
 
 namespace kimera_pgmo {
@@ -885,50 +882,6 @@ void DeformationGraph::removePriorsWithPrefix(char prefix) {
   }
 }
 
-pcl::PolygonMesh DeformationGraph::deformMesh(const pcl::PolygonMesh& original_mesh,
-                                              const std::vector<Timestamp>& stamps,
-                                              const std::vector<int>& graph_indices,
-                                              char prefix,
-                                              size_t k,
-                                              double tol_t) {
-  // extract original vertices
-  pcl::PointCloud<pcl::PointXYZRGBA> new_vertices;
-  pcl::fromPCLPointCloud2(original_mesh.cloud, new_vertices);
-
-  // note that there's no aliasing w.r.t. the new / old vertices so this is relatively
-  // safe
-  deformPoints(
-      new_vertices, new_vertices, stamps, prefix, values_, k, tol_t, &graph_indices);
-
-  // With new vertices, construct new polygon mesh
-  pcl::PolygonMesh new_mesh;
-  new_mesh.polygons = original_mesh.polygons;
-  pcl::toPCLPointCloud2(new_vertices, new_mesh.cloud);
-  return new_mesh;
-}
-
-void DeformationGraph::deformPoints(
-    pcl::PointCloud<pcl::PointXYZRGBA>& vertices,
-    const pcl::PointCloud<pcl::PointXYZRGBA>& old_vertices,
-    const std::vector<Timestamp>& stamps,
-    char prefix,
-    const gtsam::Values& optimized_values,
-    size_t k,
-    double tol_t,
-    const std::vector<int>* graph_indices,
-    int start_index_hint,
-    std::vector<std::set<size_t>>* vertex_graph_map) {
-  deformPoints(vertices,
-               ConstStampedCloud<pcl::PointXYZRGBA>{old_vertices, stamps},
-               prefix,
-               optimized_values,
-               k,
-               tol_t,
-               graph_indices,
-               start_index_hint,
-               vertex_graph_map);
-}
-
 size_t DeformationGraph::getNumVertices() const {
   size_t num_vertices = 0;
   for (const auto& pfx_vertices : vertex_positions_) {
@@ -1137,8 +1090,6 @@ void DeformationGraph::clearMeshNodesOnly() {
 
   temp_nfg_ = new_temp_factors;
 }
-
-void DeformationGraph::clearMeshCache() { last_calculated_vertices_.clear(); }
 
 void DeformationGraph::clearFactors() {
   nfg_.resize(0);

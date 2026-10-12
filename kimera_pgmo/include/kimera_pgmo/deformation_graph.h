@@ -9,9 +9,6 @@
 #include <gtsam/geometry/Pose3.h>
 #include <gtsam/nonlinear/NonlinearFactorGraph.h>
 #include <gtsam/nonlinear/Values.h>
-#include <pcl/PolygonMesh.h>
-#include <pcl/point_cloud.h>
-#include <pcl/point_types.h>
 #include <pose_graph_tools/pose_graph.h>
 
 #include <cstdint>
@@ -22,16 +19,12 @@
 #include <vector>
 
 #include "kimera_pgmo/mesh_deformation.h"
-#include "kimera_pgmo/pcl_mesh_traits.h"  // IWYU pragma: keep
 #include "kimera_pgmo/utils/common_structs.h"
 #include "kimera_pgmo/utils/logging.h"
-#include "kimera_pgmo/utils/range_generator.h"
 
 namespace kimera_pgmo {
 
-/*
- * @brief Struct containing necessary info to add valence factor for a node
- */
+//! Struct containing necessary info to add valence factor for a node
 struct NodeValenceInfo {
   char valence_prefix;
   gtsam::Key key;
@@ -76,8 +69,7 @@ class DeformationGraph {
                         std::map<size_t, size_t> robot_id_remap = {},
                         const Eigen::Isometry3d* const transform = nullptr);
 
-  /*! \brief Directly add a full mesh graph to the deformation graph. TODO(Yun) figure
-   * out how we handle the pose graph node to mesh graph node connections.
+  /*! \brief Directly add a full mesh graph to the deformation graph.
    *  - mesh_graph: full mesh graph
    *  - variance_map: map edge type to variance value
    *  - robot_id_remap: robot id remapping
@@ -87,9 +79,10 @@ class DeformationGraph {
                         std::map<size_t, size_t> robot_id_remap = {},
                         const Eigen::Isometry3d* const transform = nullptr);
 
-  /*! \brief Fix the measurements of multiple nodes
-   *  - measurements: a vector of key->pose pair of node measurements
-   *  - variance: covariance of the prior factors
+  /**
+   * Fix the measurements of multiple nodes
+   * @param measurements a vector of key->pose pair of node measurements
+   * @param variance covariance of the prior factors
    */
   void processNodeMeasurements(const NodeMeasurements& measurements,
                                double variance = 1e-4);
@@ -108,25 +101,27 @@ class DeformationGraph {
                   bool add_prior = false,
                   double prior_variance = 1.0e-8);
 
-  /*! \brief Initialize with new node of a trajectory, but keep it temporary
-   *  - key: Key of first node in new trajectory
-   *  - initial_pose: Initial measurement of first node
-   *  - add_prior: boolean - add a Prior Factor or not
-   *  - prior_variance: covariance of the prior
+  /**
+   * Initialize with new node of a trajectory, but keep it temporary
+   * @param key Key of first node in new trajectory
+   * @param initial_pose Initial measurement of first node
+   * @param add_prior Add a Prior Factor or not
+   * @param prior_variance Covariance of the prior
    */
   void processNewTempNode(gtsam::Key key,
                           const gtsam::Pose3& initial_pose,
                           bool add_prior,
                           double prior_variance = 1e-8);
 
-  /*! \brief Add nodes and their valences, but keep them temporary
-   *  - keys: vector of keys of the nodes to be added
-   *  - initial_poses: poses of the nodes to be added
-   *  - valences: mesh graph vertices that are valences of the nodes
-   *  - valence_prefix: prefix of the valences (associated to robot id)
-   *  - add_prior: boolean - add a Prior Factor or not
-   *  - edge_variance: covariance of the node to mesh edges
-   *  - prior_variance: if add prior, covariance on the nodes
+  /**
+   * Add nodes and their valences, but keep them temporary
+   * @param keys Vector of keys of the nodes to be added
+   * @param initial_poses Poses of the nodes to be added
+   * @param valences Mesh graph vertices that are valences of the nodes
+   * @param valence_prefix Prefix of the valences (associated to robot id)
+   * @param add_prior Add a Prior Factor or not
+   * @param edge_variance Covariance of the node to mesh edges
+   * @param prior_variance If add prior, covariance on the nodes
    */
   void processNewTempNodesValences(const NodeValenceInfoList& factors,
                                    bool add_prior,
@@ -260,43 +255,39 @@ class DeformationGraph {
    */
   std::vector<gtsam::Pose3> getTrajectory(char prefix) const;
 
-  /*! \brief Deform a mesh based on the deformation graph
-   * - original_mesh: mesh to deform
-   * - stamps: timestamp of vertices in mesh to deform
-   * - prefix: the prefixes of the key of the nodes corresponding to mesh
-   * - k: how many nearby nodes to use to adjust new position of vertices when
-   * interpolating for deformed mesh
-   * - tol_t: largest difference in time such that a control point can be
-   * considered for association
+  /**
+   * Deform vertices based on the deformation graph
+   * @param vertices Vertices to deform
+   * @param old_vertices Undeformed vertices
+   * @param prefix The prefixes of the key of the nodes corresponding to mesh
+   * @param k Number of control points to use for deformation
+   * @param tol_t Largest time difference to control point for association
    */
-  pcl::PolygonMesh deformMesh(const pcl::PolygonMesh& original_mesh,
-                              const std::vector<Timestamp>& stamps,
-                              const std::vector<int>& graph_indices,
-                              char prefix,
-                              size_t k = 4,
-                              double tol_t = 10.0);
+  template <typename CloudIn, typename CloudOut>
+  void deformPoints(CloudOut& vertices,
+                    const CloudIn& old_vertices,
+                    char prefix,
+                    size_t k = 4,
+                    double tol_t = 10.0,
+                    int start_index_hint = -1);
 
-  /*! \brief Deform mesh vertices based on the deformation graph
-   * - vertices: vertices to deform
-   * - original_vertices: undeformed vertices
-   * - prefix: the prefixes of the key of the nodes corresponding to mesh
-   * - optimized_values: values of the optimized control points
-   * - new_vertices: deformed vertices
-   * - k: how many nearby nodes to use to adjust new position of vertices when
-   * interpolating for deformed mesh
-   * - tol_t: largest difference in time such that a control point can be
-   * considered for association
+  /**
+   * Deform vertices based on the deformation graph
+   * @param vertices Vertices to deform
+   * @param old_vertices Undeformed vertices
+   * @param prefix The prefixes of the key of the nodes corresponding to mesh
+   * @param optimized_values Values of the optimized control points
+   * @param k Number of control points to use for deformation
+   * @param tol_t Largest time difference to control point for association
    */
   template <typename CloudIn, typename CloudOut>
   void deformPoints(CloudOut& vertices,
                     const CloudIn& old_vertices,
                     char prefix,
                     const gtsam::Values& optimized_values,
-                    size_t k = 4,
-                    double tol_t = 10.0,
-                    const std::vector<int>* graph_indices = nullptr,
-                    int start_index_hint = -1,
-                    std::vector<std::set<size_t>>* vertex_graph_map = nullptr);
+                    size_t k,
+                    double tol_t,
+                    int start_index_hint = -1);
 
   /*! \brief Deform mesh vertices based on the deformation graph
    * - vertices: vertices to deform
@@ -330,28 +321,6 @@ class DeformationGraph {
                          size_t k,
                          double tol_t) const;
 
-  /*! \brief Deform a mesh vertices based on the deformation graph
-   * - original_vertices: undeformed vertices
-   * - stamps: timestamp of vertices in mesh to deform
-   * - prefix: the prefixes of the key of the nodes corresponding to mesh
-   * - optimized_values: values of the optimized control points
-   * - new_vertices: deformed vertices
-   * - k: how many nearby nodes to use to adjust new position of vertices when
-   * interpolating for deformed mesh
-   * - tol_t: largest difference in time such that a control point can be
-   * considered for association
-   */
-  void deformPoints(pcl::PointCloud<pcl::PointXYZRGBA>& new_vertices,
-                    const pcl::PointCloud<pcl::PointXYZRGBA>& original_vertices,
-                    const std::vector<Timestamp>& stamps,
-                    char prefix,
-                    const gtsam::Values& optimized_values,
-                    size_t k = 4,
-                    double tol_t = 10.0,
-                    const std::vector<int>* graph_indices = nullptr,
-                    int start_index_hint = -1,
-                    std::vector<std::set<size_t>>* vertex_graph_map = nullptr);
-
   //! Get the number of loop closures processed by pgo
   size_t getNumLoopclosures() const { return num_loopclosures_; }
 
@@ -362,39 +331,37 @@ class DeformationGraph {
   const gtsam::Values* getValues() const { return &values_; }
 
   //! Gets the estimated values since last optimization as a copy
-  const gtsam::Values getValuesCopy() const { return values_; }
+  gtsam::Values getValuesCopy() const { return values_; }
 
   //! Gets the factors added to the backend
   const gtsam::NonlinearFactorGraph* getFactors() const { return &nfg_; }
 
   //! Gets the factors added to the backend as a copy
-  const gtsam::NonlinearFactorGraph getFactorsCopy() const { return nfg_; }
+  gtsam::NonlinearFactorGraph getFactorsCopy() const { return nfg_; }
 
   //! Gets the set of known inliers
   const std::set<size_t>* getKnownInlierSet() const { return &known_inliers_; }
 
   //! Gets the set of known inliers as a copy
-  const std::set<size_t> getKnownInlierSetCopy() const { return known_inliers_; }
+  std::set<size_t> getKnownInlierSetCopy() const { return known_inliers_; }
 
   //! Gets the temp values since last optimization
   const gtsam::Values* getTempValues() const { return &temp_values_; }
 
   //! Gets the temp values since last optimization as a copy
-  const gtsam::Values getTempValuesCopy() const { return temp_values_; }
+  gtsam::Values getTempValuesCopy() const { return temp_values_; }
 
   //! Gets the temp factors added to the backend as a copy
   const gtsam::NonlinearFactorGraph* getTempFactors() const { return &temp_nfg_; }
 
   //! Gets the temp factors added to the backend as a copy
-  const gtsam::NonlinearFactorGraph getTempFactorsCopy() const { return temp_nfg_; }
+  gtsam::NonlinearFactorGraph getTempFactorsCopy() const { return temp_nfg_; }
 
   //! Gets the set of temp known inliers
   const std::set<size_t>* getTempKnownInlierSet() const { return &temp_known_inliers_; }
 
   //! Gets copy of the set of temp known inliers
-  const std::set<size_t> getTempKnownInlierSetCopy() const {
-    return temp_known_inliers_;
-  }
+  std::set<size_t> getTempKnownInlierSetCopy() const { return temp_known_inliers_; }
 
   //! Gets the inlier weights since last optimization
   const std::vector<double>* getInlierWeights() const { return &inlier_weights_; }
@@ -441,9 +408,6 @@ class DeformationGraph {
   //! Clear only mesh vertices and their associated factors
   void clearMeshNodesOnly();
 
-  //! Clear the last mesh interpolation cache
-  void clearMeshCache();
-
   //! Clear all temporary values, factors, and related structures
   void clearFactors();
 
@@ -469,27 +433,6 @@ class DeformationGraph {
   void updateTempInlierWeights(const std::vector<double>& weights);
 
   bool hasPrefixPoses(char prefix) const;
-
-  template <typename Cloud>
-  size_t findStartIndex(char prefix,
-                        int start_index_hint,
-                        const Cloud& cloud,
-                        double tol_t) const;
-
-  template <typename Cloud>
-  void fillPreviousPoints(Cloud& vertices, char prefix, size_t start_idx) const;
-
-  template <typename Cloud>
-  void cacheNewPoints(const Cloud& vertices, char prefix, size_t start_idx);
-
-  template <typename CloudIn, typename CloudOut>
-  void predeformPoints(CloudOut& new_vertices,
-                       const CloudIn& vertices,
-                       const gtsam::Values& optimized_values,
-                       const std::vector<int>& graph_indices,
-                       std::vector<size_t>& indices_to_deform,
-                       char prefix,
-                       size_t start_index);
 
   std::unique_lock<std::mutex> acquireLock() {
     return std::unique_lock<std::mutex>(mutex_);
@@ -579,7 +522,6 @@ class DeformationGraph {
 
   // Recalculate only if new measurements added
   bool recalculate_vertices_;
-  std::map<char, pcl::PointCloud<pcl::PointXYZ>> last_calculated_vertices_;
 
   // Keep track of vertices not part of mesh
   // for embedding trajectory, etc.
@@ -589,97 +531,14 @@ class DeformationGraph {
   std::mutex mutex_;
 };
 
-template <typename Cloud>
-size_t DeformationGraph::findStartIndex(char prefix,
-                                        int start_index_hint,
-                                        const Cloud& cloud,
-                                        double tol_t) const {
-  const bool have_prefix_vertices =
-      last_calculated_vertices_.find(prefix) != last_calculated_vertices_.end();
-  if (!have_prefix_vertices) {
-    return 0;
-  }
-
-  if (recalculate_vertices_) {
-    SPARK_LOG(INFO) << "DeformationGraph: Recalculating mesh vertices in deformMesh";
-    return 0;
-  }
-
-  if (start_index_hint >= 0) {
-    return start_index_hint;
-  }
-
-  Timestamp min_stamp =
-      std::max(static_cast<Timestamp>(0),
-               vertex_stamps_.at(prefix).back() - stampFromSec(tol_t));
-
-  RangeGenerator gen(traits::num_vertices(cloud));
-  auto bound = std::upper_bound(gen.begin(), gen.end(), min_stamp, [&](auto v, auto i) {
-    return v < traits::get_timestamp(cloud, i);
-  });
-
-  return std::min(static_cast<size_t>(bound - gen.begin()),
-                  last_calculated_vertices_.at(prefix).size());
-}
-
-template <typename Cloud>
-void DeformationGraph::fillPreviousPoints(Cloud& vertices,
-                                          char prefix,
-                                          size_t start_idx) const {
-  auto iter = last_calculated_vertices_.find(prefix);
-  if (iter == last_calculated_vertices_.end()) {
-    return;
-  }
-
-  for (size_t i = 0; i < start_idx; i++) {
-    traits::set_vertex(vertices, i, traits::get_vertex(iter->second, i));
-  }
-}
-
-template <typename Cloud>
-void DeformationGraph::cacheNewPoints(const Cloud& vertices,
-                                      char prefix,
-                                      size_t start_idx) {
-  auto iter = last_calculated_vertices_.find(prefix);
-  if (iter == last_calculated_vertices_.end()) {
-    iter = last_calculated_vertices_.emplace(prefix, pcl::PointCloud<pcl::PointXYZ>())
-               .first;
-  }
-
-  const auto total_vertices = traits::num_vertices(vertices);
-  iter->second.resize(total_vertices);
-  for (size_t i = start_idx; i < total_vertices; i++) {
-    traits::set_vertex(iter->second, i, traits::get_vertex(vertices, i));
-  }
-}
-
 template <typename CloudIn, typename CloudOut>
-void DeformationGraph::predeformPoints(CloudOut& new_vertices,
-                                       const CloudIn& vertices,
-                                       const gtsam::Values& optimized_values,
-                                       const std::vector<int>& graph_indices,
-                                       std::vector<size_t>& indices_to_deform,
-                                       char prefix,
-                                       size_t start_idx) {
-  const auto num_vertices = traits::num_vertices(vertices);
-  for (size_t i = start_idx; i < num_vertices; i++) {
-    const int index = graph_indices.at(i);
-    if (index < 0 || !optimized_values.exists(gtsam::Symbol(prefix, index))) {
-      // Have to check here because sometimes interpolation happen before mesh
-      // graph received
-      // TODO(yun) double check this
-      indices_to_deform.push_back(i);
-      continue;
-    }
-
-    const Eigen::Vector3d vi = traits::get_vertex(vertices, i).template cast<double>();
-    gtsam::Pose3 transform =
-        optimized_values.at<gtsam::Pose3>(gtsam::Symbol(prefix, index));
-    gtsam::Point3 gindex = vertex_positions_[prefix].at(index);
-    gtsam::Point3 deformed_point =
-        transform.rotation().rotate(vi - gindex) + transform.translation();
-    traits::set_vertex(new_vertices, i, deformed_point.cast<float>());
-  }
+void DeformationGraph::deformPoints(CloudOut& vertices,
+                                    const CloudIn& old_vertices,
+                                    char prefix,
+                                    size_t k,
+                                    double tol_t,
+                                    int start_index_hint) {
+  deformPoints(vertices, old_vertices, prefix, values_, k, tol_t, start_index_hint);
 }
 
 template <typename CloudIn, typename CloudOut>
@@ -689,32 +548,17 @@ void DeformationGraph::deformPoints(CloudOut& vertices,
                                     const gtsam::Values& optimized_values,
                                     size_t k,
                                     double tol_t,
-                                    const std::vector<int>* graph_indices,
-                                    int start_index_hint,
-                                    std::vector<std::set<size_t>>* vertex_graph_map) {
+                                    int start_idx) {
   // Cannot deform if no nodes in the deformation graph
   if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
     SPARK_LOG(DEBUG) << "Graph has no vertices for prefix. No deformation";
     return;
   }
 
-  const auto start_idx = findStartIndex(prefix, start_index_hint, old_vertices, tol_t);
-  fillPreviousPoints(vertices, prefix, start_idx);
-
   std::vector<size_t> to_deform;
   if (start_idx != 0) {
-    if (graph_indices) {
-      predeformPoints(vertices,
-                      old_vertices,
-                      optimized_values,
-                      *graph_indices,
-                      to_deform,
-                      prefix,
-                      start_idx);
-    } else {
-      to_deform.resize(traits::num_vertices(vertices) - start_idx);
-      std::iota(to_deform.begin(), to_deform.end(), start_idx);
-    }
+    to_deform.resize(traits::num_vertices(vertices) - start_idx);
+    std::iota(to_deform.begin(), to_deform.end(), start_idx);
   }
 
   const std::vector<size_t>* indices_ptr = start_idx == 0 ? nullptr : &to_deform;
@@ -730,18 +574,6 @@ void DeformationGraph::deformPoints(CloudOut& vertices,
                             tol_t,
                             indices_ptr);
 
-  if (vertex_graph_map) {
-    if (start_idx == 0) {
-      *vertex_graph_map = vertex_graph_map_deformed;
-    } else {
-      vertex_graph_map->resize(traits::num_vertices(vertices));
-      for (size_t i = 0; i < indices_ptr->size(); i++) {
-        vertex_graph_map->at(indices_ptr->at(i)) = vertex_graph_map_deformed.at(i);
-      }
-    }
-  }
-
-  cacheNewPoints(vertices, prefix, start_idx);
   recalculate_vertices_ = false;
 }
 
