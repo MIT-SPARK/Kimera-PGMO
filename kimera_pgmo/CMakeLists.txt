@@ -45,7 +45,6 @@ add_library(
   src/utils/logging.cpp
   src/utils/mesh_io.cpp
   src/utils/pcl_utilities.cpp
-  src/utils/range_generator.cpp
   src/utils/vertex_update.cpp
   src/optimizer/kimera_rpgo_optimizer.cpp
   src/deformation_graph.cpp

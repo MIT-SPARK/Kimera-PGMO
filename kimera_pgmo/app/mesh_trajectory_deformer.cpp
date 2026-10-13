@@ -5,7 +5,6 @@
 #include <kimera_pgmo/utils/logging.h>
 #include <kimera_pgmo/utils/mesh_io.h>
 
-#include <chrono>
 #include <cmath>
 
 #include "kimera_pgmo/utils/common_functions.h"
@@ -46,8 +45,7 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
                       << "/ mesh_pgmo.ply and traj_pgmo.csv";
     }
 
-    ReadMeshWithStampsFromPly(inputs.ply_path, original_mesh_, &vertex_stamps_);
-    loadDeformationGraphFromFile(inputs.dgrf_path, inputs.robot_id);
+    loadGraphAndMesh(inputs.robot_id, inputs.ply_path, inputs.dgrf_path, false);
     SPARK_LOG(INFO) << "Load mesh and graph success";
 
     loadOriginalPath(inputs.orig_traj_path);
@@ -60,7 +58,7 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
 
   bool save() {
     saveDeformationGraph(config_.log_path + "/optimized.dgrf");
-    return saveMesh(optimized_mesh_, config_.log_path + "/optimized.ply");
+    return saveMesh(config_.log_path + "/optimized.ply");
   }
 
  private:
@@ -180,23 +178,13 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
     deformation_graph_->processNodeMeasurements(node_estimates, config_.prior_variance);
 
     SPARK_LOG(INFO) << "Optimizing full mesh...";
-    std::vector<int> indices;
-    optimizeFullMesh(inputs.robot_id,
-                     original_mesh_,
-                     vertex_stamps_,
-                     indices,
-                     optimized_mesh_,
-                     true);
+    deformFullMesh(inputs.robot_id, true);
     return true;
   }
 
  private:
   // input structures
-  pcl::PolygonMesh original_mesh_;
-  std::vector<Timestamp> vertex_stamps_;
   std::map<uint64_t, size_t> keyed_stamps_;
-  // output structure
-  pcl::PolygonMesh optimized_mesh_;
 };
 
 }  // namespace kimera_pgmo
