@@ -43,13 +43,9 @@ class OfflineDeformation {
                  deformation_graph_->getTempValuesCopy(),
                  deformation_graph_->getTempKnownInlierSetCopy());
     auto estimates = pgo_->getEstimates();
-    auto temp_estimates = pgo_->getTempEstimates();
     auto inlier_weights = pgo_->getInlierWeights();
-    auto temp_inlier_weights = pgo_->getTempInlierWeights();
     deformation_graph_->updateValues(estimates);
-    deformation_graph_->updateTempValues(temp_estimates);
     deformation_graph_->updateInlierWeights(inlier_weights);
-    deformation_graph_->updateTempInlierWeights(temp_inlier_weights);
     if (!config_.log_path.empty()) {
       deformation_graph_->save(config_.log_path);
       std::cout << "Saved deformation optimization result to " << config_.log_path
@@ -76,7 +72,6 @@ int main(int argc, char* argv[]) {
       config::checkValid(config::fromContext<kimera_pgmo::OfflineDeformationConfig>());
 
   config.dgrf_file = argv[1];
-
   if (argc > 2) {
     config.log_path = argv[2];
   }

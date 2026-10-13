@@ -388,7 +388,6 @@ bool KimeraPgmoInterface::addMeshMeshConnections(
           GetVertexPrefix(prev_robot_id),
           GetVertexPrefix(curr_robot_id),
           config_.mesh_edge_variance,
-          false,  // Not temp
           as_inliers);
     }
 
@@ -474,23 +473,20 @@ void KimeraPgmoInterface::processOptimizedPath(const std::vector<gtsam::Pose3>& 
   deformation_graph_->processNodeMeasurements(node_estimates, config_.prior_variance);
 }
 
-OptimizeStats KimeraPgmoInterface::optimize() {
-  gtsam::Values init, temp_init;
-  std::set<size_t> inliers, temp_inliers;
-  gtsam::NonlinearFactorGraph factors, temp_factors;
+OptimizeStats KimeraPgmoInterface::optimize(const OptimizationProblem& extra) {
+  gtsam::Values init;
+  std::set<size_t> inliers;
+  gtsam::NonlinearFactorGraph factors;
   {
     auto lock = deformation_graph_->acquireLock();
     optimizeStartup();
     factors = deformation_graph_->getFactorsCopy();
     init = deformation_graph_->getValuesCopy();
-    temp_factors = deformation_graph_->getTempFactorsCopy();
-    temp_init = deformation_graph_->getTempValuesCopy();
     inliers = deformation_graph_->getKnownInlierSetCopy();
-    temp_inliers = deformation_graph_->getTempKnownInlierSetCopy();
   }
 
   const auto start = std::chrono::system_clock::now();
-  pgo_->update(factors, init, inliers, temp_factors, temp_init, temp_inliers);
+  pgo_->update(factors, init, inliers, extra.factors, extra.initial, extra.inliers);
   const auto end = std::chrono::system_clock::now();
 
   auto estimates = pgo_->getEstimates();
@@ -499,9 +495,8 @@ OptimizeStats KimeraPgmoInterface::optimize() {
   auto temp_inlier_weights = pgo_->getTempInlierWeights();
 
   OptimizeStats stats;
-  stats.total_factors = factors.size() + temp_factors.size();
-  stats.total_values = estimates.size() + temp_estimates.size();
-
+  stats.total_factors = factors.size() + extra.factors.size();
+  stats.total_values = estimates.size() + extra.initial.size();
   for (size_t factor_idx = 0; factor_idx < factors.size(); ++factor_idx) {
     const auto& factor = factors[factor_idx];
     const auto derived = dynamic_cast<const BetweenFactorT*>(factor.get());
@@ -537,9 +532,7 @@ OptimizeStats KimeraPgmoInterface::optimize() {
   {
     auto lock = deformation_graph_->acquireLock();
     deformation_graph_->updateValues(estimates);
-    deformation_graph_->updateTempValues(temp_estimates);
     deformation_graph_->updateInlierWeights(inlier_weights);
-    deformation_graph_->updateTempInlierWeights(temp_inlier_weights);
     optimizeCleanup(estimates);
   }
 

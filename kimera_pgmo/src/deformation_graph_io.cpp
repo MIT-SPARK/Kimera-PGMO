@@ -260,7 +260,6 @@ void DeformationGraph::save(const std::string& filename) const {
 
   root["pg_stamps"] = pg_stamps_;
   root["pg_initial_poses"] = pg_initial_poses_;
-  root["temp_pg_initial_poses"] = temp_pg_initial_poses_;
 
   // save the initial positions and timestamps of the mesh vertices
   root["vertices"] = json::object();
@@ -281,18 +280,6 @@ void DeformationGraph::save(const std::string& filename) const {
   save_factor_graph(root["factors"], nfg_);
   root["known_inliers"] = known_inliers_;
   root["inlier_weights"] = inlier_weights_;
-
-  root["temp_values"] = json::array();
-  for (const auto& [key, value] : temp_values_) {
-    auto& record = root["temp_values"].emplace_back();
-    record["key"] = key;
-    record["value"] = value.cast<gtsam::Pose3>();
-  }
-
-  root["temp_factors"] = json::array();
-  save_factor_graph(root["temp_factors"], temp_nfg_);
-  root["temp_known_inliers"] = temp_known_inliers_;
-  root["temp_inlier_weights"] = temp_inlier_weights_;
 
   std::ofstream stream;
   stream.open(filename);
@@ -323,7 +310,6 @@ DeformationGraph::Ptr DeformationGraph::load(const std::filesystem::path& filepa
 
   data.at("pg_stamps").get_to(graph->pg_stamps_);
   data.at("pg_initial_poses").get_to(graph->pg_initial_poses_);
-  data.at("temp_pg_initial_poses").get_to(graph->temp_pg_initial_poses_);
 
   for (const auto& [prefix, record] : data.at("vertices").items()) {
     char vertex_prefix = prefix.at(0);
@@ -345,17 +331,6 @@ DeformationGraph::Ptr DeformationGraph::load(const std::filesystem::path& filepa
 
   data.at("known_inliers").get_to(graph->known_inliers_);
   data.at("inlier_weights").get_to(graph->inlier_weights_);
-
-  for (const auto& record : data.at("temp_values")) {
-    add_value(record, graph->temp_values_, new_id);
-  }
-
-  for (const auto& factor : data.at("temp_factors")) {
-    add_factor(factor, graph->temp_nfg_, new_id, include_priors);
-  }
-
-  data.at("temp_inlier_weights").get_to(graph->temp_inlier_weights_);
-  data.at("temp_known_inliers").get_to(graph->temp_known_inliers_);
   return graph;
 }
 

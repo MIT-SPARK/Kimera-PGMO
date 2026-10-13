@@ -132,7 +132,8 @@ class KimeraPgmoInterface {
 
   void processOptimizedPath(const std::vector<gtsam::Pose3>& path, size_t robot_id = 0);
 
-  OptimizeStats optimize();
+  //! Optimize deformation graph and extra factors
+  OptimizeStats optimize(const OptimizationProblem& extra = {});
 
   virtual void optimizeStartup();
 
