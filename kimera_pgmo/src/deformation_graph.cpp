@@ -40,18 +40,17 @@ const gtsam::noiseModel::Gaussian* factorNoise(const FactorT& factor) {
 }
 
 inline std::optional<uint64_t> maybeGetTimestamp(const RobotTimestampMap& timestamps,
-                                                 int32_t robot,
-                                                 uint64_t key) {
-  auto riter = timestamps.find(robot);
+                                                 gtsam::Symbol key) {
+  auto riter = timestamps.find(key.chr());
   if (riter == timestamps.end()) {
     return std::nullopt;
   }
 
-  if (key >= riter->second.size()) {
+  if (key.index() >= riter->second.size()) {
     return std::nullopt;
   }
 
-  return riter->second[key];
+  return riter->second[key.index()];
 }
 
 inline bool isOutlier(const std::vector<double>& inlier_weights, int factor_idx) {
@@ -128,7 +127,7 @@ inline bool factorToPrior(const gtsam::NonlinearFactor* factor,
   edge.key_to = key.index();
   edge.robot_from = robot_prefix_to_id.at(key.chr());
   edge.robot_to = robot_prefix_to_id.at(key.chr());
-  const auto stamp_ns = maybeGetTimestamp(timestamps, edge.robot_to, edge.key_to);
+  const auto stamp_ns = maybeGetTimestamp(timestamps, key);
   if (stamp_ns) {
     edge.stamp_ns = *stamp_ns;
   }
@@ -161,7 +160,7 @@ inline bool factorToBetween(const gtsam::NonlinearFactor* factor,
   edge.key_to = back.index();
   edge.robot_from = robot_prefix_to_id.at(front.chr());
   edge.robot_to = robot_prefix_to_id.at(back.chr());
-  const auto stamp_ns = maybeGetTimestamp(timestamps, edge.robot_to, edge.key_to);
+  const auto stamp_ns = maybeGetTimestamp(timestamps, back);
   if (stamp_ns) {
     edge.stamp_ns = *stamp_ns;
   }
@@ -197,7 +196,7 @@ inline bool valueToPoseNode(const gtsam::Key& key,
   const size_t robot_id = robot_prefix_to_id.at(node_symb.chr());
   node.key = node_symb.index();
   node.robot_id = robot_id;
-  const auto stamp_ns = maybeGetTimestamp(timestamps, node.robot_id, node.key);
+  const auto stamp_ns = maybeGetTimestamp(timestamps, node_symb);
   if (stamp_ns) {
     node.stamp_ns = *stamp_ns;
   } else {
