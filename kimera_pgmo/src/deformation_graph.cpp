@@ -40,18 +40,17 @@ const gtsam::noiseModel::Gaussian* factorNoise(const FactorT& factor) {
 }
 
 inline std::optional<uint64_t> maybeGetTimestamp(const RobotTimestampMap& timestamps,
-                                                 int32_t robot,
-                                                 uint64_t key) {
-  auto riter = timestamps.find(robot);
+                                                 gtsam::Symbol key) {
+  auto riter = timestamps.find(key.chr());
   if (riter == timestamps.end()) {
     return std::nullopt;
   }
 
-  if (key >= riter->second.size()) {
+  if (key.index() >= riter->second.size()) {
     return std::nullopt;
   }
 
-  return riter->second[key];
+  return riter->second[key.index()];
 }
 
 inline bool isOutlier(const std::vector<double>& inlier_weights, int factor_idx) {
@@ -128,7 +127,7 @@ inline bool factorToPrior(const gtsam::NonlinearFactor* factor,
   edge.key_to = key.index();
   edge.robot_from = robot_prefix_to_id.at(key.chr());
   edge.robot_to = robot_prefix_to_id.at(key.chr());
-  const auto stamp_ns = maybeGetTimestamp(timestamps, edge.robot_to, edge.key_to);
+  const auto stamp_ns = maybeGetTimestamp(timestamps, key);
   if (stamp_ns) {
     edge.stamp_ns = *stamp_ns;
   }
@@ -161,7 +160,7 @@ inline bool factorToBetween(const gtsam::NonlinearFactor* factor,
   edge.key_to = back.index();
   edge.robot_from = robot_prefix_to_id.at(front.chr());
   edge.robot_to = robot_prefix_to_id.at(back.chr());
-  const auto stamp_ns = maybeGetTimestamp(timestamps, edge.robot_to, edge.key_to);
+  const auto stamp_ns = maybeGetTimestamp(timestamps, back);
   if (stamp_ns) {
     edge.stamp_ns = *stamp_ns;
   }
@@ -197,7 +196,7 @@ inline bool valueToPoseNode(const gtsam::Key& key,
   const size_t robot_id = robot_prefix_to_id.at(node_symb.chr());
   node.key = node_symb.index();
   node.robot_id = robot_id;
-  const auto stamp_ns = maybeGetTimestamp(timestamps, node.robot_id, node.key);
+  const auto stamp_ns = maybeGetTimestamp(timestamps, node_symb);
   if (stamp_ns) {
     node.stamp_ns = *stamp_ns;
   } else {
@@ -580,6 +579,7 @@ bool DeformationGraph::checkNewBetween(const gtsam::Key& key_from,
 
 void DeformationGraph::updatePoseGraphInitialGuess(gtsam::Key key_from,
                                                    gtsam::Key key_to,
+                                                   Timestamp stamp,
                                                    const gtsam::Pose3& meas) {
   const auto to_prefix = gtsam::Symbol(key_to).chr();
   gtsam::Pose3 initial_estimate;
@@ -592,6 +592,7 @@ void DeformationGraph::updatePoseGraphInitialGuess(gtsam::Key key_from,
   values_.insert(key_to, initial_estimate);
   const auto init_pose = pg_initial_poses_[to_prefix].back().compose(meas);
   pg_initial_poses_[to_prefix].push_back(init_pose);
+  pg_stamps_[to_prefix].push_back(stamp);
 }
 
 void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
@@ -888,16 +889,16 @@ size_t DeformationGraph::getNumVertices() const {
 }
 
 std::vector<gtsam::Pose3> DeformationGraph::getTrajectory(char prefix) const {
-  // return the optimized trajectory (pose graph)
   std::vector<gtsam::Pose3> traj;
-
   for (size_t i = 0; i < pg_initial_poses_.at(prefix).size(); i++) {
     gtsam::Symbol node(prefix, i);
     if (!values_.exists(node)) {
       break;
     }
+
     traj.push_back(values_.at<gtsam::Pose3>(node));
   }
+
   return traj;
 }
 
@@ -1014,14 +1015,26 @@ std::vector<Timestamp> DeformationGraph::getStampVertices(char prefix) const {
 }
 
 void DeformationGraph::clear() {
-  nfg_.resize(0);
-  temp_nfg_.resize(0);
-  values_.clear();
-  temp_values_.clear();
   pg_initial_poses_.clear();
+  pg_stamps_.clear();
   temp_pg_initial_poses_.clear();
+
   vertex_positions_.clear();
   vertex_stamps_.clear();
+
+  nfg_.resize(0);
+  known_inliers_.clear();
+  values_.clear();
+  inlier_weights_.clear();
+
+  temp_nfg_.resize(0);
+  temp_known_inliers_.clear();
+  temp_values_.clear();
+  temp_inlier_weights_.clear();
+
+  adjacency_map_.clear();
+
+  num_loopclosures_ = 0;
 }
 
 void DeformationGraph::clearMeshNodesOnly() {

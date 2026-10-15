@@ -130,6 +130,42 @@ gtsam::Key get_mapped_key(const json& record,
   return new_robot_id ? rekey(key, *new_robot_id) : key;
 }
 
+using AdjacencyMap = std::map<gtsam::Key, std::set<gtsam::Key>>;
+
+AdjacencyMap rekeyAdjacency(const AdjacencyMap& original, size_t robot_id) {
+  std::map<gtsam::Key, std::set<gtsam::Key>> adjacency;
+  for (const auto& [key, neighbors] : original) {
+    std::set<gtsam::Key> new_neighbors;
+    for (const auto& other : neighbors) {
+      new_neighbors.insert(rekey(other, robot_id));
+    }
+
+    adjacency[rekey(key, robot_id)] = new_neighbors;
+  }
+
+  return adjacency;
+}
+
+DeformationGraph::RobotPoseMap rekeyInitialPoses(
+    const DeformationGraph::RobotPoseMap& original, size_t robot_id) {
+  DeformationGraph::RobotPoseMap pose_map;
+  for (const auto& [prefix, poses] : original) {
+    pose_map[kimera_pgmo::robot_id_to_prefix.at(robot_id)] = poses;
+  }
+
+  return pose_map;
+}
+
+DeformationGraph::RobotTimestampMap rekeyStamps(
+    const DeformationGraph::RobotTimestampMap& original, size_t robot_id) {
+  DeformationGraph::RobotTimestampMap stamp_map;
+  for (const auto& [prefix, stamps] : original) {
+    stamp_map[kimera_pgmo::robot_id_to_prefix.at(robot_id)] = stamps;
+  }
+
+  return stamp_map;
+}
+
 }  // namespace
 
 template <typename FactorT>
@@ -319,11 +355,16 @@ DeformationGraph::Ptr DeformationGraph::load(const std::filesystem::path& filepa
 
   data.at("add_init_vertex_prior").get_to(graph->add_init_vertex_prior_);
   data.at("num_loopclosures").get_to(graph->num_loopclosures_);
-  data.at("adjacency").get_to(graph->adjacency_map_);
+  data.at("temp_pg_initial_poses").get_to(graph->temp_pg_initial_poses_);
 
   data.at("pg_stamps").get_to(graph->pg_stamps_);
   data.at("pg_initial_poses").get_to(graph->pg_initial_poses_);
-  data.at("temp_pg_initial_poses").get_to(graph->temp_pg_initial_poses_);
+  data.at("adjacency").get_to(graph->adjacency_map_);
+  if (new_id) {
+    graph->adjacency_map_ = rekeyAdjacency(graph->adjacency_map_, *new_id);
+    graph->pg_stamps_ = rekeyStamps(graph->pg_stamps_, *new_id);
+    graph->pg_initial_poses_ = rekeyInitialPoses(graph->pg_initial_poses_, *new_id);
+  }
 
   for (const auto& [prefix, record] : data.at("vertices").items()) {
     char vertex_prefix = prefix.at(0);

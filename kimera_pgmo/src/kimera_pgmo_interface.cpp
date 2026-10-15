@@ -221,7 +221,8 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
         continue;
       }
 
-      deformation_graph_->updatePoseGraphInitialGuess(from_key, to_key, measure);
+      deformation_graph_->updatePoseGraphInitialGuess(
+          from_key, to_key, pg_edge.stamp_ns, measure);
       deformation_graph_->processNewBetween(
           from_key, to_key, measure, config_.odom_variance);
 

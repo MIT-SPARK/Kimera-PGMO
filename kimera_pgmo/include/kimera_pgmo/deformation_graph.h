@@ -41,7 +41,7 @@ class DeformationGraph {
   using VertexStamps = std::map<char, std::vector<Timestamp>>;
   using VertexPositions = std::map<char, std::vector<gtsam::Point3>>;
   using RobotPoseMap = std::map<char, std::vector<gtsam::Pose3>>;
-  using RobotTimestampMap = std::map<size_t, std::vector<Timestamp>>;
+  using RobotTimestampMap = std::map<char, std::vector<Timestamp>>;
   using DeformationCallback = std::function<void(const Eigen::Isometry3d&, size_t)>;
   using NodeMeasurements = std::vector<std::pair<gtsam::Key, gtsam::Pose3>>;
   using MeshEdges = std::vector<std::pair<gtsam::Key, gtsam::Key>>;
@@ -146,6 +146,7 @@ class DeformationGraph {
    */
   void updatePoseGraphInitialGuess(gtsam::Key key_from,
                                    gtsam::Key key_to,
+                                   Timestamp stamp,
                                    const gtsam::Pose3& meas);
 
   /*! \brief Add a new temporary between factor to the deformation graph
@@ -486,6 +487,7 @@ class DeformationGraph {
   // Keep track of vertices not part of mesh
   // for embedding trajectory, etc.
   RobotPoseMap pg_initial_poses_;
+  RobotTimestampMap pg_stamps_;
   std::unordered_map<gtsam::Key, gtsam::Pose3> temp_pg_initial_poses_;
 
   VertexPositions vertex_positions_;
@@ -497,6 +499,8 @@ class DeformationGraph {
   std::set<size_t> known_inliers_;
   // current estimate
   gtsam::Values values_;
+  // gnc weights (from last update)
+  std::vector<double> inlier_weights_;
 
   // temp factors
   gtsam::NonlinearFactorGraph temp_nfg_;
@@ -504,8 +508,6 @@ class DeformationGraph {
   std::set<size_t> temp_known_inliers_;
   // current temp estimate
   gtsam::Values temp_values_;
-  // gnc weights (from last update)
-  std::vector<double> inlier_weights_;
   // gnc weights for temp factors (from last update)
   std::vector<double> temp_inlier_weights_;
 
@@ -513,10 +515,6 @@ class DeformationGraph {
   std::map<gtsam::Key, std::set<gtsam::Key>> adjacency_map_;
 
   size_t num_loopclosures_;
-
-  // Keep track of vertices not part of mesh
-  // for embedding trajectory, etc.
-  RobotTimestampMap pg_stamps_;
 
   // Mutex
   std::mutex mutex_;
