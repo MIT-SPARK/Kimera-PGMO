@@ -146,6 +146,7 @@ class DeformationGraph {
    */
   void updatePoseGraphInitialGuess(gtsam::Key key_from,
                                    gtsam::Key key_to,
+                                   Timestamp stamp,
                                    const gtsam::Pose3& meas);
 
   /*! \brief Add a new temporary between factor to the deformation graph
@@ -498,6 +499,8 @@ class DeformationGraph {
   std::set<size_t> known_inliers_;
   // current estimate
   gtsam::Values values_;
+  // gnc weights (from last update)
+  std::vector<double> inlier_weights_;
 
   // temp factors
   gtsam::NonlinearFactorGraph temp_nfg_;
@@ -505,8 +508,6 @@ class DeformationGraph {
   std::set<size_t> temp_known_inliers_;
   // current temp estimate
   gtsam::Values temp_values_;
-  // gnc weights (from last update)
-  std::vector<double> inlier_weights_;
   // gnc weights for temp factors (from last update)
   std::vector<double> temp_inlier_weights_;
 
