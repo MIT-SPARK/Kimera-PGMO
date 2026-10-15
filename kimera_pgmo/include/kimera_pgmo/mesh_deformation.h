@@ -39,8 +39,10 @@ class SearchTree {
   std::unique_ptr<Impl> impl_;
 };
 
+using ControlPoints = std::vector<StampedPoint>;
+
 Eigen::Isometry3d interpDeformation(char prefix,
-                                    const std::vector<gtsam::Point3>& control_points,
+                                    const ControlPoints& control_points,
                                     const gtsam::Values& values,
                                     const SearchTree& octree,
                                     size_t k,
@@ -48,7 +50,7 @@ Eigen::Isometry3d interpDeformation(char prefix,
 
 // Calculate new point location from k points
 traits::Pos interpPoint(char prefix,
-                        const std::vector<gtsam::Point3>& control_points,
+                        const ControlPoints& control_points,
                         const gtsam::Values& values,
                         const SearchTree& octree,
                         size_t k,
@@ -56,7 +58,7 @@ traits::Pos interpPoint(char prefix,
 
 using PointCallback = std::function<void(const size_t,
                                          char,
-                                         const std::vector<gtsam::Point3>&,
+                                         const ControlPoints&,
                                          const gtsam::Values&,
                                          const SearchTree&,
                                          size_t)>;
@@ -76,8 +78,7 @@ template <typename CloudIn,
 void processPoints(const PointCallback& callback,
                    const CloudIn& points,
                    char prefix,
-                   const std::vector<gtsam::Point3>& control_points,
-                   const std::vector<Timestamp>& /* control_point_stamps */,
+                   const ControlPoints& control_points,
                    const gtsam::Values& values,
                    size_t k = 4,
                    double /* tol_t */ = 10.0,
@@ -97,7 +98,7 @@ void processPoints(const PointCallback& callback,
   // Build Octree
   SearchTree tree;
   for (size_t j = 0; j < control_points.size(); j++) {
-    tree.addPoint(control_points[j], values.exists(gtsam::Symbol(prefix, j)));
+    tree.addPoint(control_points[j].pos, values.exists(gtsam::Symbol(prefix, j)));
   }
 
   if (tree.getLeafCount() < k) {
@@ -130,8 +131,7 @@ template <typename CloudIn,
 void processPoints(const PointCallback& callback,
                    const CloudIn& points,
                    char prefix,
-                   const std::vector<gtsam::Point3>& control_points,
-                   const std::vector<Timestamp>& control_point_stamps,
+                   const ControlPoints& control_points,
                    const gtsam::Values& values,
                    size_t k = 4,
                    double tol_t = 10.0,
@@ -161,10 +161,10 @@ void processPoints(const PointCallback& callback,
     // Add control points to octree until both
     // exceeds interpolate horizon and have enough points to deform
     while (ctrl_pt_idx < control_points.size() &&
-           (control_point_stamps[ctrl_pt_idx] <= stamp + stampFromSec(tol_t) ||
+           (control_points[ctrl_pt_idx].timestamp_ns <= stamp + stampFromSec(tol_t) ||
             num_ctrl_pts < k + 1)) {
       const auto ctrl_valid = values.exists(gtsam::Symbol(prefix, ctrl_pt_idx));
-      search_tree.addPoint(control_points[ctrl_pt_idx], ctrl_valid);
+      search_tree.addPoint(control_points[ctrl_pt_idx].pos, ctrl_valid);
       ctrl_pt_idx++;
       if (!ctrl_valid) {
         continue;
@@ -187,7 +187,7 @@ void processPoints(const PointCallback& callback,
 
     size_t num_leaves = search_tree.getLeafCount();
     while (lower_ctrl_pt_idx < control_points.size() && num_leaves > k + 1 &&
-           control_point_stamps[lower_ctrl_pt_idx] < stamp - stampFromSec(tol_t)) {
+           control_points[lower_ctrl_pt_idx].timestamp_ns < stamp - stampFromSec(tol_t)) {
       if (!values.exists(gtsam::Symbol(prefix, lower_ctrl_pt_idx))) {
         lower_ctrl_pt_idx++;
         continue;
@@ -214,8 +214,7 @@ template <typename CloudOut, typename CloudIn>
 void deformPoints(CloudOut& new_points,
                   const CloudIn& points,
                   char prefix,
-                  const std::vector<gtsam::Point3>& control_points,
-                  const std::vector<Timestamp>& control_point_stamps,
+                  const ControlPoints& control_points,
                   const gtsam::Values& values,
                   size_t k = 4,
                   double tol_t = 10.0,
@@ -223,7 +222,7 @@ void deformPoints(CloudOut& new_points,
   processPoints(
       [&](const size_t ii,
           char prefix,
-          const std::vector<gtsam::Point3>& control_points,
+          const ControlPoints& control_points,
           const gtsam::Values& values,
           const SearchTree& octree,
           size_t k) {
@@ -235,7 +234,6 @@ void deformPoints(CloudOut& new_points,
       points,
       prefix,
       control_points,
-      control_point_stamps,
       values,
       k,
       tol_t,

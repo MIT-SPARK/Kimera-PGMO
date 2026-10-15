@@ -23,10 +23,8 @@ using pose_graph_tools::PoseGraph;
 using pose_graph_tools::PoseGraphEdge;
 using pose_graph_tools::PoseGraphNode;
 
-using VertexStamps = DeformationGraph::VertexStamps;
-using VertexPositions = DeformationGraph::VertexPositions;
-using RobotPoseMap = DeformationGraph::RobotPoseMap;
-using RobotTimestampMap = DeformationGraph::RobotTimestampMap;
+using ControlPointMap = std::map<char, std::vector<StampedPoint>>;
+using TrajectoryMap = std::map<char, std::vector<StampedPose>>;
 
 using PoseBetween = gtsam::BetweenFactor<gtsam::Pose3>;
 using PosePrior = gtsam::PriorFactor<gtsam::Pose3>;
@@ -39,10 +37,10 @@ const gtsam::noiseModel::Gaussian* factorNoise(const FactorT& factor) {
   return dynamic_cast<const gtsam::noiseModel::Gaussian*>(factor.noiseModel().get());
 }
 
-inline std::optional<uint64_t> maybeGetTimestamp(const RobotTimestampMap& timestamps,
+inline std::optional<uint64_t> maybeGetTimestamp(const TrajectoryMap& trajectories,
                                                  gtsam::Symbol key) {
-  auto riter = timestamps.find(key.chr());
-  if (riter == timestamps.end()) {
+  auto riter = trajectories.find(key.chr());
+  if (riter == trajectories.end()) {
     return std::nullopt;
   }
 
@@ -50,7 +48,7 @@ inline std::optional<uint64_t> maybeGetTimestamp(const RobotTimestampMap& timest
     return std::nullopt;
   }
 
-  return riter->second[key.index()];
+  return riter->second[key.index()].timestamp_ns;
 }
 
 inline bool isOutlier(const std::vector<double>& inlier_weights, int factor_idx) {
@@ -66,7 +64,7 @@ inline bool isOutlier(const std::vector<double>& inlier_weights, int factor_idx)
 }
 
 inline bool factorToDeformationEdge(const gtsam::NonlinearFactor* factor,
-                                    const VertexStamps& vertex_stamps,
+                                    const ControlPointMap& control_points,
                                     PoseGraphEdge& edge) {
   // check if deformation edge factor
   const auto factor_ptr = dynamic_cast<const DeformationEdgeFactor*>(factor);
@@ -83,17 +81,17 @@ inline bool factorToDeformationEdge(const gtsam::NonlinearFactor* factor,
     edge.type = EdgeType::MESH;
     edge.robot_from = vertex_prefix_to_id.at(front.chr());
     edge.robot_to = vertex_prefix_to_id.at(back.chr());
-    edge.stamp_ns = vertex_stamps.at(front.chr()).at(front.index());
+    edge.stamp_ns = control_points.at(front.chr()).at(front.index()).timestamp_ns;
   } else if (vertex_prefix_to_id.count(front.chr())) {
     edge.type = EdgeType::MESH_POSE;
     edge.robot_from = vertex_prefix_to_id.at(front.chr());
     edge.robot_to = robot_prefix_to_id.at(back.chr());
-    edge.stamp_ns = vertex_stamps.at(front.chr()).at(front.index());
+    edge.stamp_ns = control_points.at(front.chr()).at(front.index()).timestamp_ns;
   } else if (vertex_prefix_to_id.count(back.chr())) {
     edge.type = EdgeType::POSE_MESH;
     edge.robot_from = robot_prefix_to_id.at(front.chr());
     edge.robot_to = vertex_prefix_to_id.at(back.chr());
-    edge.stamp_ns = vertex_stamps.at(back.chr()).at(back.index());
+    edge.stamp_ns = control_points.at(back.chr()).at(back.index()).timestamp_ns;
   } else {
     return false;
   }
@@ -108,7 +106,7 @@ inline bool factorToDeformationEdge(const gtsam::NonlinearFactor* factor,
 }
 
 inline bool factorToPrior(const gtsam::NonlinearFactor* factor,
-                          const RobotTimestampMap& timestamps,
+                          const TrajectoryMap& trajectories,
                           const std::vector<double>& inlier_weights,
                           int factor_idx,
                           PoseGraphEdge& edge) {
@@ -127,7 +125,7 @@ inline bool factorToPrior(const gtsam::NonlinearFactor* factor,
   edge.key_to = key.index();
   edge.robot_from = robot_prefix_to_id.at(key.chr());
   edge.robot_to = robot_prefix_to_id.at(key.chr());
-  const auto stamp_ns = maybeGetTimestamp(timestamps, key);
+  const auto stamp_ns = maybeGetTimestamp(trajectories, key);
   if (stamp_ns) {
     edge.stamp_ns = *stamp_ns;
   }
@@ -144,7 +142,7 @@ inline bool factorToPrior(const gtsam::NonlinearFactor* factor,
 }
 
 inline bool factorToBetween(const gtsam::NonlinearFactor* factor,
-                            const RobotTimestampMap& timestamps,
+                            const TrajectoryMap& trajectories,
                             const std::vector<double>& inlier_weights,
                             int factor_idx,
                             PoseGraphEdge& edge) {
@@ -160,7 +158,7 @@ inline bool factorToBetween(const gtsam::NonlinearFactor* factor,
   edge.key_to = back.index();
   edge.robot_from = robot_prefix_to_id.at(front.chr());
   edge.robot_to = robot_prefix_to_id.at(back.chr());
-  const auto stamp_ns = maybeGetTimestamp(timestamps, back);
+  const auto stamp_ns = maybeGetTimestamp(trajectories, back);
   if (stamp_ns) {
     edge.stamp_ns = *stamp_ns;
   }
@@ -184,8 +182,7 @@ inline bool factorToBetween(const gtsam::NonlinearFactor* factor,
 
 inline bool valueToPoseNode(const gtsam::Key& key,
                             const gtsam::Values& values,
-                            const RobotTimestampMap& timestamps,
-                            const RobotPoseMap& initial_poses,
+                            const TrajectoryMap& trajectories,
                             PoseGraphNode& node,
                             bool optimized) {
   const gtsam::Symbol node_symb(key);
@@ -194,28 +191,23 @@ inline bool valueToPoseNode(const gtsam::Key& key,
   }
 
   const size_t robot_id = robot_prefix_to_id.at(node_symb.chr());
+  const auto init_pose = trajectories.at(node_symb.chr()).at(node_symb.index());
+
   node.key = node_symb.index();
   node.robot_id = robot_id;
-  const auto stamp_ns = maybeGetTimestamp(timestamps, node_symb);
-  if (stamp_ns) {
-    node.stamp_ns = *stamp_ns;
-  } else {
-    SPARK_LOG(WARNING) << "Invalid timestamp for (robot=" << node.robot_id
-                       << ", pose=" << node.key << ")!";
-  }
-
+  node.stamp_ns = init_pose.timestamp_ns;
   if (optimized) {
     node.pose = values.at<gtsam::Pose3>(key).matrix();
   } else {
-    node.pose = initial_poses.at(node_symb.chr()).at(node_symb.index()).matrix();
+    node.pose = init_pose.pose.matrix();
   }
+
   return true;
 }
 
 inline bool valueToMeshNode(const gtsam::Key& key,
                             const gtsam::Values& values,
-                            const VertexPositions& vertex_positions,
-                            const VertexStamps& vertex_stamps,
+                            const ControlPointMap& control_points,
                             PoseGraphNode& node,
                             bool optimized) {
   const gtsam::Symbol node_symb(key);
@@ -224,14 +216,15 @@ inline bool valueToMeshNode(const gtsam::Key& key,
   }
 
   const size_t robot_id = vertex_prefix_to_id.at(node_symb.chr());
+  const auto point = control_points.at(node_symb.chr()).at(node_symb.index());
+
   node.key = node_symb.index();
   node.robot_id = robot_id;
-  node.stamp_ns = vertex_stamps.at(node_symb.chr()).at(node_symb.index());
+  node.stamp_ns = point.timestamp_ns;
   if (optimized) {
     node.pose = values.at<gtsam::Pose3>(key).matrix();
   } else {
-    const auto pos = vertex_positions.at(node_symb.chr()).at(node_symb.index());
-    node.pose = gtsam::Pose3(gtsam::Rot3(), pos).matrix();
+    node.pose = gtsam::Pose3(gtsam::Rot3(), point.pos).matrix();
   }
 
   return true;
@@ -380,11 +373,11 @@ bool DeformationGraph::checkNodeValence(gtsam::Key key,
     return false;
   }
 
-  bool non_temp_node =
-      pg_initial_poses_.count(prefix) && pg_initial_poses_.at(prefix).size() > idx;
-  node_pose = non_temp_node ? pg_initial_poses_.at(prefix).at(idx)
-                            : temp_pg_initial_poses_.at(key);
-  vertex_pos = vertex_positions_.at(valence_prefix).at(valence_idx);
+  auto traj = trajectories_.find(prefix);
+  const auto non_temp_node = traj != trajectories_.end() && traj->second.size() > idx;
+  node_pose =
+      non_temp_node ? traj->second.at(idx).pose : temp_pg_initial_poses_.at(key);
+  vertex_pos = control_points_.at(valence_prefix).at(valence_idx).pos;
   return true;
 }
 
@@ -555,21 +548,21 @@ bool DeformationGraph::checkNewBetween(const gtsam::Key& key_from,
   const auto to_idx = gtsam::Symbol(key_to).index();
 
   // Check if prefixes exist in pg_initial_poses_
-  if (!pg_initial_poses_.count(from_prefix)) {
+  if (!trajectories_.count(from_prefix)) {
     return false;
   }
 
-  if (!pg_initial_poses_.count(to_prefix)) {
+  if (!trajectories_.count(to_prefix)) {
     return false;
   }
 
-  if (from_idx >= pg_initial_poses_.at(from_prefix).size()) {
+  if (from_idx >= trajectories_.at(from_prefix).size()) {
     SPARK_LOG(ERROR)
         << "DeformationGraph: when adding new between from key should already exist.";
     return false;
   }
 
-  if (to_idx >= pg_initial_poses_.at(to_prefix).size()) {
+  if (to_idx >= trajectories_.at(to_prefix).size()) {
     SPARK_LOG(ERROR) << "DeformationGraph: skipping keys in addNewBetween.";
     return false;
   }
@@ -582,6 +575,7 @@ void DeformationGraph::updatePoseGraphInitialGuess(gtsam::Key key_from,
                                                    Timestamp stamp,
                                                    const gtsam::Pose3& meas) {
   const auto to_prefix = gtsam::Symbol(key_to).chr();
+
   gtsam::Pose3 initial_estimate;
   if (values_.exists(key_from)) {
     initial_estimate = values_.at<gtsam::Pose3>(key_from).compose(meas);
@@ -589,10 +583,10 @@ void DeformationGraph::updatePoseGraphInitialGuess(gtsam::Key key_from,
     SPARK_LOG(FATAL) << "Missing from key values when adding initial guess.";
   }
 
+  auto& trajectory = trajectories_.at(to_prefix);
   values_.insert(key_to, initial_estimate);
-  const auto init_pose = pg_initial_poses_[to_prefix].back().compose(meas);
-  pg_initial_poses_[to_prefix].push_back(init_pose);
-  pg_stamps_[to_prefix].push_back(stamp);
+  const auto init_pose = trajectory.back().pose.compose(meas);
+  trajectory.push_back({stamp, init_pose});
 }
 
 void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
@@ -612,9 +606,11 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
     temp_nfg_.add(gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
     return;
   }
+
   if (known_inlier) {
     known_inliers_.insert(nfg_.size());
   }
+
   nfg_.add(gtsam::BetweenFactor<gtsam::Pose3>(key_from, key_to, meas, noise));
 
   // if it's a loop closure factor
@@ -760,28 +756,22 @@ bool DeformationGraph::addNewNode(gtsam::Key key,
   const size_t idx = gtsam::Symbol(key).index();
 
   // NOTE(nathan) this is not ideal, but will get refactored at some point
-  auto piter = pg_initial_poses_.find(prefix);
-  if (piter == pg_initial_poses_.end()) {
-    piter = pg_initial_poses_.emplace(prefix, std::vector<gtsam::Pose3>()).first;
+  auto iter = trajectories_.find(prefix);
+  if (iter == trajectories_.end()) {
+    iter = trajectories_.emplace(prefix, std::vector<StampedPose>()).first;
   }
 
-  auto siter = pg_stamps_.find(prefix);
-  if (siter == pg_stamps_.end()) {
-    siter = pg_stamps_.emplace(prefix, std::vector<Timestamp>()).first;
-  }
-
-  if (idx > piter->second.size()) {
+  if (idx > iter->second.size()) {
     SPARK_LOG(ERROR) << "DeformationGraph: Nodes skipped in pose graph nodes";
     return false;
   }
 
-  if (idx < piter->second.size()) {
+  if (idx < iter->second.size()) {
     return false;  // Duplicate node
   }
 
   values_.insert(key, initial_pose);
-  piter->second.push_back(initial_pose);
-  siter->second.push_back(stamp);
+  iter->second.push_back({stamp, initial_pose});
   if (add_prior) {
     addPrior(key, initial_pose, prior_variance);
   }
@@ -881,8 +871,8 @@ void DeformationGraph::removePriorsWithPrefix(char prefix) {
 
 size_t DeformationGraph::getNumVertices() const {
   size_t num_vertices = 0;
-  for (const auto& pfx_vertices : vertex_positions_) {
-    num_vertices += pfx_vertices.second.size();
+  for (const auto& [prefix, vertices] : control_points_) {
+    num_vertices += vertices.size();
   }
 
   return num_vertices;
@@ -890,7 +880,7 @@ size_t DeformationGraph::getNumVertices() const {
 
 std::vector<gtsam::Pose3> DeformationGraph::getTrajectory(char prefix) const {
   std::vector<gtsam::Pose3> traj;
-  for (size_t i = 0; i < pg_initial_poses_.at(prefix).size(); i++) {
+  for (size_t i = 0; i < trajectories_.at(prefix).size(); i++) {
     gtsam::Symbol node(prefix, i);
     if (!values_.exists(node)) {
       break;
@@ -929,17 +919,17 @@ PoseGraph::Ptr DeformationGraph::getPoseGraph(bool include_deformation_edges,
   for (const auto& factor : nfg_) {
     PoseGraphEdge edge;
     if (include_between_edges &&
-        factorToBetween(factor.get(), pg_stamps_, inlier_weights_, idx, edge)) {
+        factorToBetween(factor.get(), trajectories_, inlier_weights_, idx, edge)) {
       graph->edges.push_back(edge);
     }
 
     if (include_between_edges &&
-        factorToPrior(factor.get(), pg_stamps_, inlier_weights_, idx, edge)) {
+        factorToPrior(factor.get(), trajectories_, inlier_weights_, idx, edge)) {
       graph->edges.push_back(edge);
     }
 
     if (include_deformation_edges &&
-        factorToDeformationEdge(factor.get(), vertex_stamps_, edge)) {
+        factorToDeformationEdge(factor.get(), control_points_, edge)) {
       graph->edges.push_back(edge);
     }
 
@@ -950,13 +940,12 @@ PoseGraph::Ptr DeformationGraph::getPoseGraph(bool include_deformation_edges,
   for (const auto& key : values_.keys()) {
     PoseGraphNode node;
     if (include_between_edges &&
-        valueToPoseNode(key, values_, pg_stamps_, pg_initial_poses_, node, optimized)) {
+        valueToPoseNode(key, values_, trajectories_, node, optimized)) {
       graph->nodes.push_back(node);
     }
 
     if (include_deformation_edges &&
-        valueToMeshNode(
-            key, values_, vertex_positions_, vertex_stamps_, node, optimized)) {
+        valueToMeshNode(key, values_, control_points_, node, optimized)) {
       graph->nodes.push_back(node);
     }
   }
@@ -981,12 +970,12 @@ void DeformationGraph::updateTempInlierWeights(const std::vector<double>& weight
 }
 
 gtsam::Pose3 DeformationGraph::getInitialPose(char prefix, size_t index) const {
-  return pg_initial_poses_.at(prefix).at(index);
+  return trajectories_.at(prefix).at(index).pose;
 }
 
 gtsam::Point3 DeformationGraph::getInitialPositionVertex(char prefix,
                                                          size_t index) const {
-  return vertex_positions_.at(prefix).at(index);
+  return control_points_.at(prefix).at(index).pos;
 }
 
 std::vector<gtsam::Point3> DeformationGraph::getInitialPositionsVertices(
@@ -999,15 +988,19 @@ std::vector<Timestamp> DeformationGraph::getVertexStamps(char prefix) const {
 }
 
 bool DeformationGraph::hasVertexKey(char prefix) const {
-  return vertex_positions_.count(prefix);
+  return control_points_.count(prefix);
 }
 
 bool DeformationGraph::hasPrefixPoses(char prefix) const {
-  return pg_initial_poses_.count(prefix);
+  return trajectories_.count(prefix);
+}
+
+std::unique_lock<std::mutex> DeformationGraph::acquireLock() {
+  return std::unique_lock<std::mutex>(mutex_);
 }
 
 Timestamp DeformationGraph::getStampVertex(char prefix, size_t index) const {
-  return vertex_stamps_.at(prefix).at(index);
+  return control_points_.at(prefix).at(index).timestamp_ns;
 }
 
 std::vector<Timestamp> DeformationGraph::getStampVertices(char prefix) const {
@@ -1015,12 +1008,9 @@ std::vector<Timestamp> DeformationGraph::getStampVertices(char prefix) const {
 }
 
 void DeformationGraph::clear() {
-  pg_initial_poses_.clear();
-  pg_stamps_.clear();
+  trajectories_.clear();
+  control_points_.clear();
   temp_pg_initial_poses_.clear();
-
-  vertex_positions_.clear();
-  vertex_stamps_.clear();
 
   nfg_.resize(0);
   known_inliers_.clear();
@@ -1038,8 +1028,7 @@ void DeformationGraph::clear() {
 }
 
 void DeformationGraph::clearMeshNodesOnly() {
-  vertex_positions_.clear();
-  vertex_stamps_.clear();
+  control_points_.clear();
   adjacency_map_.clear();
 
   // Remove mesh vertices from values_

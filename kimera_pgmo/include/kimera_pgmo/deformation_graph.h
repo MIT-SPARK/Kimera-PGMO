@@ -18,9 +18,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "kimera_pgmo/mesh_deformation.h"
 #include "kimera_pgmo/utils/common_structs.h"
-#include "kimera_pgmo/utils/logging.h"
 
 namespace kimera_pgmo {
 
@@ -32,16 +30,17 @@ struct NodeValenceInfo {
   std::vector<size_t> valence;
 };
 
+struct StampedPose {
+  Timestamp timestamp_ns;
+  gtsam::Pose3 pose;
+};
+
 using NodeValenceInfoList = std::vector<NodeValenceInfo>;
 using EdgeTypeVarianceMap = std::map<pose_graph_tools::PoseGraphEdge::Type, double>;
 
 class DeformationGraph {
  public:
   using Ptr = std::shared_ptr<DeformationGraph>;
-  using VertexStamps = std::map<char, std::vector<Timestamp>>;
-  using VertexPositions = std::map<char, std::vector<gtsam::Point3>>;
-  using RobotPoseMap = std::map<char, std::vector<gtsam::Pose3>>;
-  using RobotTimestampMap = std::map<char, std::vector<Timestamp>>;
   using DeformationCallback = std::function<void(const Eigen::Isometry3d&, size_t)>;
   using NodeMeasurements = std::vector<std::pair<gtsam::Key, gtsam::Pose3>>;
   using MeshEdges = std::vector<std::pair<gtsam::Key, gtsam::Key>>;
@@ -270,7 +269,7 @@ class DeformationGraph {
                     char prefix,
                     size_t k = 4,
                     double tol_t = 10.0,
-                    int start_index_hint = -1);
+                    int start_index = 0) const;
 
   /**
    * Deform vertices based on the deformation graph
@@ -288,23 +287,7 @@ class DeformationGraph {
                     const gtsam::Values& optimized_values,
                     size_t k,
                     double tol_t,
-                    int start_index_hint = -1);
-
-  /*! \brief Deform mesh vertices based on the deformation graph
-   * - vertices: vertices to deform
-   * - original_vertices: undeformed vertices
-   * - prefix: the prefixes of the key of the nodes corresponding to mesh
-   * - k: how many nearby nodes to use to adjust new position of vertices when
-   * interpolating for deformed mesh
-   * - tol_t: largest difference in time such that a control point can be
-   * considered for association
-   */
-  template <typename CloudIn, typename CloudOut>
-  void deformAllPoints(CloudOut& vertices,
-                       const CloudIn& old_vertices,
-                       char prefix,
-                       size_t k = 4,
-                       double tol_t = 10.0) const;
+                    int start_index = 0) const;
 
   /*! \brief Peform custom deformation on a set of points
    * - callback: processing to perform for each point
@@ -319,8 +302,8 @@ class DeformationGraph {
   void customDeformation(const DeformationCallback& callback,
                          const CloudIn& points,
                          char prefix,
-                         size_t k,
-                         double tol_t) const;
+                         size_t k = 4,
+                         double tol_t = 10.0) const;
 
   //! Get the number of loop closures processed by pgo
   size_t getNumLoopclosures() const { return num_loopclosures_; }
@@ -429,9 +412,7 @@ class DeformationGraph {
 
   bool hasPrefixPoses(char prefix) const;
 
-  std::unique_lock<std::mutex> acquireLock() {
-    return std::unique_lock<std::mutex>(mutex_);
-  }
+  std::unique_lock<std::mutex> acquireLock();
 
  protected:
   bool checkNewBetween(const gtsam::Key& key_from, const gtsam::Key& key_to) const;
@@ -482,141 +463,28 @@ class DeformationGraph {
 
  private:
   friend struct DGRFLoader;
+
+  std::mutex mutex_;
   bool add_init_vertex_prior_;
-
-  // Keep track of vertices not part of mesh
-  // for embedding trajectory, etc.
-  RobotPoseMap pg_initial_poses_;
-  RobotTimestampMap pg_stamps_;
-  std::unordered_map<gtsam::Key, gtsam::Pose3> temp_pg_initial_poses_;
-
-  VertexPositions vertex_positions_;
-  VertexStamps vertex_stamps_;
-
-  // factors
-  gtsam::NonlinearFactorGraph nfg_;
-  // known inlier set
-  std::set<size_t> known_inliers_;
-  // current estimate
-  gtsam::Values values_;
-  // gnc weights (from last update)
-  std::vector<double> inlier_weights_;
-
-  // temp factors
-  gtsam::NonlinearFactorGraph temp_nfg_;
-  // known inlier set
-  std::set<size_t> temp_known_inliers_;
-  // current temp estimate
-  gtsam::Values temp_values_;
-  // gnc weights for temp factors (from last update)
-  std::vector<double> temp_inlier_weights_;
-
-  // track adjacency
-  std::map<gtsam::Key, std::set<gtsam::Key>> adjacency_map_;
-
   size_t num_loopclosures_;
 
-  // Mutex
-  std::mutex mutex_;
+  std::map<char, std::vector<StampedPose>> trajectories_;
+  std::map<char, std::vector<StampedPoint>> control_points_;
+  std::unordered_map<gtsam::Key, gtsam::Pose3> temp_pg_initial_poses_;
+
+  gtsam::NonlinearFactorGraph nfg_;
+  std::set<size_t> known_inliers_;
+  gtsam::Values values_;
+  std::vector<double> inlier_weights_;
+
+  gtsam::NonlinearFactorGraph temp_nfg_;
+  std::set<size_t> temp_known_inliers_;
+  gtsam::Values temp_values_;
+  std::vector<double> temp_inlier_weights_;
+
+  std::map<gtsam::Key, std::set<gtsam::Key>> adjacency_map_;
 };
 
-template <typename CloudIn, typename CloudOut>
-void DeformationGraph::deformPoints(CloudOut& vertices,
-                                    const CloudIn& old_vertices,
-                                    char prefix,
-                                    size_t k,
-                                    double tol_t,
-                                    int start_index_hint) {
-  deformPoints(vertices, old_vertices, prefix, values_, k, tol_t, start_index_hint);
-}
-
-template <typename CloudIn, typename CloudOut>
-void DeformationGraph::deformPoints(CloudOut& vertices,
-                                    const CloudIn& old_vertices,
-                                    char prefix,
-                                    const gtsam::Values& optimized_values,
-                                    size_t k,
-                                    double tol_t,
-                                    int start_idx) {
-  // Cannot deform if no nodes in the deformation graph
-  if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
-    SPARK_LOG(DEBUG) << "Graph has no vertices for prefix. No deformation";
-    return;
-  }
-
-  std::vector<size_t> to_deform;
-  if (start_idx != 0) {
-    to_deform.resize(traits::num_vertices(vertices) - start_idx);
-    std::iota(to_deform.begin(), to_deform.end(), start_idx);
-  }
-
-  const std::vector<size_t>* indices_ptr = start_idx == 0 ? nullptr : &to_deform;
-  deformation::deformPoints(vertices,
-                            old_vertices,
-                            prefix,
-                            vertex_positions_.at(prefix),
-                            vertex_stamps_.at(prefix),
-                            optimized_values,
-                            k,
-                            tol_t,
-                            indices_ptr);
-}
-
-template <typename CloudIn>
-void DeformationGraph::customDeformation(const DeformationCallback& callback,
-                                         const CloudIn& points,
-                                         char prefix,
-                                         size_t k,
-                                         double tol_t) const {
-  // Cannot deform if no nodes in the deformation graph
-  if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
-    SPARK_LOG(DEBUG) << "Graph has no vertices for prefix. No deformation";
-    return;
-  }
-
-  deformation::processPoints(
-      [&](const size_t ii,
-          char prefix,
-          const std::vector<gtsam::Point3>& control_points,
-          const gtsam::Values& values,
-          const deformation::SearchTree& octree,
-          size_t k) {
-        const auto transform = interpDeformation(
-            prefix, control_points, values, octree, k, traits::get_vertex(points, ii));
-
-        callback(transform, ii);
-      },
-      points,
-      prefix,
-      vertex_positions_.at(prefix),
-      vertex_stamps_.at(prefix),
-      values_,
-      k,
-      tol_t,
-      nullptr);
-}
-
-template <typename CloudIn, typename CloudOut>
-void DeformationGraph::deformAllPoints(CloudOut& vertices,
-                                       const CloudIn& old_vertices,
-                                       char prefix,
-                                       size_t k,
-                                       double tol_t) const {
-  // Cannot deform if no nodes in the deformation graph
-  if (vertex_positions_.find(prefix) == vertex_positions_.end()) {
-    SPARK_LOG(DEBUG) << "Graph has no vertices for prefix. No deformation";
-    return;
-  }
-
-  deformation::deformPoints(vertices,
-                            old_vertices,
-                            prefix,
-                            vertex_positions_.at(prefix),
-                            vertex_stamps_.at(prefix),
-                            values_,
-                            k,
-                            tol_t,
-                            nullptr);
-}
-
 }  // namespace kimera_pgmo
+
+#include "kimera_pgmo/impl/deformation_graph.h"  // IWYU pragma: keep
