@@ -356,6 +356,52 @@ void DeformationGraph::save(const std::string& filename) const {
   stream.close();
 }
 
+void load_poses(const json& record, Trajectories& trajectories) {
+  if (record.contains("trajectories")) {
+    for (const auto& [key, data] : record.at("trajectories").items()) {
+      const char prefix = key.at(0);
+      auto iter = trajectories.emplace(prefix, std::vector<StampedPose>()).first;
+      data.get_to(iter->second);
+    }
+  } else {
+    for (const auto& [key, data] : record.at("pg_initial_poses").items()) {
+      const char prefix = key.at(0);
+      std::vector<Timestamp> stamps;
+      std::vector<gtsam::Pose3> poses;
+      data.get_to(poses);
+      record.at("pg_stamps").at(key).get_to(stamps);
+
+      auto iter = trajectories.emplace(prefix, std::vector<StampedPose>()).first;
+      for (size_t i = 0; i < poses.size(); ++i) {
+        iter->second.push_back({i < stamps.size() ? stamps[i] : 0, poses[i]});
+      }
+    }
+  }
+}
+
+void load_control_points(const json& record, ControlPoints& points) {
+  if (record.contains("control_points")) {
+    for (const auto& [key, data] : record.at("control_points").items()) {
+      const char prefix = key.at(0);
+      auto iter = points.emplace(prefix, std::vector<StampedPoint>()).first;
+      data.get_to(iter->second);
+    }
+  } else {
+    for (const auto& [key, data] : record.at("vertices").items()) {
+      const char prefix = key.at(0);
+      std::vector<Timestamp> stamps;
+      std::vector<Eigen::Vector3d> pos;
+      data.at("pos").get_to(pos);
+      data.at("stamps").get_to(stamps);
+
+      auto iter = points.emplace(prefix, std::vector<StampedPoint>()).first;
+      for (size_t i = 0; i < pos.size(); ++i) {
+        iter->second.push_back({i < stamps.size() ? stamps[i] : 0, pos[i]});
+      }
+    }
+  }
+}
+
 DeformationGraph::Ptr DeformationGraph::load(const std::filesystem::path& filepath,
                                              bool include_priors,
                                              std::optional<size_t> new_id) {
@@ -379,8 +425,8 @@ DeformationGraph::Ptr DeformationGraph::load(const std::filesystem::path& filepa
   data.at("num_loopclosures").get_to(graph->num_loopclosures_);
 
   // initial values
-  data.at("trajectories").get_to(graph->trajectories_);
-  data.at("control_points").get_to(graph->control_points_);
+  load_poses(data, graph->trajectories_);
+  load_control_points(data, graph->control_points_);
   data.at("temp_pg_initial_poses").get_to(graph->temp_pg_initial_poses_);
 
   // normal factor graph
