@@ -990,10 +990,6 @@ std::unique_lock<std::mutex> DeformationGraph::acquireLock() {
   return std::unique_lock<std::mutex>(mutex_);
 }
 
-Timestamp DeformationGraph::getStampVertex(char prefix, size_t index) const {
-  return control_points_.at(prefix).at(index).timestamp_ns;
-}
-
 std::vector<size_t> DeformationGraph::findClosestMeshIndices(size_t robot_id,
                                                              Timestamp stamp) const {
   std::vector<size_t> indices;

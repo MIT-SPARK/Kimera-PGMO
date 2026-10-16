@@ -245,9 +245,7 @@ class DeformationGraph {
                                bool temp = false,
                                bool known_inlier = false);
 
-  /*! \brief Remove sll prior factors of nodes that have given prefix
-   *  - prefix: prefix of nodes to remove prior
-   */
+  //! Remove all prior factors of nodes that have given prefix
   void removePriorsWithPrefix(char prefix);
 
   /*! \brief Get the optimized estimates for nodes with certain prefix
@@ -348,11 +346,6 @@ class DeformationGraph {
   //! Get the intial position of a vertex
   gtsam::Point3 getInitialPositionVertex(char prefix, size_t index) const;
 
-  bool hasVertexKey(char prefix) const;
-
-  //! Get the observed stamp of a vertex
-  Timestamp getStampVertex(char prefix, size_t index) const;
-
   std::vector<size_t> findClosestMeshIndices(size_t robot_id, Timestamp stamp) const;
 
   //! Clear all (everything)
@@ -385,6 +378,7 @@ class DeformationGraph {
   //! Update the temp inlier weights (e.g. GNC results).
   void updateTempInlierWeights(const std::vector<double>& weights);
 
+  bool hasVertexKey(char prefix) const;
   bool hasPrefixPoses(char prefix) const;
 
   std::unique_lock<std::mutex> acquireLock();
