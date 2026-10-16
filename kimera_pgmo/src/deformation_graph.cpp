@@ -393,7 +393,7 @@ void DeformationGraph::processBetweenAsMeshConnections(const gtsam::Pose3& w_T_s
                                                        bool known_inliers) {
   for (const auto& s : src) {
     const gtsam::Symbol vertex_s(src_prefix, s);
-    auto w_T_s = gtsam::Pose3(gtsam::Rot3(), vertex_positions_[src_prefix].at(s));
+    auto w_T_s = gtsam::Pose3(gtsam::Rot3(), control_points_[src_prefix].at(s).pos);
     auto s_T_source = w_T_s.between(w_T_src);
     for (const auto& d : dst) {
       const gtsam::Symbol vertex_d(dst_prefix, d);
@@ -408,7 +408,7 @@ void DeformationGraph::processBetweenAsMeshConnections(const gtsam::Pose3& w_T_s
         continue;
       }
 
-      auto w_T_d = gtsam::Pose3(gtsam::Rot3(), vertex_positions_[dst_prefix].at(d));
+      auto w_T_d = gtsam::Pose3(gtsam::Rot3(), control_points_[dst_prefix].at(d).pos);
       auto d_T_dest = w_T_d.between(w_T_dst);
       auto s_T_d = s_T_source.compose(src_T_dst).compose(d_T_dest.inverse());
       auto d_T_s = s_T_d.inverse();
@@ -661,19 +661,19 @@ bool DeformationGraph::addNewMeshNode(const gtsam::Key& node_key,
                                       const Timestamp& node_stamp) {
   char node_prefix = gtsam::Symbol(node_key).chr();
   size_t node_idx = gtsam::Symbol(node_key).index();
-  if (!vertex_positions_.count(node_prefix)) {
-    vertex_positions_[node_prefix] = std::vector<gtsam::Point3>();
-    vertex_stamps_[node_prefix] = std::vector<Timestamp>();
+  auto iter = control_points_.find(node_prefix);
+  if (iter == control_points_.end()) {
+    iter = control_points_.emplace(node_prefix, std::vector<StampedPoint>{}).first;
   }
 
-  if (node_idx != vertex_positions_.at(node_prefix).size()) {
+  auto& points = iter->second;
+  if (node_idx != points.size()) {
     return false;
   }
 
-  vertex_positions_[node_prefix].push_back(node_pose.translation());
-  vertex_stamps_[node_prefix].push_back(node_stamp);
-  // TODO(Yun) temporary hack, check if this assumption always valid even with poses
+  points.push_back({node_stamp, node_pose.translation()});
   if (add_init_vertex_prior_ && values_.size() == 0) {
+    // TODO(Yun) temporary hack, check if this assumption always valid even with poses
     addPrior(node_key, node_pose, 1e-3, false, true);
   }
 
@@ -684,30 +684,30 @@ bool DeformationGraph::addNewMeshNode(const gtsam::Key& node_key,
 bool DeformationGraph::checkNewMeshNode(const gtsam::Key& node_key) const {
   char node_prefix = gtsam::Symbol(node_key).chr();
   size_t node_idx = gtsam::Symbol(node_key).index();
-  if (!vertex_positions_.count(node_prefix)) {
-    if (node_idx == 0) {
-      return true;
-    }
-
-    return false;
+  auto iter = control_points_.find(node_prefix);
+  if (iter == control_points_.end()) {
+    // initial node won't have created control points for prefix
+    return node_idx == 0;
   }
 
   // The check here returns true even for duplicated (added) nodes
   // Only return false if there is a likely message drop
-  return node_idx <= vertex_positions_.at(node_prefix).size();
+  return node_idx <= iter->second.size();
 }
 
 bool DeformationGraph::checkNewMeshEdge(const gtsam::Key& from,
                                         const gtsam::Key& to) const {
   const gtsam::Symbol from_symb(from);
   const gtsam::Symbol to_symb(to);
-  if (from_symb.index() >= vertex_positions_.at(from_symb.chr()).size() ||
-      to_symb.index() >= vertex_positions_.at(to_symb.chr()).size()) {
+  if (from_symb.index() >= control_points_.at(from_symb.chr()).size() ||
+      to_symb.index() >= control_points_.at(to_symb.chr()).size()) {
     return false;
   }
+
   if (!values_.exists(from) || !values_.exists(to)) {
     return false;
   }
+
   return true;
 }
 
@@ -978,15 +978,6 @@ gtsam::Point3 DeformationGraph::getInitialPositionVertex(char prefix,
   return control_points_.at(prefix).at(index).pos;
 }
 
-std::vector<gtsam::Point3> DeformationGraph::getInitialPositionsVertices(
-    char prefix) const {
-  return vertex_positions_.at(prefix);
-}
-
-std::vector<Timestamp> DeformationGraph::getVertexStamps(char prefix) const {
-  return vertex_stamps_.at(prefix);
-}
-
 bool DeformationGraph::hasVertexKey(char prefix) const {
   return control_points_.count(prefix);
 }
@@ -1003,8 +994,44 @@ Timestamp DeformationGraph::getStampVertex(char prefix, size_t index) const {
   return control_points_.at(prefix).at(index).timestamp_ns;
 }
 
-std::vector<Timestamp> DeformationGraph::getStampVertices(char prefix) const {
-  return vertex_stamps_.at(prefix);
+std::vector<size_t> DeformationGraph::findClosestMeshIndices(size_t robot_id,
+                                                             Timestamp stamp) const {
+  std::vector<size_t> indices;
+  const auto prefix = GetVertexPrefix(robot_id);
+  auto iter = control_points_.find(prefix);
+  if (iter == control_points_.end() || iter->second.empty()) {
+    return indices;
+  }
+
+  // TODO(Yun): Implicit assumption here that the mesh stamps are ordered (normally are
+  // since that's how processIncrementalMeshGraph works) but might need to account for
+  // out-of-order timestamps
+  const auto& points = iter->second;
+  auto lower = std::lower_bound(
+      points.begin(), points.end(), stamp, [](const auto& lhs, const auto& rhs) {
+        return lhs.timestamp_ns < rhs;
+      });
+  size_t idx = std::distance(points.begin(), lower);
+
+  Timestamp closest;
+  if (idx == 0) {
+    closest = points.front().timestamp_ns;
+  } else if (idx == points.size()) {
+    closest = points.back().timestamp_ns;
+  } else {
+    const auto prev = points[idx - 1].timestamp_ns;
+    const auto curr = points[idx].timestamp_ns;
+    closest = (stamp - prev <= curr - stamp) ? prev : curr;
+  }
+
+  // Collect other indices with same value
+  for (size_t i = 0; i < points.size(); i++) {
+    if (points[i].timestamp_ns == closest) {
+      indices.push_back(i);
+    }
+  }
+
+  return indices;
 }
 
 void DeformationGraph::clear() {

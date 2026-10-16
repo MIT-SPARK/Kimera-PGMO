@@ -30,11 +30,12 @@ DeformationGraph::Ptr DGRFLoader::load(const std::filesystem::path& filename) {
         graph->values_.insert(gtsam_key, pose);
         // TODO this is different from the initial pose before save
         char node_prefix = gtsam_key.chr();
-        if (graph->pg_initial_poses_.count(node_prefix) == 0) {
-          graph->pg_initial_poses_[node_prefix] = std::vector<gtsam::Pose3>();
+        auto iter = graph->trajectories_.find(node_prefix);
+        if (iter == graph->trajectories_.end()) {
+          iter = graph->trajectories_.emplace(node_prefix, std::vector<StampedPose>{}).first;
         }
-        // Implicit assumption that node is in order
-        graph->pg_initial_poses_[node_prefix].push_back(pose);
+
+        iter->second.push_back({0, pose});
       } else {
         graph->temp_values_.insert(gtsam_key, pose);
         graph->temp_pg_initial_poses_[gtsam_key] = pose;
@@ -122,14 +123,12 @@ DeformationGraph::Ptr DGRFLoader::load(const std::filesystem::path& filename) {
       ss >> key >> n_sec >> x >> y >> z;
       gtsam::Symbol vertex_symb(key);
       char vertex_prefix = vertex_symb.chr();
-      size_t vertex_index = vertex_symb.index();
-      if (vertex_index == 0) {
-        graph->vertex_positions_[vertex_prefix] = std::vector<gtsam::Point3>{};
-        graph->vertex_stamps_[vertex_prefix] = std::vector<Timestamp>{};
+      auto iter = graph->control_points_.find(vertex_prefix);
+      if (iter == graph->control_points_.end()) {
+        iter = graph->control_points_.emplace(vertex_prefix, std::vector<StampedPoint>()).first;
       }
 
-      graph->vertex_positions_[vertex_prefix].push_back(gtsam::Point3(x, y, z));
-      graph->vertex_stamps_[vertex_prefix].push_back(n_sec);
+      iter->second.push_back({n_sec, Eigen::Vector3d(x, y, z)});
     } else {
       std::invalid_argument("DeformationGraph load: unknown tag. ");
     }

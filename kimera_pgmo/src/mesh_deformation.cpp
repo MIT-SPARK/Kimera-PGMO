@@ -95,8 +95,9 @@ Eigen::Isometry3d interpDeformation(char prefix,
 
     const auto local_tf = values.at<gtsam::Pose3>(gtsam::Symbol(prefix, nn_index[j]));
     const auto local_rot = local_tf.rotation();
+    const auto v_j = control_points.at(nn_index[j]).pos;
     q += w * local_rot.toQuaternion().coeffs();
-    t += w * (local_tf.translation() - local_rot * control_points.at(nn_index[j]).pos);
+    t += w * (local_tf.translation() - local_rot * v_j);
   }
 
   q /= weight_sum;

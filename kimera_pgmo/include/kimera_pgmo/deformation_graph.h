@@ -271,24 +271,6 @@ class DeformationGraph {
                     double tol_t = 10.0,
                     int start_index = 0) const;
 
-  /**
-   * Deform vertices based on the deformation graph
-   * @param vertices Vertices to deform
-   * @param old_vertices Undeformed vertices
-   * @param prefix The prefixes of the key of the nodes corresponding to mesh
-   * @param optimized_values Values of the optimized control points
-   * @param k Number of control points to use for deformation
-   * @param tol_t Largest time difference to control point for association
-   */
-  template <typename CloudIn, typename CloudOut>
-  void deformPoints(CloudOut& vertices,
-                    const CloudIn& old_vertices,
-                    char prefix,
-                    const gtsam::Values& optimized_values,
-                    size_t k,
-                    double tol_t,
-                    int start_index = 0) const;
-
   /*! \brief Peform custom deformation on a set of points
    * - callback: processing to perform for each point
    * - original_vertices: undeformed vertices
@@ -366,19 +348,12 @@ class DeformationGraph {
   //! Get the intial position of a vertex
   gtsam::Point3 getInitialPositionVertex(char prefix, size_t index) const;
 
-  //! Get the intial positions of the vertices corresponding to prefix
-  std::vector<gtsam::Point3> getInitialPositionsVertices(char prefix) const;
-
-  //! Get the timestamps of the vertices corresponding to prefix
-  std::vector<Timestamp> getVertexStamps(char prefix) const;
-
   bool hasVertexKey(char prefix) const;
 
   //! Get the observed stamp of a vertex
   Timestamp getStampVertex(char prefix, size_t index) const;
 
-  //! Get the observed stamps of the vertices corresponding to prefix
-  std::vector<Timestamp> getStampVertices(char prefix) const;
+  std::vector<size_t> findClosestMeshIndices(size_t robot_id, Timestamp stamp) const;
 
   //! Clear all (everything)
   void clear();

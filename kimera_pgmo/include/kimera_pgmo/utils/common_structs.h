@@ -15,7 +15,7 @@ double stampToSec(Timestamp stamp);
 
 struct StampedPoint {
   Timestamp timestamp_ns;
-  Eigen::Vector3f pos;
+  Eigen::Vector3d pos;
 };
 
 }  // namespace kimera_pgmo
