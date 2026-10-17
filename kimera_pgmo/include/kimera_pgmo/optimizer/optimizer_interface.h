@@ -1,30 +1,22 @@
 #pragma once
 
-#include <gtsam/nonlinear/NonlinearFactorGraph.h>
-#include <gtsam/nonlinear/Values.h>
-
+#include <memory>
 #include <string>
+
+#include "kimera_pgmo/optimization_types.h"
 namespace kimera_pgmo {
 class Optimizer {
  public:
   using Ptr = std::unique_ptr<Optimizer>;
-  using Factors = gtsam::NonlinearFactorGraph;
-  using Values = gtsam::Values;
-  using Vector = gtsam::Vector;
 
   virtual ~Optimizer() = default;
 
-  virtual void update(const Factors& factors,
-                      const Values& initial,
-                      const std::set<size_t>& known_inliers,
-                      const Factors& temp_factors,
-                      const Values& temp_initial,
-                      const std::set<size_t>& temp_known_inliers) = 0;
-
-  virtual const Values& getEstimates() const = 0;
-  virtual const Values& getTempEstimates() const = 0;
-  virtual const std::vector<double>& getInlierWeights() const = 0;
-  virtual const std::vector<double>& getTempInlierWeights() const = 0;
+  // Calls on one optimizer instance must be externally serialized.
+  // Extras may reference base keys, but initial value keys must be disjoint.
+  // Callers supply compatible factor/value types; no representation conversion
+  // occurs here. Results preserve those types and the input factor ordering.
+  virtual OptimizationResult update(const OptimizationProblem& problem,
+                                    const OptimizationProblem& extras = {}) = 0;
 
   virtual void setLogPath(const std::string& log_path) { log_path_ = log_path; }
 

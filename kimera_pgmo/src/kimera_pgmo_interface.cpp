@@ -13,6 +13,7 @@
 #include <chrono>
 #include <cmath>
 
+#include "kimera_pgmo/deformation_graph_4dof.h"
 #include "kimera_pgmo/utils/common_functions.h"
 #include "kimera_pgmo/utils/mesh_io.h"
 
@@ -55,6 +56,7 @@ void declare_config(KimeraPgmoConfig& config) {
   }
 
   field(config.optimizer, "optimizer");
+  field(config.use_4dof_optim, "use_4dof_optim");
 
   check(config.num_interp_pts, GT, 1, "num_interp_pts");
   check(config.interp_horizon, GT, 0.0, "interp_horizon");
@@ -194,6 +196,7 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
                            << " in odometry edge.";
           return ProcessPoseGraphStatus::MISSING;
         }
+
         SPARK_LOG(WARNING) << "Duplicated edge";
         continue;
       }
@@ -252,6 +255,7 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
           SPARK_LOG(WARNING)
               << "Failed to add mesh-to-mesh connections for loop closure.";
         }
+
         // TODO(nathan) force loop closure for mesh
         // deformation_graph_->setRecalculateVertices();
       }
@@ -272,6 +276,7 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
       if (stamped_nodes.size() > 0 && new_mesh_indices.size() > 0) {
         SPARK_LOG(WARNING) << "KimeraPgmo: Partial mesh not connected to pose graph.";
       }
+
       return ProcessPoseGraphStatus::MESH_DISCONNECTED;
     }
   } else {
@@ -348,7 +353,6 @@ bool KimeraPgmoInterface::addMeshMeshConnections(
           GetVertexPrefix(prev_robot_id),
           GetVertexPrefix(curr_robot_id),
           config_.mesh_edge_variance,
-          false,  // Not temp
           as_inliers);
     }
 
@@ -359,6 +363,7 @@ bool KimeraPgmoInterface::addMeshMeshConnections(
     prev_valences = std::move(curr_valences);
     measurement_idx++;
   }
+
   return connection;
 }
 
@@ -434,43 +439,37 @@ void KimeraPgmoInterface::processOptimizedPath(const std::vector<gtsam::Pose3>& 
   deformation_graph_->processNodeMeasurements(node_estimates, config_.prior_variance);
 }
 
-OptimizeStats KimeraPgmoInterface::optimize() {
-  gtsam::Values init, temp_init;
-  std::set<size_t> inliers, temp_inliers;
-  gtsam::NonlinearFactorGraph factors, temp_factors;
+OptimizeStats KimeraPgmoInterface::optimize(const OptimizationProblem& extras,
+                                            OptimizationResult* output) {
+  OptimizationProblem problem;
   {
     auto lock = deformation_graph_->acquireLock();
     optimizeStartup();
-    factors = deformation_graph_->getFactorsCopy();
-    init = deformation_graph_->getValuesCopy();
-    temp_factors = deformation_graph_->getTempFactorsCopy();
-    temp_init = deformation_graph_->getTempValuesCopy();
-    inliers = deformation_graph_->getKnownInlierSetCopy();
-    temp_inliers = deformation_graph_->getTempKnownInlierSetCopy();
+    problem = deformation_graph_->getOptimizationProblem(config_.use_4dof_optim);
   }
 
   const auto start = std::chrono::system_clock::now();
-  pgo_->update(factors, init, inliers, temp_factors, temp_init, temp_inliers);
+  auto result = pgo_->update(problem, extras);
   const auto end = std::chrono::system_clock::now();
-
-  auto estimates = pgo_->getEstimates();
-  auto temp_estimates = pgo_->getTempEstimates();
-  auto inlier_weights = pgo_->getInlierWeights();
-  auto temp_inlier_weights = pgo_->getTempInlierWeights();
+  const auto& factors = problem.factors;
+  const auto& estimates = result.estimates;
+  const auto& inlier_weights = result.weights;
 
   OptimizeStats stats;
-  stats.total_factors = factors.size() + temp_factors.size();
-  stats.total_values = estimates.size() + temp_estimates.size();
+  stats.total_factors = factors.size() + extras.factors.size();
+  stats.total_values = estimates.size() + result.extra_estimates.size();
 
   for (size_t factor_idx = 0; factor_idx < factors.size(); ++factor_idx) {
     const auto& factor = factors[factor_idx];
     const auto derived = dynamic_cast<const BetweenFactorT*>(factor.get());
-    if (!derived) {
+    const auto derived_4dof =
+        dynamic_cast<const gtsam::BetweenFactor<gtsam::Pose4DoF>*>(factor.get());
+    if (!derived && !derived_4dof) {
       continue;
     }
 
-    const gtsam::Symbol k1(derived->keys().front());
-    const gtsam::Symbol k2(derived->keys().back());
+    const gtsam::Symbol k1(factor->keys().front());
+    const gtsam::Symbol k2(factor->keys().back());
     const int64_t k1_index = k1.index();
     const int64_t k2_index = k2.index();
     if (std::abs(k1_index - k2_index) <= 1) {
@@ -496,11 +495,12 @@ OptimizeStats KimeraPgmoInterface::optimize() {
 
   {
     auto lock = deformation_graph_->acquireLock();
-    deformation_graph_->updateValues(estimates);
-    deformation_graph_->updateTempValues(temp_estimates);
-    deformation_graph_->updateInlierWeights(inlier_weights);
-    deformation_graph_->updateTempInlierWeights(temp_inlier_weights);
-    optimizeCleanup(estimates);
+    deformation_graph_->updateOptimizationResult(result);
+    optimizeCleanup(convertPose4DoFToPose3(estimates));
+  }
+
+  if (output) {
+    *output = std::move(result);
   }
 
   return stats;

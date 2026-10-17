@@ -332,21 +332,12 @@ void DeformationGraph::save(const std::string& filename) const {
     root["control_points"][std::string(1, prefix)] = points;
   }
 
-  root["temp_pg_initial_poses"] = temp_pg_initial_poses_;
-
   root["factors"] = json::array();
   save_factor_graph(root["factors"], nfg_);
   root["values"] = json::array();
   save_values(root["values"], values_);
   root["known_inliers"] = known_inliers_;
   root["inlier_weights"] = inlier_weights_;
-
-  root["temp_factors"] = json::array();
-  save_factor_graph(root["temp_factors"], temp_nfg_);
-  root["temp_values"] = json::array();
-  save_values(root["temp_values"], temp_values_);
-  root["temp_known_inliers"] = temp_known_inliers_;
-  root["temp_inlier_weights"] = temp_inlier_weights_;
 
   root["adjacency"] = adjacency_map_;
 
@@ -429,28 +420,29 @@ DeformationGraph::Ptr DeformationGraph::load(const std::filesystem::path& filepa
   // initial values
   load_poses(data, graph->trajectories_);
   load_control_points(data, graph->control_points_);
-  data.at("temp_pg_initial_poses").get_to(graph->temp_pg_initial_poses_);
 
   // normal factor graph
-  data.at("known_inliers").get_to(graph->known_inliers_);
-  data.at("inlier_weights").get_to(graph->inlier_weights_);
+  const auto inliers = data.at("known_inliers").get<std::set<size_t>>();
+  const auto weights = data.at("inlier_weights").get<std::vector<double>>();
   for (const auto& record : data.at("values")) {
     add_value(record, graph->values_, new_id);
   }
 
-  for (const auto& factor : data.at("factors")) {
-    add_factor(factor, graph->nfg_, new_id, include_priors);
-  }
+  const auto& factors = data.at("factors");
+  for (size_t i = 0; i < factors.size(); ++i) {
+    const auto index = graph->nfg_.size();
+    add_factor(factors.at(i), graph->nfg_, new_id, include_priors);
+    if (graph->nfg_.size() == index) {
+      continue;
+    }
 
-  // temp factor graph
-  data.at("temp_inlier_weights").get_to(graph->temp_inlier_weights_);
-  data.at("temp_known_inliers").get_to(graph->temp_known_inliers_);
-  for (const auto& record : data.at("temp_values")) {
-    add_value(record, graph->temp_values_, new_id);
-  }
+    if (inliers.count(i)) {
+      graph->known_inliers_.insert(index);
+    }
 
-  for (const auto& factor : data.at("temp_factors")) {
-    add_factor(factor, graph->temp_nfg_, new_id, include_priors);
+    if (i < weights.size()) {
+      graph->inlier_weights_.push_back(weights[i]);
+    }
   }
 
   // factor tracking

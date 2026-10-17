@@ -65,6 +65,7 @@ struct KimeraPgmoConfig {
   int num_interp_pts = 3;
   double interp_horizon = 5.0;
   bool b_add_initial_prior = true;
+  bool use_4dof_optim = false;
   // covariances
   double odom_variance = -1.0;
   double lc_variance = -1.0;
@@ -132,7 +133,8 @@ class KimeraPgmoInterface {
 
   void processOptimizedPath(const std::vector<gtsam::Pose3>& path, size_t robot_id = 0);
 
-  OptimizeStats optimize();
+  OptimizeStats optimize(const OptimizationProblem& extras = {},
+                         OptimizationResult* output = nullptr);
 
   virtual void optimizeStartup();
 

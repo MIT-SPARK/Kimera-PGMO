@@ -20,7 +20,11 @@ DeformationGraph::Ptr DGRFLoader::load(const std::filesystem::path& filename) {
     std::stringstream ss(line);
     std::string tag;
     ss >> tag;
-    if (tag == "NODE" || tag == "NODE_TEMP") {
+    if (tag.find("TEMP") != std::string::npos) {
+      continue;
+    }
+
+    if (tag == "NODE") {
       size_t key;
       double x, y, z, qx, qy, qz, qw;
       ss >> key >> x >> y >> z >> qx >> qy >> qz >> qw;
@@ -37,11 +41,8 @@ DeformationGraph::Ptr DGRFLoader::load(const std::filesystem::path& filename) {
         }
 
         iter->second.push_back({0, pose});
-      } else {
-        graph->temp_values_.insert(gtsam_key, pose);
-        graph->temp_pg_initial_poses_[gtsam_key] = pose;
       }
-    } else if (tag == "BETWEEN" || tag == "BETWEEN_TEMP") {
+    } else if (tag == "BETWEEN") {
       size_t key1, key2;
       double x, y, z, qx, qy, qz, qw;
       gtsam::Matrix6 m;
@@ -54,6 +55,7 @@ DeformationGraph::Ptr DGRFLoader::load(const std::filesystem::path& filename) {
           m(j, i) = e_ij;
         }
       }
+
       gtsam::Symbol gtsam_key1(key1);
       gtsam::Symbol gtsam_key2(key2);
       gtsam::Pose3 meas(gtsam::Rot3(qw, qx, qy, qz), gtsam::Point3(x, y, z));
@@ -61,11 +63,8 @@ DeformationGraph::Ptr DGRFLoader::load(const std::filesystem::path& filename) {
       if (tag == "BETWEEN") {
         graph->nfg_.add(
             gtsam::BetweenFactor<gtsam::Pose3>(gtsam_key1, gtsam_key2, meas, noise));
-      } else {
-        graph->temp_nfg_.add(
-            gtsam::BetweenFactor<gtsam::Pose3>(gtsam_key1, gtsam_key2, meas, noise));
       }
-    } else if (tag == "DEDGE" || tag == "DEDGE_TEMP") {
+    } else if (tag == "DEDGE") {
       size_t key1, key2;
       double x, y, z;
       gtsam::Matrix3 m;
@@ -78,15 +77,13 @@ DeformationGraph::Ptr DGRFLoader::load(const std::filesystem::path& filename) {
           m(j, i) = e_ij;
         }
       }
+
       gtsam::Symbol gtsam_key1(key1);
       gtsam::Symbol gtsam_key2(key2);
       gtsam::Point3 measurement(x, y, z);
       gtsam::SharedNoiseModel noise = gtsam::noiseModel::Gaussian::Information(m);
       if (tag == "DEDGE") {
         graph->nfg_.add(
-            DeformationEdgeFactor(gtsam_key1, gtsam_key2, measurement, noise));
-      } else {
-        graph->temp_nfg_.add(
             DeformationEdgeFactor(gtsam_key1, gtsam_key2, measurement, noise));
       }
     } else if (tag == "PRIOR") {
@@ -111,11 +108,6 @@ DeformationGraph::Ptr DGRFLoader::load(const std::filesystem::path& filename) {
       size_t idx;
       while (ss >> idx) {
         graph->known_inliers_.insert(idx);
-      }
-    } else if (tag == "TEMP_KNOWN_INLIERS") {
-      size_t idx;
-      while (ss >> idx) {
-        graph->temp_known_inliers_.insert(idx);
       }
     } else if (tag == "VERTEX") {
       size_t key;

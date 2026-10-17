@@ -10,6 +10,7 @@ namespace kimera_pgmo {
 
 struct OfflineDeformationConfig {
   std::string dgrf_file;
+  bool use_4dof_optim = false;
   std::string log_path;
   // optimizer
   config::VirtualConfig<Optimizer> optimizer{KimeraRpgoOptimizer::Config()};
@@ -21,6 +22,7 @@ void declare_config(OfflineDeformationConfig& config) {
   field(config.dgrf_file, "dgrf_file");
   field(config.log_path, "log_path");
   field(config.optimizer, "optimizer");
+  field(config.use_4dof_optim, "use_4dof_optim");
 }
 
 class OfflineDeformation {
@@ -36,20 +38,9 @@ class OfflineDeformation {
   }
 
   void run() {
-    pgo_->update(deformation_graph_->getFactorsCopy(),
-                 deformation_graph_->getValuesCopy(),
-                 deformation_graph_->getKnownInlierSetCopy(),
-                 deformation_graph_->getTempFactorsCopy(),
-                 deformation_graph_->getTempValuesCopy(),
-                 deformation_graph_->getTempKnownInlierSetCopy());
-    auto estimates = pgo_->getEstimates();
-    auto temp_estimates = pgo_->getTempEstimates();
-    auto inlier_weights = pgo_->getInlierWeights();
-    auto temp_inlier_weights = pgo_->getTempInlierWeights();
-    deformation_graph_->updateValues(estimates);
-    deformation_graph_->updateTempValues(temp_estimates);
-    deformation_graph_->updateInlierWeights(inlier_weights);
-    deformation_graph_->updateTempInlierWeights(temp_inlier_weights);
+    const auto result = pgo_->update(
+        deformation_graph_->getOptimizationProblem(config_.use_4dof_optim));
+    deformation_graph_->updateOptimizationResult(result);
     if (!config_.log_path.empty()) {
       deformation_graph_->save(config_.log_path);
       std::cout << "Saved deformation optimization result to " << config_.log_path
