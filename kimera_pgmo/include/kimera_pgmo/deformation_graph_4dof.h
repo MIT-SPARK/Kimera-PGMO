@@ -295,6 +295,7 @@ inline std::pair<gtsam::NonlinearFactorGraph, gtsam::Values> convertGraphToPose4
         const auto& pose_4dof = gtsam::Pose4DoF(pose3_prior->prior());
         new_graph.add(gtsam::PriorFactor<gtsam::Pose4DoF>(prior_key, pose_4dof, noise));
       }
+
       continue;
     }
 
@@ -322,6 +323,7 @@ inline std::pair<gtsam::NonlinearFactorGraph, gtsam::Values> convertGraphToPose4
           key1, key2, pose_from_4dof.between(pose_to_4dof), noise));
       continue;
     }
+
     bool is_key1_in_vertex_prefix = prefixExistsInMap(robot_id_to_vertex_prefix, key1);
     bool is_key2_in_vertex_prefix = prefixExistsInMap(robot_id_to_vertex_prefix, key2);
 
@@ -348,6 +350,7 @@ inline std::pair<gtsam::NonlinearFactorGraph, gtsam::Values> convertGraphToPose4
                                               deformation_factor->measurement(),
                                               deformation_factor->noiseModel()));
       }
+
       continue;
     }
 
@@ -395,6 +398,7 @@ inline std::pair<gtsam::NonlinearFactorGraph, gtsam::Values> convertGraphToPose4
                        << "original_nfg.size() = " << original_nfg.size()
                        << ", new_graph.size() = " << new_graph.size();
   }
+
   return {new_graph, new_values};
 };
 
@@ -404,25 +408,18 @@ inline std::pair<gtsam::NonlinearFactorGraph, gtsam::Values> convertGraphToPose4
  *  \return the converted values in full 6 DoF pose representation
  */
 inline gtsam::Values convertPose4DoFToPose3(const gtsam::Values& values) {
-  gtsam::Values new_values;
-
-  for (const auto& key_value : values) {
-    const gtsam::Key key = key_value.key;
-    bool is_in_vertex_prefix = prefixExistsInMap(robot_id_to_vertex_prefix, key);
-
-    // NOTE(hlim): Currently, assume that we convert
-    // deformation vertices are gtsam::Pose3,
-    // and others (including place and agent nodes) are gtsam::Pose4DoF
-    if (is_in_vertex_prefix) {
-      new_values.insert(key, values.at<gtsam::Pose3>(key));
+  gtsam::Values result;
+  for (const auto& [key, value] : values) {
+    const auto pose = dynamic_cast<const gtsam::GenericValue<gtsam::Pose4DoF>*>(&value);
+    if (pose) {
+      const auto& pose_4dof = pose->value();
+      result.insert(key, gtsam::Pose3(pose_4dof.rotation(), pose_4dof.translation()));
     } else {
-      const gtsam::Pose4DoF& updated_pose = values.at<gtsam::Pose4DoF>(key);
-      gtsam::Pose3 pose3(updated_pose.rotation(), updated_pose.translation());
-      new_values.insert(key, pose3);
+      result.insert(key, value);
     }
   }
 
-  return new_values;
-};
+  return result;
+}
 
 }  // namespace kimera_pgmo
