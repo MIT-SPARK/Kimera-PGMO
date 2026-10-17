@@ -126,7 +126,7 @@ std::vector<traits::Vertex> deformVertices(const DeformationGraph& graph,
                                            size_t k = 4,
                                            double tol_t = 10.0) {
   std::vector<traits::Vertex> new_points = original;
-  graph.deformAllPoints(new_points, original, prefix, k, tol_t);
+  graph.deformPoints(new_points, original, prefix, k, tol_t, 0);
   return new_points;
 }
 

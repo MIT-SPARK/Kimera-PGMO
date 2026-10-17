@@ -102,6 +102,27 @@ void from_json(const json& record, Pose3& pose) {
 }  // namespace gtsam
 
 namespace kimera_pgmo {
+
+void to_json(json& record, const StampedPose& pose) {
+  record["pose"] = pose.pose;
+  record["timestamp_ns"] = pose.timestamp_ns;
+}
+
+void from_json(const json& record, StampedPose& pose) {
+  record.at("pose").get_to(pose.pose);
+  record.at("timestamp_ns").get_to(pose.timestamp_ns);
+}
+
+void to_json(json& record, const StampedPoint& point) {
+  record["pos"] = point.pos;
+  record["timestamp_ns"] = point.timestamp_ns;
+}
+
+void from_json(const json& record, StampedPoint& point) {
+  record.at("pos").get_to(point.pos);
+  record.at("timestamp_ns").get_to(point.timestamp_ns);
+}
+
 namespace {
 
 template <typename T, typename Ptr>
@@ -131,6 +152,8 @@ gtsam::Key get_mapped_key(const json& record,
 }
 
 using AdjacencyMap = std::map<gtsam::Key, std::set<gtsam::Key>>;
+using Trajectories = std::map<char, std::vector<StampedPose>>;
+using ControlPoints = std::map<char, std::vector<StampedPoint>>;
 
 AdjacencyMap rekeyAdjacency(const AdjacencyMap& original, size_t robot_id) {
   std::map<gtsam::Key, std::set<gtsam::Key>> adjacency;
@@ -146,24 +169,22 @@ AdjacencyMap rekeyAdjacency(const AdjacencyMap& original, size_t robot_id) {
   return adjacency;
 }
 
-DeformationGraph::RobotPoseMap rekeyInitialPoses(
-    const DeformationGraph::RobotPoseMap& original, size_t robot_id) {
-  DeformationGraph::RobotPoseMap pose_map;
-  for (const auto& [prefix, poses] : original) {
-    pose_map[kimera_pgmo::robot_id_to_prefix.at(robot_id)] = poses;
+ControlPoints rekeyControlPoints(const ControlPoints& original, size_t robot_id) {
+  ControlPoints updated;
+  for (const auto& [prefix, points] : original) {
+    updated[kimera_pgmo::robot_id_to_vertex_prefix.at(robot_id)] = points;
   }
 
-  return pose_map;
+  return updated;
 }
 
-DeformationGraph::RobotTimestampMap rekeyStamps(
-    const DeformationGraph::RobotTimestampMap& original, size_t robot_id) {
-  DeformationGraph::RobotTimestampMap stamp_map;
-  for (const auto& [prefix, stamps] : original) {
-    stamp_map[kimera_pgmo::robot_id_to_prefix.at(robot_id)] = stamps;
+Trajectories rekeyInitialPoses(const Trajectories& original, size_t robot_id) {
+  Trajectories updated;
+  for (const auto& [prefix, trajectory] : original) {
+    updated[kimera_pgmo::robot_id_to_prefix.at(robot_id)] = trajectory;
   }
 
-  return stamp_map;
+  return updated;
 }
 
 }  // namespace
@@ -233,6 +254,14 @@ void save_factor_graph(json& graph_record, const gtsam::NonlinearFactorGraph& gr
   }
 }
 
+void save_values(json& value_record, const gtsam::Values& values) {
+  for (const auto& [key, value] : values) {
+    auto& record = value_record.emplace_back();
+    record["key"] = key;
+    record["value"] = value.cast<gtsam::Pose3>();
+  }
+}
+
 gtsam::SharedNoiseModel load_noise(const json& factor) {
   const auto info = factor.at("information").get<Eigen::MatrixXd>();
   return gtsam::noiseModel::Gaussian::Information(info);
@@ -292,48 +321,87 @@ void DeformationGraph::save(const std::string& filename) const {
   json root;
   root["add_init_vertex_prior"] = add_init_vertex_prior_;
   root["num_loopclosures"] = num_loopclosures_;
-  root["adjacency"] = adjacency_map_;
 
-  root["pg_stamps"] = pg_stamps_;
-  root["pg_initial_poses"] = pg_initial_poses_;
+  root["trajectories"] = json::object();
+  for (const auto& [prefix, trajectory] : trajectories_) {
+    root["trajectories"][std::string(1, prefix)] = trajectory;
+  }
+
+  root["control_points"] = json::object();
+  for (const auto& [prefix, points] : control_points_) {
+    root["control_points"][std::string(1, prefix)] = points;
+  }
+
   root["temp_pg_initial_poses"] = temp_pg_initial_poses_;
-
-  // save the initial positions and timestamps of the mesh vertices
-  root["vertices"] = json::object();
-  for (const auto& [prefix, vertices] : vertex_positions_) {
-    auto& record = root["vertices"][std::string(1, prefix)];
-    record["pos"] = vertices;
-    record["stamps"] = vertex_stamps_.at(prefix);
-  }
-
-  root["values"] = json::array();
-  for (const auto& [key, value] : values_) {
-    auto& record = root["values"].emplace_back();
-    record["key"] = key;
-    record["value"] = value.cast<gtsam::Pose3>();
-  }
 
   root["factors"] = json::array();
   save_factor_graph(root["factors"], nfg_);
+  root["values"] = json::array();
+  save_values(root["values"], values_);
   root["known_inliers"] = known_inliers_;
   root["inlier_weights"] = inlier_weights_;
 
-  root["temp_values"] = json::array();
-  for (const auto& [key, value] : temp_values_) {
-    auto& record = root["temp_values"].emplace_back();
-    record["key"] = key;
-    record["value"] = value.cast<gtsam::Pose3>();
-  }
-
   root["temp_factors"] = json::array();
   save_factor_graph(root["temp_factors"], temp_nfg_);
+  root["temp_values"] = json::array();
+  save_values(root["temp_values"], temp_values_);
   root["temp_known_inliers"] = temp_known_inliers_;
   root["temp_inlier_weights"] = temp_inlier_weights_;
+
+  root["adjacency"] = adjacency_map_;
 
   std::ofstream stream;
   stream.open(filename);
   stream << root << std::endl;
   stream.close();
+}
+
+void load_poses(const json& record, Trajectories& trajectories) {
+  if (record.contains("trajectories")) {
+    for (const auto& [key, data] : record.at("trajectories").items()) {
+      const char prefix = key.at(0);
+      auto iter = trajectories.emplace(prefix, std::vector<StampedPose>()).first;
+      data.get_to(iter->second);
+    }
+  } else {
+    std::map<char, std::vector<Timestamp>> stamp_map;
+    std::map<char, std::vector<gtsam::Pose3>> pose_map;
+    record.at("pg_stamps").get_to(stamp_map);
+    record.at("pg_initial_poses").get_to(pose_map);
+    for (const auto& [key, poses] : pose_map) {
+      std::vector<Timestamp> curr_stamps;
+      if (stamp_map.count(key)) {
+        curr_stamps = stamp_map.at(key);
+      }
+
+      auto iter = trajectories.emplace(key, std::vector<StampedPose>()).first;
+      for (size_t i = 0; i < poses.size(); ++i) {
+        iter->second.push_back({i < curr_stamps.size() ? curr_stamps[i] : 0, poses[i]});
+      }
+    }
+  }
+}
+
+void load_control_points(const json& record, ControlPoints& points) {
+  if (record.contains("control_points")) {
+    for (const auto& [key, data] : record.at("control_points").items()) {
+      const char prefix = key.at(0);
+      auto iter = points.emplace(prefix, std::vector<StampedPoint>()).first;
+      data.get_to(iter->second);
+    }
+  } else {
+    for (const auto& [key, data] : record.at("vertices").items()) {
+      const char prefix = key.at(0);
+      std::vector<Timestamp> stamps;
+      std::vector<gtsam::Point3> pos;
+      data.at("pos").get_to(pos);
+      data.at("stamps").get_to(stamps);
+      auto iter = points.emplace(prefix, std::vector<StampedPoint>()).first;
+      for (size_t i = 0; i < pos.size(); ++i) {
+        iter->second.push_back({i < stamps.size() ? stamps[i] : 0, pos[i]});
+      }
+    }
+  }
 }
 
 DeformationGraph::Ptr DeformationGraph::load(const std::filesystem::path& filepath,
@@ -349,33 +417,23 @@ DeformationGraph::Ptr DeformationGraph::load(const std::filesystem::path& filepa
     SPARK_LOG(WARNING) << "Unknown extension for file " << filepath;
   }
 
-  auto graph = std::make_shared<DeformationGraph>();
   std::ifstream f(filepath);
   const auto data = json::parse(f);
 
+  auto graph = std::make_shared<DeformationGraph>();
+
+  // config fields
   data.at("add_init_vertex_prior").get_to(graph->add_init_vertex_prior_);
   data.at("num_loopclosures").get_to(graph->num_loopclosures_);
+
+  // initial values
+  load_poses(data, graph->trajectories_);
+  load_control_points(data, graph->control_points_);
   data.at("temp_pg_initial_poses").get_to(graph->temp_pg_initial_poses_);
 
-  data.at("pg_stamps").get_to(graph->pg_stamps_);
-  data.at("pg_initial_poses").get_to(graph->pg_initial_poses_);
-  data.at("adjacency").get_to(graph->adjacency_map_);
-  if (new_id) {
-    graph->adjacency_map_ = rekeyAdjacency(graph->adjacency_map_, *new_id);
-    graph->pg_stamps_ = rekeyStamps(graph->pg_stamps_, *new_id);
-    graph->pg_initial_poses_ = rekeyInitialPoses(graph->pg_initial_poses_, *new_id);
-  }
-
-  for (const auto& [prefix, record] : data.at("vertices").items()) {
-    char vertex_prefix = prefix.at(0);
-    if (new_id && kimera_pgmo::vertex_prefix_to_id.count(vertex_prefix) > 0) {
-      vertex_prefix = kimera_pgmo::robot_id_to_vertex_prefix.at(*new_id);
-    }
-
-    record.at("pos").get_to(graph->vertex_positions_[vertex_prefix]);
-    record.at("stamps").get_to(graph->vertex_stamps_[vertex_prefix]);
-  }
-
+  // normal factor graph
+  data.at("known_inliers").get_to(graph->known_inliers_);
+  data.at("inlier_weights").get_to(graph->inlier_weights_);
   for (const auto& record : data.at("values")) {
     add_value(record, graph->values_, new_id);
   }
@@ -384,9 +442,9 @@ DeformationGraph::Ptr DeformationGraph::load(const std::filesystem::path& filepa
     add_factor(factor, graph->nfg_, new_id, include_priors);
   }
 
-  data.at("known_inliers").get_to(graph->known_inliers_);
-  data.at("inlier_weights").get_to(graph->inlier_weights_);
-
+  // temp factor graph
+  data.at("temp_inlier_weights").get_to(graph->temp_inlier_weights_);
+  data.at("temp_known_inliers").get_to(graph->temp_known_inliers_);
   for (const auto& record : data.at("temp_values")) {
     add_value(record, graph->temp_values_, new_id);
   }
@@ -395,8 +453,16 @@ DeformationGraph::Ptr DeformationGraph::load(const std::filesystem::path& filepa
     add_factor(factor, graph->temp_nfg_, new_id, include_priors);
   }
 
-  data.at("temp_inlier_weights").get_to(graph->temp_inlier_weights_);
-  data.at("temp_known_inliers").get_to(graph->temp_known_inliers_);
+  // factor tracking
+  data.at("adjacency").get_to(graph->adjacency_map_);
+
+  // rekey non gtsam members
+  if (new_id) {
+    graph->adjacency_map_ = rekeyAdjacency(graph->adjacency_map_, *new_id);
+    graph->trajectories_ = rekeyInitialPoses(graph->trajectories_, *new_id);
+    graph->control_points_ = rekeyControlPoints(graph->control_points_, *new_id);
+  }
+
   return graph;
 }
 

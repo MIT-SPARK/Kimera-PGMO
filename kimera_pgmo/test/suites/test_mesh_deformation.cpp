@@ -17,13 +17,13 @@ TEST(TestMeshDeformation, deformPoints) {
   typedef pcl::PointCloud<Point> PointCloud;
 
   PointCloud original;
-  std::vector<gtsam::Point3> control_points;
+  std::vector<StampedPoint> control_points;
   gtsam::Values values;
   char prefix = 'a';
   for (size_t i = 0; i < 100; i++) {
     original.push_back(Point(static_cast<double>(i), 0.0, 0.0));
     if (i % 10 == 0) {
-      control_points.push_back(gtsam::Point3(static_cast<double>(i), 0.0, 0.0));
+      control_points.push_back({0, gtsam::Point3(static_cast<double>(i), 0.0, 0.0)});
 
       values.insert(
           gtsam::Symbol(prefix, static_cast<int>(i / 10)),
@@ -31,7 +31,7 @@ TEST(TestMeshDeformation, deformPoints) {
     }
   }
 
-  deformation::deformPoints(original, original, prefix, control_points, {}, values);
+  deformation::deformPoints(original, original, prefix, control_points, values);
 
   ASSERT_EQ(100, original.size());
   for (size_t i = 0; i < 100; i++) {
@@ -47,27 +47,26 @@ TEST(TestMeshDeformation, deformPointsWithTimeCheck) {
 
   PointCloud original_points;
   std::vector<Timestamp> stamps;
-  std::vector<gtsam::Point3> control_points;
-  std::vector<Timestamp> control_point_stamps;
+  std::vector<StampedPoint> control_points;
   gtsam::Values optimized_values;
   char prefix = 'a';
   for (size_t i = 0; i < 100; i++) {
     original_points.push_back(Point(static_cast<double>(i), 0.0, 0.0));
     if (i % 10 == 0) {
-      control_points.push_back(gtsam::Point3(static_cast<double>(i), 0.0, 0.0));
-
       if (i > 50) {
         optimized_values.insert(
             gtsam::Symbol(prefix, static_cast<int>(i / 10)),
             gtsam::Pose3(gtsam::Rot3(),
                          gtsam::Point3(static_cast<double>(i), 1.0, 0.0)));
-        control_point_stamps.push_back(stampFromSec(20.0));
+        control_points.push_back(
+            {stampFromSec(20.0), Eigen::Vector3d(static_cast<double>(i), 0.0, 0.0)});
       } else {
         optimized_values.insert(
             gtsam::Symbol(prefix, static_cast<int>(i / 10)),
             gtsam::Pose3(gtsam::Rot3(),
                          gtsam::Point3(static_cast<double>(i), -1.0, 0.0)));
-        control_point_stamps.push_back(0);
+        control_points.push_back(
+            {0, Eigen::Vector3d(static_cast<double>(i), 0.0, 0.0)});
       }
     }
 
@@ -79,14 +78,8 @@ TEST(TestMeshDeformation, deformPointsWithTimeCheck) {
   }
 
   const ConstStampedCloud<pcl::PointXYZ> cloud{original_points, stamps};
-  deformation::deformPoints(original_points,
-                            cloud,
-                            prefix,
-                            control_points,
-                            control_point_stamps,
-                            optimized_values,
-                            3,
-                            10.0);
+  deformation::deformPoints(
+      original_points, cloud, prefix, control_points, optimized_values, 3, 10.0);
 
   ASSERT_EQ(100, original_points.size());
   for (size_t i = 0; i < 50; i++) {

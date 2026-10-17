@@ -140,10 +140,6 @@ class KimeraPgmoInterface {
 
   bool deformFullMesh(size_t robot_id, bool do_optimize);
 
-  bool findClosestMeshIndices(const size_t& robot_id,
-                              const Timestamp& stamp,
-                              std::vector<size_t>& indices);
-
   bool addPoseMeshConnections(const std::map<Timestamp, gtsam::Key>& stamped_nodes);
 
   bool addMeshMeshConnections(const std::map<Timestamp, gtsam::Key>& nodes,
