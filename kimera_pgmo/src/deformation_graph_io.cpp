@@ -364,16 +364,19 @@ void load_poses(const json& record, Trajectories& trajectories) {
       data.get_to(iter->second);
     }
   } else {
-    for (const auto& [key, data] : record.at("pg_initial_poses").items()) {
-      const char prefix = key.at(0);
-      std::vector<Timestamp> stamps;
-      std::vector<gtsam::Pose3> poses;
-      data.get_to(poses);
-      record.at("pg_stamps").at(key).get_to(stamps);
+    std::map<char, std::vector<Timestamp>> stamp_map;
+    std::map<char, std::vector<gtsam::Pose3>> pose_map;
+    record.at("pg_stamps").get_to(stamp_map);
+    record.at("pg_initial_poses").get_to(pose_map);
+    for (const auto& [key, poses] : pose_map) {
+      std::vector<Timestamp> curr_stamps;
+      if (stamp_map.count(key)) {
+        curr_stamps = stamp_map.at(key);
+      }
 
-      auto iter = trajectories.emplace(prefix, std::vector<StampedPose>()).first;
+      auto iter = trajectories.emplace(key, std::vector<StampedPose>()).first;
       for (size_t i = 0; i < poses.size(); ++i) {
-        iter->second.push_back({i < stamps.size() ? stamps[i] : 0, poses[i]});
+        iter->second.push_back({i < curr_stamps.size() ? curr_stamps[i] : 0, poses[i]});
       }
     }
   }
@@ -390,10 +393,9 @@ void load_control_points(const json& record, ControlPoints& points) {
     for (const auto& [key, data] : record.at("vertices").items()) {
       const char prefix = key.at(0);
       std::vector<Timestamp> stamps;
-      std::vector<Eigen::Vector3d> pos;
+      std::vector<gtsam::Point3> pos;
       data.at("pos").get_to(pos);
       data.at("stamps").get_to(stamps);
-
       auto iter = points.emplace(prefix, std::vector<StampedPoint>()).first;
       for (size_t i = 0; i < pos.size(); ++i) {
         iter->second.push_back({i < stamps.size() ? stamps[i] : 0, pos[i]});
