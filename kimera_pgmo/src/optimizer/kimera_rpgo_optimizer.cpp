@@ -11,6 +11,44 @@
 
 #include "kimera_pgmo/utils/logging.h"
 
+namespace kimera_rpgo {
+
+void declare_config(GncParams& config) {
+  using namespace config;
+  name("GncParams");
+  field(config.barc_sq, "barc_sq");
+  field(config.inlier_probability, "inlier_probability");
+  field(config.mu_step, "mu_step");
+  field(config.max_iterations, "max_iterations");
+  field(config.fix_odom, "fix_odom");
+  enum_field(config.robust_cost,
+             "robust_cost",
+             {{LossType::TLS, "TLS"}, {LossType::GM, "GM"}});
+}
+
+void declare_config(PcmConfig& config) {
+  using namespace config;
+  name("PcmConfig");
+  field(config.trans_threshold, "trans_threshold");
+  field(config.rot_threshold, "rot_threshold");
+  field(config.mahalanobis_threshold, "mahalanobis_threshold");
+  field(config.odom_check, "odom_check");
+  field(config.odom_trans_threshold, "odom_trans_threshold");
+  field(config.odom_rot_threshold, "odom_rot_threshold");
+  field(config.odom_mahalanobis_threshold, "odom_mahalanobis_threshold");
+  enum_field(config.max_clique_mode,
+             "max_clique_mode",
+             {{PcmConfig::MaxCliqueMode::EXACT, "EXACT"},
+              {PcmConfig::MaxCliqueMode::HEURISTIC, "HEURISTIC"},
+              {PcmConfig::MaxCliqueMode::INCREMENTAL, "INCREMENTAL"}});
+  enum_field(config.metric_type,
+             "metric_type",
+             {{PcmConfig::MetricType::NODE, "NODE"},
+              {PcmConfig::MetricType::COVARIANCE, "COVARIANCE"}});
+}
+
+}  // namespace kimera_rpgo
+
 namespace kimera_pgmo {
 namespace {
 
@@ -18,7 +56,50 @@ static const auto registration =
     config::RegistrationWithConfig<Optimizer,
                                    KimeraRpgoOptimizer,
                                    KimeraRpgoOptimizer::Config>("KimeraRpgoOptimizer");
+
+struct IterInfo {
+  size_t iteration;
+  double prev_error;
+  double curr_error;
+};
+
+std::string showLog(const kimera_rpgo::Rpgo& rpgo,
+                    const std::vector<IterInfo>& iterations,
+                    const std::set<size_t>& known_inliers,
+                    const std::vector<double>& inlier_weights,
+                    bool print_iterations) {
+  const auto last_log = rpgo.getLog();
+
+  const auto num_inliers = std::count_if(inlier_weights.begin(),
+                                         inlier_weights.end(),
+                                         [](double val) { return val > 0.5; });
+
+  std::stringstream ss;
+  ss << "Optimized " << last_log.num_factors << " factors and "
+     << last_log.num_variables << " variables (" << num_inliers << " inliers, "
+     << known_inliers.size() << " known) in " << last_log.elapsed.count() << " [ms]";
+
+  if (print_iterations) {
+    ss << "\n" << std::string(80, '=') << "\n";
+    for (const auto iter : iterations) {
+      if (iter.iteration == 1) {
+        ss << std::string(80, '-') << "\n";
+        ss << "Starting cost: " << std::setprecision(3) << iter.prev_error << "\n";
+        ss << std::string(80, '-') << "\n";
+      }
+
+      ss << "Iteration " << iter.iteration << ": " << std::setprecision(3)
+         << std::scientific << iter.curr_error
+         << " (change: " << iter.prev_error - iter.curr_error << ")\n";
+    }
+
+    ss << std::string(80, '=') << "\n";
+  }
+
+  return ss.str();
 }
+
+}  // namespace
 
 using namespace kimera_rpgo;
 
@@ -34,38 +115,9 @@ void declare_config(KimeraRpgoOptimizer::Config& config) {
   field(config.print_summary, "print_summary");
   field(config.print_iterations, "print_iterations");
   field(config.use_gnc, "use_gnc");
-  {
-    NameSpace ns("gnc");
-    field(config.gnc.barc_sq, "barc_sq");
-    field(config.gnc.inlier_probability, "inlier_probability");
-    field(config.gnc.mu_step, "mu_step");
-    field(config.gnc.max_iterations, "max_iterations");
-    field(config.gnc.fix_odom, "fix_odom");
-    enum_field(config.gnc.robust_cost,
-               "robust_cost",
-               {{LossType::TLS, "TLS"}, {LossType::GM, "GM"}});
-  }
-
+  field(config.gnc, "gnc");
   field(config.use_pcm, "use_pcm");
-  {
-    NameSpace ns("pcm");
-    field(config.pcm.trans_threshold, "trans_threshold");
-    field(config.pcm.rot_threshold, "rot_threshold");
-    field(config.pcm.mahalanobis_threshold, "mahalanobis_threshold");
-    field(config.pcm.odom_check, "odom_check");
-    field(config.pcm.odom_trans_threshold, "odom_trans_threshold");
-    field(config.pcm.odom_rot_threshold, "odom_rot_threshold");
-    field(config.pcm.odom_mahalanobis_threshold, "odom_mahalanobis_threshold");
-    enum_field(config.pcm.max_clique_mode,
-               "max_clique_mode",
-               {{PcmConfig::MaxCliqueMode::EXACT, "EXACT"},
-                {PcmConfig::MaxCliqueMode::HEURISTIC, "HEURISTIC"},
-                {PcmConfig::MaxCliqueMode::INCREMENTAL, "INCREMENTAL"}});
-    enum_field(config.pcm.metric_type,
-               "metric_type",
-               {{PcmConfig::MetricType::NODE, "NODE"},
-                {PcmConfig::MetricType::COVARIANCE, "COVARIANCE"}});
-  }
+  field(config.pcm, "pcm");
 }
 
 KimeraRpgoOptimizer::KimeraRpgoOptimizer(const Config& config)
@@ -90,114 +142,65 @@ KimeraRpgoOptimizer::KimeraRpgoOptimizer(const Config& config)
 
 KimeraRpgoOptimizer::~KimeraRpgoOptimizer() {}
 
-struct IterInfo {
-  size_t iteration;
-  double prev_error;
-  double curr_error;
-};
-
 OptimizationResult KimeraRpgoOptimizer::update(const OptimizationProblem& problem,
                                                const OptimizationProblem& extras) {
   for (const auto& value : extras.initial) {
     if (problem.initial.exists(value.key)) {
-      throw std::invalid_argument(
-          "Extras initial keys must be disjoint from base keys");
+      throw std::invalid_argument("Duplicate value found");
     }
   }
 
-  for (const auto input : {&problem, &extras}) {
-    if (!input->inliers.empty() && *input->inliers.rbegin() >= input->factors.size()) {
-      throw std::invalid_argument("Known inlier index exceeds factor count");
-    }
+  if (!problem.valid(true)) {
+    throw std::invalid_argument("Problem not valid");
   }
 
-  OptimizationResult result;
-  const auto& factors = problem.factors;
-  const auto& initial = problem.initial;
-  const auto& known_inliers = problem.inliers;
-  const auto& extra_factors = extras.factors;
-  const auto& extra_initial = extras.initial;
-  const auto& extra_known_inliers = extras.inliers;
+  if (!extras.valid(false)) {
+    throw std::invalid_argument("Extra factors not valid");
+  }
+
+  std::set<size_t> all_inliers = problem.inliers;
+  const auto N_f = problem.factors.size();
+  const auto N_e = extras.factors.size();
+  for (const auto& extra_idx : extras.inliers) {
+    all_inliers.insert(extra_idx + N_f);
+  }
+
+  std::vector<IterInfo> iterations;
   rpgo_->clear();
-
-  const auto iterations = std::make_shared<std::vector<IterInfo>>();
-  rpgo_->setIterationCallback([iterations](size_t iteration, double prev, double curr) {
-    iterations->push_back({iteration, prev, curr});
+  rpgo_->setIterationCallback([&iterations](size_t iter, double prev, double curr) {
+    iterations.push_back({iter, prev, curr});
   });
-
-  rpgo_->addFactors(factors);
-  rpgo_->addFactors(extra_factors);
-  rpgo_->addValues(initial);
-  rpgo_->addValues(extra_initial);
-
-  result.estimates = initial;
-  result.extra_estimates = extra_initial;
-
-  std::set<size_t> all_known_inliers = known_inliers;
-  size_t n = factors.size();
-  for (const auto& extra_idx : extra_known_inliers) {
-    all_known_inliers.insert(extra_idx + n);
-  }
-
-  rpgo_->setKnownInliers(all_known_inliers);
-
-  // Run optimizer
+  rpgo_->addFactors(problem.factors);
+  rpgo_->addFactors(extras.factors);
+  rpgo_->addValues(problem.initial);
+  rpgo_->addValues(extras.initial);
+  rpgo_->setKnownInliers(all_inliers);
   rpgo_->run();
 
-  // Get estimates
+  OptimizationResult result;
   const auto& rpgo_result = rpgo_->getResult();
-  for (const auto& key_val : rpgo_result) {
-    if (result.estimates.exists(key_val.key)) {
-      result.estimates.update(key_val.key, key_val.value);
+  for (const auto& [key, value] : rpgo_result) {
+    if (problem.initial.exists(key)) {
+      result.estimates.insert(key, value);
     }
 
-    if (result.extra_estimates.exists(key_val.key)) {
-      result.extra_estimates.update(key_val.key, key_val.value);
+    if (extras.initial.exists(key)) {
+      result.extra_estimates.insert(key, value);
     }
   }
 
-  // Get inlier weights
-  const auto& inlier_weights = rpgo_->getInlierWeights();
-  if (inlier_weights.size() != factors.size() + extra_factors.size()) {
+  const auto& weights = rpgo_->getInlierWeights();
+  if (weights.size() != N_f + N_e) {
     throw std::runtime_error("Optimizer returned an unexpected number of weights");
   }
 
-  result.weights = std::vector<double>(inlier_weights.begin(),
-                                       inlier_weights.begin() + factors.size());
-  result.extra_weights = std::vector<double>(
-      inlier_weights.end() - extra_factors.size(), inlier_weights.end());
+  result.weights = std::vector<double>(weights.begin(), weights.begin() + N_f);
+  result.extra_weights = std::vector<double>(weights.begin() + N_f, weights.end());
 
-  int num_inliers = std::count_if(inlier_weights.begin(),
-                                  inlier_weights.end(),
-                                  [](double val) { return val > 0.5; });
-
-  const auto last_log = rpgo_->getLog();
-  std::stringstream ss;
-  ss << "Optimized " << last_log.num_factors << " factors and "
-     << last_log.num_variables << " variables (" << num_inliers << " inliers, "
-     << all_known_inliers.size() << " known) in " << last_log.elapsed.count()
-     << " [ms]";
-  if (config.print_iterations) {
-    ss << "\n" << std::string(80, '=') << "\n";
-    for (const auto iter : *iterations) {
-      if (iter.iteration == 1) {
-        ss << std::string(80, '-') << "\n";
-        ss << "Starting cost: " << std::setprecision(3) << iter.prev_error << "\n";
-        ss << std::string(80, '-') << "\n";
-      }
-
-      ss << "Iteration " << iter.iteration << ": " << std::setprecision(3)
-         << std::scientific << iter.curr_error
-         << " (change: " << iter.prev_error - iter.curr_error << ")\n";
-    }
-
-    ss << std::string(80, '=') << "\n";
-  }
-
-  SPARK_LOG(INFO) << ss.str();
-
+  const auto print_iters = config.print_iterations;
+  SPARK_LOG(INFO) << showLog(*rpgo_, iterations, all_inliers, weights, print_iters);
   if (!log_path_.empty()) {
-    rpgo_->writeLog(log_path_ + "/rpgo_log.json");
+    rpgo_->writeLog(log_path_ / "rpgo_log.json");
   }
 
   return result;

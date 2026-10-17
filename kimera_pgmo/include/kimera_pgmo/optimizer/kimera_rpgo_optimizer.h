@@ -8,8 +8,8 @@ namespace kimera_pgmo {
 class KimeraRpgoOptimizer : public Optimizer {
  public:
   struct Config {
-    kimera_rpgo::SolverConfig::LeastSquaresOption solver =
-        kimera_rpgo::SolverConfig::LeastSquaresOption::LM;
+    using LSQOption = kimera_rpgo::SolverConfig::LeastSquaresOption;
+    LSQOption solver = LSQOption::LM;
     bool use_gnc = true;
     kimera_rpgo::GncParams gnc;
     bool use_pcm = false;

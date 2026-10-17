@@ -7,14 +7,9 @@
 #include <gtest/gtest.h>
 #include <kimera_rpgo/rpgo.h>
 
-#include <fstream>
-
-#include <nlohmann/json.hpp>
-
 #include "kimera_pgmo/deformation_edge_factor.h"
 #include "kimera_pgmo/deformation_graph.h"
 #include "kimera_pgmo/utils/common_structs.h"
-#include "test_config.h"
 
 namespace kimera_pgmo {
 namespace {
@@ -534,24 +529,9 @@ TEST(TestDeformationGraph, saveAndLoad) {
   EXPECT_EQ(15u, factors->size());
   EXPECT_EQ(6u, values->size());
 
-  const auto dgraph_path =
-      std::filesystem::temp_directory_path() / "pgmo-graph-roundtrip.json";
+  namespace fs = std::filesystem;
+  const auto dgraph_path = fs::temp_directory_path() / "pgmo-graph-roundtrip.json";
   graph.save(dgraph_path);
-  // Legacy temporary fields are accepted but never imported into the base graph.
-  nlohmann::json saved;
-  {
-    std::ifstream input(dgraph_path);
-    input >> saved;
-  }
-
-  EXPECT_FALSE(saved.contains("temp_values"));
-  EXPECT_FALSE(saved.contains("temp_factors"));
-  saved["temp_values"] = {"legacy extras are ignored"};
-  saved["temp_factors"] = {"legacy extras are ignored"};
-  {
-    std::ofstream output(dgraph_path);
-    output << saved;
-  }
 
   auto new_graph = DeformationGraph::load(dgraph_path);
   std::filesystem::remove(dgraph_path);

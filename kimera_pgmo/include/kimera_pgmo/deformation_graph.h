@@ -290,17 +290,13 @@ class DeformationGraph {
   bool hasVertexKey(char prefix) const;
   bool hasPrefixPoses(char prefix) const;
 
-  // All concurrent graph access requires caller-held synchronization.
-  // This mutex does not protect operations unless every caller acquires it.
-  // Do not remove/reorder factors or reset the graph during an outstanding solve.
+  //! Mutex for coordinating access to factors
   std::unique_lock<std::mutex> acquireLock();
 
-  // Copy inputs, optionally converting agent poses and factors to 4DoF.
-  // Mesh variables remain Pose3. Callers must supply compatible extras.
-  // Shared factor objects must remain immutable while solving.
+  //! Build optimization problem from deformation graph
   OptimizationProblem getOptimizationProblem(bool use_4dof = false) const;
 
-  //! Apply base results under caller synchronization; extras remain caller-owned.
+  //! Update deformation graph from optimization results
   void updateOptimizationResult(const OptimizationResult& result);
 
  protected:

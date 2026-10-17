@@ -47,6 +47,7 @@ add_library(
   src/utils/pcl_utilities.cpp
   src/utils/vertex_update.cpp
   src/optimizer/kimera_rpgo_optimizer.cpp
+  src/optimizer/optimization_types.cpp
   src/deformation_graph.cpp
   src/deformation_graph_io.cpp
   src/kimera_pgmo_interface.cpp

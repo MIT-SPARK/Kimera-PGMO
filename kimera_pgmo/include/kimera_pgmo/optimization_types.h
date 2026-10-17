@@ -8,21 +8,28 @@
 
 namespace kimera_pgmo {
 
-// Owning input containers. GTSAM factor objects are shared and must stay immutable.
+//! Optimzer problem setup
 struct OptimizationProblem {
+  //! Initial values of decision variables
   gtsam::Values initial;
+  //! Factor information for optimization
   gtsam::NonlinearFactorGraph factors;
-  //! Known inlier indices are local to this problem's factor sequence.
+  //! Indices of factors that are known optimizers
   std::set<size_t> inliers;
+
+  //! Verify that a problem is valid
+  bool valid(bool check_factors = true) const;
 };
 
-// Estimates retain the input value types, including Pose4DoF when supplied.
+//! Estimates resulting from optimization
 struct OptimizationResult {
+  //! Decision variable estimates
   gtsam::Values estimates;
+  //! Decision variable estimates for extra decision variables
   gtsam::Values extra_estimates;
-  //! Weights follow the base input factor order.
+  //! Factor weights in original problem
   std::vector<double> weights;
-  //! Weights follow the extras input factor order.
+  //! Factor weights for extra factors
   std::vector<double> extra_weights;
 };
 

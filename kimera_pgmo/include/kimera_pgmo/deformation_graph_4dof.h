@@ -409,15 +409,13 @@ inline std::pair<gtsam::NonlinearFactorGraph, gtsam::Values> convertGraphToPose4
  */
 inline gtsam::Values convertPose4DoFToPose3(const gtsam::Values& values) {
   gtsam::Values result;
-  for (const auto& entry : values) {
-    const auto pose =
-        dynamic_cast<const gtsam::GenericValue<gtsam::Pose4DoF>*>(&entry.value);
+  for (const auto& [key, value] : values) {
+    const auto pose = dynamic_cast<const gtsam::GenericValue<gtsam::Pose4DoF>*>(&value);
     if (pose) {
-      result.insert(
-          entry.key,
-          gtsam::Pose3(pose->value().rotation(), pose->value().translation()));
+      const auto& pose_4dof = pose->value();
+      result.insert(key, gtsam::Pose3(pose_4dof.rotation(), pose_4dof.translation()));
     } else {
-      result.insert(entry.key, entry.value);
+      result.insert(key, value);
     }
   }
 

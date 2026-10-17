@@ -77,12 +77,15 @@ TEST(OptimizerExtras, ExtraInlierIndicesAreLocal) {
   KimeraRpgoOptimizer::Config config;
   config.print_iterations = false;
   KimeraRpgoOptimizer optimizer(config);
-  OptimizationProblem base;
+
   const auto key = gtsam::Symbol('a', 0);
+
+  OptimizationProblem base;
   base.initial.insert(key, gtsam::Pose3());
   base.factors.emplace_shared<gtsam::PriorFactor<gtsam::Pose3>>(
       key, gtsam::Pose3(), gtsam::noiseModel::Isotropic::Sigma(6, 0.01));
   base.inliers.insert(0);
+
   OptimizationProblem extras;
   extras.factors.emplace_shared<gtsam::PriorFactor<gtsam::Pose3>>(
       key,
