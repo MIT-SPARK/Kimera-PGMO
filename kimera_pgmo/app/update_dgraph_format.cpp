@@ -32,7 +32,8 @@ DeformationGraph::Ptr DGRFLoader::load(const std::filesystem::path& filename) {
         char node_prefix = gtsam_key.chr();
         auto iter = graph->trajectories_.find(node_prefix);
         if (iter == graph->trajectories_.end()) {
-          iter = graph->trajectories_.emplace(node_prefix, std::vector<StampedPose>{}).first;
+          iter = graph->trajectories_.emplace(node_prefix, std::vector<StampedPose>{})
+                     .first;
         }
 
         iter->second.push_back({0, pose});
@@ -125,7 +126,9 @@ DeformationGraph::Ptr DGRFLoader::load(const std::filesystem::path& filename) {
       char vertex_prefix = vertex_symb.chr();
       auto iter = graph->control_points_.find(vertex_prefix);
       if (iter == graph->control_points_.end()) {
-        iter = graph->control_points_.emplace(vertex_prefix, std::vector<StampedPoint>()).first;
+        iter =
+            graph->control_points_.emplace(vertex_prefix, std::vector<StampedPoint>())
+                .first;
       }
 
       iter->second.push_back({n_sec, Eigen::Vector3d(x, y, z)});

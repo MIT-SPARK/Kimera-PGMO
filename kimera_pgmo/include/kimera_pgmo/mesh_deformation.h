@@ -187,7 +187,8 @@ void processPoints(const PointCallback& callback,
 
     size_t num_leaves = search_tree.getLeafCount();
     while (lower_ctrl_pt_idx < control_points.size() && num_leaves > k + 1 &&
-           control_points[lower_ctrl_pt_idx].timestamp_ns < stamp - stampFromSec(tol_t)) {
+           control_points[lower_ctrl_pt_idx].timestamp_ns <
+               stamp - stampFromSec(tol_t)) {
       if (!values.exists(gtsam::Symbol(prefix, lower_ctrl_pt_idx))) {
         lower_ctrl_pt_idx++;
         continue;
