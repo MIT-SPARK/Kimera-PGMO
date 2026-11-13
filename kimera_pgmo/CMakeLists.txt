@@ -40,6 +40,7 @@ add_library(
   src/compression/mesh_compression.cpp
   src/compression/octree_compression.cpp
   src/compression/redundancy_checker.cpp
+  src/utils/common_functions.cpp
   src/utils/common_structs.cpp
   src/utils/graph.cpp
   src/utils/logging.cpp
