@@ -52,7 +52,9 @@ class KimeraPgmo : public KimeraPgmoInterface, public rclcpp::Node {
   int getRobotId() const { return config_.robot_id; }
 
   //! Get the current robot prefix
-  char getRobotPrefix() const { return ::kimera_pgmo::getRobotPrefix(config_.robot_id); }
+  char getRobotPrefix() const {
+    return ::kimera_pgmo::getRobotPrefix(config_.robot_id);
+  }
 
   //! Get the timestamps for the robot
   std::vector<Timestamp> getRobotTimestamps() const { return timestamps_; }
