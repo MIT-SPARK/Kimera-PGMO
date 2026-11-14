@@ -42,10 +42,8 @@ void fillDeformationGraphMarkers(const DeformationGraph& graph,
     const gtsam::Symbol& front = factor->front();
     const gtsam::Symbol& back = factor->back();
 
-    const bool front_is_pose_vertex =
-        (robot_prefix_to_id.find(front.chr()) != robot_prefix_to_id.end());
-    const bool back_is_pose_vertex =
-        (robot_prefix_to_id.find(back.chr()) != robot_prefix_to_id.end());
+    const bool front_is_pose_vertex = isRobotPrefix(front.chr());
+    const bool back_is_pose_vertex = isRobotPrefix(back.chr());
 
     // Three types: pose-to-pose, pose-to-mesh, mesh-to-mesh
     // color accordingly

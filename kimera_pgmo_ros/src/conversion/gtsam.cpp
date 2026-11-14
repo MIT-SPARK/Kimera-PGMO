@@ -73,8 +73,8 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
       gtsam::Symbol back(factor.back());
       edge.key_from = front.index();
       edge.key_to = back.index();
-      edge.robot_from = robot_prefix_to_id.at(front.chr());
-      edge.robot_to = robot_prefix_to_id.at(back.chr());
+      edge.robot_from = idFromRobotPrefix(front.chr());
+      edge.robot_to = idFromRobotPrefix(back.chr());
 
       if (edge.key_to == edge.key_from + 1 &&
           edge.robot_from == edge.robot_to) {  // check if odom
@@ -123,8 +123,8 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
   gtsam::KeyVector key_list = values.keys();
   for (size_t i = 0; i < key_list.size(); i++) {
     gtsam::Symbol node_symb(key_list[i]);
-    if (robot_prefix_to_id.count(node_symb.chr())) {
-      const size_t robot_id = robot_prefix_to_id.at(node_symb.chr());
+    if (idFromRobotPrefix(node_symb.chr())) {
+      const size_t robot_id = idFromRobotPrefix(node_symb.chr());
 
       PoseGraphNode node;
       node.header.frame_id = frame_id;

@@ -8,14 +8,32 @@
 
 namespace kimera_pgmo {
 
+bool isValidId(size_t robot_id) { return robot_id < 19; }
+
 bool isRobotPrefix(char prefix) { return prefix >= 'a' && prefix <= 'r'; }
 
-char GetRobotPrefix(size_t robot_id) {
-  if (!robot_id_to_prefix.count(robot_id)) {
-    return '\0';
+bool isRobotKey(gtsam::Key key) { return isRobotPrefix(gtsam::Symbol(key).chr()); }
+
+char getRobotPrefix(size_t robot_id) {
+  if (!isValidId(robot_id)) {
+    throw std::domain_error("only 19 robot IDs are supported currently");
   }
 
-  return robot_id_to_prefix.at(robot_id);
+  return 'a' + static_cast<char>(robot_id);
+}
+
+char GetRobotPrefix(size_t robot_id) { return getRobotPrefix(robot_id); }
+
+size_t idFromRobotPrefix(char prefix) {
+  if (isRobotPrefix(prefix)) {
+    return static_cast<size_t>(prefix - 'a');
+  }
+
+  throw std::domain_error("only 19 robot IDs are supported currently");
+}
+
+size_t idFromRobotKey(gtsam::Key key) {
+  return idFromRobotPrefix(gtsam::Symbol(key).chr());
 }
 
 bool isVertexPrefix(char prefix) {
@@ -25,13 +43,15 @@ bool isVertexPrefix(char prefix) {
 bool isVertexKey(gtsam::Key key) { return isVertexPrefix(gtsam::Symbol(key).chr()); }
 
 char getVertexPrefix(size_t robot_id) {
-  if (robot_id < 8) {
-    return 's' + static_cast<char>(robot_id);
-  } else if (robot_id < 19) {
-    return 'A' + static_cast<char>(robot_id - 8);
+  if (!isValidId(robot_id)) {
+    throw std::domain_error("only 19 robot IDs are supported currently");
   }
 
-  throw std::domain_error("only 19 robot IDs are supported currently");
+  if (robot_id < 8) {
+    return 's' + static_cast<char>(robot_id);
+  } else {
+    return 'A' + static_cast<char>(robot_id - 8);
+  }
 }
 
 size_t idFromVertexPrefix(char prefix) {

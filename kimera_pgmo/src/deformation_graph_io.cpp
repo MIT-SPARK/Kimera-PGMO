@@ -132,8 +132,7 @@ const T* cast_to_ptr(const Ptr& ptr) {
 
 gtsam::Key rekey(gtsam::Symbol key, size_t robot_id) {
   if (isRobotPrefix(key.chr())) {
-    char new_prefix = kimera_pgmo::robot_id_to_prefix.at(robot_id);
-    return gtsam::Symbol(new_prefix, key.index());
+    return gtsam::Symbol(getRobotPrefix(robot_id), key.index());
   }
 
   if (isVertexPrefix(key.chr())) {
@@ -180,7 +179,7 @@ ControlPoints rekeyControlPoints(const ControlPoints& original, size_t robot_id)
 Trajectories rekeyInitialPoses(const Trajectories& original, size_t robot_id) {
   Trajectories updated;
   for (const auto& [prefix, trajectory] : original) {
-    updated[kimera_pgmo::robot_id_to_prefix.at(robot_id)] = trajectory;
+    updated[getRobotPrefix(robot_id)] = trajectory;
   }
 
   return updated;

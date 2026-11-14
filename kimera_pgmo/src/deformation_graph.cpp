@@ -116,11 +116,11 @@ inline bool factorToDeformationEdge(const gtsam::NonlinearFactor* factor,
   } else if (isVertexPrefix(front.chr())) {
     edge.type = EdgeType::MESH_POSE;
     edge.robot_from = idFromVertexPrefix(front.chr());
-    edge.robot_to = robot_prefix_to_id.at(back.chr());
+    edge.robot_to = idFromRobotPrefix(back.chr());
     edge.stamp_ns = control_points.at(front.chr()).at(front.index()).timestamp_ns;
   } else if (isVertexPrefix(back.chr())) {
     edge.type = EdgeType::POSE_MESH;
-    edge.robot_from = robot_prefix_to_id.at(front.chr());
+    edge.robot_from = idFromRobotPrefix(front.chr());
     edge.robot_to = idFromVertexPrefix(back.chr());
     edge.stamp_ns = control_points.at(back.chr()).at(back.index()).timestamp_ns;
   } else {
@@ -148,14 +148,14 @@ inline bool factorToPrior(const gtsam::NonlinearFactor* factor,
   }
 
   const gtsam::Symbol key(factor_ptr->key());
-  if (!robot_prefix_to_id.count(key.chr())) {
+  if (!isRobotPrefix(key.chr())) {
     return false;
   }
 
   edge.key_from = key.index();
   edge.key_to = key.index();
-  edge.robot_from = robot_prefix_to_id.at(key.chr());
-  edge.robot_to = robot_prefix_to_id.at(key.chr());
+  edge.robot_from = idFromRobotPrefix(key.chr());
+  edge.robot_to = idFromRobotPrefix(key.chr());
   const auto stamp_ns = maybeGetTimestamp(trajectories, key);
   if (stamp_ns) {
     edge.stamp_ns = *stamp_ns;
@@ -187,8 +187,8 @@ inline bool factorToBetween(const gtsam::NonlinearFactor* factor,
   const gtsam::Symbol back(factor_ptr->back());
   edge.key_from = front.index();
   edge.key_to = back.index();
-  edge.robot_from = robot_prefix_to_id.at(front.chr());
-  edge.robot_to = robot_prefix_to_id.at(back.chr());
+  edge.robot_from = idFromRobotPrefix(front.chr());
+  edge.robot_to = idFromRobotPrefix(back.chr());
   const auto stamp_ns = maybeGetTimestamp(trajectories, back);
   if (stamp_ns) {
     edge.stamp_ns = *stamp_ns;
@@ -217,11 +217,11 @@ inline bool valueToPoseNode(const gtsam::Key& key,
                             PoseGraphNode& node,
                             bool optimized) {
   const gtsam::Symbol node_symb(key);
-  if (!robot_prefix_to_id.count(node_symb.chr())) {
+  if (!idFromRobotPrefix(node_symb.chr())) {
     return false;
   }
 
-  const size_t robot_id = robot_prefix_to_id.at(node_symb.chr());
+  const size_t robot_id = idFromRobotPrefix(node_symb.chr());
   const auto init_pose = trajectories.at(node_symb.chr()).at(node_symb.index());
 
   node.key = node_symb.index();
@@ -274,7 +274,7 @@ void DeformationGraph::processPoseGraph(const pose_graph_tools::PoseGraph& pose_
                                         const Eigen::Isometry3d* const transform) {
   for (const auto& node : pose_graph.nodes) {
     auto node_robot_id = getRemappedId(robot_id_remap, node.robot_id);
-    auto node_key = gtsam::Symbol(robot_id_to_prefix.at(node_robot_id), node.key);
+    auto node_key = gtsam::Symbol(getRobotPrefix(node_robot_id), node.key);
     gtsam::Pose3 node_pose(node.pose.matrix());
     if (transform) {
       node_pose = gtsam::Pose3(transform->matrix()).compose(node_pose);
@@ -296,8 +296,8 @@ void DeformationGraph::processPoseGraph(const pose_graph_tools::PoseGraph& pose_
     auto from_robot = getRemappedId(robot_id_remap, edge.robot_from);
     auto to_robot = getRemappedId(robot_id_remap, edge.robot_to);
 
-    auto from_key = gtsam::Symbol(robot_id_to_prefix.at(from_robot), edge.key_from);
-    auto to_key = gtsam::Symbol(robot_id_to_prefix.at(to_robot), edge.key_to);
+    auto from_key = gtsam::Symbol(getRobotPrefix(from_robot), edge.key_from);
+    auto to_key = gtsam::Symbol(getRobotPrefix(to_robot), edge.key_to);
     gtsam::Pose3 from_T_to(edge.pose.matrix());
     if (from_key != to_key) {
       addNewBetween(from_key,
@@ -344,11 +344,11 @@ void DeformationGraph::processMeshGraph(const pose_graph_tools::PoseGraph& mesh_
       from_key = gtsam::Symbol(getVertexPrefix(from_robot), edge.key_from);
       to_key = gtsam::Symbol(getVertexPrefix(to_robot), edge.key_to);
     } else if (edge.type == EdgeType::POSE_MESH) {
-      from_key = gtsam::Symbol(robot_id_to_prefix.at(from_robot), edge.key_from);
+      from_key = gtsam::Symbol(getRobotPrefix(from_robot), edge.key_from);
       to_key = gtsam::Symbol(getVertexPrefix(to_robot), edge.key_to);
     } else if (edge.type == EdgeType::MESH_POSE) {
       from_key = gtsam::Symbol(getVertexPrefix(from_robot), edge.key_from);
-      to_key = gtsam::Symbol(robot_id_to_prefix.at(to_robot), edge.key_to);
+      to_key = gtsam::Symbol(getRobotPrefix(to_robot), edge.key_to);
     } else {
       SPARK_LOG(ERROR) << "Unhandled edge type in processMeshGraph";
       continue;
@@ -739,6 +739,22 @@ size_t DeformationGraph::getNumVertices() const {
   }
 
   return num_vertices;
+}
+
+void DeformationGraph::fixPosesAsPriors(double prior_variance) {
+  std::vector<std::pair<gtsam::Key, gtsam::Pose3>> measurements;
+  for (const auto& [prefix, poses] : trajectories_) {
+    for (size_t i = 0; i < trajectories_.at(prefix).size(); i++) {
+      const gtsam::Symbol key(prefix, i);
+      if (!values_.exists(key)) {
+        break;
+      }
+
+      measurements.push_back(std::make_pair(key, values_.at<gtsam::Pose3>(key)));
+    }
+  }
+
+  processNodeMeasurements(measurements, prior_variance);
 }
 
 std::vector<gtsam::Pose3> DeformationGraph::getTrajectory(char prefix) const {

@@ -97,16 +97,14 @@ bool KimeraPgmoInterface::loadGraphAndMesh(size_t robot_id,
   return deformFullMesh(robot_id, do_optimize);
 }
 
-std::vector<gtsam::Pose3> KimeraPgmoInterface::getOptimizedTrajectory(
-    size_t robot_id) const {
+std::vector<gtsam::Pose3> KimeraPgmoInterface::getOptimizedTrajectory(size_t id) const {
   // return the optimized trajectory (pose graph)
-  const char& robot_prefix = robot_id_to_prefix.at(robot_id);
-  return deformation_graph_->getTrajectory(robot_prefix);
+  return deformation_graph_->getTrajectory(getRobotPrefix(id));
 }
 
 std::vector<Timestamp> KimeraPgmoInterface::getRobotTimestamps(size_t robot_id) const {
   std::vector<Timestamp> stamps;
-  const char& robot_prefix = robot_id_to_prefix.at(robot_id);
+  const auto robot_prefix = getRobotPrefix(robot_id);
   // TODO(yun) remove call to get optimized trajectory
   auto optimized_traj = deformation_graph_->getTrajectory(robot_prefix);
   for (size_t i = 0; i < optimized_traj.size(); i++) {
@@ -148,7 +146,7 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
     const auto init_node = msg.nodes[0];
     size_t robot_id = init_node.robot_id;
 
-    const gtsam::Symbol key_symb(GetRobotPrefix(robot_id), 0);
+    const gtsam::Symbol key_symb(getRobotPrefix(robot_id), 0);
     const gtsam::Pose3 init_pose(init_node.pose.matrix());
     if (config_.mode != RunMode::MESH_ONLY) {
       deformation_graph_->addNewNode(key_symb,
@@ -178,8 +176,8 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
     size_t robot_from = pg_edge.robot_from;
     size_t robot_to = pg_edge.robot_to;
 
-    const gtsam::Symbol from_key(GetRobotPrefix(robot_from), prev_node);
-    const gtsam::Symbol to_key(GetRobotPrefix(robot_to), current_node);
+    const gtsam::Symbol from_key(getRobotPrefix(robot_from), prev_node);
+    const gtsam::Symbol to_key(getRobotPrefix(robot_to), current_node);
 
     if (pg_edge.type == pose_graph_tools::PoseGraphEdge::ODOM) {
       // odometry edge
@@ -299,7 +297,7 @@ bool KimeraPgmoInterface::addPoseMeshConnections(
     const std::map<Timestamp, gtsam::Key>& stamped_nodes) {
   bool connection = false;
   for (const auto& [stamp, key] : stamped_nodes) {
-    const auto robot_id = robot_prefix_to_id.at(gtsam::Symbol(key).chr());
+    const auto robot_id = idFromRobotPrefix(gtsam::Symbol(key).chr());
     const auto indices = deformation_graph_->findClosestMeshIndices(robot_id, stamp);
     if (indices.empty()) {
       continue;
@@ -325,7 +323,7 @@ bool KimeraPgmoInterface::addMeshMeshConnections(
   auto first_node_it = stamped_nodes.begin();
   gtsam::Symbol prev_node = gtsam::Symbol(first_node_it->second);
   Timestamp prev_stamp = first_node_it->first;
-  size_t prev_robot_id = robot_prefix_to_id.at(prev_node.chr());
+  size_t prev_robot_id = idFromRobotPrefix(prev_node.chr());
   gtsam::Pose3 prev_pose = initial_trajectory.at(prev_node.index());
   auto prev_valences =
       deformation_graph_->findClosestMeshIndices(prev_robot_id, prev_stamp);
@@ -337,7 +335,7 @@ bool KimeraPgmoInterface::addMeshMeshConnections(
        ++node_it) {
     auto [curr_stamp, curr_key] = *node_it;
     auto curr_node = gtsam::Symbol(curr_key);
-    auto curr_robot_id = robot_prefix_to_id.at(curr_node.chr());
+    auto curr_robot_id = idFromRobotPrefix(curr_node.chr());
     auto curr_pose = initial_trajectory.at(curr_node.index());
     const auto curr_valences =
         deformation_graph_->findClosestMeshIndices(curr_robot_id, curr_stamp);
@@ -428,11 +426,11 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
 void KimeraPgmoInterface::processOptimizedPath(const std::vector<gtsam::Pose3>& path,
                                                size_t robot_id) {
   SPARK_LOG(INFO) << "Received optimized trajectory. Fixing pose graph nodes...";
-  deformation_graph_->removePriorsWithPrefix(GetRobotPrefix(robot_id));
+  deformation_graph_->removePriorsWithPrefix(getRobotPrefix(robot_id));
 
   std::vector<std::pair<gtsam::Key, gtsam::Pose3>> node_estimates;
   for (size_t i = 0; i < path.size(); i++) {
-    const gtsam::Symbol node_symbol(GetRobotPrefix(robot_id), i);
+    const gtsam::Symbol node_symbol(getRobotPrefix(robot_id), i);
     node_estimates.push_back({node_symbol.key(), path[i]});
   }
 

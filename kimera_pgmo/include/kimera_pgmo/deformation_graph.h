@@ -192,9 +192,10 @@ class DeformationGraph {
   //! Remove all prior factors of nodes that have given prefix
   void removePriorsWithPrefix(char prefix);
 
-  /*! \brief Get the optimized estimates for nodes with certain prefix
-   *  - prefix: prefix of the nodes to query best estimate
-   */
+  //! Add priors to all poses
+  void fixPosesAsPriors(double prior_variance);
+
+  //! Get the optimized estimates for nodes with certain prefix
   std::vector<gtsam::Pose3> getTrajectory(char prefix) const;
 
   /**

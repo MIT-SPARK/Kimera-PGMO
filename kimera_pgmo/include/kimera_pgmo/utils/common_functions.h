@@ -14,33 +14,26 @@
 
 namespace kimera_pgmo {
 
-const std::map<size_t, char> robot_id_to_prefix = {
-    {0, 'a'},
-    {1, 'b'},
-    {2, 'c'},
-    {3, 'd'},
-    {4, 'e'},
-    {5, 'f'},
-    {6, 'g'},
-    {7, 'h'},
-};
-
-const std::map<char, size_t> robot_prefix_to_id = {
-    {'a', 0},
-    {'b', 1},
-    {'c', 2},
-    {'d', 3},
-    {'e', 4},
-    {'f', 5},
-    {'g', 6},
-    {'h', 7},
-};
+//! check whether robot ID is supported
+bool isValidId(size_t robot_id);
 
 //! Check whether a prefix corresponds to a robot pose
 bool isRobotPrefix(char prefix);
 
+//! Check whether a prefix corresponds to a robot pose
+bool isRobotKey(gtsam::Key key);
+
 //! Get gtsam prefix for a robot id
+char getRobotPrefix(size_t robot_id);
+
+//! Get gtsam prefix for a robot id (alias for khronos)
 char GetRobotPrefix(size_t robot_id);
+
+//! Get robot ID from gtsam character prefix for a robot pose
+size_t idFromRobotPrefix(char prefix);
+
+//! Get robot ID from gtsam key for a robot pose
+size_t idFromRobotKey(gtsam::Key key);
 
 //! Check whether a prefix corresponds to a deformation vertex
 bool isVertexPrefix(char prefix);
