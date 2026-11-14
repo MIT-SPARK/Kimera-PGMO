@@ -217,7 +217,7 @@ inline bool valueToPoseNode(const gtsam::Key& key,
                             PoseGraphNode& node,
                             bool optimized) {
   const gtsam::Symbol node_symb(key);
-  if (!idFromRobotPrefix(node_symb.chr())) {
+  if (!isRobotPrefix(node_symb.chr())) {
     return false;
   }
 

@@ -123,7 +123,7 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
   gtsam::KeyVector key_list = values.keys();
   for (size_t i = 0; i < key_list.size(); i++) {
     gtsam::Symbol node_symb(key_list[i]);
-    if (idFromRobotPrefix(node_symb.chr())) {
+    if (isRobotPrefix(node_symb.chr())) {
       const size_t robot_id = idFromRobotPrefix(node_symb.chr());
 
       PoseGraphNode node;
