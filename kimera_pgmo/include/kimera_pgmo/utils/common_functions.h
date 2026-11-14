@@ -36,43 +36,28 @@ const std::map<char, size_t> robot_prefix_to_id = {
     {'h', 7},
 };
 
-const std::map<size_t, char> robot_id_to_vertex_prefix = {
-    {0, 's'},
-    {1, 't'},
-    {2, 'u'},
-    {3, 'v'},
-    {4, 'w'},
-    {5, 'x'},
-    {6, 'y'},
-    {7, 'z'},
-};
+//! Check whether a prefix corresponds to a robot pose
+bool isRobotPrefix(char prefix);
 
-const std::map<char, size_t> vertex_prefix_to_id = {
-    {'s', 0},
-    {'t', 1},
-    {'u', 2},
-    {'v', 3},
-    {'w', 4},
-    {'x', 5},
-    {'y', 6},
-    {'z', 7},
-};
-
-/*! \brief Get gtsam prefix for a robot id
- *  - robot_id: id of robot from pose graph messages
- */
+//! Get gtsam prefix for a robot id
 char GetRobotPrefix(size_t robot_id);
 
-/*! \brief Get gtsam prefix (for mesh vertices in deformation graph) for a robot
- * id
- *  - robot_id: id of robot from pose graph messages
- */
-char GetVertexPrefix(size_t robot_id);
+//! Check whether a prefix corresponds to a deformation vertex
+bool isVertexPrefix(char prefix);
 
-/*! \brief Check if a GTSAM key represents a mesh vertex
- *  - key: GTSAM key to check
- *  - outputs true if key is a mesh vertex, false otherwise
- */
+//! Check whether a key has a vertex prefix
+bool isVertexKey(gtsam::Key key);
+
+//! Get gtsam prefix (for mesh vertices in deformation graph) for a robot
+char getVertexPrefix(size_t robot_id);
+
+//! Get robot ID from gtsam character prefix for a mesh vertex
+size_t idFromVertexPrefix(char prefix);
+
+//! Get robot ID from gtsam key for a mesh vertex
+size_t idFromVertexKey(gtsam::Key key);
+
+//! Check if a GTSAM key represents a mesh vertex
 bool IsMeshVertex(gtsam::Key key);
 
 //! Reindex a face by a static offset
@@ -80,8 +65,8 @@ traits::Face offsetFace(const traits::Face& face, size_t offset);
 
 //! Remap all indices above an offset in a face
 traits::Face remapFace(const traits::Face& face,
-                              size_t offset,
-                              const std::map<size_t, size_t>& remap);
+                       size_t offset,
+                       const std::map<size_t, size_t>& remap);
 
 //! Check if a face is degenerate or not
 bool faceIsValid(const traits::Face& face);
@@ -90,12 +75,10 @@ bool faceIsValid(const traits::Face& face);
 bool allVerticesBelow(const traits::Face& face, size_t threshold);
 
 //! Check that a condition holds for all indices in the face
-bool checkFaceAll(const traits::Face& face,
-                         const std::function<bool(size_t)>& check);
+bool checkFaceAll(const traits::Face& face, const std::function<bool(size_t)>& check);
 
 //! Check that a condition holds for any index in the face
-bool checkFaceAny(const traits::Face& face,
-                         const std::function<bool(size_t)>& check);
+bool checkFaceAny(const traits::Face& face, const std::function<bool(size_t)>& check);
 
 //! apply arbitrary function to face
 traits::Face applyToFace(const traits::Face& face,

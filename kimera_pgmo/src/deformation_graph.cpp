@@ -108,20 +108,20 @@ inline bool factorToDeformationEdge(const gtsam::NonlinearFactor* factor,
   edge.key_from = front.index();
   edge.key_to = back.index();
 
-  if (vertex_prefix_to_id.count(front.chr()) && vertex_prefix_to_id.count(back.chr())) {
+  if (isVertexPrefix(front.chr()) && isVertexPrefix(back.chr())) {
     edge.type = EdgeType::MESH;
-    edge.robot_from = vertex_prefix_to_id.at(front.chr());
-    edge.robot_to = vertex_prefix_to_id.at(back.chr());
+    edge.robot_from = idFromVertexPrefix(front.chr());
+    edge.robot_to = idFromVertexPrefix(back.chr());
     edge.stamp_ns = control_points.at(front.chr()).at(front.index()).timestamp_ns;
-  } else if (vertex_prefix_to_id.count(front.chr())) {
+  } else if (isVertexPrefix(front.chr())) {
     edge.type = EdgeType::MESH_POSE;
-    edge.robot_from = vertex_prefix_to_id.at(front.chr());
+    edge.robot_from = idFromVertexPrefix(front.chr());
     edge.robot_to = robot_prefix_to_id.at(back.chr());
     edge.stamp_ns = control_points.at(front.chr()).at(front.index()).timestamp_ns;
-  } else if (vertex_prefix_to_id.count(back.chr())) {
+  } else if (isVertexPrefix(back.chr())) {
     edge.type = EdgeType::POSE_MESH;
     edge.robot_from = robot_prefix_to_id.at(front.chr());
-    edge.robot_to = vertex_prefix_to_id.at(back.chr());
+    edge.robot_to = idFromVertexPrefix(back.chr());
     edge.stamp_ns = control_points.at(back.chr()).at(back.index()).timestamp_ns;
   } else {
     return false;
@@ -242,11 +242,11 @@ inline bool valueToMeshNode(const gtsam::Key& key,
                             PoseGraphNode& node,
                             bool optimized) {
   const gtsam::Symbol node_symb(key);
-  if (!vertex_prefix_to_id.count(node_symb.chr())) {
+  if (!isVertexPrefix(node_symb.chr())) {
     return false;
   }
 
-  const size_t robot_id = vertex_prefix_to_id.at(node_symb.chr());
+  const size_t robot_id = idFromVertexPrefix(node_symb.chr());
   const auto point = control_points.at(node_symb.chr()).at(node_symb.index());
 
   node.key = node_symb.index();
@@ -317,8 +317,7 @@ void DeformationGraph::processMeshGraph(const pose_graph_tools::PoseGraph& mesh_
                                         const Eigen::Isometry3d* const transform) {
   for (const auto& node : mesh_graph.nodes) {
     auto node_robot_id = getRemappedId(robot_id_remap, node.robot_id);
-    auto node_key =
-        gtsam::Symbol(robot_id_to_vertex_prefix.at(node_robot_id), node.key);
+    auto node_key = gtsam::Symbol(getVertexPrefix(node_robot_id), node.key);
     gtsam::Pose3 node_pose(node.pose.matrix());
     if (transform) {
       node_pose = gtsam::Pose3(transform->matrix()).compose(node_pose);
@@ -342,13 +341,13 @@ void DeformationGraph::processMeshGraph(const pose_graph_tools::PoseGraph& mesh_
     auto from_robot = getRemappedId(robot_id_remap, edge.robot_from);
     auto to_robot = getRemappedId(robot_id_remap, edge.robot_to);
     if (edge.type == EdgeType::MESH) {
-      from_key = gtsam::Symbol(robot_id_to_vertex_prefix.at(from_robot), edge.key_from);
-      to_key = gtsam::Symbol(robot_id_to_vertex_prefix.at(to_robot), edge.key_to);
+      from_key = gtsam::Symbol(getVertexPrefix(from_robot), edge.key_from);
+      to_key = gtsam::Symbol(getVertexPrefix(to_robot), edge.key_to);
     } else if (edge.type == EdgeType::POSE_MESH) {
       from_key = gtsam::Symbol(robot_id_to_prefix.at(from_robot), edge.key_from);
-      to_key = gtsam::Symbol(robot_id_to_vertex_prefix.at(to_robot), edge.key_to);
+      to_key = gtsam::Symbol(getVertexPrefix(to_robot), edge.key_to);
     } else if (edge.type == EdgeType::MESH_POSE) {
-      from_key = gtsam::Symbol(robot_id_to_vertex_prefix.at(from_robot), edge.key_from);
+      from_key = gtsam::Symbol(getVertexPrefix(from_robot), edge.key_from);
       to_key = gtsam::Symbol(robot_id_to_prefix.at(to_robot), edge.key_to);
     } else {
       SPARK_LOG(ERROR) << "Unhandled edge type in processMeshGraph";
@@ -850,7 +849,7 @@ std::unique_lock<std::mutex> DeformationGraph::acquireLock() {
 std::vector<size_t> DeformationGraph::findClosestMeshIndices(size_t robot_id,
                                                              Timestamp stamp) const {
   std::vector<size_t> indices;
-  const auto prefix = GetVertexPrefix(robot_id);
+  const auto prefix = getVertexPrefix(robot_id);
   auto iter = control_points_.find(prefix);
   if (iter == control_points_.end() || iter->second.empty()) {
     return indices;

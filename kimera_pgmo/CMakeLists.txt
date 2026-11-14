@@ -51,6 +51,7 @@ add_library(
   src/optimizer/optimization_types.cpp
   src/deformation_graph.cpp
   src/deformation_graph_io.cpp
+  src/deformation_graph_4dof.cpp
   src/kimera_pgmo_interface.cpp
   src/mesh_deformation.cpp
   src/mesh_delta.cpp

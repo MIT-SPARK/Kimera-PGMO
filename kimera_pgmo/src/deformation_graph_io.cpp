@@ -131,14 +131,13 @@ const T* cast_to_ptr(const Ptr& ptr) {
 }
 
 gtsam::Key rekey(gtsam::Symbol key, size_t robot_id) {
-  char new_prefix = kimera_pgmo::robot_id_to_prefix.at(robot_id);
-  char new_vertex_prefix = kimera_pgmo::robot_id_to_vertex_prefix.at(robot_id);
-  if (kimera_pgmo::robot_prefix_to_id.count(key.chr())) {
+  if (isRobotPrefix(key.chr())) {
+    char new_prefix = kimera_pgmo::robot_id_to_prefix.at(robot_id);
     return gtsam::Symbol(new_prefix, key.index());
   }
 
-  if (kimera_pgmo::vertex_prefix_to_id.count(key.chr())) {
-    return gtsam::Symbol(new_vertex_prefix, key.index());
+  if (isVertexPrefix(key.chr())) {
+    return gtsam::Symbol(getVertexPrefix(robot_id), key.index());
   }
 
   return key;
@@ -172,7 +171,7 @@ AdjacencyMap rekeyAdjacency(const AdjacencyMap& original, size_t robot_id) {
 ControlPoints rekeyControlPoints(const ControlPoints& original, size_t robot_id) {
   ControlPoints updated;
   for (const auto& [prefix, points] : original) {
-    updated[kimera_pgmo::robot_id_to_vertex_prefix.at(robot_id)] = points;
+    updated[getVertexPrefix(robot_id)] = points;
   }
 
   return updated;

@@ -8,6 +8,8 @@
 
 namespace kimera_pgmo {
 
+bool isRobotPrefix(char prefix) { return prefix >= 'a' && prefix <= 'r'; }
+
 char GetRobotPrefix(size_t robot_id) {
   if (!robot_id_to_prefix.count(robot_id)) {
     return '\0';
@@ -16,17 +18,39 @@ char GetRobotPrefix(size_t robot_id) {
   return robot_id_to_prefix.at(robot_id);
 }
 
-char GetVertexPrefix(size_t robot_id) {
-  if (!robot_id_to_vertex_prefix.count(robot_id)) {
-    return '\0';
+bool isVertexPrefix(char prefix) {
+  return (prefix >= 's' && prefix <= 'z') || (prefix >= 'A' && prefix <= 'J');
+}
+
+bool isVertexKey(gtsam::Key key) { return isVertexPrefix(gtsam::Symbol(key).chr()); }
+
+char getVertexPrefix(size_t robot_id) {
+  if (robot_id < 8) {
+    return 's' + static_cast<char>(robot_id);
+  } else if (robot_id < 19) {
+    return 'A' + static_cast<char>(robot_id - 8);
   }
 
-  return robot_id_to_vertex_prefix.at(robot_id);
+  throw std::domain_error("only 19 robot IDs are supported currently");
 }
 
-bool IsMeshVertex(gtsam::Key key) {
-  return vertex_prefix_to_id.count(gtsam::Symbol(key).chr()) > 0;
+size_t idFromVertexPrefix(char prefix) {
+  if (prefix >= 's' && prefix <= 'z') {
+    return static_cast<size_t>(prefix - 's');
+  }
+
+  if (prefix >= 'A' && prefix <= 'J') {
+    return static_cast<size_t>(prefix - 'A') + 8;
+  }
+
+  throw std::domain_error("only 19 robot IDs are supported currently");
 }
+
+size_t idFromVertexKey(gtsam::Key key) {
+  return idFromVertexPrefix(gtsam::Symbol(key).chr());
+}
+
+bool IsMeshVertex(gtsam::Key key) { return isVertexKey(key); }
 
 traits::Face offsetFace(const traits::Face& face, size_t offset) {
   return {face[0] + offset, face[1] + offset, face[2] + offset};

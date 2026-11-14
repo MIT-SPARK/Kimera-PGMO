@@ -307,7 +307,7 @@ bool KimeraPgmoInterface::addPoseMeshConnections(
 
     connection = true;
     deformation_graph_->processNodeValence(
-        key, indices, GetVertexPrefix(robot_id), config_.pose_mesh_variance);
+        key, indices, getVertexPrefix(robot_id), config_.pose_mesh_variance);
   }
 
   return connection;
@@ -350,8 +350,8 @@ bool KimeraPgmoInterface::addMeshMeshConnections(
           curr_pose,
           curr_valences,
           measurements.at(measurement_idx),
-          GetVertexPrefix(prev_robot_id),
-          GetVertexPrefix(curr_robot_id),
+          getVertexPrefix(prev_robot_id),
+          getVertexPrefix(curr_robot_id),
           config_.mesh_edge_variance,
           as_inliers);
     }
@@ -391,8 +391,8 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
       SPARK_LOG(WARNING) << "processIncrementalMeshGraph: different ids in message.";
     }
 
-    gtsam::Key from = gtsam::Symbol(GetVertexPrefix(e.robot_from), e.key_from);
-    gtsam::Key to = gtsam::Symbol(GetVertexPrefix(e.robot_to), e.key_to);
+    gtsam::Key from = gtsam::Symbol(getVertexPrefix(e.robot_from), e.key_from);
+    gtsam::Key to = gtsam::Symbol(getVertexPrefix(e.robot_to), e.key_to);
     new_mesh_edges.push_back(std::pair<gtsam::Key, gtsam::Key>(from, to));
   }
 
@@ -403,7 +403,7 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
       return ProcessMeshGraphStatus::INVALID;
     }
 
-    gtsam::Key key = gtsam::Symbol(GetVertexPrefix(n.robot_id), n.key);
+    gtsam::Key key = gtsam::Symbol(getVertexPrefix(n.robot_id), n.key);
     gtsam::Pose3 node_pose(n.pose.matrix());
     try {
       new_mesh_nodes.insert(key, node_pose);
@@ -522,7 +522,7 @@ bool KimeraPgmoInterface::deformFullMesh(size_t robot_id, bool do_optimize) {
   optimized_vertices_.resize(original_vertices_.size());
   deformation_graph_->deformPoints(optimized_vertices_,
                                    original_vertices_,
-                                   GetVertexPrefix(robot_id),
+                                   getVertexPrefix(robot_id),
                                    config_.num_interp_pts,
                                    config_.interp_horizon);
   return true;
