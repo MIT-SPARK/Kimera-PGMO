@@ -36,7 +36,7 @@ void declare_config(KimeraPgmo::Config& config) {
   base<KimeraPgmoConfig>(config);
   field(config.frame_id, "frame_id");
   field(config.robot_id, "robot_id");
-  checkCondition(robot_id_to_prefix.count(config.robot_id), "robot_id");
+  checkCondition(isValidId(config.robot_id), "robot_id");
 }
 
 KimeraPgmo::KimeraPgmo(const rclcpp::NodeOptions& options)

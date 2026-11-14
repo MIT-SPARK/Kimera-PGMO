@@ -3,6 +3,100 @@
 #include "kimera_pgmo/utils/common_functions.h"
 
 namespace kimera_pgmo {
+namespace {
+
+const std::vector<char> ROBOT_PREFIXES{'a',
+                                       'b',
+                                       'c',
+                                       'd',
+                                       'e',
+                                       'f',
+                                       'g',
+                                       'h',
+                                       'i',
+                                       'j',
+                                       'k',
+                                       'l',
+                                       'm',
+                                       'n',
+                                       'o',
+                                       'p',
+                                       'q',
+                                       'r'};
+
+const std::vector<char> VERTEX_PREFIXES{'s',
+                                        't',
+                                        'u',
+                                        'v',
+                                        'w',
+                                        'x',
+                                        'y',
+                                        'z',
+                                        'A',
+                                        'B',
+                                        'C',
+                                        'D',
+                                        'E',
+                                        'F',
+                                        'G',
+                                        'H',
+                                        'I',
+                                        'J'};
+
+}  // namespace
+
+TEST(CommonFunctions, isValidId) {
+  EXPECT_FALSE(isValidId(19));
+  EXPECT_TRUE(isValidId(5));
+}
+
+TEST(CommonFunctions, isRobotPrefix) {
+  for (const auto& value : ROBOT_PREFIXES) {
+    EXPECT_TRUE(isRobotPrefix(value));
+  }
+
+  for (const auto& value : VERTEX_PREFIXES) {
+    EXPECT_FALSE(isRobotPrefix(value));
+  }
+}
+
+TEST(CommonFunctions, getRobotPrefix) {
+  for (size_t i = 0; i < 18; ++i) {
+    ASSERT_LT(i, ROBOT_PREFIXES.size());
+    EXPECT_EQ(getRobotPrefix(i), ROBOT_PREFIXES.at(i));
+  }
+}
+
+TEST(CommonFunctions, idFromRobotPrefix) {
+  for (size_t i = 0; i < 18; ++i) {
+    ASSERT_LT(i, ROBOT_PREFIXES.size());
+    EXPECT_EQ(idFromRobotPrefix(ROBOT_PREFIXES.at(i)), i);
+  }
+}
+
+TEST(CommonFunctions, isVertexPrefix) {
+  for (const auto& value : ROBOT_PREFIXES) {
+    EXPECT_FALSE(isVertexPrefix(value));
+  }
+
+  for (const auto& value : VERTEX_PREFIXES) {
+    EXPECT_TRUE(isVertexPrefix(value));
+  }
+}
+
+TEST(CommonFunctions, getVertexPrefix) {
+  for (size_t i = 0; i < 18; ++i) {
+    ASSERT_LT(i, VERTEX_PREFIXES.size());
+    EXPECT_EQ(getVertexPrefix(i), VERTEX_PREFIXES.at(i));
+  }
+}
+
+TEST(CommonFunctions, idFromVertexPrefix) {
+  for (size_t i = 0; i < 18; ++i) {
+    ASSERT_LT(i, VERTEX_PREFIXES.size());
+    EXPECT_EQ(idFromVertexPrefix(VERTEX_PREFIXES.at(i)), i);
+  }
+}
 
 TEST(CommonFunctions, offsetFace) {
   const traits::Face orig{1, 2, 3};

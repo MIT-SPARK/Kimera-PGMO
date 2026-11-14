@@ -166,7 +166,7 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
 
       size_t pose_idx = keyed_stamps_.at(closest_stamp);
       node_estimates.push_back(
-          {gtsam::Symbol(GetRobotPrefix(inputs.robot_id), pose_idx), optimized_pose});
+          {gtsam::Symbol(getRobotPrefix(inputs.robot_id), pose_idx), optimized_pose});
     }
     infile.close();
 
@@ -174,7 +174,7 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
       return false;
     }
 
-    deformation_graph_->removePriorsWithPrefix(GetRobotPrefix(inputs.robot_id));
+    deformation_graph_->removePriorsWithPrefix(getRobotPrefix(inputs.robot_id));
     deformation_graph_->processNodeMeasurements(node_estimates, config_.prior_variance);
 
     SPARK_LOG(INFO) << "Optimizing full mesh...";

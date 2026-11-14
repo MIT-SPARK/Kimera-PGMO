@@ -40,6 +40,7 @@ add_library(
   src/compression/mesh_compression.cpp
   src/compression/octree_compression.cpp
   src/compression/redundancy_checker.cpp
+  src/utils/common_functions.cpp
   src/utils/common_structs.cpp
   src/utils/graph.cpp
   src/utils/logging.cpp
@@ -50,6 +51,7 @@ add_library(
   src/optimizer/optimization_types.cpp
   src/deformation_graph.cpp
   src/deformation_graph_io.cpp
+  src/deformation_graph_4dof.cpp
   src/kimera_pgmo_interface.cpp
   src/mesh_deformation.cpp
   src/mesh_delta.cpp
