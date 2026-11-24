@@ -40,7 +40,7 @@ MeshFrontend::MeshFrontend(const rclcpp::NodeOptions& options)
           "mesh_in", config.queue_size, [this](const Mesh::ConstSharedPtr& msg) {
             handleMesh(msg);
           })) {
-  logging::Logger::addSink("ros", std::make_shared<RosLogSink>(get_logger()));
+  getLogger()->sinks() = {std::make_shared<RosLogSink>(get_logger())};
   RCLCPP_INFO(get_logger(), "Initialized mesh_frontend.");
 }
 

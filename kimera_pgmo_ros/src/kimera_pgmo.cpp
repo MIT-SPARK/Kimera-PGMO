@@ -47,7 +47,7 @@ KimeraPgmo::KimeraPgmo(const rclcpp::NodeOptions& options)
       full_mesh_cb_time_(0),
       pg_cb_time_(0),
       path_cb_time_(0) {
-  logging::Logger::addSink("ros", std::make_shared<RosLogSink>(get_logger()));
+  getLogger()->sinks() = {std::make_shared<RosLogSink>(get_logger())};
   if (config_.log_path != "") {
     RCLCPP_INFO_STREAM(get_logger(),
                        "Saving optimized data to: "

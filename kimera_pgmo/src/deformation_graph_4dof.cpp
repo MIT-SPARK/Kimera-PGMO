@@ -144,8 +144,10 @@ GraphValuePair convertGraphToPose4DoF(const gtsam::NonlinearFactorGraph& origina
   gtsam::NonlinearFactorGraph new_graph;
   gtsam::Values new_values;
 
-  SPARK_LOG(INFO) << "# of original values:" << original_values.size()
-                  << ", # of original factors: " << original_nfg.size();
+  SPDLOG_LOGGER_INFO(kimera_pgmo::getLogger(),
+                     "# of original values:{}, # of original factors: {}",
+                     original_values.size(),
+                     original_nfg.size());
 
   // This lookup table prevents redundant construction of Pose4DoF objects.
   std::unordered_map<gtsam::Key, gtsam::Pose4DoF> key_to_pose4dof;
@@ -269,24 +271,30 @@ GraphValuePair convertGraphToPose4DoF(const gtsam::NonlinearFactorGraph& origina
     }
 
     if (!conversion_succeeded) {
-      SPARK_LOG(WARNING) << "Unexpected conversion happens!";
+      SPDLOG_LOGGER_WARN(kimera_pgmo::getLogger(), "Unexpected conversion happens!");
       factor->print();
     }
   }
 
-  SPARK_LOG(INFO) << "# of converted values:" << new_values.size()
-                  << ", # of converted factors:" << new_graph.size();
+  SPDLOG_LOGGER_INFO(kimera_pgmo::getLogger(),
+                     "# of converted values:{}, # of converted factors:{}",
+                     new_values.size(),
+                     new_graph.size());
 
   if (original_values.size() != new_values.size()) {
-    SPARK_LOG(WARNING) << "Size mismatch in values after conversion: "
-                       << "original_values.size() = " << original_values.size()
-                       << ", new_values.size() = " << new_values.size();
+    SPDLOG_LOGGER_WARN(kimera_pgmo::getLogger(),
+                       "Size mismatch in values after conversion: "
+                       "original_values.size() = {}, new_values.size() = {}",
+                       original_values.size(),
+                       new_values.size());
   }
 
   if (original_nfg.size() != new_graph.size()) {
-    SPARK_LOG(WARNING) << "Size mismatch in factor graph after conversion: "
-                       << "original_nfg.size() = " << original_nfg.size()
-                       << ", new_graph.size() = " << new_graph.size();
+    SPDLOG_LOGGER_WARN(kimera_pgmo::getLogger(),
+                       "Size mismatch in factor graph after conversion: "
+                       "original_nfg.size() = {}, new_graph.size() = {}",
+                       original_nfg.size(),
+                       new_graph.size());
   }
 
   return {new_graph, new_values};

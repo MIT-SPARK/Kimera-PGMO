@@ -22,6 +22,16 @@ If you find this library helpful or use it in your projects, please cite:
 
 **Update:** We've archived the ROS1 version of Hydra and switched to the ROS2 version by default. See [this branch](https://github.com/MIT-SPARK/Kimera-PGMO/tree/archive/ros_noetic) for the pinned version of the code if you need the ROS1 version for any reason. We are unlikely to support any issues that come up with the archived ROS1 version.
 
+## Logging
+
+Kimera-PGMO uses spdlog 1.12 or newer with fmt directly. Install `libspdlog-dev` for standalone builds;
+ROS dependency installation resolves the `spdlog` package dependency.
+Applications can configure the shared `kimera_pgmo::getLogger()` logger's sinks
+and severity. Debug diagnostics remain compiled in and are selected at runtime.
+The ROS package installs a native spdlog sink forwarding to the node's logger.
+The previous `SPARK_LOG` and custom sink/registration interfaces are removed.
+Critical messages preserve their previous nonterminating behavior.
+
 ## Filing Issues
 
 Please understand that this is research code maintained by busy graduate students, **which comes with some caveats**:

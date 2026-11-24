@@ -1,10 +1,9 @@
+#include <kimera_pgmo/utils/logging.h>
 /**
  * @file   kimera_pgmo_interface.cpp
  * @brief  KimeraPgmo interface class: base class and methods for Kimera PGMO
  * @author Yun Chang
  */
-#include "kimera_pgmo/kimera_pgmo_interface.h"
-
 #include <config_utilities/config.h>
 #include <config_utilities/printing.h>
 #include <config_utilities/types/enum.h>
@@ -14,6 +13,7 @@
 #include <cmath>
 
 #include "kimera_pgmo/deformation_graph_4dof.h"
+#include "kimera_pgmo/kimera_pgmo_interface.h"
 #include "kimera_pgmo/utils/common_functions.h"
 #include "kimera_pgmo/utils/mesh_io.h"
 
@@ -88,10 +88,12 @@ bool KimeraPgmoInterface::loadGraphAndMesh(size_t robot_id,
                                            bool do_optimize) {
   loadGraph(dgrf_path);
 
-  SPARK_LOG(INFO) << "Loaded new graph. Currently have "
-                  << deformation_graph_->getNumVertices()
-                  << "vertices in deformation graph and " << num_loop_closures_
-                  << " loop closures.";
+  SPDLOG_LOGGER_INFO(
+      kimera_pgmo::getLogger(),
+      "Loaded new graph. Currently have {} vertices in deformation graph "
+      "and {} loop closures.",
+      deformation_graph_->getNumVertices(),
+      num_loop_closures_);
 
   kimera_pgmo::ReadMesh(ply_path, original_vertices_, faces_);
   return deformFullMesh(robot_id, do_optimize);
@@ -164,7 +166,8 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
     node_timestamps.push_back(init_node.stamp_ns);
 
     // Push node to queue to be connected to mesh vertices later
-    SPARK_LOG(DEBUG) << "Initialized first node in pose graph.";
+    SPDLOG_LOGGER_DEBUG(kimera_pgmo::getLogger(),
+                        "Initialized first node in pose graph.");
   }
 
   for (const auto& pg_edge : msg.edges) {
@@ -182,20 +185,21 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
     if (pg_edge.type == pose_graph_tools::PoseGraphEdge::ODOM) {
       // odometry edge
       if (robot_from != robot_to) {
-        SPARK_LOG(ERROR) << "Odometry edge should not connect two nodes from different "
-                            "robots.";
+        SPDLOG_LOGGER_ERROR(
+            kimera_pgmo::getLogger(),
+            "Odometry edge should not connect two nodes from different robots.");
         return ProcessPoseGraphStatus::INVALID;
       }
 
       if (to_key.index() != initial_trajectory.size()) {
         if (to_key.index() > initial_trajectory.size()) {
-          SPARK_LOG(ERROR) << "Missing from node "
-                           << gtsam::DefaultKeyFormatter(from_key)
-                           << " in odometry edge.";
+          SPDLOG_LOGGER_ERROR(kimera_pgmo::getLogger(),
+                              "Missing from node {} in odometry edge.",
+                              gtsam::DefaultKeyFormatter(from_key));
           return ProcessPoseGraphStatus::MISSING;
         }
 
-        SPARK_LOG(WARNING) << "Duplicated edge";
+        SPDLOG_LOGGER_WARN(kimera_pgmo::getLogger(), "Duplicated edge");
         continue;
       }
 
@@ -229,7 +233,8 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
 
     } else if (pg_edge.type == pose_graph_tools::PoseGraphEdge::LOOPCLOSE) {
       if (!keyed_stamps_.count(from_key) || !keyed_stamps_.count(to_key)) {
-        SPARK_LOG(ERROR) << "Caught loop closure between unknown nodes.";
+        SPDLOG_LOGGER_ERROR(kimera_pgmo::getLogger(),
+                            "Caught loop closure between unknown nodes.");
         return ProcessPoseGraphStatus::LC_MISSING_NODES;
       }
 
@@ -250,8 +255,9 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
                                     {measure},
                                     initial_trajectory,
                                     false)) {  // not necessarily inliers
-          SPARK_LOG(WARNING)
-              << "Failed to add mesh-to-mesh connections for loop closure.";
+          SPDLOG_LOGGER_WARN(
+              kimera_pgmo::getLogger(),
+              "Failed to add mesh-to-mesh connections for loop closure.");
         }
 
         // TODO(nathan) force loop closure for mesh
@@ -262,9 +268,13 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
       loop_closures_to.insert(to_key);
       auto& loop_closures_from = loop_closures_[to_key];
       loop_closures_from.insert(from_key);
-      SPARK_LOG(INFO) << "KimeraPgmo: Loop closure detected between robot "
-                      << robot_from << " node " << prev_node << " and robot "
-                      << robot_to << " node " << current_node << ".";
+      SPDLOG_LOGGER_INFO(kimera_pgmo::getLogger(),
+                         "KimeraPgmo: Loop closure detected between robot {} node {} "
+                         "and robot {} node {}.",
+                         robot_from,
+                         prev_node,
+                         robot_to,
+                         current_node);
       num_loop_closures_++;
     }
   }
@@ -272,7 +282,8 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
   if (config_.mode != RunMode::MESH_ONLY) {
     if (!addPoseMeshConnections(stamped_nodes)) {
       if (stamped_nodes.size() > 0 && new_mesh_indices.size() > 0) {
-        SPARK_LOG(WARNING) << "KimeraPgmo: Partial mesh not connected to pose graph.";
+        SPDLOG_LOGGER_WARN(kimera_pgmo::getLogger(),
+                           "KimeraPgmo: Partial mesh not connected to pose graph.");
       }
 
       return ProcessPoseGraphStatus::MESH_DISCONNECTED;
@@ -283,7 +294,8 @@ ProcessPoseGraphStatus KimeraPgmoInterface::processIncrementalPoseGraph(
                                 initial_trajectory,
                                 true)) {  // as inliers
       if (stamped_nodes.size() > 0 && new_mesh_indices.size() > 0) {
-        SPARK_LOG(WARNING) << "KimeraPgmo: Partial mesh not connected to pose graph.";
+        SPDLOG_LOGGER_WARN(kimera_pgmo::getLogger(),
+                           "KimeraPgmo: Partial mesh not connected to pose graph.");
       }
 
       return ProcessPoseGraphStatus::MESH_DISCONNECTED;
@@ -371,7 +383,8 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
     std::vector<size_t>& new_mesh_indices,
     std::vector<Timestamp>& new_mesh_index_stamps) {
   if (mesh_graph.edges.empty() || mesh_graph.nodes.empty()) {
-    SPARK_LOG(DEBUG) << "processIncrementalMeshGraph: empty message.";
+    SPDLOG_LOGGER_DEBUG(kimera_pgmo::getLogger(),
+                        "processIncrementalMeshGraph: empty message.");
     return ProcessMeshGraphStatus::EMPTY;
   }
 
@@ -386,7 +399,8 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
   for (const auto& e : mesh_graph.edges) {
     if (static_cast<size_t>(e.robot_from) != robot_id ||
         static_cast<size_t>(e.robot_to) != robot_id) {
-      SPARK_LOG(WARNING) << "processIncrementalMeshGraph: different ids in message.";
+      SPDLOG_LOGGER_WARN(kimera_pgmo::getLogger(),
+                         "processIncrementalMeshGraph: different ids in message.");
     }
 
     gtsam::Key from = gtsam::Symbol(getVertexPrefix(e.robot_from), e.key_from);
@@ -397,7 +411,8 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
   // Convert and add nodes
   for (const auto& n : mesh_graph.nodes) {
     if (static_cast<size_t>(n.robot_id) != robot_id) {
-      SPARK_LOG(WARNING) << "processIncrementalMeshGraph: different ids in message.";
+      SPDLOG_LOGGER_WARN(kimera_pgmo::getLogger(),
+                         "processIncrementalMeshGraph: different ids in message.");
       return ProcessMeshGraphStatus::INVALID;
     }
 
@@ -407,7 +422,7 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
       new_mesh_nodes.insert(key, node_pose);
       new_mesh_node_stamps.insert({key, n.stamp_ns});
     } catch (const gtsam::ValuesKeyAlreadyExists& e) {
-      SPARK_LOG(WARNING) << "processing mesh node duplicate";
+      SPDLOG_LOGGER_WARN(kimera_pgmo::getLogger(), "processing mesh node duplicate");
     }
   }
 
@@ -425,7 +440,8 @@ ProcessMeshGraphStatus KimeraPgmoInterface::processIncrementalMeshGraph(
 
 void KimeraPgmoInterface::processOptimizedPath(const std::vector<gtsam::Pose3>& path,
                                                size_t robot_id) {
-  SPARK_LOG(INFO) << "Received optimized trajectory. Fixing pose graph nodes...";
+  SPDLOG_LOGGER_INFO(kimera_pgmo::getLogger(),
+                     "Received optimized trajectory. Fixing pose graph nodes...");
   deformation_graph_->removePriorsWithPrefix(getRobotPrefix(robot_id));
 
   std::vector<std::pair<gtsam::Key, gtsam::Pose3>> node_estimates;
@@ -528,7 +544,8 @@ bool KimeraPgmoInterface::deformFullMesh(size_t robot_id, bool do_optimize) {
 
 bool KimeraPgmoInterface::saveMesh(const std::string& filepath) const {
   WriteMesh(filepath, optimized_vertices_, faces_);
-  SPARK_LOG(INFO) << "KimeraPgmo: Saved mesh to file '" << filepath << "'";
+  SPDLOG_LOGGER_INFO(
+      kimera_pgmo::getLogger(), "KimeraPgmo: Saved mesh to file '{}'", filepath);
   return true;
 }
 
@@ -548,13 +565,17 @@ bool KimeraPgmoInterface::saveTrajectory(const std::string& filepath) const {
   }
 
   csvfile.close();
-  SPARK_LOG(INFO) << "KimeraPgmo: Saved trajectories to file '" << filepath << "'";
+  SPDLOG_LOGGER_INFO(kimera_pgmo::getLogger(),
+                     "KimeraPgmo: Saved trajectories to file '{}'",
+                     filepath);
   return true;
 }
 
 bool KimeraPgmoInterface::saveDeformationGraph(const std::string& filepath) const {
   deformation_graph_->save(filepath);
-  SPARK_LOG(INFO) << "KimeraPgmo: Saved deformation graph to file '" << filepath << "'";
+  SPDLOG_LOGGER_INFO(kimera_pgmo::getLogger(),
+                     "KimeraPgmo: Saved deformation graph to file '{}'",
+                     filepath);
   return true;
 }
 

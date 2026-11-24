@@ -1,15 +1,16 @@
+#include <kimera_pgmo/utils/logging.h>
 /**
  * @file   mesh_conversion.cpp
  * @brief  Conversion to and from ROS types
  * @author Yun Chang
  */
-#include "kimera_pgmo_ros/conversion/mesh.h"
-
 #include <kimera_pgmo/mesh_types.h>
 #include <kimera_pgmo/pcl_mesh_traits.h>
 #include <pcl/conversions.h>
 
 #include <rclcpp/time.hpp>
+
+#include "kimera_pgmo_ros/conversion/mesh.h"
 
 namespace kimera_pgmo::conversions {
 
@@ -32,8 +33,10 @@ Mesh::UniquePtr toMsg(size_t robot_id,
                       const std::string& frame_id,
                       const IndexMapping* graph_indices) {
   if (cloud.size() != stamps.size()) {
-    SPARK_LOG(ERROR) << "Vertices and timestamps disagree: points=" << cloud.size()
-                     << " != stamps=" << stamps.size();
+    SPDLOG_LOGGER_ERROR(kimera_pgmo::getLogger(),
+                        "Vertices and timestamps disagree: points={} != stamps={}",
+                        cloud.size(),
+                        stamps.size());
     return nullptr;
   }
 

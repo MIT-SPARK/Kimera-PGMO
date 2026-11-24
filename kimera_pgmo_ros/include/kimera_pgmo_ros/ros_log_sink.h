@@ -1,39 +1,49 @@
 #pragma once
 
-#include <kimera_pgmo/utils/logging.h>
+#include <spdlog/sinks/base_sink.h>
+
+#include <mutex>
+#include <string>
 
 #include <rclcpp/rclcpp.hpp>
 
 namespace kimera_pgmo {
 
-struct RosLogSink : logging::LogSink {
-  explicit RosLogSink(const rclcpp::Logger& logger) : logger(logger) {}
-  virtual ~RosLogSink() = default;
+class RosLogSink : public spdlog::sinks::base_sink<std::mutex> {
+ public:
+  explicit RosLogSink(const rclcpp::Logger& logger) : logger_(logger) {}
 
-  void dispatch(const logging::LogEntry& entry) const override {
-    std::stringstream ss;
-    ss << entry.prefix() << entry.message();
+ protected:
+  void sink_it_(const spdlog::details::log_msg& entry) override {
+    const auto payload = std::string(entry.payload.data(), entry.payload.size());
+    const auto message =
+        entry.source.empty()
+            ? payload
+            : fmt::format(
+                  "[{}:{}] {}", entry.source.filename, entry.source.line, payload);
     switch (entry.level) {
-      case logging::Level::WARNING:
-        RCLCPP_WARN_STREAM(logger, ss.str());
+      case spdlog::level::warn:
+        RCLCPP_WARN(logger_, "%s", message.c_str());
         break;
-      case logging::Level::ERROR:
-        RCLCPP_ERROR_STREAM(logger, ss.str());
+      case spdlog::level::err:
+        RCLCPP_ERROR(logger_, "%s", message.c_str());
         break;
-      case logging::Level::FATAL:
-        RCLCPP_FATAL_STREAM(logger, ss.str());
+      case spdlog::level::critical:
+        RCLCPP_FATAL(logger_, "%s", message.c_str());
         break;
-      case logging::Level::INFO:
-        RCLCPP_INFO_STREAM(logger, ss.str());
+      case spdlog::level::info:
+        RCLCPP_INFO(logger_, "%s", message.c_str());
         break;
       default:
-      case logging::Level::DEBUG:
-        RCLCPP_DEBUG_STREAM(logger, ss.str());
+        RCLCPP_DEBUG(logger_, "%s", message.c_str());
         break;
     }
   }
 
-  rclcpp::Logger logger;
+  void flush_() override {}
+
+ private:
+  rclcpp::Logger logger_;
 };
 
 }  // namespace kimera_pgmo

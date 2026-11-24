@@ -146,8 +146,9 @@ GraphMsgPtr GtsamGraphToRos(const gtsam::NonlinearFactorGraph& factors,
 
       if (timestamps.count(robot_id) == 0 ||
           timestamps.at(robot_id).size() <= node_symb.index()) {
-        SPARK_LOG(WARNING) << "Invalid timestamp for trajectory poses when converting "
-                              "to PoseGraph msg.";
+        SPDLOG_LOGGER_WARN(
+            kimera_pgmo::getLogger(),
+            "Invalid timestamp for trajectory poses when converting to PoseGraph msg.");
       } else {
         node.header.stamp = rclcpp::Time(timestamps.at(robot_id).at(node_symb.index()));
       }
