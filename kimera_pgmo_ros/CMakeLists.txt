@@ -12,12 +12,12 @@ endif()
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
 find_package(ament_cmake REQUIRED)
+find_package(ianvs REQUIRED)
 find_package(kimera_pgmo REQUIRED)
 find_package(kimera_pgmo_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(pose_graph_tools_ros REQUIRED)
 find_package(rclcpp REQUIRED)
-find_package(rcutils REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(tf2_eigen REQUIRED)
 find_package(tf2_ros REQUIRED)
@@ -37,7 +37,8 @@ target_include_directories(
   ${PROJECT_NAME}
   PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
          "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>")
-target_link_libraries(${PROJECT_NAME} PRIVATE config_utilities::config_utilities
+target_link_libraries(${PROJECT_NAME} PRIVATE ianvs::ianvs_spdlog
+                                              config_utilities::config_utilities
                                               tf2_eigen::tf2_eigen)
 ament_target_dependencies(
   ${PROJECT_NAME}
@@ -47,7 +48,6 @@ ament_target_dependencies(
   nav_msgs
   pose_graph_tools_ros
   rclcpp
-  rcutils
   std_srvs
   tf2_ros
   visualization_msgs)
@@ -79,12 +79,12 @@ install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 
 ament_export_targets(${PROJECT_NAME}-targets)
 ament_export_dependencies(
+  ianvs
   kimera_pgmo
   kimera_pgmo_msgs
   nav_msgs
   pose_graph_tools_ros
   rclcpp
-  rcutils
   std_srvs
   tf2_ros
   visualization_msgs)

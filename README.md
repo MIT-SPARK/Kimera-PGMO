@@ -28,7 +28,7 @@ Kimera-PGMO uses spdlog 1.12 or newer with fmt directly. Install `libspdlog-dev`
 ROS dependency installation resolves the `spdlog` package dependency.
 Applications can configure the shared `kimera_pgmo::getLogger()` logger's sinks
 and severity. Debug diagnostics remain compiled in and are selected at runtime.
-The ROS package installs a native spdlog sink forwarding to the node's logger.
+The ROS package uses `ianvs::setRosSink` to forward to the node's logger.
 Forwarding uses a `spdlog` child logger at ROS debug level so the spdlog severity
 setting controls forwarded output without changing the node's own ROS threshold.
 ROS formats the timestamp, severity, and logger name. The source filename and line

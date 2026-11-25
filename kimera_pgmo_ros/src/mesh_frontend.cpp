@@ -8,12 +8,12 @@
 
 #include <config_utilities/config.h>
 #include <config_utilities/parsing/context.h>
+#include <ianvs/ros_log_sink.h>
 #include <kimera_pgmo/utils/common_functions.h>
 #include <kimera_pgmo/utils/pcl_mesh_interface.h>
 #include <pose_graph_tools_ros/conversions.h>
 
 #include "kimera_pgmo_ros/conversion/mesh.h"
-#include "kimera_pgmo_ros/ros_log_sink.h"
 
 namespace kimera_pgmo {
 
@@ -40,7 +40,7 @@ MeshFrontend::MeshFrontend(const rclcpp::NodeOptions& options)
           "mesh_in", config.queue_size, [this](const Mesh::ConstSharedPtr& msg) {
             handleMesh(msg);
           })) {
-  getLogger()->sinks() = {std::make_shared<RosLogSink>(get_logger())};
+  ianvs::setRosSink(*getLogger(), get_logger());
   RCLCPP_INFO(get_logger(), "Initialized mesh_frontend.");
 }
 
