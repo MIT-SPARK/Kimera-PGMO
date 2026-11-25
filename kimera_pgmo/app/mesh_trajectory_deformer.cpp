@@ -37,22 +37,15 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
   explicit MeshTrajectoryDeformer(const KimeraPgmoConfig& config,
                                   const InputConfig& input_config)
       : KimeraPgmoInterface(config), inputs(config::checkValid(input_config)) {
-    SPDLOG_LOGGER_INFO(kimera_pgmo::getLogger(),
-                       "Loading DGRF file: {} and ply file: {}",
-                       inputs.dgrf_path,
-                       inputs.ply_path);
-    SPDLOG_LOGGER_INFO(kimera_pgmo::getLogger(),
-                       "Deforming based on trajectory: {}",
-                       inputs.optimized_traj_path);
+    PGMO_LOG(INFO, "Loading DGRF '{}' and PLY '{}'", inputs.dgrf_path, inputs.ply_path);
+    PGMO_LOG(INFO, "Deforming with trajectory '{}'", inputs.optimized_traj_path);
     if (config_.log_path != "") {
-      SPDLOG_LOGGER_INFO(
-          kimera_pgmo::getLogger(),
-          "Saving optimized data to: {}/ mesh_pgmo.ply and traj_pgmo.csv",
-          config_.log_path);
+      PGMO_LOG(
+          INFO, "Saving mesh_pgmo.ply and traj_pgmo.csv to '{}'", config_.log_path);
     }
 
     loadGraphAndMesh(inputs.robot_id, inputs.ply_path, inputs.dgrf_path, false);
-    SPDLOG_LOGGER_INFO(kimera_pgmo::getLogger(), "Load mesh and graph success");
+    PGMO_LOG(INFO, "Loaded mesh and graph");
 
     loadOriginalPath(inputs.orig_traj_path);
     loadOptimizedPath(inputs.optimized_traj_path, inputs.max_diff_ns);
@@ -71,8 +64,7 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
   void loadOriginalPath(const std::string& path) {
     std::ifstream infile(path);
     if (!infile.is_open()) {
-      SPDLOG_LOGGER_ERROR(kimera_pgmo::getLogger(),
-                          "Could not open original trajectory file");
+      PGMO_LOG(ERROR, "Cannot open original trajectory");
       return;
     }
 
@@ -97,8 +89,7 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
   bool loadOptimizedPath(const std::string& path, uint64_t max_diff_ns) {
     std::ifstream infile(path);
     if (!infile.is_open()) {
-      SPDLOG_LOGGER_ERROR(kimera_pgmo::getLogger(),
-                          "Could not open optimized trajectory file");
+      PGMO_LOG(ERROR, "Cannot open optimized trajectory");
       return false;
     }
 
@@ -127,8 +118,7 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
       low = keyed_stamps_.lower_bound(timestamp);
       if (low == keyed_stamps_.end()) {
         // nothing found, maybe use rbegin()
-        SPDLOG_LOGGER_WARN(kimera_pgmo::getLogger(),
-                           "Looking for stamp before mission start. ");
+        PGMO_LOG(WARN, "Timestamp precedes mission start");
         continue;
       } else if (low == keyed_stamps_.begin()) {
         if ((low->first - timestamp) > max_diff_ns) {
@@ -186,7 +176,7 @@ class MeshTrajectoryDeformer : public KimeraPgmoInterface {
     deformation_graph_->removePriorsWithPrefix(getRobotPrefix(inputs.robot_id));
     deformation_graph_->processNodeMeasurements(node_estimates, config_.prior_variance);
 
-    SPDLOG_LOGGER_INFO(kimera_pgmo::getLogger(), "Optimizing full mesh...");
+    PGMO_LOG(INFO, "Optimizing full mesh...");
     deformFullMesh(inputs.robot_id, true);
     return true;
   }

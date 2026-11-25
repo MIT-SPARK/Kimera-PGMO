@@ -397,15 +397,13 @@ DeformationGraph::Ptr DeformationGraph::load(const std::filesystem::path& filepa
                                              bool include_priors,
                                              std::optional<size_t> new_id) {
   if (!std::filesystem::exists(filepath)) {
-    SPDLOG_LOGGER_ERROR(
-        kimera_pgmo::getLogger(), "Invalid deformation graph file {}", filepath);
+    PGMO_LOG(ERROR, "Invalid deformation graph file {}", filepath);
     return nullptr;
   }
 
   const auto ext = filepath.extension();
   if (ext != ".json" && ext != ".jsn") {
-    SPDLOG_LOGGER_WARN(
-        kimera_pgmo::getLogger(), "Unknown extension for file {}", filepath);
+    PGMO_LOG(WARN, "Unknown extension for file {}", filepath);
   }
 
   std::ifstream f(filepath);

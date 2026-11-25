@@ -91,7 +91,7 @@ void processPoints(const PointCallback& callback,
 
   // Cannot deform if no nodes in the deformation graph
   if (control_points.size() == 0) {
-    SPDLOG_LOGGER_WARN(kimera_pgmo::getLogger(), "No control points. No deformation");
+    PGMO_LOG(WARN, "No control points, skipping deformation");
     return;
   }
 
@@ -102,8 +102,7 @@ void processPoints(const PointCallback& callback,
   }
 
   if (tree.getLeafCount() < k) {
-    SPDLOG_LOGGER_WARN(kimera_pgmo::getLogger(),
-                       "Not enough valid control points to deform points");
+    PGMO_LOG(WARN, "Too few valid control points for deformation");
     return;
   }
 
@@ -145,8 +144,7 @@ void processPoints(const PointCallback& callback,
 
   // Cannot deform if no nodes in the deformation graph
   if (control_points.size() < k) {
-    SPDLOG_LOGGER_WARN(kimera_pgmo::getLogger(),
-                       "Not enough valid control points to deform points");
+    PGMO_LOG(WARN, "Too few valid control points for deformation");
     return;
   }
 
@@ -176,12 +174,11 @@ void processPoints(const PointCallback& callback,
     }
 
     if (search_tree.getLeafCount() < k + 1) {
-      SPDLOG_LOGGER_DEBUG(
-          kimera_pgmo::getLogger(),
-          "Not enough valid control points to interpolate point {}: {} < {}",
-          ii,
-          search_tree.getLeafCount(),
-          k + 1);
+      PGMO_LOG(DEBUG,
+               "Too few valid control points for point {}: {} < {}",
+               ii,
+               search_tree.getLeafCount(),
+               k + 1);
       if (num_ctrl_pts > 1) {
         k = num_ctrl_pts - 1;
       } else {

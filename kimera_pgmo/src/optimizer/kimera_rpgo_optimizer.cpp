@@ -198,9 +198,7 @@ OptimizationResult KimeraRpgoOptimizer::update(const OptimizationProblem& proble
   result.extra_weights = std::vector<double>(weights.begin() + N_f, weights.end());
 
   const auto print_iters = config.print_iterations;
-  SPDLOG_LOGGER_INFO(kimera_pgmo::getLogger(),
-                     "{}",
-                     showLog(*rpgo_, iterations, all_inliers, weights, print_iters));
+  PGMO_LOG(INFO, "{}", showLog(*rpgo_, iterations, all_inliers, weights, print_iters));
   if (!log_path_.empty()) {
     rpgo_->writeLog(log_path_ / "rpgo_log.json");
   }

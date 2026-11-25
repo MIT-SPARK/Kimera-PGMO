@@ -33,10 +33,10 @@ Mesh::UniquePtr toMsg(size_t robot_id,
                       const std::string& frame_id,
                       const IndexMapping* graph_indices) {
   if (cloud.size() != stamps.size()) {
-    SPDLOG_LOGGER_ERROR(kimera_pgmo::getLogger(),
-                        "Vertices and timestamps disagree: points={} != stamps={}",
-                        cloud.size(),
-                        stamps.size());
+    PGMO_LOG(ERROR,
+             "Vertex/timestamp count mismatch: {} != {}",
+             cloud.size(),
+             stamps.size());
     return nullptr;
   }
 

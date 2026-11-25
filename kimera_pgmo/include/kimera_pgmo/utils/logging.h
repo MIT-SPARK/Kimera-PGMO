@@ -18,3 +18,7 @@ namespace kimera_pgmo {
 std::shared_ptr<spdlog::logger> getLogger();
 
 }  // namespace kimera_pgmo
+
+// Keep native spdlog source locations and compile-time severity filtering.
+#define PGMO_LOG(LEVEL, ...) \
+  SPDLOG_LOGGER_##LEVEL(::kimera_pgmo::getLogger(), __VA_ARGS__)

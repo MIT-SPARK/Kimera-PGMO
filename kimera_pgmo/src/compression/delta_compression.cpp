@@ -105,8 +105,7 @@ MeshDelta::Ptr DeltaCompression::computeDelta(uint64_t timestamp_ns,
   tracking_info_.prev_to_curr = std::make_shared<std::map<size_t, size_t>>();
   prev_archived_vertices_ = delta_->getNumArchivedVertices();
 
-  SPDLOG_LOGGER_DEBUG(
-      kimera_pgmo::getLogger(), "Finished update with {}", summarizeDelta(*delta_));
+  PGMO_LOG(DEBUG, "Finished update with {}", summarizeDelta(*delta_));
   return std::move(delta_);
 }
 
@@ -299,9 +298,7 @@ void DeltaCompression::archiveBlocks(const BlockFilter& to_archive) {
     block_info_map_.erase(idx);
   }
 
-  SPDLOG_LOGGER_DEBUG(kimera_pgmo::getLogger(),
-                      "Finished archive with {}",
-                      summarizeDelta(*archive_delta_));
+  PGMO_LOG(DEBUG, "Finished archive with {}", summarizeDelta(*archive_delta_));
 }
 
 void DeltaCompression::archiveBlockFaces(const BlockInfo& block_info,

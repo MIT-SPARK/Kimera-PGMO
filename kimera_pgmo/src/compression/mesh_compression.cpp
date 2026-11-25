@@ -219,15 +219,11 @@ void MeshCompression::pruneStoredMesh(double earliest_time_sec) {
 
   // Entries in active_vertex_stamps_ shoudl correspond to number of points
   if (active_vertex_stamps_.size() != active_vertices_xyz_->size()) {
-    SPDLOG_LOGGER_ERROR(
-        kimera_pgmo::getLogger(),
-        "Length of book-keeped vertex time does not match number of active points");
+    PGMO_LOG(ERROR, "Vertex timestamp count differs from active point count");
   }
 
   if (active_vertices_index_.size() != active_vertices_xyz_->size()) {
-    SPDLOG_LOGGER_ERROR(
-        kimera_pgmo::getLogger(),
-        "Length of book-keeped vertex indices does not match number of active points");
+    PGMO_LOG(ERROR, "Vertex index count differs from active point count");
   }
 
   try {
@@ -257,8 +253,7 @@ void MeshCompression::pruneStoredMesh(double earliest_time_sec) {
       reInitializeStructure(active_vertices_xyz_);
     }
   } catch (...) {
-    SPDLOG_LOGGER_ERROR(kimera_pgmo::getLogger(),
-                        "MeshCompression: Failed to prune active mesh");
+    PGMO_LOG(ERROR, "Failed to prune active mesh");
   }
 }
 
