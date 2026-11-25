@@ -7,6 +7,7 @@
 
 #include <config_utilities/config.h>
 #include <config_utilities/parsing/context.h>
+#include <ianvs/ros_log_sink.h>
 #include <kimera_pgmo/utils/logging.h>
 #include <kimera_pgmo/utils/mesh_io.h>
 #include <pose_graph_tools_ros/conversions.h>
@@ -16,7 +17,6 @@
 
 #include "kimera_pgmo_ros/conversion/gtsam.h"
 #include "kimera_pgmo_ros/conversion/mesh.h"
-#include "kimera_pgmo_ros/ros_log_sink.h"
 #include "kimera_pgmo_ros/visualization_functions.h"
 
 namespace kimera_pgmo {
@@ -47,7 +47,7 @@ KimeraPgmo::KimeraPgmo(const rclcpp::NodeOptions& options)
       full_mesh_cb_time_(0),
       pg_cb_time_(0),
       path_cb_time_(0) {
-  logging::Logger::addSink("ros", std::make_shared<RosLogSink>(get_logger()));
+  ianvs::setRosSink(*getLogger(), get_logger());
   if (config_.log_path != "") {
     RCLCPP_INFO_STREAM(get_logger(),
                        "Saving optimized data to: "

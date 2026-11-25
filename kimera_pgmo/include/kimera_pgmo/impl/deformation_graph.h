@@ -14,7 +14,7 @@ void DeformationGraph::deformPoints(CloudOut& points,
                                     int start_idx) const {
   auto iter = control_points_.find(prefix);
   if (iter == control_points_.end()) {
-    SPARK_LOG(DEBUG) << "Graph has no vertices for prefix. No deformation";
+    PGMO_LOG(DEBUG, "No vertices for prefix, skipping deformation");
     return;
   }
 
@@ -37,7 +37,7 @@ void DeformationGraph::customDeformation(const DeformationCallback& callback,
                                          double tol_t) const {
   auto iter = control_points_.find(prefix);
   if (iter == control_points_.end()) {
-    SPARK_LOG(DEBUG) << "Graph has no vertices for prefix. No deformation";
+    PGMO_LOG(DEBUG, "No vertices for prefix, skipping deformation");
     return;
   }
 

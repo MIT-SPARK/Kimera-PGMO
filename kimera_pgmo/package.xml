@@ -11,6 +11,7 @@
   <buildtool_depend>cmake</buildtool_depend>
   <depend>cli11</depend>
   <depend>config_utilities</depend>
+  <depend>spdlog</depend>
   <depend>eigen</depend>
   <depend>gtsam</depend>
   <depend>kimera_rpgo</depend>

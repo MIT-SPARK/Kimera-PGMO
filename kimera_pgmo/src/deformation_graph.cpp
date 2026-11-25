@@ -17,6 +17,7 @@
 #include "kimera_pgmo/deformation_edge_factor.h"
 #include "kimera_pgmo/deformation_graph_4dof.h"
 #include "kimera_pgmo/utils/common_functions.h"
+#include "kimera_pgmo/utils/logging.h"
 
 namespace kimera_pgmo {
 
@@ -288,8 +289,7 @@ void DeformationGraph::processPoseGraph(const pose_graph_tools::PoseGraph& pose_
 
   for (const auto& edge : pose_graph.edges) {
     if (!variance_map.count(edge.type)) {
-      SPARK_LOG(ERROR) << "Missing variance for edge '" << edge.type
-                       << "' in processPoseGraph";
+      PGMO_LOG(ERROR, "No variance for pose-graph edge type {}", edge.type);
       continue;
     }
 
@@ -332,8 +332,7 @@ void DeformationGraph::processMeshGraph(const pose_graph_tools::PoseGraph& mesh_
 
   for (const auto& edge : mesh_graph.edges) {
     if (!variance_map.count(edge.type)) {
-      SPARK_LOG(ERROR) << "Missing edge type " << edge.type
-                       << " for variance map in processMeshGraph";
+      PGMO_LOG(ERROR, "No variance for mesh-graph edge type {}", edge.type);
       continue;
     }
 
@@ -350,7 +349,7 @@ void DeformationGraph::processMeshGraph(const pose_graph_tools::PoseGraph& mesh_
       from_key = gtsam::Symbol(getVertexPrefix(from_robot), edge.key_from);
       to_key = gtsam::Symbol(getRobotPrefix(to_robot), edge.key_to);
     } else {
-      SPARK_LOG(ERROR) << "Unhandled edge type in processMeshGraph";
+      PGMO_LOG(ERROR, "Unhandled mesh-graph edge type");
       continue;
     }
 
@@ -508,8 +507,8 @@ void DeformationGraph::processNodeMeasurements(const NodeMeasurements& measureme
                                                double variance) {
   for (const auto& [key, pose] : measurements) {
     if (!values_.exists(key)) {
-      SPARK_LOG(ERROR) << "DeformationGraph: adding node measurement to a node "
-                       << gtsam::DefaultKeyFormatter(key) << " not seen before.";
+      PGMO_LOG(
+          ERROR, "Measurement for unknown node {}", gtsam::DefaultKeyFormatter(key));
       values_.insert(key, pose);
     } else {
       values_.update(key, pose);
@@ -547,13 +546,12 @@ bool DeformationGraph::checkNewBetween(const gtsam::Key& key_from,
   }
 
   if (from_idx >= trajectories_.at(from_prefix).size()) {
-    SPARK_LOG(ERROR)
-        << "DeformationGraph: when adding new between from key should already exist.";
+    PGMO_LOG(ERROR, "Missing source node for between factor");
     return false;
   }
 
   if (to_idx >= trajectories_.at(to_prefix).size()) {
-    SPARK_LOG(ERROR) << "DeformationGraph: skipping keys in addNewBetween.";
+    PGMO_LOG(ERROR, "Missing target node for between factor");
     return false;
   }
 
@@ -570,7 +568,7 @@ void DeformationGraph::updatePoseGraphInitialGuess(gtsam::Key key_from,
   if (values_.exists(key_from)) {
     initial_estimate = values_.at<gtsam::Pose3>(key_from).compose(meas);
   } else {
-    SPARK_LOG(FATAL) << "Missing from key values when adding initial guess.";
+    PGMO_LOG(CRITICAL, "Missing source pose for initial guess");
   }
 
   auto& trajectory = trajectories_.at(to_prefix);
@@ -597,7 +595,7 @@ void DeformationGraph::addNewBetween(const gtsam::Key& key_from,
 
   // if it's a loop closure factor
   if (key_to != key_from + 1) {
-    SPARK_LOG(DEBUG) << "DeformationGraph: Added loop closure";
+    PGMO_LOG(DEBUG, "Added loop closure");
     num_loopclosures_++;
   }
 }
@@ -671,7 +669,7 @@ void DeformationGraph::processNewMeshEdgesAndNodes(const MeshEdges& mesh_edges,
   // added before)
   for (const auto& node_key : mesh_nodes.keys()) {
     if (!checkNewMeshNode(node_key)) {
-      SPARK_LOG(FATAL) << "Error adding new mesh node.";
+      PGMO_LOG(CRITICAL, "Failed to add mesh node");
     }
 
     const gtsam::Pose3& node_pose = mesh_nodes.at<gtsam::Pose3>(node_key);
@@ -684,7 +682,7 @@ void DeformationGraph::processNewMeshEdgesAndNodes(const MeshEdges& mesh_edges,
   // Iterate and add the new edges
   for (auto e : mesh_edges) {
     if (!checkNewMeshEdge(e.first, e.second)) {
-      SPARK_LOG(FATAL) << "Error adding new mesh edge.";
+      PGMO_LOG(CRITICAL, "Failed to add mesh edge");
     }
 
     const auto pose_from = mesh_nodes.at<gtsam::Pose3>(e.first);
@@ -708,7 +706,7 @@ bool DeformationGraph::addNewNode(gtsam::Key key,
   }
 
   if (idx > iter->second.size()) {
-    SPARK_LOG(ERROR) << "DeformationGraph: Nodes skipped in pose graph nodes";
+    PGMO_LOG(ERROR, "Skipped pose-graph node indices");
     return false;
   }
 

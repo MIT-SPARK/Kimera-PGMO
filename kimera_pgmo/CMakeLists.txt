@@ -9,6 +9,7 @@ add_compile_options(-Wall -Wextra -Wpedantic)
 
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
+find_package(spdlog 1.12 REQUIRED)
 find_package(CLI11 REQUIRED)
 find_package(config_utilities REQUIRED)
 find_package(Eigen3 REQUIRED)
@@ -67,7 +68,8 @@ target_include_directories(
          ${PCL_INCLUDE_DIRS})
 target_link_libraries(
   ${PROJECT_NAME}
-  PUBLIC ${PCL_LIBRARIES}
+  PUBLIC spdlog::spdlog
+         ${PCL_LIBRARIES}
          Eigen3::Eigen
          kimera_rpgo::kimera_rpgo
          gtsam
@@ -75,6 +77,7 @@ target_link_libraries(
          spatial_hash::spatial_hash
          config_utilities::config_utilities
   PRIVATE nlohmann_json::nlohmann_json)
+target_compile_definitions(${PROJECT_NAME} PUBLIC SPDLOG_ACTIVE_LEVEL=SPDLOG_LEVEL_TRACE)
 set_property(TARGET ${PROJECT_NAME} PROPERTY POSITION_INDEPENDENT_CODE ON)
 add_library(kimera_pgmo::${PROJECT_NAME} ALIAS ${PROJECT_NAME})
 

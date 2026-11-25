@@ -1,77 +1,20 @@
 #include "kimera_pgmo/utils/logging.h"
 
-#include <filesystem>
-#include <iostream>
+#include <spdlog/sinks/stdout_color_sinks.h>
 
-namespace logging {
+namespace kimera_pgmo {
 
-Logger& Logger::instance() {
-  if (!s_instance_) {
-    s_instance_.reset(new Logger());
-  }
+std::shared_ptr<spdlog::logger> getLogger() {
+  static const auto logger = [] {
+    if (auto existing = spdlog::get("kimera_pgmo")) {
+      return existing;
+    }
 
-  return *s_instance_;
+    auto result = spdlog::stderr_color_mt("kimera_pgmo");
+    result->set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] [%s:%#] %v");
+    return result;
+  }();
+  return logger;
 }
 
-void Logger::addSink(const std::string& name, const LogSink::Ptr& sink) {
-  auto& self = instance();
-  self.sinks_[name] = sink;
-}
-
-void Logger::dispatchLogEntry(const LogEntry& entry) {
-  auto& self = instance();
-  for (const auto& name_sink_pair : self.sinks_) {
-    name_sink_pair.second->dispatch(entry);
-  }
-}
-
-Logger::Logger() {}
-
-LogEntry::LogEntry(Level level, const std::string& filename, int lineno)
-    : level(level), filename(filename), lineno(lineno) {}
-
-LogEntry::~LogEntry() { Logger::dispatchLogEntry(*this); }
-
-std::string LogEntry::prefix() const {
-  std::stringstream ss;
-  ss << "[" << std::filesystem::path(filename).filename().string();
-  if (lineno > 0) {
-    ss << ":" << lineno;
-  }
-  ss << "] ";
-  return ss.str();
-}
-
-std::string LogEntry::message() const { return ss_.str(); }
-
-CoutSink::CoutSink(Level level) : level(level) {}
-
-void CoutSink::dispatch(const logging::LogEntry& entry) const {
-  if (entry.level < level) {
-    // skip ignored entries
-    return;
-  }
-
-  std::stringstream ss;
-  ss << entry.prefix() << entry.message();
-  switch (entry.level) {
-    case logging::Level::WARNING:
-      std::cerr << "[WARNING]" << ss.str() << std::endl;
-      break;
-    case logging::Level::ERROR:
-      std::cerr << "[ERROR]" << ss.str() << std::endl;
-      break;
-    case logging::Level::FATAL:
-      std::cerr << "[FATAL]" << ss.str() << std::endl;
-      break;
-    case logging::Level::INFO:
-      std::cout << "[INFO]" << ss.str() << std::endl;
-      break;
-    default:
-    case logging::Level::DEBUG:
-      std::cout << "[DEBUG]" << ss.str() << std::endl;
-      break;
-  }
-}
-
-}  // namespace logging
+}  // namespace kimera_pgmo

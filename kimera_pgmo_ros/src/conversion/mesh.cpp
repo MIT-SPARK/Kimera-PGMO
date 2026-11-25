@@ -7,6 +7,7 @@
 
 #include <kimera_pgmo/mesh_types.h>
 #include <kimera_pgmo/pcl_mesh_traits.h>
+#include <kimera_pgmo/utils/logging.h>
 #include <pcl/conversions.h>
 
 #include <rclcpp/time.hpp>
@@ -32,8 +33,10 @@ Mesh::UniquePtr toMsg(size_t robot_id,
                       const std::string& frame_id,
                       const IndexMapping* graph_indices) {
   if (cloud.size() != stamps.size()) {
-    SPARK_LOG(ERROR) << "Vertices and timestamps disagree: points=" << cloud.size()
-                     << " != stamps=" << stamps.size();
+    PGMO_LOG(ERROR,
+             "Vertex/timestamp count mismatch: {} != {}",
+             cloud.size(),
+             stamps.size());
     return nullptr;
   }
 

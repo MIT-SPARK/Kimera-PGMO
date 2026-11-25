@@ -538,7 +538,7 @@ TEST_F(KimeraPgmoTest, checkRobotIdMeshCallback) {
 }  // namespace kimera_pgmo
 
 int main(int argc, char** argv) {
-  logging::Logger::addSink("cout", std::make_shared<logging::CoutSink>());
+  kimera_pgmo::getLogger()->set_level(spdlog::level::debug);
   testing::InitGoogleTest(&argc, argv);
   ros::init(argc, argv, "kimera_pgmo_ros-test_kimera_pgmo");
   return RUN_ALL_TESTS();

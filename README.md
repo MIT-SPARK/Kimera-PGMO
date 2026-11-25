@@ -22,6 +22,20 @@ If you find this library helpful or use it in your projects, please cite:
 
 **Update:** We've archived the ROS1 version of Hydra and switched to the ROS2 version by default. See [this branch](https://github.com/MIT-SPARK/Kimera-PGMO/tree/archive/ros_noetic) for the pinned version of the code if you need the ROS1 version for any reason. We are unlikely to support any issues that come up with the archived ROS1 version.
 
+## Logging
+
+Kimera-PGMO uses spdlog 1.12 or newer with fmt. Install `libspdlog-dev` for
+standalone builds. Use `kimera_pgmo::getLogger()` to configure output destinations
+and severity:
+
+```cpp
+kimera_pgmo::getLogger()->set_level(spdlog::level::debug);
+PGMO_LOG(INFO, "Saved mesh to '{}'", path);
+```
+
+The ROS package forwards logs through Ianvs. ROS supplies formatting and can
+include the source filename and line number.
+
 ## Filing Issues
 
 Please understand that this is research code maintained by busy graduate students, **which comes with some caveats**:

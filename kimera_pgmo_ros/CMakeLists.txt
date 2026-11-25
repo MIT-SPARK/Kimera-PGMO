@@ -12,6 +12,7 @@ endif()
 option(BUILD_SHARED_LIBS "Build shared libraries" ON)
 
 find_package(ament_cmake REQUIRED)
+find_package(ianvs REQUIRED)
 find_package(kimera_pgmo REQUIRED)
 find_package(kimera_pgmo_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
@@ -36,7 +37,8 @@ target_include_directories(
   ${PROJECT_NAME}
   PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
          "$<INSTALL_INTERFACE:include/${PROJECT_NAME}>")
-target_link_libraries(${PROJECT_NAME} PRIVATE config_utilities::config_utilities
+target_link_libraries(${PROJECT_NAME} PRIVATE ianvs::ianvs_spdlog
+                                              config_utilities::config_utilities
                                               tf2_eigen::tf2_eigen)
 ament_target_dependencies(
   ${PROJECT_NAME}
@@ -77,6 +79,7 @@ install(DIRECTORY launch DESTINATION share/${PROJECT_NAME})
 
 ament_export_targets(${PROJECT_NAME}-targets)
 ament_export_dependencies(
+  ianvs
   kimera_pgmo
   kimera_pgmo_msgs
   nav_msgs

@@ -397,13 +397,13 @@ DeformationGraph::Ptr DeformationGraph::load(const std::filesystem::path& filepa
                                              bool include_priors,
                                              std::optional<size_t> new_id) {
   if (!std::filesystem::exists(filepath)) {
-    SPARK_LOG(ERROR) << "Invalid deformation graph file " << filepath;
+    PGMO_LOG(ERROR, "Invalid deformation graph file {}", filepath);
     return nullptr;
   }
 
   const auto ext = filepath.extension();
   if (ext != ".json" && ext != ".jsn") {
-    SPARK_LOG(WARNING) << "Unknown extension for file " << filepath;
+    PGMO_LOG(WARN, "Unknown extension for file {}", filepath);
   }
 
   std::ifstream f(filepath);
