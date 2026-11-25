@@ -24,22 +24,20 @@ If you find this library helpful or use it in your projects, please cite:
 
 ## Logging
 
-Kimera-PGMO uses spdlog 1.12 or newer with fmt directly. Install `libspdlog-dev` for standalone builds;
-ROS dependency installation resolves the `spdlog` package dependency.
-Applications can configure the shared `kimera_pgmo::getLogger()` logger's sinks
-and severity. Debug diagnostics remain compiled in and are selected at runtime.
-Use `PGMO_LOG(INFO, "Saved mesh to '{}'", path)` for concise calls. It expands to
-the native spdlog macros, preserving source locations and compile-time filtering.
-The supported levels are `TRACE`, `DEBUG`, `INFO`, `WARN`, `ERROR`, and `CRITICAL`.
+Kimera-PGMO uses spdlog 1.12 or newer with fmt. Install `libspdlog-dev` for
+standalone builds. Use `kimera_pgmo::getLogger()` to configure output destinations
+and severity:
 
-The ROS package uses `ianvs::setRosSink` to forward to the node's logger.
-Forwarding uses a `spdlog` child logger at ROS debug level so the spdlog severity
-setting controls forwarded output without changing the node's own ROS threshold.
-ROS formats the timestamp, severity, and logger name. The source filename and line
-are forwarded as ROS metadata without directory paths, so custom ROS formats can
-include the location without duplicating it in the message text.
-The previous `SPARK_LOG` and custom sink/registration interfaces are removed.
-Critical messages preserve their previous nonterminating behavior.
+```cpp
+kimera_pgmo::getLogger()->set_level(spdlog::level::debug);
+PGMO_LOG(INFO, "Saved mesh to '{}'", path);
+```
+
+The ROS package forwards logs through Ianvs. ROS supplies formatting and can
+include the source filename and line number.
+
+`PGMO_LOG` replaces `SPARK_LOG` and the custom logging shim. `CRITICAL` messages
+do not stop the process.
 
 ## Filing Issues
 
