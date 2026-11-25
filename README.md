@@ -36,8 +36,7 @@ PGMO_LOG(INFO, "Saved mesh to '{}'", path);
 The ROS package forwards logs through Ianvs. ROS supplies formatting and can
 include the source filename and line number.
 
-`PGMO_LOG` replaces `SPARK_LOG` and the custom logging shim. `CRITICAL` messages
-do not stop the process.
+`CRITICAL` messages do not stop the process.
 
 ## Filing Issues
 
