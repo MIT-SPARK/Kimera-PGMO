@@ -1,9 +1,10 @@
-#include <kimera_pgmo/utils/logging.h>
 /**
  * @file   kimera_pgmo_interface.cpp
  * @brief  KimeraPgmo interface class: base class and methods for Kimera PGMO
  * @author Yun Chang
  */
+#include "kimera_pgmo/kimera_pgmo_interface.h"
+
 #include <config_utilities/config.h>
 #include <config_utilities/printing.h>
 #include <config_utilities/types/enum.h>
@@ -13,8 +14,8 @@
 #include <cmath>
 
 #include "kimera_pgmo/deformation_graph_4dof.h"
-#include "kimera_pgmo/kimera_pgmo_interface.h"
 #include "kimera_pgmo/utils/common_functions.h"
+#include "kimera_pgmo/utils/logging.h"
 #include "kimera_pgmo/utils/mesh_io.h"
 
 namespace kimera_pgmo {

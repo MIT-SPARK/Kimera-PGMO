@@ -1,10 +1,11 @@
-#include <kimera_pgmo/utils/logging.h>
 /**
  * @file   deformation_graph.cpp
  * @brief  DeformationGraph class
  * @author Yun Chang
  */
 #define SLOW_BUT_CORRECT_BETWEENFACTOR
+
+#include "kimera_pgmo/deformation_graph.h"
 
 #include <gtsam/inference/Symbol.h>
 #include <gtsam/nonlinear/LevenbergMarquardtOptimizer.h>
@@ -14,9 +15,9 @@
 #include <cmath>
 
 #include "kimera_pgmo/deformation_edge_factor.h"
-#include "kimera_pgmo/deformation_graph.h"
 #include "kimera_pgmo/deformation_graph_4dof.h"
 #include "kimera_pgmo/utils/common_functions.h"
+#include "kimera_pgmo/utils/logging.h"
 
 namespace kimera_pgmo {
 

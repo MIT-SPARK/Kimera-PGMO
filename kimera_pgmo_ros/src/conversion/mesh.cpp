@@ -1,16 +1,16 @@
-#include <kimera_pgmo/utils/logging.h>
 /**
  * @file   mesh_conversion.cpp
  * @brief  Conversion to and from ROS types
  * @author Yun Chang
  */
+#include "kimera_pgmo_ros/conversion/mesh.h"
+
 #include <kimera_pgmo/mesh_types.h>
 #include <kimera_pgmo/pcl_mesh_traits.h>
+#include <kimera_pgmo/utils/logging.h>
 #include <pcl/conversions.h>
 
 #include <rclcpp/time.hpp>
-
-#include "kimera_pgmo_ros/conversion/mesh.h"
 
 namespace kimera_pgmo::conversions {
 
