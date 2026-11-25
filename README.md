@@ -36,8 +36,6 @@ PGMO_LOG(INFO, "Saved mesh to '{}'", path);
 The ROS package forwards logs through Ianvs. ROS supplies formatting and can
 include the source filename and line number.
 
-`CRITICAL` messages do not stop the process.
-
 ## Filing Issues
 
 Please understand that this is research code maintained by busy graduate students, **which comes with some caveats**:
