@@ -31,6 +31,9 @@ and severity. Debug diagnostics remain compiled in and are selected at runtime.
 The ROS package installs a native spdlog sink forwarding to the node's logger.
 Forwarding uses a `spdlog` child logger at ROS debug level so the spdlog severity
 setting controls forwarded output without changing the node's own ROS threshold.
+ROS formats the timestamp, severity, and logger name. The original source location
+is forwarded as ROS metadata, so custom ROS formats can include it without
+duplicating it in the message text.
 The previous `SPARK_LOG` and custom sink/registration interfaces are removed.
 Critical messages preserve their previous nonterminating behavior.
 

@@ -17,6 +17,7 @@ find_package(kimera_pgmo_msgs REQUIRED)
 find_package(nav_msgs REQUIRED)
 find_package(pose_graph_tools_ros REQUIRED)
 find_package(rclcpp REQUIRED)
+find_package(rcutils REQUIRED)
 find_package(std_srvs REQUIRED)
 find_package(tf2_eigen REQUIRED)
 find_package(tf2_ros REQUIRED)
@@ -46,6 +47,7 @@ ament_target_dependencies(
   nav_msgs
   pose_graph_tools_ros
   rclcpp
+  rcutils
   std_srvs
   tf2_ros
   visualization_msgs)
@@ -82,6 +84,7 @@ ament_export_dependencies(
   nav_msgs
   pose_graph_tools_ros
   rclcpp
+  rcutils
   std_srvs
   tf2_ros
   visualization_msgs)
