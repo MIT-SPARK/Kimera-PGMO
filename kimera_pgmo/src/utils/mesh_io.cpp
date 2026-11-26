@@ -14,14 +14,9 @@
 
 namespace kimera_pgmo {
 
-void IOData::save(const std::string& filename) const {
-  std::filebuf fb_ascii;
-  fb_ascii.open(filename, std::ios::out);
-  std::ostream outstream_ascii(&fb_ascii);
-  if (outstream_ascii.fail()) {
-    throw std::runtime_error("failed to open '" + filename + "'");
-  }
+void IOData::save(const std::string& filename) const { save(filename, false); }
 
+void IOData::save(const std::string& filename, bool binary) const {
   happly::PLYData output_file;
   output_file.addElement("vertex", x.size());
   output_file.getElement("vertex").addProperty<float>("x", x);
@@ -77,7 +72,8 @@ void IOData::save(const std::string& filename) const {
 
   output_file.addElement("face", faces.size());
   output_file.getElement("face").addListProperty("vertex_indices", faces);
-  output_file.write(filename, happly::DataFormat::ASCII);
+  output_file.write(filename,
+                    binary ? happly::DataFormat::Binary : happly::DataFormat::ASCII);
 }
 
 IOData::Ptr IOData::load(const std::string& filename) {

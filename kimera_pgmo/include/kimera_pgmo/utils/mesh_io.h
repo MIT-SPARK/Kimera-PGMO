@@ -34,7 +34,10 @@ struct IOData {
 
   static IOData::Ptr load(const std::string& filename);
 
+  //! Save ASCII PLY, retaining the original entry point
   void save(const std::string& filename) const;
+  //! Save binary PLY when requested; otherwise save ASCII
+  void save(const std::string& filename, bool binary) const;
 };
 
 /*! \brief Read ply file and convert to polygon mesh type
@@ -76,7 +79,8 @@ void WriteMeshWithStampsToPly(const std::string& filename,
 template <typename Vertices, typename Faces>
 void WriteMesh(const std::string& filename,
                const Vertices& vertices,
-               const Faces& faces) {
+               const Faces& faces,
+               bool binary = false) {
   const auto props = traits::get_vertex_properties(vertices);
   const auto num_vertices = traits::num_vertices(vertices);
 
@@ -118,7 +122,7 @@ void WriteMesh(const std::string& filename,
     new_face.push_back(tri[2]);
   }
 
-  data.save(filename);
+  data.save(filename, binary);
 }
 
 template <typename Vertices, typename Faces>
