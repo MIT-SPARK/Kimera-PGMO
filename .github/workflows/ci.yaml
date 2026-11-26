@@ -25,9 +25,15 @@ jobs:
           key: ${{ runner.os }}-ccache-${{ github.sha }}
           restore-keys: ${{ runner.os }}-ccache-
       - name: Dependencies
+        env:
+          DEPENDENCY_BRANCH: ${{ github.base_ref || github.ref_name }}
         run: |
           apt update && apt install -y python3-vcstool git ccache
-          vcs import src < src/kimera_pgmo/install/packages.yaml
+          manifest=src/kimera_pgmo/install/packages.yaml
+          if [ "$DEPENDENCY_BRANCH" = develop ]; then
+            manifest=src/kimera_pgmo/.ci_install/develop.yaml
+          fi
+          vcs import src < "$manifest"
           rosdep update --rosdistro jazzy && rosdep install --rosdistro jazzy --from-paths src --ignore-src -r -y
       - name: Build
         shell: bash
