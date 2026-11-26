@@ -57,6 +57,8 @@ vcs import . < Kimera-PGMO/install/packages.yaml
 colcon build --packages-up-to kimera_pgmo_ros
 ```
 
+Development CI uses `.ci_install/develop.yaml` instead of the release install manifest.
+
 ## Parameters
 
 #### Mesh Frontend
